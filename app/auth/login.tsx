@@ -100,11 +100,21 @@ export default function Login() {
 
           <View style={{ flexDirection: "row", justifyContent: "center" }}>
             <Text style={{ color: "white" }}>Don&apos;t have an account? </Text>
-            <Link style={{ color: "#FFBE5E", fontWeight: "bold" }} href="/auth/register">Sign up</Link>
+            <Link
+              style={{ color: "#FFBE5E", fontWeight: "bold" }}
+              href="/auth/register"
+            >
+              Sign up
+            </Link>
           </View>
 
           <View style={{ flexDirection: "row", justifyContent: "center" }}>
-            <Link style={{ color: "#FFBE5E", fontWeight: "bold" }} href="/(consumers)">Home</Link>
+            <Link
+              style={{ color: "#FFBE5E", fontWeight: "bold" }}
+              href="/(consumers)"
+            >
+              Home
+            </Link>
           </View>
         </View>
       </ScrollView>
