@@ -2,6 +2,8 @@ import Button from "@/components/Button";
 import Card from "@/components/Card";
 import Divider from "@/components/Divider";
 import TextField from "@/components/TextField";
+import { login } from "@/services/auth/thunks";
+import { useAppDispatch } from "@/store/hooks";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { yupResolver } from "@hookform/resolvers/yup";
 import { Link } from "expo-router";
@@ -14,10 +16,11 @@ const schema = yup.object().shape({
   password: yup
     .string()
     .required("Password is required")
-    .min(8, "Password must contain at least 8 characters"),
 });
 
 export default function Login() {
+  const dispatch = useAppDispatch();
+
   const {
     control,
     handleSubmit,
@@ -31,9 +34,9 @@ export default function Login() {
   });
 
   const onSignIn = (formData: yup.InferType<typeof schema>) => {
-    console.log(formData);
+    dispatch(login({ email: formData.email, password: formData.password }));
   };
-
+  
   return (
     <View style={styles.background}>
       <View style={styles.circle} />
