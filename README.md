@@ -44,15 +44,6 @@ A React Native mobile application for discovering and sharing the best deals in 
 - Android: Press `a` to open in Android emulator
 - Web: Press `w` to open in web browser
 
-## Tech Stack
-
-- React Native
-- Expo
-- TypeScript
-- React Navigation
-- Redux Toolkit
-- Expo Location
-
 ## Contributing
 
 1. Fork the repository
