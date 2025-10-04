@@ -2,7 +2,7 @@ import Button from "@/components/Button";
 import Card from "@/components/Card";
 import Divider from "@/components/Divider";
 import TextField from "@/components/TextField";
-import { login } from "@/services/auth/thunks";
+import { login } from "@/features/auth/auth.thunk";
 import { useAppDispatch } from "@/store/hooks";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { yupResolver } from "@hookform/resolvers/yup";
@@ -13,9 +13,7 @@ import * as yup from "yup";
 
 const schema = yup.object().shape({
   email: yup.string().required("Email is required").email("Invalid email"),
-  password: yup
-    .string()
-    .required("Password is required")
+  password: yup.string().required("Password is required"),
 });
 
 export default function Login() {
@@ -34,9 +32,9 @@ export default function Login() {
   });
 
   const onSignIn = (formData: yup.InferType<typeof schema>) => {
-    dispatch(login({ email: formData.email, password: formData.password }));
+    dispatch(login(formData));
   };
-  
+
   return (
     <View style={styles.background}>
       <View style={styles.circle} />
