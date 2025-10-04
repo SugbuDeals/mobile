@@ -1,3 +1,4 @@
+import env from "@/config/env";
 import { createAsyncThunk } from "@reduxjs/toolkit";
 import { LoginCredentials, LoginError, LoginResponse } from "./auth.type";
 
@@ -23,7 +24,7 @@ export const login = createAsyncThunk<
   { rejectValue: LoginError }
 >("auth/login", async (credentials, { rejectWithValue }) => {
   try {
-    const response = await fetch("/auth/login", {
+    const response = await fetch(`${env.API_BASE_URL}/auth/login`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
