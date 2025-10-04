@@ -3,11 +3,10 @@ import Card from "@/components/Card";
 import Divider from "@/components/Divider";
 import TextField from "@/components/TextField";
 import { login } from "@/features/auth/auth.thunk";
-import { useAppDispatch, useAppSelector } from "@/store/hooks";
+import { useAppDispatch } from "@/store/hooks";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { yupResolver } from "@hookform/resolvers/yup";
 import { Link } from "expo-router";
-import { useEffect } from "react";
 import { Controller, useForm } from "react-hook-form";
 import { ScrollView, StyleSheet, Text, View } from "react-native";
 import * as yup from "yup";
@@ -19,7 +18,6 @@ const schema = yup.object().shape({
 
 export default function Login() {
   const dispatch = useAppDispatch();
-  const { accessToken, error, loading } = useAppSelector((state) => state.auth);
 
   const {
     control,
@@ -36,10 +34,6 @@ export default function Login() {
   const onSignIn = (formData: yup.InferType<typeof schema>) => {
     dispatch(login(formData));
   };
-
-  useEffect(() => {
-    console.log(`Token: ${accessToken}\nError: ${error}\nLoading: ${loading}`);
-  }, [accessToken, error, loading]);
 
   return (
     <View style={styles.background}>
