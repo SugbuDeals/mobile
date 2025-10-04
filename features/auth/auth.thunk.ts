@@ -32,6 +32,8 @@ export const login = createAsyncThunk<
       body: JSON.stringify(credentials),
     });
 
+    console.log("triggered")
+
     if (!response.ok) {
       const error = await response.json();
       return rejectWithValue({ message: error.message || "Login Failed" });
