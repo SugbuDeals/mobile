@@ -6,17 +6,38 @@ import { Platform, StatusBar, StyleSheet, Text, View } from "react-native";
 
 const ConsumerHeader = () => {
   return (
-    <LinearGradient
-      colors={["#F3AF4A", "#277874"]}
-      style={styles.headerContainer}
-      start={{ x: 0, y: 0 }}
-      end={{ x: 1, y: 1 }}
-    >
-      <StatusBar barStyle="light-content" backgroundColor="#277874" />
-      <View style={styles.headerContent}>
-        <Text style={styles.headerTitle}>SugbuDeals</Text>
-      </View>
-    </LinearGradient>
+    <View style={styles.headerShadowContainer}>
+      <LinearGradient
+        colors={["#FFBE5D", "#277874"]}
+        style={styles.headerContainer}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 0 }}
+      >
+        <StatusBar barStyle="light-content" backgroundColor="#277874" />
+        <View style={styles.headerContent}>
+          {/* Shopping Cart Icon */}
+          <View style={styles.iconContainer}>
+            <Ionicons name="cart" size={20} color="#ffffff" />
+          </View>
+          
+          {/* App Title and Tagline */}
+          <View style={styles.titleContainer}>
+            <Text style={styles.headerTitle}>SugbuDeals</Text>
+            <Text style={styles.headerSubtitle}>Explore Deals!</Text>
+          </View>
+          
+          {/* Notification Bell */}
+          <View style={styles.notificationContainer}>
+            <Ionicons name="notifications" size={20} color="#ffffff" />
+          </View>
+          
+          {/* Profile Picture */}
+          <View style={styles.profileContainer}>
+            <Ionicons name="person" size={20} color="#ffffff" />
+          </View>
+        </View>
+      </LinearGradient>
+    </View>
   );
 };
 
@@ -71,21 +92,41 @@ export default function ConsumersLayout() {
 }
 
 const styles = StyleSheet.create({
-  headerContainer: {
-    paddingTop: Platform.OS === "ios" ? 50 : (StatusBar.currentHeight || 0) + 10,
-    paddingBottom: 16,
-    elevation: 4,
+  headerShadowContainer: {
+    elevation: 8,
     shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    borderBottomLeftRadius: 20,
-    borderBottomRightRadius: 20,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 12,
+    borderBottomLeftRadius: 40,
+    borderBottomRightRadius: 40,
+    backgroundColor: "transparent",
+  },
+  headerContainer: {
+    paddingTop: Platform.OS === "ios" ? 50 : (StatusBar.currentHeight || 0),
+    paddingBottom: 8,
+    paddingHorizontal: 16,
+    borderBottomLeftRadius: 40,
+    borderBottomRightRadius: 40,
+    overflow: "hidden",
   },
   headerContent: {
-    paddingHorizontal: 20,
     flexDirection: "row",
-    justifyContent: "space-evenly"
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  iconContainer: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: "#277874",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  titleContainer: {
+    flex: 1,
+    alignItems: "center",
+    marginHorizontal: 10,
   },
   headerTitle: {
     fontSize: 24,
@@ -100,6 +141,23 @@ const styles = StyleSheet.create({
     opacity: 0.9,
     marginTop: 2,
     textAlign: "center",
+  },
+  notificationContainer: {
+    width: 30,
+    height: 40,
+    borderRadius: 10,
+    backgroundColor: "rgba(255, 255, 255, 0.3)",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  profileContainer: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: "#277874",
+    justifyContent: "center",
+    alignItems: "center",
+    marginLeft: 10,
   },
   tabBar: {
     backgroundColor: "#ffffff",
