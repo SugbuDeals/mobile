@@ -197,14 +197,14 @@ const styles = StyleSheet.create({
     marginHorizontal: 20,
     marginBottom: 15,
     backgroundColor: "#f3f4f6",
-    borderRadius: 12,
+    borderRadius: 30,
     padding: 4,
   },
   tab: {
     flex: 1,
     paddingVertical: 12,
     alignItems: "center",
-    borderRadius: 8,
+    borderRadius: 30,
   },
   activeTab: {
     backgroundColor: "#277874",
