@@ -5,6 +5,14 @@ export interface LoginCredentials {
 
 export interface LoginResponse {
   access_token: string;
+  user: {
+    id: string;
+    email: string;
+    fullname: string;
+    phone: string;
+    user_type: 'consumer' | 'retailer';
+    retailer_setup_completed?: boolean;
+  };
 }
 
 export interface LoginError {
@@ -13,6 +21,7 @@ export interface LoginError {
 
 export interface AuthState {
   accessToken: string | null;
+  user: LoginResponse['user'] | null;
   loading: boolean;
   error: string | null;
 }

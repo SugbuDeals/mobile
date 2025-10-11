@@ -1,3 +1,4 @@
+import ConditionalNavigation from "@/components/ConditionalNavigation";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { LinearGradient } from "expo-linear-gradient";
 import { Tabs } from "expo-router";
@@ -43,51 +44,53 @@ const ConsumerHeader = () => {
 
 export default function ConsumersLayout() {
   return (
-    <Tabs
-      screenOptions={{
-        tabBarActiveTintColor: "#277874",
-        tabBarInactiveTintColor: "#6b7280",
-        tabBarStyle: styles.tabBar,
-        header: () => <ConsumerHeader />,
-      }}
-    >
-      <Tabs.Screen
-        name="index"
-        options={{
-          title: "Home",
-          tabBarIcon: ({ color, size = 24 }) => (
-            <Ionicons name="home" color={color} size={size} />
-          ),
+    <ConditionalNavigation>
+      <Tabs
+        screenOptions={{
+          tabBarActiveTintColor: "#277874",
+          tabBarInactiveTintColor: "#6b7280",
+          tabBarStyle: styles.tabBar,
+          header: () => <ConsumerHeader />,
         }}
-      />
-      <Tabs.Screen
-        name="explore"
-        options={{
-          title: "Explore",
-          tabBarIcon: ({ color, size = 24 }) => (
-            <Ionicons name="compass" color={color} size={size} />
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="save"
-        options={{
-          title: "Save",
-          tabBarIcon: ({ color, size = 24 }) => (
-            <Ionicons name="heart" color={color} size={size} />
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="profile"
-        options={{
-          title: "Profile",
-          tabBarIcon: ({ color, size = 24 }) => (
-            <Ionicons name="person" color={color} size={size} />
-          ),
-        }}
-      />
-    </Tabs>
+      >
+        <Tabs.Screen
+          name="index"
+          options={{
+            title: "Consumer",
+            tabBarIcon: ({ color, size = 24 }) => (
+              <Ionicons name="home" color={color} size={size} />
+            ),
+          }}
+        />
+        <Tabs.Screen
+          name="explore"
+          options={{
+            title: "Explore",
+            tabBarIcon: ({ color, size = 24 }) => (
+              <Ionicons name="compass" color={color} size={size} />
+            ),
+          }}
+        />
+        <Tabs.Screen
+          name="save"
+          options={{
+            title: "Save",
+            tabBarIcon: ({ color, size = 24 }) => (
+              <Ionicons name="heart" color={color} size={size} />
+            ),
+          }}
+        />
+        <Tabs.Screen
+          name="profile"
+          options={{
+            title: "Profile",
+            tabBarIcon: ({ color, size = 24 }) => (
+              <Ionicons name="person" color={color} size={size} />
+            ),
+          }}
+        />
+      </Tabs>
+    </ConditionalNavigation>
   );
 }
 

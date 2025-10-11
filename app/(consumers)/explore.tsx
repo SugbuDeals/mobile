@@ -70,7 +70,7 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   emptyBox: {
-    height: "110%",
+    height: "100%",
     backgroundColor: "#F3F4F6",
     borderRadius: 20,
     marginBottom: 20,
@@ -94,7 +94,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    marginBottom: 12,
+    marginBottom: 2,
   },
   searchIconContainer: {
     width: 48,
@@ -115,7 +115,6 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    marginTop: 12,
   },
   progressLines: {
     flexDirection: "column",
