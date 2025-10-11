@@ -22,7 +22,7 @@ const RetailerHeader = () => {
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 0 }}
       >
-        <StatusBar barStyle="light-content" backgroundColor="none" />
+        <StatusBar barStyle="light-content" backgroundColor="transparent" />
         <View style={styles.headerContent}>
           {/* Store Icon */}
           <View style={styles.storeIconContainer}>
@@ -113,14 +113,14 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.15,
     shadowRadius: 12,
-    borderBottomLeftRadius: 40,
     borderBottomRightRadius: 40,
+    backgroundColor: "transparent",
+    overflow: "hidden"
   },
   headerContainer: {
     paddingTop: Platform.OS === "ios" ? 50 : (StatusBar.currentHeight || 0),
     paddingBottom: 8,
     paddingHorizontal: 16,
-    borderBottomLeftRadius: 40,
     borderBottomRightRadius: 40,
     overflow: "hidden",
   },
@@ -128,6 +128,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
+    backgroundColor: "transparent"
   },
   storeIconContainer: {
     width: 40,
