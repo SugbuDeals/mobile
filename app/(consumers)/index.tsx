@@ -88,8 +88,8 @@ const styles = StyleSheet.create({
   
   // Empty box styles
   categoryCard: {
-    width: 80,
-    height: 80,
+    width: 60,
+    height: 60,
     borderRadius: 40,
     marginRight: 15,
     backgroundColor: "#FFBE5D",
