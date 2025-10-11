@@ -13,8 +13,8 @@ const ConsumerHeader = () => {
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 0 }}
       >
-        <StatusBar barStyle="light-content" backgroundColor="#277874" />
-        <View style={styles.headerContent}>
+        <StatusBar barStyle="light-content" backgroundColor="none" />
+        <View style={styles.headerContent} >
           {/* Shopping Cart Icon */}
           <View style={styles.iconContainer}>
             <Ionicons name="cart" size={20} color="#ffffff" />
@@ -100,7 +100,6 @@ const styles = StyleSheet.create({
     shadowRadius: 12,
     borderBottomLeftRadius: 40,
     borderBottomRightRadius: 40,
-    backgroundColor: "transparent",
   },
   headerContainer: {
     paddingTop: Platform.OS === "ios" ? 50 : (StatusBar.currentHeight || 0),

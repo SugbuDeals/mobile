@@ -52,7 +52,7 @@ export default function Home() {
 const styles = StyleSheet.create({
   container: {
     paddingHorizontal: 15,
-    backgroundColor: "transparent",
+    backgroundColor: "#ffffff",
   },
   section: {
     marginVertical: 15,
