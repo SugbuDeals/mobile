@@ -1,6 +1,6 @@
 import env from "@/config/env";
 import { createAsyncThunk } from "@reduxjs/toolkit";
-import { LoginCredentials, LoginError, LoginResponse } from "./auth.type";
+import { LoginCredentials, LoginError, LoginResponse } from "./types";
 
 /**
  * Async thunk action creator for handling user login

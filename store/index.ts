@@ -1,8 +1,10 @@
-import { authReducer } from "@/features/auth/auth.slice";
+import { authReducer } from "@/features/auth/slice";
+import { storeReducer } from "@/features/store/slice";
 import { configureStore } from "@reduxjs/toolkit";
 
 export default configureStore({
   reducer: {
-    auth: authReducer
+    auth: authReducer,
+    store: storeReducer,
   },
 });

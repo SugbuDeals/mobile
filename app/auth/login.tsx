@@ -2,11 +2,11 @@ import Button from "@/components/Button";
 import Card from "@/components/Card";
 import Divider from "@/components/Divider";
 import TextField from "@/components/TextField";
-import { login } from "@/features/auth/auth.thunk";
-import { useAppDispatch } from "@/store/hooks";
+import { useLogin } from "@/features/auth";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { yupResolver } from "@hookform/resolvers/yup";
 import { Link } from "expo-router";
+import { useEffect } from "react";
 import { Controller, useForm } from "react-hook-form";
 import { ScrollView, StyleSheet, Text, View } from "react-native";
 import * as yup from "yup";
@@ -17,7 +17,10 @@ const schema = yup.object().shape({
 });
 
 export default function Login() {
-  const dispatch = useAppDispatch();
+  const {
+    action: { login },
+    state: { accessToken, loading, error },
+  } = useLogin();
 
   const {
     control,
@@ -32,8 +35,13 @@ export default function Login() {
   });
 
   const onSignIn = (formData: yup.InferType<typeof schema>) => {
-    dispatch(login(formData));
+    login(formData);
   };
+
+  useEffect(() => {
+    if (!loading && !error) console.log(`access_token: ${accessToken}`);
+    console.log(`error: ${error}`);
+  }, [accessToken, loading, error]);
 
   return (
     <View style={styles.background}>
@@ -109,12 +117,20 @@ export default function Login() {
             </Link>
           </View>
 
-          <View style={{ flexDirection: "row", justifyContent: "center" }}>
+          <View
+            style={{ flexDirection: "row", justifyContent: "center", gap: 20 }}
+          >
             <Link
               style={{ color: "#FFBE5E", fontWeight: "bold" }}
               href="/(consumers)"
             >
-              Home
+              Consumer
+            </Link>
+            <Link
+              style={{ color: "#FFBE5E", fontWeight: "bold" }}
+              href="/auth/setup"
+            >
+              Retailer Setup
             </Link>
           </View>
         </View>
