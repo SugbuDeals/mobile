@@ -8,6 +8,7 @@ export default function Index() {
       <Link href="/auth/login">Login</Link>
       <Link href="/auth/register">Register</Link>
       <Link href="/(consumers)">Consumer</Link>
+      <Link href="/(retailers)/setup">Retailer Setup</Link>
     </View>
   );
 }

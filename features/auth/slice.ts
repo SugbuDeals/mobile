@@ -4,6 +4,7 @@ import { AuthState } from "./types";
 
 const initialState: AuthState = {
   accessToken: null,
+  user: null,
   loading: false,
   error: null,
 };
@@ -14,7 +15,13 @@ const authSlice = createSlice({
   reducers: {
     logout: (state) => {
       state.accessToken = null;
+      state.user = null;
       state.error = null;
+    },
+    completeRetailerSetup: (state) => {
+      if (state.user) {
+        state.user.retailer_setup_completed = true;
+      }
     },
   },
   extraReducers: (builder) => {
@@ -27,6 +34,7 @@ const authSlice = createSlice({
       .addCase(login.fulfilled, (state, action) => {
         state.loading = false;
         state.accessToken = action.payload.access_token;
+        state.user = action.payload.user;
         state.error = null;
       })
       .addCase(login.rejected, (state, action) => {
@@ -36,5 +44,5 @@ const authSlice = createSlice({
   },
 });
 
-export const { logout } = authSlice.actions;
+export const { logout, completeRetailerSetup } = authSlice.actions;
 export const authReducer = authSlice.reducer;
