@@ -18,7 +18,7 @@ const schema = yup.object().shape({
 
 export default function Login() {
   const {
-    action: login,
+    action: { login },
     state: { accessToken, loading, error },
   } = useLogin();
 
@@ -40,7 +40,7 @@ export default function Login() {
 
   useEffect(() => {
     console.log(`access_token: ${accessToken}`);
-    console.log(`error: ${error}`)
+    console.log(`error: ${error}`);
   }, [accessToken, loading, error]);
 
   return (

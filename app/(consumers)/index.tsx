@@ -1,7 +1,18 @@
 import Card from "@/components/Card";
+import { useStore } from "@/features/store";
+import { useEffect } from "react";
 import { ScrollView, StyleSheet, Text, View } from "react-native";
 
 export default function Home() {
+  const {
+    action: { findStores },
+    state: { stores, loading, error },
+  } = useStore();
+
+  useEffect(() => {
+    findStores();
+  }, []);
+
   return (
     <ScrollView style={styles.container}>
       {/* Greetings */}
@@ -31,9 +42,12 @@ export default function Home() {
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Nearby Stores</Text>
         <View>
-          {[...Array(5)].map((_, index) => (
-            <Card key={index} style={styles.nearbyCard}></Card>
-          ))}
+          { !loading &&
+            stores.map((store) => (
+              <Card key={store.id} style={styles.recommendedSectionCard}>
+                <Text>{store.name}</Text>
+              </Card>
+            ))}
         </View>
       </View>
     </ScrollView>
@@ -42,7 +56,7 @@ export default function Home() {
 
 const styles = StyleSheet.create({
   container: {
-    paddingHorizontal: 15
+    paddingHorizontal: 15,
   },
   section: {
     marginVertical: 10,
@@ -53,7 +67,7 @@ const styles = StyleSheet.create({
   },
   categoryCard: {
     borderRadius: "100%",
-    padding: 30
+    padding: 30,
   },
   recommendedSectionCard: {
     padding: 100,
