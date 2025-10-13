@@ -1,6 +1,6 @@
 import Button from "@/components/Button";
 import TextField from "@/components/TextField";
-import { completeRetailerSetup } from "@/features/auth/auth.slice";
+import { completeRetailerSetup } from "@/features/auth/slice";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { yupResolver } from "@hookform/resolvers/yup";
 import { LinearGradient } from "expo-linear-gradient";

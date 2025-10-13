@@ -1,4 +1,4 @@
-import { logout } from "@/features/auth/auth.slice";
+import { logout } from "@/features/auth/slice";
 import { useAppDispatch } from "@/store/hooks";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { LinearGradient } from "expo-linear-gradient";

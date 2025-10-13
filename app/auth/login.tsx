@@ -39,7 +39,7 @@ export default function Login() {
   };
 
   useEffect(() => {
-    console.log(`access_token: ${accessToken}`);
+    if (!loading && !error) console.log(`access_token: ${accessToken}`);
     console.log(`error: ${error}`);
   }, [accessToken, loading, error]);
 
@@ -117,7 +117,9 @@ export default function Login() {
             </Link>
           </View>
 
-          <View style={{ flexDirection: "row", justifyContent: "center", gap: 20 }}>
+          <View
+            style={{ flexDirection: "row", justifyContent: "center", gap: 20 }}
+          >
             <Link
               style={{ color: "#FFBE5E", fontWeight: "bold" }}
               href="/(consumers)"
