@@ -1,6 +1,7 @@
 import env from "@/config/env";
+import type { RootState } from "@/store/types";
 import { createAsyncThunk } from "@reduxjs/toolkit";
-import { LoginCredentials, LoginError, LoginResponse } from "./types";
+import { LoginCredentials, LoginError, LoginResponse, RegisterError, RegisterPayload } from "./types";
 
 /**
  * Async thunk action creator for handling user login
@@ -42,6 +43,94 @@ export const login = createAsyncThunk<
     return rejectWithValue({
       message:
         error instanceof Error ? error.message : "An unknown error occured",
+    });
+  }
+});
+
+/**
+ * Fetch user details by id using the current access token
+ */
+export const fetchUserById = createAsyncThunk<
+  any,
+  number,
+  { rejectValue: LoginError; state: RootState }
+>("auth/fetchUserById", async (id, { getState, rejectWithValue }) => {
+  try {
+    const token = getState().auth.accessToken;
+    const response = await fetch(`${env.API_BASE_URL}/user/${id}`, {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+    });
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({}));
+      return rejectWithValue({ message: error.message || "Failed to fetch user" });
+    }
+
+    return response.json();
+  } catch (error) {
+    return rejectWithValue({
+      message: error instanceof Error ? error.message : "An unknown error occured",
+    });
+  }
+});
+
+/**
+ * Update user details by id (name/email)
+ */
+export const updateUser = createAsyncThunk<
+  any,
+  { id: number; data: { name?: string; email?: string } },
+  { rejectValue: LoginError; state: RootState }
+>("auth/updateUser", async ({ id, data }, { getState, rejectWithValue }) => {
+  try {
+    const token = getState().auth.accessToken;
+    const response = await fetch(`${env.API_BASE_URL}/user/${id}`, {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      body: JSON.stringify(data),
+    });
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({}));
+      return rejectWithValue({ message: error.message || "Failed to update user" });
+    }
+
+    return response.json();
+  } catch (error) {
+    return rejectWithValue({
+      message: error instanceof Error ? error.message : "An unknown error occured",
+    });
+  }
+});
+
+/**
+ * Register a new user
+ */
+export const register = createAsyncThunk<
+  void,
+  RegisterPayload,
+  { rejectValue: RegisterError }
+>("auth/register", async (payload, { rejectWithValue }) => {
+  try {
+    const response = await fetch(`${env.API_BASE_URL}/auth/register`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({}));
+      return rejectWithValue({ message: error.message || "Registration failed" });
+    }
+  } catch (error) {
+    return rejectWithValue({
+      message: error instanceof Error ? error.message : "An unknown error occured",
     });
   }
 });

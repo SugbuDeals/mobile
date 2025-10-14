@@ -1,35 +1,62 @@
+import { logout } from "@/features/auth/slice";
+import { fetchUserById } from "@/features/auth/thunk";
+import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import Ionicons from "@expo/vector-icons/Ionicons";
-import React, { useState } from "react";
+import { router } from "expo-router";
+import React, { useEffect, useMemo, useState } from "react";
 import {
-  Alert,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View
+    Alert,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View
 } from "react-native";
 import Button from "../../components/Button";
 import TextField from "../../components/TextField";
 import Toggle from "../../components/Toggle";
 
 export default function Profile() {
-  const [name, setName] = useState("Juan Dela Cruz");
-  const [email, setEmail] = useState("juandelacruz@email.com");
-  const [phone, setPhone] = useState("(63) 912 345 6789");
+  const dispatch = useAppDispatch();
+  const { user, accessToken } = useAppSelector((state) => state.auth);
+
+  const defaultName = (user as any)?.fullname || (user as any)?.name || "";
+  const defaultEmail = (user as any)?.email || "";
+  const role = useMemo(() => {
+    const r = (user as any)?.user_type || (user as any)?.role;
+    if (typeof r === "string") return r.toString();
+    return "";
+  }, [user]);
+  const userId = (user as any)?.id ?? "";
+  const createdAt = (user as any)?.createdAt ?? "";
+
+  const [name, setName] = useState(defaultName);
+  const [email, setEmail] = useState(defaultEmail);
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
   const [isEditing, setIsEditing] = useState(false);
 
-  const handleSave = () => {
-    // Here you would typically save the data to your backend
-    Alert.alert("Success", "Profile updated successfully!");
-    setIsEditing(false);
+  useEffect(() => {
+    if (user && (user as any).id) {
+      dispatch(fetchUserById(Number((user as any).id)));
+    }
+  }, [dispatch, user]);
+
+  const handleSave = async () => {
+    try {
+      if (!user || !(user as any).id) return;
+      const id = Number((user as any).id);
+      await dispatch(require("@/features/auth/thunk").updateUser({ id, data: { name, email } }) as any);
+      Alert.alert("Success", "Profile updated successfully!");
+      setIsEditing(false);
+    } catch (e) {
+      Alert.alert("Error", "Failed to update profile");
+    }
   };
 
   const handleCancel = () => {
-    // Reset form to original values
-    setName("Juan Dela Cruz");
-    setEmail("juandelacruz@email.com");
-    setPhone("(63) 912 345 6789");
+    // Reset form to original values from auth state
+    setName(defaultName);
+    setEmail(defaultEmail);
     setIsEditing(false);
   };
 
@@ -40,8 +67,8 @@ export default function Profile() {
       [
         { text: "Cancel", style: "cancel" },
         { text: "Logout", style: "destructive", onPress: () => {
-          // Handle logout logic here
-          console.log("User logged out");
+          dispatch(logout());
+          router.replace("/auth/login");
         }}
       ]
     );
@@ -84,17 +111,10 @@ export default function Profile() {
               editable={isEditing}
               keyboardType="email-address"
             />
-            
-            <TextField
-              placeholder="(63) 912 345 6789"
-              value={phone}
-              onChangeText={setPhone}
-              iconComponent={<Ionicons name="call-outline" size={18} color="#277874" />}
-              editable={isEditing}
-              keyboardType="phone-pad"
-            />
           </View>
         </View>
+
+        {/* Authentication Details Section is intentionally hidden */}
 
         {/* Notification Settings Section */}
         <View style={styles.sectionContainer}>
