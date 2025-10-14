@@ -126,6 +126,12 @@ export default function ConsumersLayout() {
             href: null,
           }}
         />
+        <Tabs.Screen
+          name="navigate"
+          options={{
+            href: null,
+          }}
+        />
       </Tabs>
       
     </ConditionalNavigation>

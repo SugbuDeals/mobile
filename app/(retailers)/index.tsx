@@ -1,9 +1,9 @@
 import Card from "@/components/Card";
 import Ionicons from "@expo/vector-icons/Ionicons";
-import { LinearGradient } from "expo-linear-gradient";
 import React from "react";
 import {
   Dimensions,
+  Image,
   ImageBackground,
   ScrollView,
   StyleSheet,
@@ -32,7 +32,7 @@ const activePromotions = [
     discount: "40% OFF",
     daysLeft: 3,
     views: 178,
-    image: "🖊️", // Using emoji as placeholder
+    image: require("@/assets/images/index.png"),
   },
   {
     id: 2,
@@ -40,7 +40,7 @@ const activePromotions = [
     discount: "25% OFF",
     daysLeft: 5,
     views: 145,
-    image: "📓", // Using emoji as placeholder
+    image: require("@/assets/images/index1.png"),
   },
 ];
 
@@ -84,7 +84,7 @@ const PromotionCard = ({ promotion }: { promotion: typeof activePromotions[0] })
   <Card style={styles.promotionCard}>
     <View style={styles.promotionContent}>
       <View style={styles.promotionImage}>
-        <Text style={styles.promotionEmoji}>{promotion.image}</Text>
+        <Image source={promotion.image} style={styles.productImage} />
       </View>
       <View style={styles.promotionInfo}>
         <View style={styles.promotionHeader}>
@@ -113,16 +113,14 @@ export default function RetailerDashboard() {
           style={styles.storeBackground}
           imageStyle={styles.backgroundImage}
         >
-          <LinearGradient
-            colors={['rgba(0,0,0,0.3)', 'rgba(0,0,0,0.6)']}
-            style={styles.overlay}
-          >
-            <View style={styles.logoOverlay}>
-              <View style={styles.storeLogo}>
-                <Ionicons name="storefront" size={24} color="#277874" />
+          <View style={styles.logoOverlay}>
+            <View style={styles.storeLogo}>
+              <View style={styles.logoIcon}>
+                <Text style={styles.logoText}>Q</Text>
               </View>
+              <Text style={styles.logoLabel}>quickmart</Text>
             </View>
-          </LinearGradient>
+          </View>
         </ImageBackground>
         
         {/* Store Information Below Banner */}
@@ -154,7 +152,7 @@ export default function RetailerDashboard() {
       {/* Active Promotions */}
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Active Promotions</Text>
-        <View style={styles.promotionsContainer}>
+        <View >
           {activePromotions.map((promotion) => (
             <PromotionCard key={promotion.id} promotion={promotion} />
           ))}
@@ -189,16 +187,14 @@ const styles = StyleSheet.create({
   },
   logoOverlay: {
     position: 'absolute',
-    bottom: -25,
+    bottom: -35,
     left: 20,
     zIndex: 10,
   },
   storeLogo: {
-    width: 60,
-    height: 60,
-    backgroundColor: "#ffffff",
+    backgroundColor: "#277874",
     borderRadius: 12,
-    justifyContent: "center",
+    padding: 12,
     alignItems: "center",
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 4 },
@@ -206,11 +202,29 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 8,
   },
+  logoIcon: {
+    width: 40,
+    height: 40,
+    backgroundColor: "#ffffff",
+    borderRadius: 8,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  logoText: {
+    fontSize: 20,
+    fontWeight: "bold",
+    color: "#277874",
+  },
+  logoLabel: {
+    fontSize: 12,
+    color: "#ffffff",
+    fontWeight: "600",
+  },
   storeInfoSection: {
     backgroundColor: "#f8fafc",
     padding: 20,
     paddingTop: 40,
-    paddingBottom: 20,
+    paddingBottom: 5,
   },
   storeName: {
     fontSize: 28,
@@ -229,10 +243,10 @@ const styles = StyleSheet.create({
     gap: 5,
   },
   openButton: {
-    backgroundColor: "#16a34a",
+    backgroundColor: "#277874",
     paddingHorizontal: 16,
     paddingVertical: 8,
-    borderRadius: 20,
+    borderRadius: 8,
   },
   openButtonText: {
     color: "#ffffff",
@@ -243,10 +257,12 @@ const styles = StyleSheet.create({
     backgroundColor: "#ffffff",
     paddingHorizontal: 16,
     paddingVertical: 8,
-    borderRadius: 20,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: "#e5e7eb",
   },
   closingButtonText: {
-    color: "#16a34a",
+    color: "#6b7280",
     fontWeight: "600",
     fontSize: 14,
   },
@@ -260,7 +276,7 @@ const styles = StyleSheet.create({
   },
   section: {
     paddingHorizontal: 20,
-    marginBottom: 15,
+    marginBottom: 10,
   },
   sectionTitle: {
     fontSize: 20,
@@ -310,8 +326,8 @@ const styles = StyleSheet.create({
   },
   viewsTodayCard: {
     position: 'absolute',
-    top: -5,
-    right: -5,
+    top: -1,
+    right: -1 ,
     width: 100,
     backgroundColor: "#ffffff",
     borderRadius: 12,
@@ -337,9 +353,6 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
     color: "#1f2937",
   },
-  promotionsContainer: {
-    gap: 5,
-  },
   promotionCard: {
     backgroundColor: "#ffffff",
     borderRadius: 16,
@@ -349,22 +362,27 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
+    width: "100%",
+    alignSelf: "center",
   },
   promotionContent: {
     flexDirection: "row",
     alignItems: "center",
   },
   promotionImage: {
-    width: 50,
-    height: 50,
-    backgroundColor: "#f3f4f6",
+    width: 70,
+    height: 60,
+    backgroundColor: "#ffffff",
     borderRadius: 12,
     justifyContent: "center",
     alignItems: "center",
     marginRight: 16,
+    padding: 8,
   },
-  promotionEmoji: {
-    fontSize: 24,
+  productImage: {
+    width: 60,
+    height: 60,
+    resizeMode: "contain",
   },
   promotionInfo: {
     flex: 1,
@@ -374,7 +392,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   discountTag: {
-    backgroundColor: "#dcfce7",
+    backgroundColor: "#10B981",
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 12,
@@ -383,7 +401,7 @@ const styles = StyleSheet.create({
   discountText: {
     fontSize: 12,
     fontWeight: "600",
-    color: "#16a34a",
+    color: "#ffffff",
   },
   daysLeft: {
     fontSize: 12,
