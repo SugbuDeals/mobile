@@ -164,6 +164,9 @@ export default function Login() {
             <Link style={styles.linkText} href="/auth/setup">
               Retailer Setup
             </Link>
+            <Link style={styles.linkText} href="/(admin)">
+              Admin
+            </Link>
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
