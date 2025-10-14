@@ -43,7 +43,7 @@ export default function Home() {
       <View style={styles.section}>
         <View style={styles.headerRow}> 
           <Text style={styles.header}>Categories</Text>
-          <TouchableOpacity>
+          <TouchableOpacity onPress={() => router.push("/(consumers)/categories")} accessibilityRole="button">
             <Text style={styles.link}>See All</Text>
           </TouchableOpacity>
         </View>
@@ -93,7 +93,7 @@ export default function Home() {
       <View style={styles.section}>
         <View style={styles.headerRow}>
           <Text style={styles.sectionTitle}>Nearby Stores</Text>
-          <TouchableOpacity>
+          <TouchableOpacity onPress={() => router.push("/(consumers)/viewmap")} accessibilityRole="button">
             <Text style={styles.link}>View Map</Text>
           </TouchableOpacity>
         </View>
