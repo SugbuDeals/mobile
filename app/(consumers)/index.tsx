@@ -1,65 +1,115 @@
-import Card from "@/components/Card";
+import { useLogin } from "@/features/auth";
+import { useCatalog } from "@/features/catalog";
+import type { Category, Product } from "@/features/catalog/types";
 import { useStore } from "@/features/store";
+import { useRouter } from "expo-router";
 import { useEffect } from "react";
-import { ScrollView, StyleSheet, Text, View } from "react-native";
+import { Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
 export default function Home() {
+  const { state: { user } } = useLogin();
   const {
     action: { findStores },
-    state: { stores, loading, error },
+    state: { stores, loading },
   } = useStore();
+  const {
+    action: { loadCategories, loadProducts },
+    state: { categories, products },
+  } = useCatalog();
+  const staticCategories: Category[] = [
+    { id: 1001, name: "Groceries" },
+    { id: 1002, name: "Electronics" },
+    { id: 1003, name: "Fashion" },
+    { id: 1004, name: "Home" },
+  ];
 
   useEffect(() => {
     findStores();
-  }, []);
+    loadCategories();
+    loadProducts();
+  }, [findStores, loadCategories, loadProducts]);
+
+  const router = useRouter();
 
   return (
     <ScrollView style={styles.container}>
       {/* Greetings */}
       <View style={styles.section}>
-        <Text style={styles.greetingTitle}>Hello, Sarah! 👋</Text>
-        <Text style={styles.greetingSubtitle}>
-          What would you like to shop today?
-        </Text>
+        <Text style={styles.greetingTitle}>Hello, {String(user?.name || (user as any)?.fullname || user?.email || "there")}! 👋</Text>
+        <Text style={styles.greetingSubtitle}>What would you like to shop today?</Text>
       </View>
 
-      {/* Categories */}
+      {/* Categories (grid) */}
       <View style={styles.section}>
-        <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>Categories</Text>
-          <Text style={styles.seeAllLink}>See All</Text>
+        <View style={styles.headerRow}> 
+          <Text style={styles.header}>Categories</Text>
+          <TouchableOpacity>
+            <Text style={styles.link}>See All</Text>
+          </TouchableOpacity>
         </View>
-        <ScrollView horizontal={true} showsHorizontalScrollIndicator={false}>
-          {[...Array(4)].map((_, index) => (
-            <Card key={index} style={styles.categoryCard}></Card>
+        <View style={styles.grid}>
+          {((categories && categories.length > 0) ? categories : staticCategories).slice(0, 4).map((cat: Category) => (
+            <View key={cat.id} style={styles.gridItem}>
+              <TouchableOpacity activeOpacity={0.8}>
+                <View style={[styles.iconWrap, { backgroundColor: "#E5F3F0" }]}> 
+                  {/* Placeholder icon */}
+                  <Image source={require("../../assets/images/icon.png")} style={styles.icon} />
+                </View>
+              </TouchableOpacity>
+              <Text style={styles.caption} numberOfLines={1}>{cat.name}</Text>
+            </View>
           ))}
-        </ScrollView>
+        </View>
       </View>
 
-      {/* Recommended */}
+      {/* Recommendations (horizontal cards) */}
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Recommended for You</Text>
-        <ScrollView horizontal={true} showsHorizontalScrollIndicator={false}>
-          {[...Array(3)].map((_, index) => (
-            <Card key={index} style={styles.recommendedCard}></Card>
+        <View style={styles.headerRow}>
+          <Text style={styles.header}>Recommended for You</Text>
+          <TouchableOpacity onPress={() => router.push("/(consumers)/recommendations")} accessibilityRole="button">
+            <Text style={styles.link}>View All</Text>
+          </TouchableOpacity>
+        </View>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.row}>
+          {(products || []).map((p: Product) => (
+            <View key={p.id} style={styles.card}>
+              <TouchableOpacity activeOpacity={0.85} onPress={() => router.push({ pathname: "/(consumers)/product", params: { name: p.name, storeId: p.storeId, price: p.price, productId: p.id } })}>
+                <View style={styles.imageWrap}>
+                  {/* Placeholder image */}
+                  <Image source={require("../../assets/images/react-logo.png")} style={styles.image} />
+                  <Text style={styles.badge}>New</Text>
+                </View>
+                <Text style={styles.title} numberOfLines={1}>{p.name}</Text>
+                {p.price != null && (
+                  <Text style={styles.price}>₱{Number(p.price).toFixed(2)}</Text>
+                )}
+              </TouchableOpacity>
+            </View>
           ))}
         </ScrollView>
       </View>
 
       {/* Nearby Stores */}
       <View style={styles.section}>
-        <View style={styles.sectionHeader}>
+        <View style={styles.headerRow}>
           <Text style={styles.sectionTitle}>Nearby Stores</Text>
-          <Text style={styles.seeAllLink}>View Map</Text>
+          <TouchableOpacity>
+            <Text style={styles.link}>View Map</Text>
+          </TouchableOpacity>
         </View>
-        <View>
-          {!loading &&
-            stores.map((store) => (
-              <Card key={store.id} style={styles.nearbyCard}>
-                <Text>{store.name}</Text>
-              </Card>
-            ))}
-        </View>
+        <ScrollView style={styles.list} showsVerticalScrollIndicator={false} nestedScrollEnabled>
+          {!loading && (stores || []).map((s: any) => (
+            <TouchableOpacity key={s.id ?? s.name} style={styles.nearbyCard} activeOpacity={0.8} onPress={() => router.push({ pathname: "/(consumers)/storedetails", params: { store: s.name, storeId: s.id } })}>
+              {/* Placeholder store icon */}
+              <Image source={require("../../assets/images/partial-react-logo.png")} style={styles.storeIcon} />
+              <View style={styles.info}>
+                <Text style={[styles.text, styles.bold]} numberOfLines={1}>{s.name}</Text>
+                <Text style={styles.text}>{s.distance ?? "~1.2 km"}</Text>
+                <Text style={styles.text}>{s.rating ?? "4.5 ★"}</Text>
+              </View>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
       </View>
     </ScrollView>
   );
@@ -73,23 +123,11 @@ const styles = StyleSheet.create({
   section: {
     marginVertical: 15,
   },
-  sectionHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 15,
-  },
   sectionTitle: {
     fontSize: 18,
     fontWeight: "bold",
     color: "#000000",
   },
-  seeAllLink: {
-    fontSize: 14,
-    color: "#FFBE5D",
-    fontWeight: "500",
-  },
-
   // Greeting styles
   greetingTitle: {
     fontSize: 24,
@@ -102,23 +140,132 @@ const styles = StyleSheet.create({
     color: "#6b7280",
   },
 
-  // Empty box styles
-  categoryCard: {
-    width: 60,
-    height: 60,
-    borderRadius: 40,
-    marginRight: 15,
-    backgroundColor: "#FFBE5D",
+  // Categories section (design)
+  headerRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginTop: 10,
+    marginBottom: 6,
   },
-  recommendedCard: {
-    width: 160,
-    height: 200,
-    marginRight: 15,
-    backgroundColor: "#ffffff",
+  header: {
+    fontSize: 15,
+    fontWeight: "600",
+  },
+  link: {
+    fontSize: 13,
+    color: "#D97706",
+  },
+  grid: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+  },
+  gridItem: {
+    alignItems: "center",
+  },
+  iconWrap: {
+    width: 55,
+    height: 55,
+    borderRadius: 999,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 5,
+  },
+  icon: {
+    width: 22,
+    height: 22,
+    resizeMode: "contain",
+  },
+  caption: {
+    fontSize: 12,
+  },
+
+  // Recommendations section (design)
+  row: {
+    paddingVertical: 7,
+    paddingHorizontal: 2,
+  },
+  card: {
+    width: 240,
+    paddingBottom: 10,
+    backgroundColor: "#FFFFFF",
+    borderRadius: 7,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 5 },
+    shadowOpacity: 0.2,
+    shadowRadius: 6,
+    elevation: 5,
+    marginRight: 20,
+  },
+  imageWrap: {
+    position: "relative",
+    width: "100%",
+    height: 150,
+    borderTopLeftRadius: 7,
+    borderTopRightRadius: 7,
+    overflow: "hidden",
+  },
+  image: {
+    width: "100%",
+    height: "100%",
+    resizeMode: "cover",
+  },
+  badge: {
+    position: "absolute",
+    top: 10,
+    right: 10,
+    backgroundColor: "#1B6F5D",
+    color: "#FFFFFF",
+    paddingHorizontal: 8,
+    paddingVertical: 5,
+    borderRadius: 30,
+    overflow: "hidden",
+  },
+  title: {
+    paddingHorizontal: 10,
+    marginTop: 6,
+  },
+  price: {
+    paddingHorizontal: 10,
+  },
+
+  // Nearby stores (design)
+  list: {
+    maxHeight: 220,
   },
   nearbyCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#FFFFFF",
     height: 80,
-    marginBottom: 12,
-    backgroundColor: "#ffffff",
+    borderRadius: 10,
+    paddingVertical: 10,
+    paddingHorizontal: 10,
+    marginTop: 5,
+    marginBottom: 8,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.2,
+    shadowRadius: 10,
+    elevation: 2,
+    overflow: "hidden",
+  },
+  storeIcon: {
+    width: 30,
+    height: 30,
+    borderRadius: 7,
+    padding: 20,
+    backgroundColor: "#F3F4F6",
+    marginRight: 10,
+    resizeMode: "contain",
+  },
+  info: {
+    flex: 1,
+  },
+  text: {
+    lineHeight: 18,
+  },
+  bold: {
+    fontWeight: "bold",
   },
 });

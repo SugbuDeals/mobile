@@ -1,6 +1,6 @@
 import * as thunk from "@/features/auth/thunk";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
-import { LoginCredentials } from "./types";
+import { LoginCredentials, RegisterPayload } from "./types";
 
 export const useLogin = () => {
   const dispatch = useAppDispatch();
@@ -9,9 +9,13 @@ export const useLogin = () => {
   const login = (credentials: LoginCredentials) =>
     dispatch(thunk.login(credentials));
 
+  const register = (payload: RegisterPayload) =>
+    dispatch(thunk.register(payload));
+
   return {
     action: {
       login,
+      register,
     },
     state,
   };
