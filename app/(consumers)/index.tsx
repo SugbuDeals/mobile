@@ -1,27 +1,41 @@
+import Card from "@/components/Card";
 import { useLogin } from "@/features/auth";
 import { useCatalog } from "@/features/catalog";
 import type { Category, Product } from "@/features/catalog/types";
 import { useStore } from "@/features/store";
 import { useRouter } from "expo-router";
 import { useEffect } from "react";
-import { Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import {
+  Image,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from "react-native";
+
+const STATIC_CATEGORIES: Category[] = [
+  { id: 1001, name: "Groceries" },
+  { id: 1002, name: "Electronics" },
+  { id: 1003, name: "Fashion" },
+  { id: 1004, name: "Home" },
+  { id: 1005, name: "Furniture" },
+  { id: 1006, name: "Decor" },
+];
 
 export default function Home() {
-  const { state: { user } } = useLogin();
+  const router = useRouter();
   const {
-    action: { findStores },
+    state: { user },
+  } = useLogin();
+  const {
     state: { stores, loading },
+    action: { findStores },
   } = useStore();
   const {
-    action: { loadCategories, loadProducts },
     state: { categories, products },
+    action: { loadCategories, loadProducts },
   } = useCatalog();
-  const staticCategories: Category[] = [
-    { id: 1001, name: "Groceries" },
-    { id: 1002, name: "Electronics" },
-    { id: 1003, name: "Fashion" },
-    { id: 1004, name: "Home" },
-  ];
 
   useEffect(() => {
     findStores();
@@ -29,93 +43,187 @@ export default function Home() {
     loadProducts();
   }, [findStores, loadCategories, loadProducts]);
 
-  const router = useRouter();
+  const displayName =
+    user?.name || (user as any)?.fullname || user?.email || "there";
+  const displayCategories =
+    categories?.length > 0 ? categories : STATIC_CATEGORIES;
 
   return (
     <ScrollView style={styles.container}>
-      {/* Greetings */}
-      <View style={styles.section}>
-        <Text style={styles.greetingTitle}>Hello, {String(user?.name || (user as any)?.fullname || user?.email || "there")}! 👋</Text>
-        <Text style={styles.greetingSubtitle}>What would you like to shop today?</Text>
-      </View>
-
-      {/* Categories (grid) */}
-      <View style={styles.section}>
-        <View style={styles.headerRow}> 
-          <Text style={styles.header}>Categories</Text>
-          <TouchableOpacity>
-            <Text style={styles.link}>See All</Text>
-          </TouchableOpacity>
-        </View>
-        <View style={styles.grid}>
-          {((categories && categories.length > 0) ? categories : staticCategories).slice(0, 4).map((cat: Category) => (
-            <View key={cat.id} style={styles.gridItem}>
-              <TouchableOpacity activeOpacity={0.8}>
-                <View style={[styles.iconWrap, { backgroundColor: "#E5F3F0" }]}> 
-                  {/* Placeholder icon */}
-                  <Image source={require("../../assets/images/icon.png")} style={styles.icon} />
-                </View>
-              </TouchableOpacity>
-              <Text style={styles.caption} numberOfLines={1}>{cat.name}</Text>
-            </View>
-          ))}
-        </View>
-      </View>
-
-      {/* Recommendations (horizontal cards) */}
-      <View style={styles.section}>
-        <View style={styles.headerRow}>
-          <Text style={styles.header}>Recommended for You</Text>
-          <TouchableOpacity onPress={() => router.push("/(consumers)/recommendations")} accessibilityRole="button">
-            <Text style={styles.link}>View All</Text>
-          </TouchableOpacity>
-        </View>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.row}>
-          {(products || []).map((p: Product) => (
-            <View key={p.id} style={styles.card}>
-              <TouchableOpacity activeOpacity={0.85} onPress={() => router.push({ pathname: "/(consumers)/product", params: { name: p.name, storeId: p.storeId, price: p.price, productId: p.id } })}>
-                <View style={styles.imageWrap}>
-                  {/* Placeholder image */}
-                  <Image source={require("../../assets/images/react-logo.png")} style={styles.image} />
-                  <Text style={styles.badge}>New</Text>
-                </View>
-                <Text style={styles.title} numberOfLines={1}>{p.name}</Text>
-                {p.price != null && (
-                  <Text style={styles.price}>₱{Number(p.price).toFixed(2)}</Text>
-                )}
-              </TouchableOpacity>
-            </View>
-          ))}
-        </ScrollView>
-      </View>
-
-      {/* Nearby Stores */}
-      <View style={styles.section}>
-        <View style={styles.headerRow}>
-          <Text style={styles.sectionTitle}>Nearby Stores</Text>
-          <TouchableOpacity>
-            <Text style={styles.link}>View Map</Text>
-          </TouchableOpacity>
-        </View>
-        <ScrollView style={styles.list} showsVerticalScrollIndicator={false} nestedScrollEnabled>
-          {!loading && (stores || []).map((s: any) => (
-            <TouchableOpacity key={s.id ?? s.name} style={styles.nearbyCard} activeOpacity={0.8} onPress={() => router.push({ pathname: "/(consumers)/storedetails", params: { store: s.name, storeId: s.id } })}>
-              {/* Placeholder store icon */}
-              <Image source={require("../../assets/images/partial-react-logo.png")} style={styles.storeIcon} />
-              <View style={styles.info}>
-                <Text style={[styles.text, styles.bold]} numberOfLines={1}>{s.name}</Text>
-                <Text style={styles.text}>{s.distance ?? "~1.2 km"}</Text>
-                <Text style={styles.text}>{s.rating ?? "4.5 ★"}</Text>
-              </View>
-            </TouchableOpacity>
-          ))}
-        </ScrollView>
-      </View>
+      <Greeting name={displayName} />
+      <Categories categories={displayCategories.slice(0, 4)} />
+      <Recommendations products={products || []} router={router} />
+      <NearbyStores stores={stores || []} loading={loading} router={router} />
     </ScrollView>
   );
 }
 
+function Greeting({ name }: { name: string }) {
+  return (
+    <View style={styles.section}>
+      <Text style={styles.greetingTitle}>Hello, {name}! 👋</Text>
+      <Text style={styles.greetingSubtitle}>
+        What would you like to shop today?
+      </Text>
+    </View>
+  );
+}
+
+function Categories({ categories }: { categories: Category[] }) {
+  return (
+    <View style={styles.section}>
+      <SectionHeader title="Categories" linkText="See All" />
+      <View style={styles.grid}>
+        {categories.map((cat) => (
+          <View key={cat.id} style={styles.gridItem}>
+            <TouchableOpacity activeOpacity={0.8}>
+              <View style={styles.iconWrap}>
+                <Image
+                  source={require("../../assets/images/icon.png")}
+                  style={styles.icon}
+                />
+              </View>
+            </TouchableOpacity>
+            <Text style={styles.caption} numberOfLines={1}>
+              {cat.name}
+            </Text>
+          </View>
+        ))}
+      </View>
+    </View>
+  );
+}
+
+function Recommendations({
+  products,
+  router,
+}: {
+  products: Product[];
+  router: any;
+}) {
+  const handleProductPress = (p: Product) => {
+    router.push({
+      pathname: "/(consumers)/product",
+      params: {
+        name: p.name,
+        storeId: p.storeId,
+        price: p.price,
+        productId: p.id,
+      },
+    });
+  };
+
+  return (
+    <View style={styles.section}>
+      <SectionHeader
+        title="Recommended for You"
+        linkText="View All"
+        onPress={() => router.push("/(consumers)/recommendations")}
+      />
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={styles.row}
+      >
+        {products.map((p) => (
+          <Card key={p.id} style={styles.card}>
+            <TouchableOpacity
+              activeOpacity={0.85}
+              onPress={() => handleProductPress(p)}
+            >
+              <View style={styles.imageWrap}>
+                <Image
+                  source={require("../../assets/images/react-logo.png")}
+                  style={styles.image}
+                />
+                <Text style={styles.badge}>New</Text>
+              </View>
+              <View>
+                <View style={styles.detailsContainer}>
+                  <Text style={styles.title} numberOfLines={1}>
+                    {p.name}
+                  </Text>
+                  {p.price != null && (
+                    <Text style={styles.price}>
+                      ₱{Number(p.price).toFixed(2)}
+                    </Text>
+                  )}
+                </View>
+              </View>
+            </TouchableOpacity>
+          </Card>
+        ))}
+      </ScrollView>
+    </View>
+  );
+}
+
+function NearbyStores({
+  stores,
+  loading,
+  router,
+}: {
+  stores: any[];
+  loading: boolean;
+  router: any;
+}) {
+  if (loading) return null;
+
+  const handleStorePress = (store: any) => {
+    router.push({
+      pathname: "/(consumers)/storedetails",
+      params: { store: store.name, storeId: store.id },
+    });
+  };
+
+  return (
+    <View style={styles.section}>
+      <SectionHeader title="Nearby Stores" linkText="View Map" />
+      {stores.map((s) => (
+        <TouchableOpacity
+          key={s.id ?? s.name}
+          style={styles.nearbyCard}
+          activeOpacity={0.8}
+          onPress={() => handleStorePress(s)}
+        >
+          <Image
+            source={require("../../assets/images/partial-react-logo.png")}
+            style={styles.storeIcon}
+          />
+          <View style={styles.info}>
+            <Text style={[styles.text, styles.bold]} numberOfLines={1}>
+              {s.name}
+            </Text>
+            <Text style={styles.text}>{s.distance ?? "~1.2 km"}</Text>
+            <Text style={styles.text}>{s.rating ?? "4.5 ★"}</Text>
+          </View>
+        </TouchableOpacity>
+      ))}
+    </View>
+  );
+}
+
+function SectionHeader({
+  title,
+  linkText,
+  onPress,
+}: {
+  title: string;
+  linkText: string;
+  onPress?: () => void;
+}) {
+  return (
+    <View style={styles.headerRow}>
+      <Text style={styles.header}>{title}</Text>
+      <TouchableOpacity onPress={onPress}>
+        <Text style={styles.link}>{linkText}</Text>
+      </TouchableOpacity>
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
+  // General / Layout
   container: {
     paddingHorizontal: 15,
     backgroundColor: "#ffffff",
@@ -123,12 +231,8 @@ const styles = StyleSheet.create({
   section: {
     marginVertical: 15,
   },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: "bold",
-    color: "#000000",
-  },
-  // Greeting styles
+
+  // Greeting Component
   greetingTitle: {
     fontSize: 24,
     fontWeight: "bold",
@@ -140,7 +244,7 @@ const styles = StyleSheet.create({
     color: "#6b7280",
   },
 
-  // Categories section (design)
+  // SectionHeader Component
   headerRow: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -156,6 +260,8 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: "#D97706",
   },
+
+  // Categories Component
   grid: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -166,7 +272,8 @@ const styles = StyleSheet.create({
   iconWrap: {
     width: 55,
     height: 55,
-    borderRadius: 999,
+    borderRadius: "100%",
+    backgroundColor: "#E5F3F0",
     alignItems: "center",
     justifyContent: "center",
     marginBottom: 5,
@@ -180,29 +287,24 @@ const styles = StyleSheet.create({
     fontSize: 12,
   },
 
-  // Recommendations section (design)
+  // Recommendations Component
   row: {
     paddingVertical: 7,
     paddingHorizontal: 2,
   },
   card: {
     width: 240,
-    paddingBottom: 10,
     backgroundColor: "#FFFFFF",
     borderRadius: 7,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 5 },
     shadowOpacity: 0.2,
     shadowRadius: 6,
-    elevation: 5,
-    marginRight: 20,
   },
   imageWrap: {
     position: "relative",
     width: "100%",
     height: 150,
-    borderTopLeftRadius: 7,
-    borderTopRightRadius: 7,
     overflow: "hidden",
   },
   image: {
@@ -221,6 +323,9 @@ const styles = StyleSheet.create({
     borderRadius: 30,
     overflow: "hidden",
   },
+  detailsContainer: {
+    padding: 10,
+  },
   title: {
     paddingHorizontal: 10,
     marginTop: 6,
@@ -229,10 +334,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
   },
 
-  // Nearby stores (design)
-  list: {
-    maxHeight: 220,
-  },
+  // NearbyStores Component
   nearbyCard: {
     flexDirection: "row",
     alignItems: "center",
