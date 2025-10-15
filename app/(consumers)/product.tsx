@@ -34,7 +34,18 @@ export default function ProductDetailScreen() {
           discount={productDiscount}
           imageUrl={productImageUrl}
         />
-        <LocationCard />
+        <LocationCard 
+          storeName={productStore}
+          storeId={productStoreId}
+          onNavigate={() => router.push({ 
+            pathname: "/(consumers)/navigate", 
+            params: { 
+              storeName: productStore,
+              storeId: productStoreId?.toString(),
+              address: "123 Market Street"
+            } 
+          })}
+        />
         <View style={{ height: 40 }} />
       </ScrollView>
     </SafeAreaView>
@@ -55,7 +66,7 @@ const styles = StyleSheet.create({
 
 // Location Card (inline)
 const screen = Dimensions.get("window");
-function LocationCard() {
+function LocationCard({ storeName, storeId, onNavigate }: { storeName: string; storeId?: number; onNavigate: () => void }) {
   return (
     <View style={locStyles.container}>
       <Text style={locStyles.sectionTitle}>Location</Text>
@@ -67,7 +78,11 @@ function LocationCard() {
             <Text style={locStyles.distance}>1.2 miles away  •  8 min drive</Text>
           </View>
           <View style={locStyles.buttonContainer}>
-            <TouchableOpacity style={locStyles.navigateButton} activeOpacity={0.85}>
+            <TouchableOpacity 
+              style={locStyles.navigateButton} 
+              activeOpacity={0.85}
+              onPress={onNavigate}
+            >
               <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "center" }}>
                 <Ionicons name="navigate" size={16} color="#ffffff" />
                 <Text style={locStyles.buttonTitle}> Navigate</Text>

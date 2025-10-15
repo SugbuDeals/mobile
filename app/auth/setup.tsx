@@ -226,6 +226,8 @@ const styles = StyleSheet.create({
     color: "#ffffff",
     textAlign: "center",
     fontWeight: "500",
+    paddingVertical: 10,
+    marginTop: 18,
   },
   content: {
     flex: 1,
