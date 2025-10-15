@@ -49,9 +49,9 @@ export default function Promotions() {
   const [selectedProducts, setSelectedProducts] = useState<string[]>([]);
 
   const toggleProductSelection = (productId: string) => {
-    setSelectedProducts(prev =>
+    setSelectedProducts((prev) =>
       prev.includes(productId)
-        ? prev.filter(id => id !== productId)
+        ? prev.filter((id) => id !== productId)
         : [...prev, productId]
     );
   };
@@ -70,7 +70,7 @@ export default function Promotions() {
   return (
     <View style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor="transparent" />
-      
+
       {/* Header */}
       <LinearGradient
         colors={["#FFBE5D", "#277874"]}
@@ -96,7 +96,12 @@ export default function Promotions() {
           <View style={styles.inputGroup}>
             <Text style={styles.label}>Promotion Title</Text>
             <View style={styles.inputContainer}>
-              <Ionicons name="create" size={20} color="#9CA3AF" style={styles.inputIcon} />
+              <Ionicons
+                name="create"
+                size={20}
+                color="#9CA3AF"
+                style={styles.inputIcon}
+              />
               <TextInput
                 style={styles.textInput}
                 placeholder="e.g. Summer Sale on Office Supplies"
@@ -111,7 +116,12 @@ export default function Promotions() {
           <View style={styles.inputGroup}>
             <Text style={styles.label}>Discount Amount</Text>
             <View style={styles.inputContainer}>
-              <Ionicons name="cash" size={20} color="#9CA3AF" style={styles.inputIcon} />
+              <Ionicons
+                name="cash"
+                size={20}
+                color="#9CA3AF"
+                style={styles.inputIcon}
+              />
               <TextInput
                 style={styles.textInput}
                 placeholder="e.g. 20% or $5.00"
@@ -127,7 +137,12 @@ export default function Promotions() {
             <Text style={styles.label}>Promotion Period</Text>
             <View style={styles.dateRow}>
               <View style={[styles.inputContainer, styles.dateInput]}>
-                <Ionicons name="calendar" size={20} color="#9CA3AF" style={styles.inputIcon} />
+                <Ionicons
+                  name="calendar"
+                  size={20}
+                  color="#9CA3AF"
+                  style={styles.inputIcon}
+                />
                 <TextInput
                   style={styles.textInput}
                   placeholder="mm/dd/yyyy"
@@ -137,7 +152,12 @@ export default function Promotions() {
                 />
               </View>
               <View style={[styles.inputContainer, styles.dateInput]}>
-                <Ionicons name="calendar" size={20} color="#9CA3AF" style={styles.inputIcon} />
+                <Ionicons
+                  name="calendar"
+                  size={20}
+                  color="#9CA3AF"
+                  style={styles.inputIcon}
+                />
                 <TextInput
                   style={styles.textInput}
                   placeholder="mm/dd/yyyy"
@@ -160,18 +180,21 @@ export default function Promotions() {
               >
                 <View style={styles.productContent}>
                   <View style={styles.checkboxContainer}>
-                    <View style={[
-                      styles.checkbox,
-                      selectedProducts.includes(product.id) && styles.checkboxSelected
-                    ]}>
+                    <View
+                      style={[
+                        styles.checkbox,
+                        selectedProducts.includes(product.id) &&
+                          styles.checkboxSelected,
+                      ]}
+                    >
                       {selectedProducts.includes(product.id) && (
                         <Ionicons name="checkmark" size={12} color="#ffffff" />
                       )}
                     </View>
                   </View>
-                  
+
                   <Image source={product.image} style={styles.productImage} />
-                  
+
                   <View style={styles.productInfo}>
                     <Text style={styles.productName}>{product.name}</Text>
                     <Text style={styles.productPrice}>{product.price}</Text>
@@ -184,12 +207,16 @@ export default function Promotions() {
           {/* Info Message */}
           <View style={styles.infoCard}>
             <Text style={styles.infoText}>
-              Customer will be notified about this promotion based on their saved preferences and search history for included products.
+              Customer will be notified about this promotion based on their
+              saved preferences and search history for included products.
             </Text>
           </View>
 
           {/* Create Button */}
-          <TouchableOpacity style={styles.createButton} onPress={handleCreatePromotion}>
+          <TouchableOpacity
+            style={styles.createButton}
+            onPress={handleCreatePromotion}
+          >
             <Text style={styles.createButtonText}>Create Promotion</Text>
           </TouchableOpacity>
         </View>

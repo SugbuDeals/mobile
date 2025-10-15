@@ -15,33 +15,47 @@ const ConsumerHeader = () => {
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 0 }}
       >
-        <StatusBar barStyle="light-content" translucent backgroundColor="transparent" />
-        <View style={styles.headerContent} >
+        <StatusBar
+          barStyle="light-content"
+          translucent
+          backgroundColor="transparent"
+        />
+        <View style={styles.headerContent}>
           {/* Shopping Cart Icon */}
           <View style={styles.iconContainer}>
             <Ionicons name="cart" size={20} color="#ffffff" />
           </View>
-          
+
           {/* App Title and Tagline */}
           <View style={styles.titleContainer}>
             <Text style={styles.headerTitle}>SugbuDeals</Text>
             <Text style={styles.headerSubtitle}>Explore Deals!</Text>
           </View>
-          
+
           {/* Notification Bell */}
           <View style={styles.notificationContainer}>
-            <Ionicons name="notifications" size={20} color="#ffffff" onPress={() => router.push("/(consumers)/notifications")} />
+            <Ionicons
+              name="notifications"
+              size={20}
+              color="#ffffff"
+              onPress={() => router.push("/(consumers)/notifications")}
+            />
           </View>
-          
+
           {/* Profile Picture */}
           <View style={styles.profileContainer}>
-            <Ionicons name="person" size={20} color="#ffffff" onPress={() => router.push("/(consumers)/profile")} />
+            <Ionicons
+              name="person"
+              size={20}
+              color="#ffffff"
+              onPress={() => router.push("/(consumers)/profile")}
+            />
           </View>
         </View>
       </LinearGradient>
     </View>
   );
-};  
+};
 
 export default function ConsumersLayout() {
   return (
@@ -133,7 +147,6 @@ export default function ConsumersLayout() {
           }}
         />
       </Tabs>
-      
     </ConditionalNavigation>
   );
 }
@@ -149,7 +162,7 @@ const styles = StyleSheet.create({
     borderBottomRightRadius: 40,
   },
   headerContainer: {
-    paddingTop: Platform.OS === "ios" ? 50 : (StatusBar.currentHeight || 0),
+    paddingTop: Platform.OS === "ios" ? 50 : StatusBar.currentHeight || 0,
     paddingBottom: 8,
     paddingHorizontal: 16,
     borderBottomLeftRadius: 40,

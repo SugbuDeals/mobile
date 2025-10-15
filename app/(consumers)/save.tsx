@@ -1,12 +1,12 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
 import React, { useEffect, useMemo, useState } from "react";
 import {
-    ScrollView,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from "react-native";
 
 import { useBookmarks } from "@/features/bookmarks";
@@ -17,14 +17,14 @@ type SavedItem = {
   id: string;
   name: string;
   category: string;
-  type: 'product' | 'store';
+  type: "product" | "store";
   image?: string;
 };
 
 export default function Save() {
-  const [activeTab, setActiveTab] = useState<'products' | 'stores'>('products');
+  const [activeTab, setActiveTab] = useState<"products" | "stores">("products");
   const [searchQuery, setSearchQuery] = useState("");
-  const [selectedCategory, setSelectedCategory] = useState<string>('all');
+  const [selectedCategory, setSelectedCategory] = useState<string>("all");
   const { action: bookmarkAction, state: bookmarkState } = useBookmarks();
   const { state: catalogState, action: catalogAction } = useCatalog();
   const { state: storeState, action: storeAction } = useStore();
@@ -47,8 +47,8 @@ export default function Save() {
       return {
         id: String(bp.productId),
         name: match?.name || `Product #${bp.productId}`,
-        category: (match as any)?.category || 'all',
-        type: 'product',
+        category: (match as any)?.category || "all",
+        type: "product",
       } as SavedItem;
     });
   }, [bookmarkState.products, catalogState.products]);
@@ -60,44 +60,63 @@ export default function Save() {
       return {
         id: String(bs.storeId),
         name: match?.name || `Store #${bs.storeId}`,
-        category: 'all',
-        type: 'store',
+        category: "all",
+        type: "store",
       } as SavedItem;
     });
   }, [bookmarkState.stores, storeState.stores]);
 
   // Categories for filtering
-  const productCategories = ['all', 'electronics', 'clothing', 'home', 'food', 'beauty'];
-  const storeCategories = ['all', 'grocery', 'electronics', 'fashion', 'home', 'restaurant'];
+  const productCategories = [
+    "all",
+    "electronics",
+    "clothing",
+    "home",
+    "food",
+    "beauty",
+  ];
+  const storeCategories = [
+    "all",
+    "grocery",
+    "electronics",
+    "fashion",
+    "home",
+    "restaurant",
+  ];
 
-  const currentItems = activeTab === 'products' ? savedProducts : savedStores;
-  const currentCategories = activeTab === 'products' ? productCategories : storeCategories;
+  const currentItems = activeTab === "products" ? savedProducts : savedStores;
+  const currentCategories =
+    activeTab === "products" ? productCategories : storeCategories;
 
-  const filteredItems = currentItems.filter(item => {
-    const matchesSearch = item.name.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesCategory = selectedCategory === 'all' || item.category === selectedCategory;
+  const filteredItems = currentItems.filter((item) => {
+    const matchesSearch = item.name
+      .toLowerCase()
+      .includes(searchQuery.toLowerCase());
+    const matchesCategory =
+      selectedCategory === "all" || item.category === selectedCategory;
     return matchesSearch && matchesCategory;
   });
 
   const renderEmptyState = () => (
     <View style={styles.emptyState}>
-      <Ionicons 
-        name={activeTab === 'products' ? 'bag-outline' : 'storefront-outline'} 
-        size={80} 
-        color="#d1d5db" 
+      <Ionicons
+        name={activeTab === "products" ? "bag-outline" : "storefront-outline"}
+        size={80}
+        color="#d1d5db"
       />
       <Text style={styles.emptyTitle}>
-        No {activeTab === 'products' ? 'Products' : 'Stores'} Saved Yet
+        No {activeTab === "products" ? "Products" : "Stores"} Saved Yet
       </Text>
       <Text style={styles.emptySubtitle}>
-        Start exploring and save your favorite {activeTab === 'products' ? 'products' : 'stores'} to see them here
+        Start exploring and save your favorite{" "}
+        {activeTab === "products" ? "products" : "stores"} to see them here
       </Text>
     </View>
   );
 
   const renderSavedItem = (item: SavedItem) => {
     const onUnsave = () => {
-      if (item.type === 'product') {
+      if (item.type === "product") {
         bookmarkAction.removeProductBookmark(Number(item.id));
       } else {
         bookmarkAction.removeStoreBookmark(Number(item.id));
@@ -108,10 +127,18 @@ export default function Save() {
         <View style={styles.cardTopRow}>
           <View style={styles.storeRow}>
             <View style={styles.storeLogo}>
-              <Ionicons name={item.type === 'product' ? 'bag-outline' : 'storefront-outline'} size={22} color="#277874" />
+              <Ionicons
+                name={
+                  item.type === "product" ? "bag-outline" : "storefront-outline"
+                }
+                size={22}
+                color="#277874"
+              />
             </View>
             <View>
-              <Text style={styles.storeName} numberOfLines={1}>{item.name}</Text>
+              <Text style={styles.storeName} numberOfLines={1}>
+                {item.name}
+              </Text>
               <Text style={styles.storeLocation}>{item.category}</Text>
             </View>
           </View>
@@ -119,7 +146,9 @@ export default function Save() {
         </View>
 
         <View style={styles.cardBottomRow}>
-          <View style={styles.activePill}><Text style={styles.activePillText}>Saved</Text></View>
+          <View style={styles.activePill}>
+            <Text style={styles.activePillText}>Saved</Text>
+          </View>
           <View style={styles.spacer} />
           <TouchableOpacity style={styles.removeButton} onPress={onUnsave}>
             <Ionicons name="trash" size={20} color="#ef4444" />
@@ -134,7 +163,12 @@ export default function Save() {
       {/* Search Bar */}
       <View style={styles.searchContainer}>
         <View style={styles.searchBox}>
-          <Ionicons name="search" size={20} color="#6b7280" style={styles.searchIcon} />
+          <Ionicons
+            name="search"
+            size={20}
+            color="#6b7280"
+            style={styles.searchIcon}
+          />
           <TextInput
             style={styles.searchInput}
             placeholder={`Search saved ${activeTab}...`}
@@ -148,18 +182,28 @@ export default function Save() {
       {/* Category Tabs */}
       <View style={styles.tabContainer}>
         <TouchableOpacity
-          style={[styles.tab, activeTab === 'products' && styles.activeTab]}
-          onPress={() => setActiveTab('products')}
+          style={[styles.tab, activeTab === "products" && styles.activeTab]}
+          onPress={() => setActiveTab("products")}
         >
-          <Text style={[styles.tabText, activeTab === 'products' && styles.activeTabText]}>
+          <Text
+            style={[
+              styles.tabText,
+              activeTab === "products" && styles.activeTabText,
+            ]}
+          >
             Products
           </Text>
         </TouchableOpacity>
         <TouchableOpacity
-          style={[styles.tab, activeTab === 'stores' && styles.activeTab]}
-          onPress={() => setActiveTab('stores')}
+          style={[styles.tab, activeTab === "stores" && styles.activeTab]}
+          onPress={() => setActiveTab("stores")}
         >
-          <Text style={[styles.tabText, activeTab === 'stores' && styles.activeTabText]}>
+          <Text
+            style={[
+              styles.tabText,
+              activeTab === "stores" && styles.activeTabText,
+            ]}
+          >
             Stores
           </Text>
         </TouchableOpacity>
@@ -173,14 +217,15 @@ export default function Save() {
               key={category}
               style={[
                 styles.categoryChip,
-                selectedCategory === category && styles.activeCategoryChip
+                selectedCategory === category && styles.activeCategoryChip,
               ]}
               onPress={() => setSelectedCategory(category)}
             >
               <Text
                 style={[
                   styles.categoryChipText,
-                  selectedCategory === category && styles.activeCategoryChipText
+                  selectedCategory === category &&
+                    styles.activeCategoryChipText,
                 ]}
               >
                 {category.charAt(0).toUpperCase() + category.slice(1)}
@@ -192,11 +237,9 @@ export default function Save() {
 
       {/* Saved Items */}
       <View style={styles.itemsContainer}>
-        {filteredItems.length === 0 ? (
-          renderEmptyState()
-        ) : (
-          filteredItems.map(renderSavedItem)
-        )}
+        {filteredItems.length === 0
+          ? renderEmptyState()
+          : filteredItems.map(renderSavedItem)}
       </View>
     </ScrollView>
   );
@@ -284,26 +327,46 @@ const styles = StyleSheet.create({
   },
   // Card styles (aligned with provided design)
   card: {
-    backgroundColor: '#fff',
+    backgroundColor: "#fff",
     borderRadius: 12,
     padding: 15,
     marginBottom: 15,
     elevation: 4,
-    shadowColor: '#000',
+    shadowColor: "#000",
     shadowOpacity: 0.1,
     shadowRadius: 6,
     shadowOffset: { width: 0, height: 4 },
     borderWidth: 1,
-    borderColor: '#f3f4f6',
+    borderColor: "#f3f4f6",
   },
-  cardTopRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  storeRow: { flexDirection: 'row', alignItems: 'center', columnGap: 12 },
-  storeLogo: { width: 42, height: 42, borderRadius: 8, backgroundColor: '#F1F5F9', alignItems: 'center', justifyContent: 'center' },
-  storeName: { fontWeight: '700', fontSize: 16, maxWidth: 200 },
-  storeLocation: { color: '#6B7280', fontSize: 13, textTransform: 'capitalize' },
-  cardBottomRow: { marginTop: 14, flexDirection: 'row', alignItems: 'center' },
-  activePill: { backgroundColor: '#D1FAE5', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 100 },
-  activePillText: { color: '#1B6F5D', fontWeight: '600', fontSize: 12 },
+  cardTopRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  storeRow: { flexDirection: "row", alignItems: "center", columnGap: 12 },
+  storeLogo: {
+    width: 42,
+    height: 42,
+    borderRadius: 8,
+    backgroundColor: "#F1F5F9",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  storeName: { fontWeight: "700", fontSize: 16, maxWidth: 200 },
+  storeLocation: {
+    color: "#6B7280",
+    fontSize: 13,
+    textTransform: "capitalize",
+  },
+  cardBottomRow: { marginTop: 14, flexDirection: "row", alignItems: "center" },
+  activePill: {
+    backgroundColor: "#D1FAE5",
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 100,
+  },
+  activePillText: { color: "#1B6F5D", fontWeight: "600", fontSize: 12 },
   spacer: { flex: 1 },
   removeButton: { padding: 8 },
   emptyState: {

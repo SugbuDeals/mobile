@@ -2,7 +2,16 @@ import { useStore } from "@/features/store";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { useRouter } from "expo-router";
 import React, { useEffect, useState } from "react";
-import { Image, Linking, SafeAreaView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import {
+  Image,
+  Linking,
+  SafeAreaView,
+  StatusBar,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from "react-native";
 
 export default function ViewMap() {
   const router = useRouter();
@@ -69,7 +78,10 @@ export default function ViewMap() {
 
       {/* Open in Maps Button */}
       <View style={styles.buttonContainer}>
-        <TouchableOpacity style={styles.openMapsButton} onPress={() => handleOpenInMaps()}>
+        <TouchableOpacity
+          style={styles.openMapsButton}
+          onPress={() => handleOpenInMaps()}
+        >
           <Ionicons name="map-outline" size={20} color="#1B6F5D" />
           <Text style={styles.buttonText}>Open in Maps</Text>
         </TouchableOpacity>
@@ -152,9 +164,10 @@ const styles = StyleSheet.create({
     shadowRadius: 2,
     elevation: 2,
   },
-  buttonText: { fontSize: 16, fontWeight: "600", color: "#1B6F5D", marginLeft: 8 },
+  buttonText: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#1B6F5D",
+    marginLeft: 8,
+  },
 });
-
-
-
-

@@ -9,7 +9,7 @@ import {
   StyleSheet,
   Text,
   TouchableOpacity,
-  View
+  View,
 } from "react-native";
 
 const { width } = Dimensions.get("window");
@@ -45,8 +45,8 @@ const activePromotions = [
 ];
 
 const BarChart = ({ data }: { data: typeof weeklyData }) => {
-  const maxViews = Math.max(...data.map(d => d.views));
-  
+  const maxViews = Math.max(...data.map((d) => d.views));
+
   return (
     <View style={styles.chartContainer}>
       <Text style={styles.chartTitle}>Weekly Store Views</Text>
@@ -80,7 +80,11 @@ const ViewsTodayCard = () => (
   </Card>
 );
 
-const PromotionCard = ({ promotion }: { promotion: typeof activePromotions[0] }) => (
+const PromotionCard = ({
+  promotion,
+}: {
+  promotion: (typeof activePromotions)[0];
+}) => (
   <Card style={styles.promotionCard}>
     <View style={styles.promotionContent}>
       <View style={styles.promotionImage}>
@@ -109,7 +113,9 @@ export default function RetailerDashboard() {
       {/* Store Header */}
       <View style={styles.storeHeader}>
         <ImageBackground
-          source={{ uri: 'https://images.unsplash.com/photo-1441986300917-64674bd600d8?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=2070&q=80' }}
+          source={{
+            uri: "https://images.unsplash.com/photo-1441986300917-64674bd600d8?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=2070&q=80",
+          }}
           style={styles.storeBackground}
           imageStyle={styles.backgroundImage}
         >
@@ -122,11 +128,13 @@ export default function RetailerDashboard() {
             </View>
           </View>
         </ImageBackground>
-        
+
         {/* Store Information Below Banner */}
         <View style={styles.storeInfoSection}>
           <Text style={styles.storeName}>QuickMart</Text>
-          <Text style={styles.storeCategories}>Stationary, Groceries, Home</Text>
+          <Text style={styles.storeCategories}>
+            Stationary, Groceries, Home
+          </Text>
           <View style={styles.storeStatus}>
             <View style={styles.openButton}>
               <Text style={styles.openButtonText}>Open Now</Text>
@@ -152,7 +160,7 @@ export default function RetailerDashboard() {
       {/* Active Promotions */}
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Active Promotions</Text>
-        <View >
+        <View>
           {activePromotions.map((promotion) => (
             <PromotionCard key={promotion.id} promotion={promotion} />
           ))}
@@ -170,23 +178,23 @@ const styles = StyleSheet.create({
   storeHeader: {
     marginBottom: 15,
     borderRadius: 0,
-    position: 'relative',
+    position: "relative",
   },
   storeBackground: {
     height: 200,
-    justifyContent: 'flex-end',
+    justifyContent: "flex-end",
   },
   backgroundImage: {
-    resizeMode: 'cover',
+    resizeMode: "cover",
   },
   overlay: {
     flex: 1,
-    justifyContent: 'flex-end',
+    justifyContent: "flex-end",
     padding: 20,
     paddingBottom: 20,
   },
   logoOverlay: {
-    position: 'absolute',
+    position: "absolute",
     bottom: -35,
     left: 20,
     zIndex: 10,
@@ -285,7 +293,7 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   weeklyViewsContainer: {
-    position: 'relative',
+    position: "relative",
   },
   chartContainer: {
     backgroundColor: "#ffffff",
@@ -325,9 +333,9 @@ const styles = StyleSheet.create({
     fontWeight: "500",
   },
   viewsTodayCard: {
-    position: 'absolute',
+    position: "absolute",
     top: -1,
-    right: -1 ,
+    right: -1,
     width: 100,
     backgroundColor: "#ffffff",
     borderRadius: 12,

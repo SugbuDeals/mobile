@@ -68,44 +68,53 @@ export default function Products() {
   const [itemsPerPage, setItemsPerPage] = useState(2);
   const [deleteModalVisible, setDeleteModalVisible] = useState(false);
   const [productToDelete, setProductToDelete] = useState<Product | null>(null);
-  const [selectedProductId, setSelectedProductId] = useState<string | null>(null);
+  const [selectedProductId, setSelectedProductId] = useState<string | null>(
+    null
+  );
   const scrollViewRef = useRef<ScrollView>(null);
 
   // Calculate optimal items per page based on screen height
   useEffect(() => {
     const calculateItemsPerPage = () => {
-      const windowHeight = Dimensions.get('window').height;
-      
+      const windowHeight = Dimensions.get("window").height;
+
       // Calculate available height for product list
       // Header: ~120px, Search: ~80px, Pagination: ~80px, Tab bar: ~65px
       const reservedHeight = 120 + 80 + 80 + 65;
       const availableHeight = windowHeight - reservedHeight;
-      
+
       // Each product card is approximately 112px (80px image + 32px padding)
       const cardHeight = 112;
       const maxItems = Math.floor(availableHeight / cardHeight);
-      
+
       // Ensure at least 1 item per page, but not more than total products
       const optimalItems = Math.max(1, Math.min(maxItems, mockProducts.length));
       setItemsPerPage(optimalItems);
     };
 
     calculateItemsPerPage();
-    
+
     // Listen for orientation changes
-    const subscription = Dimensions.addEventListener('change', calculateItemsPerPage);
-    
+    const subscription = Dimensions.addEventListener(
+      "change",
+      calculateItemsPerPage
+    );
+
     return () => subscription?.remove();
   }, []);
 
-  const filteredProducts = mockProducts.filter(product =>
-    product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    product.category.toLowerCase().includes(searchQuery.toLowerCase())
+  const filteredProducts = mockProducts.filter(
+    (product) =>
+      product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      product.category.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   const totalPages = Math.ceil(filteredProducts.length / itemsPerPage);
   const startIndex = (currentPage - 1) * itemsPerPage;
-  const currentProducts = filteredProducts.slice(startIndex, startIndex + itemsPerPage);
+  const currentProducts = filteredProducts.slice(
+    startIndex,
+    startIndex + itemsPerPage
+  );
 
   // Reset to page 1 when search query changes
   useEffect(() => {
@@ -158,7 +167,7 @@ export default function Products() {
   return (
     <View style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor="transparent" />
-      
+
       {/* Header */}
       <LinearGradient
         colors={["#FFBE5D", "#277874"]}
@@ -176,7 +185,7 @@ export default function Products() {
               <Text style={styles.headerSubtitle}>Manage your products</Text>
             </View>
           </View>
-          
+
           <TouchableOpacity style={styles.addButton} onPress={handleAddProduct}>
             <Ionicons name="add" size={24} color="#ffffff" />
           </TouchableOpacity>
@@ -186,7 +195,12 @@ export default function Products() {
       {/* Search Bar */}
       <View style={styles.searchContainer}>
         <View style={styles.searchBar}>
-          <Ionicons name="search" size={20} color="#9CA3AF" style={styles.searchIcon} />
+          <Ionicons
+            name="search"
+            size={20}
+            color="#9CA3AF"
+            style={styles.searchIcon}
+          />
           <TextInput
             style={styles.searchInput}
             placeholder="Search products..."
@@ -198,9 +212,9 @@ export default function Products() {
       </View>
 
       {/* Product List */}
-      <ScrollView 
+      <ScrollView
         ref={scrollViewRef}
-        style={styles.content} 
+        style={styles.content}
         showsVerticalScrollIndicator={false}
       >
         {currentProducts.map((product) => (
@@ -208,18 +222,20 @@ export default function Products() {
             {selectedProductId === product.id && deleteModalVisible ? (
               <View style={styles.deleteModalOverlay}>
                 <View style={styles.modalContent}>
-                  <Text style={styles.modalTitle}>Are you sure to remove this product?</Text>
+                  <Text style={styles.modalTitle}>
+                    Are you sure to remove this product?
+                  </Text>
                   <Text style={styles.modalProductName}>{product.name}</Text>
-                  
+
                   <View style={styles.modalButtons}>
-                    <TouchableOpacity 
+                    <TouchableOpacity
                       style={styles.removeButton}
                       onPress={confirmDelete}
                     >
                       <Text style={styles.removeButtonText}>REMOVE</Text>
                     </TouchableOpacity>
-                    
-                    <TouchableOpacity 
+
+                    <TouchableOpacity
                       style={styles.cancelButton}
                       onPress={cancelDelete}
                     >
@@ -231,39 +247,54 @@ export default function Products() {
             ) : (
               <>
                 <Image source={product.image} style={styles.productImage} />
-                
+
                 <View style={styles.productInfo}>
                   <View style={styles.productHeader}>
                     <View style={styles.productDetails}>
                       <Text style={styles.productName}>{product.name}</Text>
-                      <Text style={styles.productCategory}>{product.category}</Text>
+                      <Text style={styles.productCategory}>
+                        {product.category}
+                      </Text>
                     </View>
-                    
+
                     {product.discount && (
                       <View style={styles.discountTag}>
-                        <Text style={styles.discountText}>{product.discount}</Text>
+                        <Text style={styles.discountText}>
+                          {product.discount}
+                        </Text>
                       </View>
                     )}
                   </View>
-                  
+
                   <View style={styles.stockStatus}>
-                    <View style={[styles.stockTag, { backgroundColor: getStockStatusColor(product.stockStatus) }]}>
-                      <Text style={styles.stockText}>{product.stockStatus}</Text>
+                    <View
+                      style={[
+                        styles.stockTag,
+                        {
+                          backgroundColor: getStockStatusColor(
+                            product.stockStatus
+                          ),
+                        },
+                      ]}
+                    >
+                      <Text style={styles.stockText}>
+                        {product.stockStatus}
+                      </Text>
                     </View>
                   </View>
-                  
+
                   <View style={styles.productFooter}>
                     <Text style={styles.productPrice}>{product.price}</Text>
-                    
+
                     <View style={styles.actionButtons}>
-                      <TouchableOpacity 
+                      <TouchableOpacity
                         style={styles.actionButton}
                         onPress={() => handleEdit(product.id)}
                       >
                         <Ionicons name="create" size={16} color="#ffffff" />
                       </TouchableOpacity>
-                      
-                      <TouchableOpacity 
+
+                      <TouchableOpacity
                         style={styles.actionButton}
                         onPress={() => handleDelete(product)}
                       >
@@ -286,21 +317,22 @@ export default function Products() {
               key={index + 1}
               style={[
                 styles.pageButton,
-                currentPage === index + 1 && styles.activePageButton
+                currentPage === index + 1 && styles.activePageButton,
               ]}
               onPress={() => setCurrentPage(index + 1)}
             >
-              <Text style={[
-                styles.pageButtonText,
-                currentPage === index + 1 && styles.activePageButtonText
-              ]}>
+              <Text
+                style={[
+                  styles.pageButtonText,
+                  currentPage === index + 1 && styles.activePageButtonText,
+                ]}
+              >
                 {index + 1}
               </Text>
             </TouchableOpacity>
           ))}
         </View>
       )}
-
     </View>
   );
 }
@@ -530,8 +562,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     zIndex: 10,
     // Ensure it maintains the same dimensions as the product card
-   
-    
   },
   modalContent: {
     alignItems: "center",

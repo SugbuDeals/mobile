@@ -1,12 +1,12 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { LinearGradient } from "expo-linear-gradient";
-import React, { useState } from "react";
+import { useState } from "react";
 import {
   ScrollView,
   StyleSheet,
   TextInput,
   TouchableOpacity,
-  View
+  View,
 } from "react-native";
 
 export default function Explore() {
@@ -20,36 +20,36 @@ export default function Explore() {
 
         {/* Search Interface */}
         <View style={styles.searchContainer}>
-            <View style={styles.searchBox}>
-              <View style={styles.topRow}>
-                <LinearGradient
-                  colors={["#FFBE5D", "#277874"]}
-                  style={styles.searchIconContainer}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 1 }}
-                >
-                  <Ionicons name="logo-android" size={24} color="#ffffff" />
-                </LinearGradient>
-                <TextInput
-                  style={styles.searchInput}
-                  placeholder="Searching for something?"
-                  placeholderTextColor="#6B7280"
-                  value={searchQuery}
-                  onChangeText={setSearchQuery}
-                />
-                <TouchableOpacity style={styles.sendButton}>
-                  <Ionicons name="send" size={20} color="#ffffff" />
-                </TouchableOpacity>
+          <View style={styles.searchBox}>
+            <View style={styles.topRow}>
+              <LinearGradient
+                colors={["#FFBE5D", "#277874"]}
+                style={styles.searchIconContainer}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+              >
+                <Ionicons name="logo-android" size={24} color="#ffffff" />
+              </LinearGradient>
+              <TextInput
+                style={styles.searchInput}
+                placeholder="Searching for something?"
+                placeholderTextColor="#6B7280"
+                value={searchQuery}
+                onChangeText={setSearchQuery}
+              />
+              <TouchableOpacity style={styles.sendButton}>
+                <Ionicons name="send" size={20} color="#ffffff" />
+              </TouchableOpacity>
+            </View>
+            <View style={styles.bottomRow}>
+              <View style={styles.progressLines}>
+                <View style={styles.progressLine1} />
+                <View style={styles.progressLine2} />
               </View>
-              <View style={styles.bottomRow}>
-                <View style={styles.progressLines}>
-                  <View style={styles.progressLine1} />
-                  <View style={styles.progressLine2} />
-                </View>
-                <TouchableOpacity style={styles.micButton}>
-                  <Ionicons name="mic" size={25} color="#E7A748" />
-                </TouchableOpacity>
-              </View>
+              <TouchableOpacity style={styles.micButton}>
+                <Ionicons name="mic" size={25} color="#E7A748" />
+              </TouchableOpacity>
+            </View>
           </View>
         </View>
       </View>

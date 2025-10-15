@@ -3,15 +3,15 @@ import { LinearGradient } from "expo-linear-gradient";
 import { router, useLocalSearchParams } from "expo-router";
 import React, { useEffect, useState } from "react";
 import {
-    Image,
-    Platform,
-    ScrollView,
-    StatusBar,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
+  Image,
+  Platform,
+  ScrollView,
+  StatusBar,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from "react-native";
 
 // Mock products data (same as in products.tsx)
@@ -58,7 +58,7 @@ const mockProducts = [
 
 export default function EditProduct() {
   const { productId } = useLocalSearchParams();
-  
+
   // Initialize state with empty values
   const [productName, setProductName] = useState("");
   const [category, setCategory] = useState("");
@@ -70,8 +70,10 @@ export default function EditProduct() {
 
   // Update form data when productId changes
   useEffect(() => {
-    const productToEdit = mockProducts.find(product => product.id === productId) || mockProducts[0];
-    
+    const productToEdit =
+      mockProducts.find((product) => product.id === productId) ||
+      mockProducts[0];
+
     setProductName(productToEdit.name);
     setCategory(productToEdit.category);
     setRegularPrice(productToEdit.price);
@@ -110,7 +112,7 @@ export default function EditProduct() {
   return (
     <View style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor="transparent" />
-      
+
       {/* Header */}
       <LinearGradient
         colors={["#FFBE5D", "#277874"]}
@@ -128,7 +130,7 @@ export default function EditProduct() {
               <Text style={styles.headerSubtitle}>Change Product Details</Text>
             </View>
           </View>
-          
+
           <View style={styles.notificationIcon}>
             <Ionicons name="notifications" size={20} color="#ffffff" />
           </View>
@@ -206,17 +208,21 @@ export default function EditProduct() {
               />
               <Ionicons name="chevron-down" size={20} color="#9CA3AF" />
             </View>
-            
+
             {/* Stock Information */}
             <View style={styles.stockInfo}>
               {stockStatus === "In Stock" && (
                 <Text style={styles.stockInStock}>In Stock (45 Units)</Text>
               )}
               {stockStatus === "Low Stock" && (
-                <Text style={styles.stockLow}>Low stock - only 5 units remaining</Text>
+                <Text style={styles.stockLow}>
+                  Low stock - only 5 units remaining
+                </Text>
               )}
               {stockStatus === "Out of Stock" && (
-                <Text style={styles.stockOut}>Out of Stock - 0 units remaining</Text>
+                <Text style={styles.stockOut}>
+                  Out of Stock - 0 units remaining
+                </Text>
               )}
             </View>
           </View>
@@ -226,12 +232,17 @@ export default function EditProduct() {
             <Text style={styles.label}>Product Image</Text>
             <View style={styles.uploadArea}>
               <Ionicons name="cloud-upload" size={40} color="#9CA3AF" />
-              <Text style={styles.uploadText}>Upload image for your promotion</Text>
-              <TouchableOpacity style={styles.chooseFileButton} onPress={handleImageUpload}>
+              <Text style={styles.uploadText}>
+                Upload image for your promotion
+              </Text>
+              <TouchableOpacity
+                style={styles.chooseFileButton}
+                onPress={handleImageUpload}
+              >
                 <Text style={styles.chooseFileText}>Choose File</Text>
               </TouchableOpacity>
             </View>
-            
+
             {/* Image Preview */}
             {selectedImage && (
               <View style={styles.imagePreview}>
@@ -258,11 +269,17 @@ export default function EditProduct() {
 
           {/* Action Buttons */}
           <View style={styles.actionButtons}>
-            <TouchableOpacity style={styles.saveButton} onPress={handleSaveProduct}>
+            <TouchableOpacity
+              style={styles.saveButton}
+              onPress={handleSaveProduct}
+            >
               <Text style={styles.saveButtonText}>SAVE</Text>
             </TouchableOpacity>
-            
-            <TouchableOpacity style={styles.cancelButton} onPress={handleCancel}>
+
+            <TouchableOpacity
+              style={styles.cancelButton}
+              onPress={handleCancel}
+            >
               <Text style={styles.cancelButtonText}>Cancel</Text>
             </TouchableOpacity>
           </View>

@@ -23,7 +23,6 @@ export default function Settings() {
   const [email, setEmail] = useState("juandelacruz@email.com");
   const [isEditing, setIsEditing] = useState(false);
 
-
   const handleLogout = () => {
     console.log("Logout");
     // Handle logout logic here
@@ -60,7 +59,7 @@ export default function Settings() {
   return (
     <View style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor="transparent" />
-      
+
       {/* Header */}
       <LinearGradient
         colors={["#FFBE5D", "#277874"]}
@@ -75,10 +74,12 @@ export default function Settings() {
             </View>
             <View style={styles.headerText}>
               <Text style={styles.headerTitle}>Settings</Text>
-              <Text style={styles.headerSubtitle}>Configure your store settings</Text>
+              <Text style={styles.headerSubtitle}>
+                Configure your store settings
+              </Text>
             </View>
           </View>
-          
+
           <View style={styles.notificationIcon}>
             <Ionicons name="notifications" size={20} color="#ffffff" />
           </View>
@@ -109,7 +110,11 @@ export default function Settings() {
           <View style={styles.inputGroup}>
             <Text style={styles.label}>Store Description</Text>
             <TextInput
-              style={[styles.textInput, styles.textArea, !isEditing && styles.disabledInput]}
+              style={[
+                styles.textInput,
+                styles.textArea,
+                !isEditing && styles.disabledInput,
+              ]}
               placeholder="Tell customers about your store"
               value={storeDescription}
               onChangeText={setStoreDescription}
@@ -131,12 +136,19 @@ export default function Settings() {
               keyboardType="email-address"
               editable={isEditing}
             />
-            <Text style={styles.helperText}>We will use this for important updates.</Text>
+            <Text style={styles.helperText}>
+              We will use this for important updates.
+            </Text>
           </View>
 
           <View style={styles.inputGroup}>
             <Text style={styles.label}>Store Address</Text>
-            <View style={[styles.addressContainer, !isEditing && styles.disabledInput]}>
+            <View
+              style={[
+                styles.addressContainer,
+                !isEditing && styles.disabledInput,
+              ]}
+            >
               <TextInput
                 style={styles.addressInput}
                 placeholder="Address"
@@ -146,22 +158,55 @@ export default function Settings() {
                 editable={isEditing}
               />
               <TouchableOpacity style={styles.mapButton} disabled={!isEditing}>
-                <Text style={[styles.mapButtonText, !isEditing && styles.disabledText]}>Click here</Text>
-                <Ionicons name="location" size={16} color={isEditing ? "#FFBE5D" : "#9CA3AF"} />
+                <Text
+                  style={[
+                    styles.mapButtonText,
+                    !isEditing && styles.disabledText,
+                  ]}
+                >
+                  Click here
+                </Text>
+                <Ionicons
+                  name="location"
+                  size={16}
+                  color={isEditing ? "#FFBE5D" : "#9CA3AF"}
+                />
               </TouchableOpacity>
             </View>
           </View>
 
           <View style={styles.inputGroup}>
             <Text style={styles.label}>Store Logo / Banner</Text>
-            <TouchableOpacity style={[styles.uploadArea, !isEditing && styles.disabledUploadArea]} onPress={isEditing ? handleImageUpload : undefined} disabled={!isEditing}>
+            <TouchableOpacity
+              style={[
+                styles.uploadArea,
+                !isEditing && styles.disabledUploadArea,
+              ]}
+              onPress={isEditing ? handleImageUpload : undefined}
+              disabled={!isEditing}
+            >
               <View style={styles.uploadContent}>
                 <View style={styles.uploadIcon}>
-                  <Ionicons name="image" size={24} color={isEditing ? "#9CA3AF" : "#D1D5DB"} />
+                  <Ionicons
+                    name="image"
+                    size={24}
+                    color={isEditing ? "#9CA3AF" : "#D1D5DB"}
+                  />
                 </View>
                 <View style={styles.uploadTextContainer}>
-                  <Ionicons name="cloud-upload" size={20} color={isEditing ? "#9CA3AF" : "#D1D5DB"} />
-                  <Text style={[styles.uploadText, !isEditing && styles.disabledText]}>PNG, JPG, or SVG format</Text>
+                  <Ionicons
+                    name="cloud-upload"
+                    size={20}
+                    color={isEditing ? "#9CA3AF" : "#D1D5DB"}
+                  />
+                  <Text
+                    style={[
+                      styles.uploadText,
+                      !isEditing && styles.disabledText,
+                    ]}
+                  >
+                    PNG, JPG, or SVG format
+                  </Text>
                 </View>
               </View>
             </TouchableOpacity>
@@ -169,7 +214,12 @@ export default function Settings() {
 
           <View style={styles.inputGroup}>
             <Text style={styles.label}>Store Category</Text>
-            <View style={[styles.inputContainer, !isEditing && styles.disabledInput]}>
+            <View
+              style={[
+                styles.inputContainer,
+                !isEditing && styles.disabledInput,
+              ]}
+            >
               <TextInput
                 style={styles.textInput}
                 placeholder="Select category"
@@ -178,19 +228,30 @@ export default function Settings() {
                 placeholderTextColor="#9CA3AF"
                 editable={isEditing}
               />
-              <Ionicons name="chevron-down" size={20} color={isEditing ? "#9CA3AF" : "#D1D5DB"} />
+              <Ionicons
+                name="chevron-down"
+                size={20}
+                color={isEditing ? "#9CA3AF" : "#D1D5DB"}
+              />
             </View>
           </View>
         </View>
-
 
         {/* User Profile Section */}
         <View style={styles.profileSection}>
           <View style={styles.profileInputGroup}>
             <View style={styles.inputWithIcon}>
-              <Ionicons name="person" size={20} color="#9CA3AF" style={styles.inputIcon} />
+              <Ionicons
+                name="person"
+                size={20}
+                color="#9CA3AF"
+                style={styles.inputIcon}
+              />
               <TextInput
-                style={[styles.profileInput, !isEditing && styles.disabledInput]}
+                style={[
+                  styles.profileInput,
+                  !isEditing && styles.disabledInput,
+                ]}
                 placeholder="e.g. Juan Dela Cruz"
                 value={fullName}
                 onChangeText={setFullName}
@@ -200,9 +261,17 @@ export default function Settings() {
             </View>
 
             <View style={styles.inputWithIcon}>
-              <Ionicons name="mail" size={20} color="#9CA3AF" style={styles.inputIcon} />
+              <Ionicons
+                name="mail"
+                size={20}
+                color="#9CA3AF"
+                style={styles.inputIcon}
+              />
               <TextInput
-                style={[styles.profileInput, !isEditing && styles.disabledInput]}
+                style={[
+                  styles.profileInput,
+                  !isEditing && styles.disabledInput,
+                ]}
                 placeholder="e.g. juandelacruz@email.com"
                 value={email}
                 onChangeText={setEmail}
@@ -213,26 +282,37 @@ export default function Settings() {
             </View>
 
             {!isEditing ? (
-              <TouchableOpacity style={styles.editAccountButton} onPress={handleEdit}>
+              <TouchableOpacity
+                style={styles.editAccountButton}
+                onPress={handleEdit}
+              >
                 <Text style={styles.editAccountButtonText}>Edit Account</Text>
               </TouchableOpacity>
             ) : (
               <View style={styles.editButtons}>
-                <TouchableOpacity style={styles.cancelEditButton} onPress={handleCancelEdit}>
+                <TouchableOpacity
+                  style={styles.cancelEditButton}
+                  onPress={handleCancelEdit}
+                >
                   <Text style={styles.cancelEditButtonText}>Cancel</Text>
                 </TouchableOpacity>
-                <TouchableOpacity style={styles.saveEditButton} onPress={handleSave}>
+                <TouchableOpacity
+                  style={styles.saveEditButton}
+                  onPress={handleSave}
+                >
                   <Text style={styles.saveEditButtonText}>Save Changes</Text>
                 </TouchableOpacity>
               </View>
             )}
 
-            <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
+            <TouchableOpacity
+              style={styles.logoutButton}
+              onPress={handleLogout}
+            >
               <Text style={styles.logoutButtonText}>Logout Account</Text>
             </TouchableOpacity>
           </View>
         </View>
-
       </ScrollView>
     </View>
   );

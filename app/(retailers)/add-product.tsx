@@ -51,7 +51,7 @@ export default function AddProduct() {
   return (
     <View style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor="transparent" />
-      
+
       {/* Header */}
       <LinearGradient
         colors={["#FFBE5D", "#277874"]}
@@ -66,10 +66,12 @@ export default function AddProduct() {
             </View>
             <View style={styles.headerText}>
               <Text style={styles.headerTitle}>Add</Text>
-              <Text style={styles.headerSubtitle}>Add product to your inventory</Text>
+              <Text style={styles.headerSubtitle}>
+                Add product to your inventory
+              </Text>
             </View>
           </View>
-          
+
           <View style={styles.notificationIcon}>
             <Ionicons name="notifications" size={20} color="#ffffff" />
           </View>
@@ -147,11 +149,13 @@ export default function AddProduct() {
               />
               <Ionicons name="chevron-down" size={20} color="#9CA3AF" />
             </View>
-            
+
             {/* Stock Information */}
             <View style={styles.stockInfo}>
               <Text style={styles.stockInStock}>In Stock (45 Units)</Text>
-              <Text style={styles.stockLow}>Low stock - only 5 units remaining</Text>
+              <Text style={styles.stockLow}>
+                Low stock - only 5 units remaining
+              </Text>
             </View>
           </View>
 
@@ -160,12 +164,17 @@ export default function AddProduct() {
             <Text style={styles.label}>Product Image</Text>
             <View style={styles.uploadArea}>
               <Ionicons name="cloud-upload" size={40} color="#9CA3AF" />
-              <Text style={styles.uploadText}>Upload image for your promotion</Text>
-              <TouchableOpacity style={styles.chooseFileButton} onPress={handleImageUpload}>
+              <Text style={styles.uploadText}>
+                Upload image for your promotion
+              </Text>
+              <TouchableOpacity
+                style={styles.chooseFileButton}
+                onPress={handleImageUpload}
+              >
                 <Text style={styles.chooseFileText}>Choose File</Text>
               </TouchableOpacity>
             </View>
-            
+
             {/* Image Preview */}
             {selectedImage && (
               <View style={styles.imagePreview}>
@@ -192,11 +201,17 @@ export default function AddProduct() {
 
           {/* Action Buttons */}
           <View style={styles.actionButtons}>
-            <TouchableOpacity style={styles.addButton} onPress={handleAddProduct}>
+            <TouchableOpacity
+              style={styles.addButton}
+              onPress={handleAddProduct}
+            >
               <Text style={styles.addButtonText}>ADD</Text>
             </TouchableOpacity>
-            
-            <TouchableOpacity style={styles.cancelButton} onPress={handleCancel}>
+
+            <TouchableOpacity
+              style={styles.cancelButton}
+              onPress={handleCancel}
+            >
               <Text style={styles.cancelButtonText}>Cancel</Text>
             </TouchableOpacity>
           </View>
