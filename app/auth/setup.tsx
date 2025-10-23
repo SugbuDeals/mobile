@@ -20,10 +20,10 @@ const schema = yup.object().shape({
 
 export default function RetailerSetup() {
   const dispatch = useDispatch();
-  const { action: { updateStore }, state: { loading } } = useStore();
+  const { action: { updateStore, createStore }, state: { loading } } = useStore();
   const { state: { user, loading: authLoading } } = useLogin();
   // Use the store management hook to get the user's store
-  const { userStore, storeLoading } = useStoreManagement();
+  const { userStore, storeLoading, refreshStore } = useStoreManagement();
   const [submitting, setSubmitting] = React.useState(false);
   const [hasCheckedAuth, setHasCheckedAuth] = React.useState(false);
   
@@ -99,6 +99,11 @@ export default function RetailerSetup() {
     }
   }, [userStore, setValue]);
 
+  // Debug: Log userStore changes
+  React.useEffect(() => {
+    console.log("userStore state changed:", userStore);
+  }, [userStore]);
+
   const onConfirm = async (formData: yup.InferType<typeof schema>) => {
     try {
       setSubmitting(true);
@@ -116,34 +121,80 @@ export default function RetailerSetup() {
       }
 
       if (!userStore?.id) {
-            Alert.alert("Error", "Store not found. Please contact support.");
-            return;
+        // Create a new store if one doesn't exist
+        try {
+          const newStore = await createStore({
+            name: formData.storeName,
+            description: formData.storeDescription,
+            ownerId: Number(user.id),
+          }).unwrap();
+          
+          console.log("Store created successfully:", newStore);
+          
+          // The store should already be set in the Redux state by createStore.fulfilled
+          // Let's verify this by checking the state
+          console.log("Store should now be available in Redux state");
+        } catch (createError: any) {
+          Alert.alert("Error", createError?.message || "Failed to create store. Please try again.");
+          return;
+        }
+      } else {
+        // Update existing store
+        try {
+          await updateStore({
+            id: userStore.id,
+            name: formData.storeName,
+            description: formData.storeDescription,
+          }).unwrap();
+        } catch (updateError: any) {
+          Alert.alert("Error", updateError?.message || "Failed to update store. Please try again.");
+          return;
+        }
       }
-
-      // Update the store
-      await updateStore({
-        id: userStore.id,
-        name: formData.storeName,
-        description: formData.storeDescription,
-      }).unwrap();
 
       // Mark retailer setup as completed
       dispatch(completeRetailerSetup());
       
       Alert.alert("Success", "Store setup completed successfully!");
-      router.replace("/(retailers)");
+      
+      // Small delay to ensure state is updated before redirect
+      setTimeout(() => {
+        router.replace("/(retailers)");
+      }, 100);
     } catch (error: any) {
-      Alert.alert("Error", error?.message || "Failed to update store. Please try again.");
+      Alert.alert("Error", error?.message || "Failed to setup store. Please try again.");
     } finally {
       setSubmitting(false);
     }
   };
 
-  const onLater = () => {
-    // Mark retailer setup as completed even if skipped
-    dispatch(completeRetailerSetup());
-    Alert.alert("Setup Skipped", "You can complete your store setup later in Settings.");
-    router.replace("/(retailers)");
+  const onLater = async () => {
+    try {
+      // Create a basic store if one doesn't exist
+      if (!userStore?.id && user?.id) {
+        const newStore = await createStore({
+          name: `${user.name || 'My'}'s Store`,
+          description: "Welcome to my store!",
+          ownerId: Number(user.id),
+        }).unwrap();
+        
+        console.log("Store created successfully (Later):", newStore);
+        
+        // The store should already be set in the Redux state by createStore.fulfilled
+        console.log("Store should now be available in Redux state (Later)");
+      }
+      
+      // Mark retailer setup as completed even if skipped
+      dispatch(completeRetailerSetup());
+      Alert.alert("Setup Skipped", "You can complete your store setup later in Settings.");
+      
+      // Small delay to ensure state is updated before redirect
+      setTimeout(() => {
+        router.replace("/(retailers)");
+      }, 100);
+    } catch (error: any) {
+      Alert.alert("Error", "Failed to create basic store. Please try again.");
+    }
   };
 
   // Show loading while checking authentication or loading store
@@ -157,19 +208,10 @@ export default function RetailerSetup() {
     );
   }
 
-  // If user is loaded but store is not found, show error
-  if (user && !loading && !userStore) {
-    return (
-      <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
-        <Text style={styles.loadingText}>Store not found. Please contact support.</Text>
-        <TouchableOpacity 
-          style={{ marginTop: 20, padding: 10, backgroundColor: '#14B8A6', borderRadius: 5 }}
-          onPress={() => router.replace("/auth/login")}
-        >
-          <Text style={{ color: 'white' }}>Go to Login</Text>
-        </TouchableOpacity>
-      </View>
-    );
+  // If user is loaded but store is not found, show setup form (store will be created)
+  if (user && !loading && !userStore && !storeLoading) {
+    // This is normal for new retailers - they don't have a store yet
+    // Show the setup form to create one
   }
 
   return (

@@ -78,6 +78,16 @@ export const findUserStore = createAsyncThunk<
     );
     
     console.log("Found user store:", userStore);
+    
+    // If no store found with owner fields, this might mean the API doesn't return owner info
+    // In this case, we need to use a different approach or the user might not have a store yet
+    if (!userStore) {
+      console.log("No store found for user. This could mean:");
+      console.log("1. User doesn't have a store yet");
+      console.log("2. API doesn't return owner information");
+      console.log("3. Store was just created and not yet indexed");
+    }
+    
     return userStore || null;
   } catch (error) {
     return rejectWithValue({
@@ -379,12 +389,48 @@ export const updateStore = createAsyncThunk<
   { rejectValue: { message: string }; state: RootState }
 >("store/updateStore", async ({ id, ...updateData }, { rejectWithValue, getState }) => {
   try {
-    const { accessToken } = getState().auth;
+    const state = getState();
+    const { accessToken } = state.auth;
 
     if (!accessToken) {
       return rejectWithValue({
         message: "Authentication required. Please log in again.",
       });
+    }
+
+    // Whitelist only valid fields to avoid sending unknown keys
+    const allowedKeys: (keyof UpdateStoreDTO)[] = [
+      "name",
+      "description",
+      "verificationStatus",
+      "userId",
+    ];
+
+    const sanitizedBody: UpdateStoreDTO = Object.fromEntries(
+      Object.entries(updateData)
+        .filter(([key, value]) =>
+          allowedKeys.includes(key as keyof UpdateStoreDTO) && value !== undefined && value !== null
+        )
+    ) as UpdateStoreDTO;
+
+    // If no changes to send, return the current store from state
+    if (Object.keys(sanitizedBody).length === 0) {
+      const currentStore = state.store?.userStore;
+      if (currentStore && currentStore.id === id) {
+        return currentStore as Store;
+      }
+      // Fallback to fetching fresh data
+      const resp = await fetch(`${env.API_BASE_URL}/store/${id}`, {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${accessToken}`,
+        },
+      });
+      if (!resp.ok) {
+        return rejectWithValue({ message: "No changes and failed to fetch store" });
+      }
+      return resp.json();
     }
 
     const response = await fetch(`${env.API_BASE_URL}/store/${id}`, {
@@ -393,21 +439,41 @@ export const updateStore = createAsyncThunk<
         "Content-Type": "application/json",
         Authorization: `Bearer ${accessToken}`,
       },
-      body: JSON.stringify(updateData),
+      body: JSON.stringify(sanitizedBody),
     });
 
     if (!response.ok) {
-      const error = await response.json().catch(() => ({}));
+      // Try read JSON first, fallback to text for better diagnostics
+      let errorBody: any = null;
+      try {
+        errorBody = await response.json();
+      } catch (_) {
+        try {
+          const text = await response.text();
+          errorBody = { message: text };
+        } catch (_) {
+          errorBody = {};
+        }
+      }
+      const statusDetail = response.status ? ` (HTTP ${response.status})` : "";
       return rejectWithValue({
-        message: error.message || "Update store failed",
+        message: (errorBody?.message || "Update store failed") + statusDetail,
       });
+    }
+
+    // Some APIs return 204 No Content for successful updates
+    if (response.status === 204) {
+      const currentStore = state.store?.userStore;
+      if (currentStore && currentStore.id === id) {
+        return { ...currentStore, ...sanitizedBody } as Store;
+      }
+      return { id, name: "", description: "", createdAt: new Date(), verificationStatus: "UNVERIFIED", ...sanitizedBody } as Store;
     }
 
     return response.json();
   } catch (error) {
     return rejectWithValue({
-      message:
-        error instanceof Error ? error.message : "An unknown error occured",
+      message: error instanceof Error ? error.message : "An unknown error occured",
     });
   }
 });

@@ -139,6 +139,11 @@ export default function RetailerDashboard() {
   const { state: { user } } = useLogin();
   const { action: { findActivePromotions }, state: { userStore, activePromotions, loading } } = useStore();
 
+  // Debug: Log userStore changes
+  React.useEffect(() => {
+    console.log("Dashboard - userStore state:", userStore);
+  }, [userStore]);
+
   useEffect(() => {
     // Fetch active promotions
     findActivePromotions();

@@ -67,19 +67,7 @@ export default function Register() {
         }).unwrap();
         
         if (isRetailer) {
-          // Automatically create a store for retailers
-          try {
-            await createStore({
-              name: `${formData.name}'s Store`,
-              description: "Welcome to my store!",
-              ownerId: Number(loginResult.user.id),
-            }).unwrap();
-          } catch (storeError) {
-            console.error("Failed to create store:", storeError);
-            // Continue with the flow even if store creation fails
-          }
-          
-          // Redirect retailers to setup page
+          // Redirect retailers to setup page - store will be created during setup
           router.replace("/auth/setup");
         } else {
           // Redirect consumers to their dashboard

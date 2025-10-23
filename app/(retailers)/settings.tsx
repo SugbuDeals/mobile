@@ -46,6 +46,7 @@ export default function Settings() {
 
   // Update form when store data is loaded
   React.useEffect(() => {
+    console.log("Settings - userStore state:", userStore);
     if (userStore) {
       setStoreName(userStore.name || "");
       setStoreDescription(userStore.description || "");
@@ -101,6 +102,7 @@ export default function Settings() {
       // Prepare update data - only include fields that have changed
       const storeUpdateData: any = {
         id: userStore.id,
+        userId: Number((userStore as any).userId ?? (userStore as any).ownerId ?? user?.id),
       };
       
       const userUpdateData: any = {};
@@ -111,6 +113,14 @@ export default function Settings() {
       }
       if (storeDescription.trim() !== (userStore.description || "")) {
         storeUpdateData.description = storeDescription.trim();
+      }
+
+      // Ensure verificationStatus is preserved if backend expects it in body
+      if (
+        (userStore as any)?.verificationStatus !== undefined &&
+        storeUpdateData.verificationStatus === undefined
+      ) {
+        storeUpdateData.verificationStatus = (userStore as any).verificationStatus;
       }
       
       // Only include user fields that are different from current values

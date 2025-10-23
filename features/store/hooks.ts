@@ -8,14 +8,28 @@ export const useStoreManagement = () => {
   const { user, accessToken, loading: authLoading } = useAppSelector((state) => state.auth);
   const { userStore, loading: storeLoading } = useAppSelector((state) => state.store);
   const hasAttemptedLoad = useRef(false);
+  const lastUserId = useRef<number | null>(null);
 
   // Clear store when user logs out
   useEffect(() => {
     if (!user && !authLoading) {
       dispatch(clearStore());
       hasAttemptedLoad.current = false; // Reset the flag when user logs out
+      lastUserId.current = null;
     }
   }, [user, authLoading, dispatch]);
+
+  // Reset the flag when user changes or when userStore becomes null
+  useEffect(() => {
+    if (user && Number(user.id) !== lastUserId.current) {
+      console.log("User changed, resetting load flag");
+      hasAttemptedLoad.current = false;
+      lastUserId.current = Number(user.id);
+    } else if (user && !userStore && hasAttemptedLoad.current) {
+      console.log("UserStore became null, resetting load flag to allow retry");
+      hasAttemptedLoad.current = false;
+    }
+  }, [user, userStore]);
 
   // Load user store when user logs in and is a retailer
   useEffect(() => {
@@ -24,6 +38,13 @@ export const useStoreManagement = () => {
         const normalizedRole = String((user as any).user_type ?? (user as any).role ?? "").toLowerCase();
         
         if (normalizedRole === "retailer") {
+          // If we already have a userStore, don't try to load it again
+          if (userStore) {
+            console.log("UserStore already exists, skipping load:", userStore);
+            hasAttemptedLoad.current = true;
+            return;
+          }
+          
           hasAttemptedLoad.current = true; // Mark that we've attempted to load
           console.log("Loading store data for retailer:", user.id);
           
@@ -78,10 +99,35 @@ export const useStoreManagement = () => {
     loadUserStore();
   }, [user, accessToken, authLoading, storeLoading, dispatch]);
 
+  // Manual refresh function
+  const refreshStore = async () => {
+    if (user && accessToken && !authLoading && !storeLoading) {
+      console.log("Manually refreshing store data for user:", user.id);
+      
+      const normalizedRole = String((user as any).user_type ?? (user as any).role ?? "").toLowerCase();
+      if (normalizedRole === "retailer") {
+        try {
+          // Try to find user store, but don't fail if it doesn't work
+          const result = await dispatch(findUserStore(Number((user as any).id))).unwrap();
+          console.log("Store data refreshed:", result);
+          if (result) {
+            dispatch(setUserStore(result));
+          } else {
+            console.log("No store found during refresh - this is normal for new users");
+          }
+        } catch (error) {
+          console.error("Error refreshing store data:", error);
+          // Don't throw error - this is expected if user doesn't have a store yet
+        }
+      }
+    }
+  };
+
   return {
     userStore,
     storeLoading,
     isStoreLoaded: !!userStore,
+    refreshStore,
   };
 };
 
