@@ -114,7 +114,7 @@ export const updateUser = createAsyncThunk<
  * Register a new user
  */
 export const register = createAsyncThunk<
-  void,
+  any,
   RegisterPayload,
   { rejectValue: RegisterError }
 >("auth/register", async (payload, { rejectWithValue }) => {
@@ -128,6 +128,9 @@ export const register = createAsyncThunk<
       const error = await response.json().catch(() => ({}));
       return rejectWithValue({ message: error.message || "Registration failed" });
     }
+    
+    const userData = await response.json();
+    return userData;
   } catch (error) {
     return rejectWithValue({
       message: error instanceof Error ? error.message : "An unknown error occured",

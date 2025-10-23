@@ -12,10 +12,14 @@ export const useLogin = () => {
   const register = (payload: RegisterPayload) =>
     dispatch(thunk.register(payload));
 
+  const updateUser = (id: number, data: { name?: string; email?: string }) =>
+    dispatch(thunk.updateUser({ id, data }));
+
   return {
     action: {
       login,
       register,
+      updateUser,
     },
     state,
   };

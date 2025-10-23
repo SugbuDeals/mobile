@@ -1,4 +1,5 @@
 import { logout } from "@/features/auth/slice";
+import { useStoreManagement } from "@/features/store";
 import { useAppDispatch } from "@/store/hooks";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { LinearGradient } from "expo-linear-gradient";
@@ -59,6 +60,9 @@ const RetailerHeader = () => {
 };
 
 export default function RetailersLayout() {
+  // Load user's store data for all retailer pages
+  useStoreManagement();
+
   return (
     <Tabs
       screenOptions={{

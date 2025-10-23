@@ -1,20 +1,21 @@
 import Button from "@/components/Button";
 import TextField from "@/components/TextField";
 import { useLogin } from "@/features/auth";
+import { useStore } from "@/features/store";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { yupResolver } from "@hookform/resolvers/yup";
 import { Link, router } from "expo-router";
 import React from "react";
 import { Controller, useForm } from "react-hook-form";
 import {
-  Dimensions,
-  KeyboardAvoidingView,
-  Platform,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
+    Dimensions,
+    KeyboardAvoidingView,
+    Platform,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View,
 } from "react-native";
 import * as yup from "yup";
 
@@ -28,7 +29,8 @@ const schema = yup.object().shape({
 });
 
 export default function Register() {
-  const { action: { register } } = useLogin();
+  const { action: { register, login } } = useLogin();
+  const { action: { createStore } } = useStore();
   const [submitting, setSubmitting] = React.useState(false);
   const {
     control,
@@ -48,9 +50,47 @@ export default function Register() {
     try {
       setSubmitting(true);
       const role = isRetailer ? "RETAILER" : "CONSUMER";
-      await (register({ name: formData.name, email: formData.email, password: formData.password, role }) as any).unwrap?.() ?? register({ name: formData.name, email: formData.email, password: formData.password, role });
-      alert("Registration successful. Please sign in.");
-      router.replace("/auth/login");
+      
+      // Register the user
+      const result = await register({ 
+        name: formData.name, 
+        email: formData.email, 
+        password: formData.password, 
+        role 
+      }).unwrap();
+      
+      // Automatically log in the user after successful registration
+      try {
+        const loginResult = await login({
+          email: formData.email,
+          password: formData.password,
+        }).unwrap();
+        
+        if (isRetailer) {
+          // Automatically create a store for retailers
+          try {
+            await createStore({
+              name: `${formData.name}'s Store`,
+              description: "Welcome to my store!",
+              ownerId: Number(loginResult.user.id),
+            }).unwrap();
+          } catch (storeError) {
+            console.error("Failed to create store:", storeError);
+            // Continue with the flow even if store creation fails
+          }
+          
+          // Redirect retailers to setup page
+          router.replace("/auth/setup");
+        } else {
+          // Redirect consumers to their dashboard
+          router.replace("/(consumers)");
+        }
+      } catch (loginError) {
+        console.error("Auto-login failed:", loginError);
+        // If auto-login fails, redirect to login page
+        alert("Registration successful! Please log in to continue.");
+        router.replace("/auth/login");
+      }
     } catch (e: any) {
       alert(e?.message || "Registration failed");
     } finally {

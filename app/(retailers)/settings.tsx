@@ -1,60 +1,161 @@
+import { useLogin } from "@/features/auth";
+import { logout } from "@/features/auth/slice";
+import { useStore } from "@/features/store";
+import { useAppDispatch } from "@/store/hooks";
+
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 import {
-  Platform,
-  ScrollView,
-  StatusBar,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
+    Alert,
+    Platform,
+    ScrollView,
+    StatusBar,
+    StyleSheet,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View
 } from "react-native";
 
 export default function Settings() {
-  const [storeName, setStoreName] = useState("QuickMart");
+
+  const { state: { user }, action: { updateUser } } = useLogin();
+  const { action: { updateStore }, state: { userStore, loading: storeLoading } } = useStore();
+  const dispatch = useAppDispatch();
+  const [storeName, setStoreName] = useState("");
   const [storeDescription, setStoreDescription] = useState("");
-  const [contactEmail, setContactEmail] = useState("");
-  const [storeAddress, setStoreAddress] = useState("");
-  const [storeCategory, setStoreCategory] = useState("");
-  const [fullName, setFullName] = useState("Juan Dela Cruz");
-  const [email, setEmail] = useState("juandelacruz@email.com");
+  // Get user information
+  const defaultName = (user as any)?.fullname || (user as any)?.name || "";
+  const defaultEmail = (user as any)?.email || "";
+  const role = useMemo(() => {
+    const r = (user as any)?.user_type || (user as any)?.role;
+    if (typeof r === "string") return r.toString();
+    return "";
+  }, [user]);
+  const createdAt = (user as any)?.createdAt ?? "";
+  
+  const [fullName, setName] = useState(defaultName);
+  const [email, setEmail] = useState(defaultEmail);
   const [isEditing, setIsEditing] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
 
+  // Store data is already loaded by useStoreManagement hook in the layout
+  // No need to load it again here
 
-  const handleLogout = () => {
-    console.log("Logout");
-    // Handle logout logic here
-    router.replace("/auth/login");
-  };
+  // Update form when store data is loaded
+  React.useEffect(() => {
+    if (userStore) {
+      setStoreName(userStore.name || "");
+      setStoreDescription(userStore.description || "");
+    }
+  }, [userStore]);
 
   const handleEdit = () => {
     setIsEditing(true);
   };
 
   const handleCancelEdit = () => {
+    // Reset form to original values from auth state
+    setName(defaultName);
+    setEmail(defaultEmail);
+    
+    // Reset store fields to original values
+    if (userStore) {
+      setStoreName(userStore.name || "");
+      setStoreDescription(userStore.description || "");
+    }
+    
     setIsEditing(false);
   };
 
-  const handleSave = () => {
-    console.log("Saving all changes:", {
-      storeName,
-      storeDescription,
-      contactEmail,
-      storeAddress,
-      storeCategory,
-      fullName,
-      email,
-    });
-    // Handle save logic here
-    setIsEditing(false);
+  const handleSave = async () => {
+    if (isSaving) return; // Prevent multiple saves
+    
+    // Validate required fields
+    if (!storeName.trim()) {
+      Alert.alert("Error", "Store name is required.");
+      return;
+    }
+    
+    if (!storeDescription.trim()) {
+      Alert.alert("Error", "Store description is required.");
+      return;
+    }
+    
+    if (!userStore?.id || !user?.id) {
+      Alert.alert("Error", "Unable to update store. Please try again later.");
+      return;
+    }
+    
+    setIsSaving(true);
+    try {
+      console.log("Saving changes:", {
+        storeName: storeName.trim(),
+        storeDescription: storeDescription.trim(),
+        fullName: fullName.trim(),
+        email: email.trim(),
+      });
+      
+      // Prepare update data - only include fields that have changed
+      const storeUpdateData: any = {
+        id: userStore.id,
+      };
+      
+      const userUpdateData: any = {};
+      
+      // Only include store fields that are different from current values
+      if (storeName.trim() !== (userStore.name || "")) {
+        storeUpdateData.name = storeName.trim();
+      }
+      if (storeDescription.trim() !== (userStore.description || "")) {
+        storeUpdateData.description = storeDescription.trim();
+      }
+      
+      // Only include user fields that are different from current values
+      if (fullName.trim() !== defaultName) {
+        userUpdateData.name = fullName.trim();
+      }
+      if (email.trim() !== defaultEmail) {
+        userUpdateData.email = email.trim();
+      }
+      
+      // Update store if there are store changes
+      if (storeUpdateData.name !== undefined || storeUpdateData.description !== undefined) {
+        await updateStore(storeUpdateData).unwrap();
+      }
+      
+      // Update user if there are user changes
+      if (Object.keys(userUpdateData).length > 0) {
+        await updateUser(Number(user.id), userUpdateData).unwrap();
+      }
+      
+      // Show success message
+      Alert.alert(
+        "Success",
+        "Information updated successfully!",
+        [{ text: "OK" }]
+      );
+      
+      setIsEditing(false);
+    } catch (error: any) {
+      console.error("Failed to save changes:", error);
+      
+      // Show error message
+      Alert.alert(
+        "Error",
+        error?.message || "Failed to update information. Please try again.",
+        [{ text: "OK" }]
+      );
+    } finally {
+      setIsSaving(false);
+    }
   };
 
-  const handleImageUpload = () => {
-    console.log("Upload store logo/banner");
-    // Handle image upload logic here
+  const handleLogout = () => {
+    dispatch(logout());
+    router.replace("/auth/login");
   };
 
   return (
@@ -87,6 +188,7 @@ export default function Settings() {
 
       {/* Main Content */}
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+        {/* Retailer Account Information Section */}
         {/* Store Preferences Section */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
@@ -95,7 +197,12 @@ export default function Settings() {
           </View>
 
           <View style={styles.inputGroup}>
-            <Text style={styles.label}>Store Name</Text>
+            <View style={styles.labelContainer}>
+              <Text style={styles.label}>Store Name</Text>
+              <View style={styles.activeBadge}>
+                <Text style={styles.activeBadgeText}>Active</Text>
+              </View>
+            </View>
             <TextInput
               style={[styles.textInput, !isEditing && styles.disabledInput]}
               placeholder="Enter your store name"
@@ -107,7 +214,12 @@ export default function Settings() {
           </View>
 
           <View style={styles.inputGroup}>
-            <Text style={styles.label}>Store Description</Text>
+            <View style={styles.labelContainer}>
+              <Text style={styles.label}>Store Description</Text>
+              <View style={styles.activeBadge}>
+                <Text style={styles.activeBadgeText}>Active</Text>
+              </View>
+            </View>
             <TextInput
               style={[styles.textInput, styles.textArea, !isEditing && styles.disabledInput]}
               placeholder="Tell customers about your store"
@@ -121,97 +233,116 @@ export default function Settings() {
           </View>
 
           <View style={styles.inputGroup}>
-            <Text style={styles.label}>Contact Email</Text>
-            <TextInput
-              style={[styles.textInput, !isEditing && styles.disabledInput]}
-              placeholder="Email address"
-              value={contactEmail}
-              onChangeText={setContactEmail}
-              placeholderTextColor="#9CA3AF"
-              keyboardType="email-address"
-              editable={isEditing}
-            />
+            <View style={styles.labelContainer}>
+              <Text style={styles.label}>Contact Email</Text>
+              <View style={styles.comingSoonBadge}>
+                <Text style={styles.comingSoonBadgeText}>Coming Soon</Text>
+              </View>
+            </View>
+            <View style={[styles.textInput, styles.disabledInput]}>
+              <Text style={styles.disabledText}>Coming Soon</Text>
+            </View>
             <Text style={styles.helperText}>We will use this for important updates.</Text>
           </View>
 
           <View style={styles.inputGroup}>
-            <Text style={styles.label}>Store Address</Text>
-            <View style={[styles.addressContainer, !isEditing && styles.disabledInput]}>
-              <TextInput
-                style={styles.addressInput}
-                placeholder="Address"
-                value={storeAddress}
-                onChangeText={setStoreAddress}
-                placeholderTextColor="#9CA3AF"
-                editable={isEditing}
-              />
-              <TouchableOpacity style={styles.mapButton} disabled={!isEditing}>
-                <Text style={[styles.mapButtonText, !isEditing && styles.disabledText]}>Click here</Text>
-                <Ionicons name="location" size={16} color={isEditing ? "#FFBE5D" : "#9CA3AF"} />
-              </TouchableOpacity>
+            <View style={styles.labelContainer}>
+              <Text style={styles.label}>Store Address</Text>
+              <View style={styles.comingSoonBadge}>
+                <Text style={styles.comingSoonBadgeText}>Coming Soon</Text>
+              </View>
+            </View>
+            <View style={[styles.textInput, styles.disabledInput]}>
+              <Text style={styles.disabledText}>Coming Soon</Text>
             </View>
           </View>
 
           <View style={styles.inputGroup}>
-            <Text style={styles.label}>Store Logo / Banner</Text>
-            <TouchableOpacity style={[styles.uploadArea, !isEditing && styles.disabledUploadArea]} onPress={isEditing ? handleImageUpload : undefined} disabled={!isEditing}>
+            <View style={styles.labelContainer}>
+              <Text style={styles.label}>Store Logo / Banner</Text>
+              <View style={styles.comingSoonBadge}>
+                <Text style={styles.comingSoonBadgeText}>Coming Soon</Text>
+              </View>
+            </View>
+            <View style={[styles.uploadArea, styles.disabledUploadArea]}>
               <View style={styles.uploadContent}>
                 <View style={styles.uploadIcon}>
-                  <Ionicons name="image" size={24} color={isEditing ? "#9CA3AF" : "#D1D5DB"} />
+                  <Ionicons name="image" size={24} color="#D1D5DB" />
                 </View>
                 <View style={styles.uploadTextContainer}>
-                  <Ionicons name="cloud-upload" size={20} color={isEditing ? "#9CA3AF" : "#D1D5DB"} />
-                  <Text style={[styles.uploadText, !isEditing && styles.disabledText]}>PNG, JPG, or SVG format</Text>
+                  <Ionicons name="cloud-upload" size={20} color="#D1D5DB" />
+                  <Text style={styles.disabledText}>Coming Soon</Text>
                 </View>
               </View>
-            </TouchableOpacity>
+            </View>
           </View>
 
           <View style={styles.inputGroup}>
-            <Text style={styles.label}>Store Category</Text>
-            <View style={[styles.inputContainer, !isEditing && styles.disabledInput]}>
-              <TextInput
-                style={styles.textInput}
-                placeholder="Select category"
-                value={storeCategory}
-                onChangeText={setStoreCategory}
-                placeholderTextColor="#9CA3AF"
-                editable={isEditing}
-              />
-              <Ionicons name="chevron-down" size={20} color={isEditing ? "#9CA3AF" : "#D1D5DB"} />
+            <View style={styles.labelContainer}>
+              <Text style={styles.label}>Store Category</Text>
+              <View style={styles.comingSoonBadge}>
+                <Text style={styles.comingSoonBadgeText}>Coming Soon</Text>
+              </View>
+            </View>
+            <View style={[styles.textInput, styles.disabledInput]}>
+              <Text style={styles.disabledText}>Coming Soon</Text>
             </View>
           </View>
         </View>
 
+        <View style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <Ionicons name="person" size={20} color="#FFBE5D" />
+            <Text style={styles.sectionTitle}>Account Information</Text>
+          </View>
+
+          <View style={styles.inputGroup}>
+            <Text style={styles.label}>Full Name</Text>
+            <TextInput
+              style={[styles.textInput, !isEditing && styles.disabledInput]}
+              placeholder="Enter your full name"
+              value={fullName}
+              onChangeText={setName}
+              placeholderTextColor="#9CA3AF"
+              editable={isEditing}
+            />
+          </View>
+
+          <View style={styles.inputGroup}>
+            <Text style={styles.label}>Email Address</Text>
+            <TextInput
+              style={[styles.textInput, !isEditing && styles.disabledInput]}
+              placeholder="Enter your email address"
+              value={email}
+              onChangeText={setEmail}
+              placeholderTextColor="#9CA3AF"
+              keyboardType="email-address"
+              editable={isEditing}
+            />
+          </View>
+
+          <View style={styles.inputGroup}>
+            <Text style={styles.label}>Account Role</Text>
+            <View style={[styles.textInput, styles.disabledInput]}>
+              <Text style={styles.disabledText}>{role || "Retailer"}</Text>
+            </View>
+          </View>
+
+          {createdAt && (
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>Member Since</Text>
+              <View style={[styles.textInput, styles.disabledInput]}>
+                <Text style={styles.disabledText}>
+                  {new Date(createdAt).toLocaleDateString()}
+                </Text>
+              </View>
+            </View>
+          )}
+        </View>
 
         {/* User Profile Section */}
         <View style={styles.profileSection}>
           <View style={styles.profileInputGroup}>
-            <View style={styles.inputWithIcon}>
-              <Ionicons name="person" size={20} color="#9CA3AF" style={styles.inputIcon} />
-              <TextInput
-                style={[styles.profileInput, !isEditing && styles.disabledInput]}
-                placeholder="e.g. Juan Dela Cruz"
-                value={fullName}
-                onChangeText={setFullName}
-                placeholderTextColor="#9CA3AF"
-                editable={isEditing}
-              />
-            </View>
-
-            <View style={styles.inputWithIcon}>
-              <Ionicons name="mail" size={20} color="#9CA3AF" style={styles.inputIcon} />
-              <TextInput
-                style={[styles.profileInput, !isEditing && styles.disabledInput]}
-                placeholder="e.g. juandelacruz@email.com"
-                value={email}
-                onChangeText={setEmail}
-                placeholderTextColor="#9CA3AF"
-                keyboardType="email-address"
-                editable={isEditing}
-              />
-            </View>
-
             {!isEditing ? (
               <TouchableOpacity style={styles.editAccountButton} onPress={handleEdit}>
                 <Text style={styles.editAccountButtonText}>Edit Account</Text>
@@ -221,8 +352,14 @@ export default function Settings() {
                 <TouchableOpacity style={styles.cancelEditButton} onPress={handleCancelEdit}>
                   <Text style={styles.cancelEditButtonText}>Cancel</Text>
                 </TouchableOpacity>
-                <TouchableOpacity style={styles.saveEditButton} onPress={handleSave}>
-                  <Text style={styles.saveEditButtonText}>Save Changes</Text>
+                <TouchableOpacity 
+                  style={[styles.saveEditButton, isSaving && styles.disabledButton]} 
+                  onPress={handleSave}
+                  disabled={isSaving}
+                >
+                  <Text style={styles.saveEditButtonText}>
+                    {isSaving ? "Saving..." : "Save Changes"}
+                  </Text>
                 </TouchableOpacity>
               </View>
             )}
@@ -325,6 +462,34 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     color: "#374151",
     marginBottom: 8,
+  },
+  labelContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 8,
+  },
+  activeBadge: {
+    backgroundColor: "#10B981",
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  activeBadgeText: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: "#ffffff",
+  },
+  comingSoonBadge: {
+    backgroundColor: "#F59E0B",
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  comingSoonBadgeText: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: "#ffffff",
   },
   textInput: {
     backgroundColor: "#F9FAFB",
@@ -495,6 +660,11 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     color: "#ffffff",
   },
+  disabledButton: {
+    backgroundColor: "#9CA3AF",
+    opacity: 0.6,
+  },
+
   logoutButton: {
     backgroundColor: "#EF4444",
     borderRadius: 12,
