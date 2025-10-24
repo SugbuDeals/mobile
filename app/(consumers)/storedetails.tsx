@@ -3,7 +3,17 @@ import { useCatalog } from "@/features/catalog";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { useLocalSearchParams } from "expo-router";
 import React from "react";
-import { Image, SafeAreaView, ScrollView, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
+import {
+  Image,
+  SafeAreaView,
+  ScrollView,
+  StatusBar,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from "react-native";
 
 export default function StoreDetailsScreen() {
   const params = useLocalSearchParams() as Record<string, string | undefined>;
@@ -16,14 +26,21 @@ export default function StoreDetailsScreen() {
   const [activeCategory, setActiveCategory] = React.useState("All");
   const [query, setQuery] = React.useState("");
 
-  const categories = ["All", "Office Supplies", "Electronics", "Accessories"]; 
+  const categories = ["All", "Office Supplies", "Electronics", "Accessories"];
 
   return (
     <SafeAreaView style={styles.safeArea}>
       <StatusBar barStyle="dark-content" backgroundColor="#fff" />
-      <ScrollView contentContainerStyle={styles.scrollViewContent} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        contentContainerStyle={styles.scrollViewContent}
+        showsVerticalScrollIndicator={false}
+      >
         <StoreHero storeName={storeName} />
-        <CategoriesBar categories={categories} active={activeCategory} onChange={setActiveCategory} />
+        <CategoriesBar
+          categories={categories}
+          active={activeCategory}
+          onChange={setActiveCategory}
+        />
         <StoreSearch value={query} onChange={setQuery} />
         <DealsGrid storeId={storeId} category={activeCategory} query={query} />
         <View style={{ height: 40 }} />
@@ -33,12 +50,38 @@ export default function StoreDetailsScreen() {
 }
 
 // CategoriesBar (inline)
-function CategoriesBar({ categories, active, onChange }: { categories: string[]; active: string; onChange: (c: string) => void; }) {
+function CategoriesBar({
+  categories,
+  active,
+  onChange,
+}: {
+  categories: string[];
+  active: string;
+  onChange: (c: string) => void;
+}) {
   return (
-    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={barStyles.row}>
+    <ScrollView
+      horizontal
+      showsHorizontalScrollIndicator={false}
+      contentContainerStyle={barStyles.row}
+    >
       {categories.map((c) => (
-        <TouchableOpacity key={c} onPress={() => onChange(c)} style={[barStyles.pill, active === c ? barStyles.pillActive : barStyles.pillInactive]}>
-          <Text style={[barStyles.text, active === c ? barStyles.textActive : barStyles.textInactive]}>{c}</Text>
+        <TouchableOpacity
+          key={c}
+          onPress={() => onChange(c)}
+          style={[
+            barStyles.pill,
+            active === c ? barStyles.pillActive : barStyles.pillInactive,
+          ]}
+        >
+          <Text
+            style={[
+              barStyles.text,
+              active === c ? barStyles.textActive : barStyles.textInactive,
+            ]}
+          >
+            {c}
+          </Text>
         </TouchableOpacity>
       ))}
     </ScrollView>
@@ -46,14 +89,29 @@ function CategoriesBar({ categories, active, onChange }: { categories: string[];
 }
 
 // DealsGrid (inline) - uses catalog products filtered by storeId
-function DealsGrid({ storeId, query = "", category = "All" }: { storeId?: number; query?: string; category?: string }) {
-  const { state: { products } } = useCatalog();
+function DealsGrid({
+  storeId,
+  query = "",
+  category = "All",
+}: {
+  storeId?: number;
+  query?: string;
+  category?: string;
+}) {
+  const {
+    state: { products },
+  } = useCatalog();
   const filtered = React.useMemo(() => {
     const q = query.trim().toLowerCase();
-    const source = (products || []).filter((p: any) => (storeId == null ? true : p.storeId === storeId));
+    const source = (products || []).filter((p: any) =>
+      storeId == null ? true : p.storeId === storeId
+    );
     return source.filter((p: any) => {
-      const matchesQuery = q.length === 0 || String(p.name).toLowerCase().includes(q);
-      const matchesCategory = category === "All" || String(p.category || '').toLowerCase() === category.toLowerCase();
+      const matchesQuery =
+        q.length === 0 || String(p.name).toLowerCase().includes(q);
+      const matchesCategory =
+        category === "All" ||
+        String(p.category || "").toLowerCase() === category.toLowerCase();
       return matchesQuery && matchesCategory;
     });
   }, [products, storeId, query, category]);
@@ -62,10 +120,17 @@ function DealsGrid({ storeId, query = "", category = "All" }: { storeId?: number
     <View style={gridStyles.grid}>
       {filtered.map((p: any) => (
         <View key={p.id} style={gridStyles.card}>
-          <Image source={require("../../assets/images/partial-react-logo.png")} style={gridStyles.image} />
+          <Image
+            source={require("../../assets/images/partial-react-logo.png")}
+            style={gridStyles.image}
+          />
           <View style={gridStyles.textArea}>
             <Text style={gridStyles.productName}>{p.name}</Text>
-            {p.price != null && <Text style={gridStyles.price}>₱{Number(p.price).toFixed(2)}</Text>}
+            {p.price != null && (
+              <Text style={gridStyles.price}>
+                ₱{Number(p.price).toFixed(2)}
+              </Text>
+            )}
           </View>
         </View>
       ))}
@@ -87,11 +152,19 @@ function StoreHero({ storeName }: { storeName: string }) {
   return (
     <View style={heroStyles.container}>
       <View style={heroStyles.bannerWrapper}>
-        <Image source={require("../../assets/images/partial-react-logo.png")} resizeMode="cover" style={heroStyles.banner} />
+        <Image
+          source={require("../../assets/images/partial-react-logo.png")}
+          resizeMode="cover"
+          style={heroStyles.banner}
+        />
       </View>
       <View style={heroStyles.topRightRow}>
         <TouchableOpacity onPress={toggle} activeOpacity={0.8}>
-          <Ionicons name={isSaved ? "bookmark" : "bookmark-outline"} size={22} color={isSaved ? "#F59E0B" : "#333"} />
+          <Ionicons
+            name={isSaved ? "bookmark" : "bookmark-outline"}
+            size={22}
+            color={isSaved ? "#F59E0B" : "#333"}
+          />
         </TouchableOpacity>
       </View>
       <View style={heroStyles.identityBlock}>
@@ -100,8 +173,12 @@ function StoreHero({ storeName }: { storeName: string }) {
           <Text style={heroStyles.name}>{storeName}</Text>
           <Text style={heroStyles.desc}>Stationary, Groceries, Home</Text>
           <View style={heroStyles.chipsRow}>
-            <View style={[heroStyles.chip, heroStyles.chipPrimary]}><Text style={heroStyles.chipPrimaryText}>Open Now</Text></View>
-            <View style={[heroStyles.chip, heroStyles.chipOutline]}><Text style={heroStyles.chipOutlineText}>Closes at 9:00 PM</Text></View>
+            <View style={[heroStyles.chip, heroStyles.chipPrimary]}>
+              <Text style={heroStyles.chipPrimaryText}>Open Now</Text>
+            </View>
+            <View style={[heroStyles.chip, heroStyles.chipOutline]}>
+              <Text style={heroStyles.chipOutlineText}>Closes at 9:00 PM</Text>
+            </View>
           </View>
         </View>
       </View>
@@ -111,7 +188,13 @@ function StoreHero({ storeName }: { storeName: string }) {
 }
 
 // StoreSearch (inline)
-function StoreSearch({ value, onChange }: { value: string; onChange: (t: string) => void }) {
+function StoreSearch({
+  value,
+  onChange,
+}: {
+  value: string;
+  onChange: (t: string) => void;
+}) {
   return (
     <TextInput
       placeholder="Search products..."
@@ -125,7 +208,11 @@ function StoreSearch({ value, onChange }: { value: string; onChange: (t: string)
 
 const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: "#fff" },
-  scrollViewContent: { paddingHorizontal: 20, paddingTop: 10, paddingBottom: 20 },
+  scrollViewContent: {
+    paddingHorizontal: 20,
+    paddingTop: 10,
+    paddingBottom: 20,
+  },
 });
 
 const barStyles = StyleSheet.create({
@@ -139,7 +226,11 @@ const barStyles = StyleSheet.create({
 });
 
 const gridStyles = StyleSheet.create({
-  grid: { flexDirection: "row", flexWrap: "wrap", justifyContent: "space-between" },
+  grid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    justifyContent: "space-between",
+  },
   card: {
     width: "48%",
     backgroundColor: "#F5F6F7",
@@ -171,19 +262,41 @@ const gridStyles = StyleSheet.create({
 
 const heroStyles = StyleSheet.create({
   container: { paddingBottom: 16 },
-  bannerWrapper: { marginLeft: -20, marginRight: -20, backgroundColor: "#d1d1d1" },
+  bannerWrapper: {
+    marginLeft: -20,
+    marginRight: -20,
+    backgroundColor: "#d1d1d1",
+  },
   banner: { width: "100%", height: 200, borderRadius: 12 },
-  topRightRow: { flexDirection: "row", justifyContent: "flex-end", marginTop: 8 },
-  identityBlock: { flexDirection: "row", columnGap: 12, alignItems: "flex-start", marginTop: -8 },
+  topRightRow: {
+    flexDirection: "row",
+    justifyContent: "flex-end",
+    marginTop: 8,
+  },
+  identityBlock: {
+    flexDirection: "row",
+    columnGap: 12,
+    alignItems: "flex-start",
+    marginTop: -8,
+  },
   logoWrapper: { marginTop: -52 },
-  logoBox: { width: 84, height: 84, borderRadius: 20, backgroundColor: "#1D9BF0" },
+  logoBox: {
+    width: 84,
+    height: 84,
+    borderRadius: 20,
+    backgroundColor: "#1D9BF0",
+  },
   name: { fontSize: 20, fontWeight: "700", marginTop: 6 },
   desc: { color: "#6B7280", marginTop: 2 },
   chipsRow: { flexDirection: "row", columnGap: 10, marginTop: 10 },
   chip: { borderRadius: 100, paddingVertical: 6, paddingHorizontal: 12 },
   chipPrimary: { backgroundColor: "#1B6F5D" },
   chipPrimaryText: { color: "#fff", fontWeight: "600" },
-  chipOutline: { backgroundColor: "#fff", borderColor: "#1B6F5D", borderWidth: 1 },
+  chipOutline: {
+    backgroundColor: "#fff",
+    borderColor: "#1B6F5D",
+    borderWidth: 1,
+  },
   chipOutlineText: { color: "#1B6F5D", fontWeight: "600" },
   sectionTitle: { marginTop: 18, fontWeight: "700" },
 });
@@ -198,5 +311,3 @@ const searchStyles = StyleSheet.create({
     marginBottom: 10,
   },
 });
-
-

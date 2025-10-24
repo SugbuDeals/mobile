@@ -1,14 +1,24 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import React from "react";
-import { Dimensions, Image, Linking, SafeAreaView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import {
+  Dimensions,
+  Image,
+  Linking,
+  SafeAreaView,
+  StatusBar,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from "react-native";
 
 const screen = Dimensions.get("window");
 
 export default function NavigateStore() {
   const router = useRouter();
   const params = useLocalSearchParams() as Record<string, string | undefined>;
-  
+
   const storeName = (params.storeName as string) || "QuickMart";
   const storeId = params.storeId;
   const address = (params.address as string) || "123 Market Street";
@@ -37,12 +47,42 @@ export default function NavigateStore() {
           source={require("../../assets/images/partial-react-logo.png")}
           style={styles.mapImage}
         />
-        
+
         {/* Route highlighting overlay */}
         <View style={styles.routeOverlay}>
-          <View style={[styles.routeLine, { top: "20%", left: "10%", width: "60%", transform: [{ rotate: "45deg" }] }]} />
-          <View style={[styles.routeLine, { top: "40%", left: "30%", width: "40%", transform: [{ rotate: "-30deg" }] }]} />
-          <View style={[styles.routeLine, { top: "60%", left: "20%", width: "50%", transform: [{ rotate: "15deg" }] }]} />
+          <View
+            style={[
+              styles.routeLine,
+              {
+                top: "20%",
+                left: "10%",
+                width: "60%",
+                transform: [{ rotate: "45deg" }],
+              },
+            ]}
+          />
+          <View
+            style={[
+              styles.routeLine,
+              {
+                top: "40%",
+                left: "30%",
+                width: "40%",
+                transform: [{ rotate: "-30deg" }],
+              },
+            ]}
+          />
+          <View
+            style={[
+              styles.routeLine,
+              {
+                top: "60%",
+                left: "20%",
+                width: "50%",
+                transform: [{ rotate: "15deg" }],
+              },
+            ]}
+          />
         </View>
 
         {/* Store pin */}
@@ -55,7 +95,9 @@ export default function NavigateStore() {
           <View style={styles.storeHeader}>
             <View style={styles.storeInfo}>
               <Text style={styles.storeName}>{storeName}</Text>
-              <Text style={styles.storeCategories}>Stationary, Groceries, Home</Text>
+              <Text style={styles.storeCategories}>
+                Stationary, Groceries, Home
+              </Text>
             </View>
             <View style={styles.statusBadge}>
               <Text style={styles.statusText}>Open</Text>
@@ -84,7 +126,10 @@ export default function NavigateStore() {
             </View>
           </View>
 
-          <TouchableOpacity style={styles.openMapsButton} onPress={handleOpenInMaps}>
+          <TouchableOpacity
+            style={styles.openMapsButton}
+            onPress={handleOpenInMaps}
+          >
             <Ionicons name="map" size={20} color="#1B6F5D" />
             <Text style={styles.openMapsText}>Open in Maps</Text>
           </TouchableOpacity>

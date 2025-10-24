@@ -5,7 +5,14 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import { LinearGradient } from "expo-linear-gradient";
 import { Tabs, router } from "expo-router";
 import React from "react";
-import { Platform, StatusBar, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import {
+  Platform,
+  StatusBar,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from "react-native";
 
 const RetailerHeader = () => {
   const dispatch = useAppDispatch();
@@ -34,19 +41,19 @@ const RetailerHeader = () => {
               <Text style={styles.headerSubtitle}>Manage your Store</Text>
             </View>
           </View>
-          
+
           {/* Right side buttons */}
           <View style={styles.rightButtonsContainer}>
             {/* Notification Bell */}
-            <TouchableOpacity 
+            <TouchableOpacity
               style={styles.notificationContainer}
               onPress={() => router.push("/(retailers)/notifications")}
             >
               <Ionicons name="notifications" size={20} color="#ffffff" />
             </TouchableOpacity>
-            
+
             {/* Logout Button */}
-            <TouchableOpacity 
+            <TouchableOpacity
               style={styles.logoutContainer}
               onPress={handleLogout}
             >
@@ -145,10 +152,10 @@ const styles = StyleSheet.create({
     shadowRadius: 12,
     borderBottomRightRadius: 40,
     backgroundColor: "transparent",
-    overflow: "hidden"
+    overflow: "hidden",
   },
   headerContainer: {
-    paddingTop: Platform.OS === "ios" ? 50 : (StatusBar.currentHeight || 0),
+    paddingTop: Platform.OS === "ios" ? 50 : StatusBar.currentHeight || 0,
     paddingBottom: 20,
     paddingHorizontal: 20,
     borderBottomRightRadius: 40,
@@ -159,7 +166,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginTop: 4,
     justifyContent: "space-between",
-    backgroundColor: "transparent"
+    backgroundColor: "transparent",
   },
   headerLeft: {
     flexDirection: "row",

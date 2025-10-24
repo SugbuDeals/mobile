@@ -5,12 +5,12 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import { router } from "expo-router";
 import React, { useEffect, useMemo, useState } from "react";
 import {
-    Alert,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View
+  Alert,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from "react-native";
 import Button from "../../components/Button";
 import TextField from "../../components/TextField";
@@ -45,7 +45,12 @@ export default function Profile() {
     try {
       if (!user || !(user as any).id) return;
       const id = Number((user as any).id);
-      await dispatch(require("@/features/auth/thunk").updateUser({ id, data: { name, email } }) as any);
+      await dispatch(
+        require("@/features/auth/thunk").updateUser({
+          id,
+          data: { name, email },
+        }) as any
+      );
       Alert.alert("Success", "Profile updated successfully!");
       setIsEditing(false);
     } catch (e) {
@@ -61,17 +66,17 @@ export default function Profile() {
   };
 
   const handleLogout = () => {
-    Alert.alert(
-      "Logout",
-      "Are you sure you want to logout?",
-      [
-        { text: "Cancel", style: "cancel" },
-        { text: "Logout", style: "destructive", onPress: () => {
+    Alert.alert("Logout", "Are you sure you want to logout?", [
+      { text: "Cancel", style: "cancel" },
+      {
+        text: "Logout",
+        style: "destructive",
+        onPress: () => {
           dispatch(logout());
           router.replace("/auth/login");
-        }}
-      ]
-    );
+        },
+      },
+    ]);
   };
 
   const handleEditProfile = () => {
@@ -86,7 +91,10 @@ export default function Profile() {
           <View style={styles.profilePicture}>
             <Ionicons name="person" size={80} color="#277874" />
           </View>
-          <TouchableOpacity style={styles.editPhotoButton} onPress={handleEditProfile}>
+          <TouchableOpacity
+            style={styles.editPhotoButton}
+            onPress={handleEditProfile}
+          >
             <Ionicons name="add" size={16} color="#ffffff" />
           </TouchableOpacity>
         </View>
@@ -99,15 +107,19 @@ export default function Profile() {
               placeholder="e.g. Juan Dela Cruz"
               value={name}
               onChangeText={setName}
-              iconComponent={<Ionicons name="person-outline" size={18} color="#277874" />}
+              iconComponent={
+                <Ionicons name="person-outline" size={18} color="#277874" />
+              }
               editable={isEditing}
             />
-            
+
             <TextField
               placeholder="e.g. juandelacruz@email.com"
               value={email}
               onChangeText={setEmail}
-              iconComponent={<Ionicons name="mail-outline" size={18} color="#277874" />}
+              iconComponent={
+                <Ionicons name="mail-outline" size={18} color="#277874" />
+              }
               editable={isEditing}
               keyboardType="email-address"
             />
@@ -124,7 +136,13 @@ export default function Profile() {
               value={notificationsEnabled}
               onValueChange={setNotificationsEnabled}
               label="Receive Notifications"
-              icon={<Ionicons name="notifications-outline" size={18} color="#277874" />}
+              icon={
+                <Ionicons
+                  name="notifications-outline"
+                  size={18}
+                  color="#277874"
+                />
+              }
             />
           </View>
         </View>
@@ -152,7 +170,7 @@ export default function Profile() {
                 >
                   <Text style={styles.buttonText}>Cancel</Text>
                 </Button>
-                
+
                 <Button
                   variant="success"
                   style={styles.saveButton}

@@ -1,7 +1,13 @@
 import env from "@/config/env";
 import type { RootState } from "@/store/types";
 import { createAsyncThunk } from "@reduxjs/toolkit";
-import { LoginCredentials, LoginError, LoginResponse, RegisterError, RegisterPayload } from "./types";
+import {
+  LoginCredentials,
+  LoginError,
+  LoginResponse,
+  RegisterError,
+  RegisterPayload,
+} from "./types";
 
 /**
  * Async thunk action creator for handling user login
@@ -67,13 +73,16 @@ export const fetchUserById = createAsyncThunk<
 
     if (!response.ok) {
       const error = await response.json().catch(() => ({}));
-      return rejectWithValue({ message: error.message || "Failed to fetch user" });
+      return rejectWithValue({
+        message: error.message || "Failed to fetch user",
+      });
     }
 
     return response.json();
   } catch (error) {
     return rejectWithValue({
-      message: error instanceof Error ? error.message : "An unknown error occured",
+      message:
+        error instanceof Error ? error.message : "An unknown error occured",
     });
   }
 });
@@ -99,13 +108,16 @@ export const updateUser = createAsyncThunk<
 
     if (!response.ok) {
       const error = await response.json().catch(() => ({}));
-      return rejectWithValue({ message: error.message || "Failed to update user" });
+      return rejectWithValue({
+        message: error.message || "Failed to update user",
+      });
     }
 
     return response.json();
   } catch (error) {
     return rejectWithValue({
-      message: error instanceof Error ? error.message : "An unknown error occured",
+      message:
+        error instanceof Error ? error.message : "An unknown error occured",
     });
   }
 });
@@ -126,14 +138,17 @@ export const register = createAsyncThunk<
     });
     if (!response.ok) {
       const error = await response.json().catch(() => ({}));
-      return rejectWithValue({ message: error.message || "Registration failed" });
+      return rejectWithValue({
+        message: error.message || "Registration failed",
+      });
     }
     
     const userData = await response.json();
     return userData;
   } catch (error) {
     return rejectWithValue({
-      message: error instanceof Error ? error.message : "An unknown error occured",
+      message:
+        error instanceof Error ? error.message : "An unknown error occured",
     });
   }
 });

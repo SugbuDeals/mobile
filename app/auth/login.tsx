@@ -16,7 +16,7 @@ import {
   StyleSheet,
   Text,
   TouchableOpacity,
-  View
+  View,
 } from "react-native";
 import * as yup from "yup";
 
@@ -28,7 +28,7 @@ const schema = yup.object().shape({
 export default function Login() {
   const {
     action: { login },
-    state: { accessToken, loading, user },
+    state: { accessToken, loading, user, error },
   } = useLogin();
 
   const {
@@ -43,13 +43,20 @@ export default function Login() {
     },
   });
 
+  useEffect(() => {
+    console.log(`access_token: ${accessToken}`);
+    console.log(`error: ${error}`);
+  }, [accessToken, error]);
+
   const onSignIn = (formData: yup.InferType<typeof schema>) => {
     login(formData);
   };
 
   useEffect(() => {
     if (!loading && accessToken && user) {
-      const normalizedRole = String((user as any).user_type ?? (user as any).role ?? "").toLowerCase();
+      const normalizedRole = String(
+        (user as any).user_type ?? (user as any).role ?? ""
+      ).toLowerCase();
       if (normalizedRole === "retailer") {
         router.replace("/(retailers)");
       } else {
@@ -64,7 +71,7 @@ export default function Login() {
     width: circleSize,
     height: circleSize,
     top: -circleSize * 0.15,
-    right: -circleSize * 0.20,
+    right: -circleSize * 0.2,
     borderRadius: circleSize / 2,
   } as const;
 
@@ -99,7 +106,9 @@ export default function Login() {
               render={({ field: { onChange, value } }) => (
                 <TextField
                   label="Email"
-                  iconComponent={<Ionicons name="mail-outline" size={20} color="#14B8A6" />}
+                  iconComponent={
+                    <Ionicons name="mail-outline" size={20} color="#14B8A6" />
+                  }
                   placeholder="Enter your email"
                   keyboardType="email-address"
                   autoCapitalize="none"
@@ -117,7 +126,13 @@ export default function Login() {
               render={({ field: { onChange, value } }) => (
                 <TextField
                   label="Password"
-                  iconComponent={<Ionicons name="lock-closed-outline" size={20} color="#14B8A6" />}
+                  iconComponent={
+                    <Ionicons
+                      name="lock-closed-outline"
+                      size={20}
+                      color="#14B8A6"
+                    />
+                  }
                   placeholder="Enter your password"
                   secureTextEntry
                   value={value}
@@ -157,7 +172,9 @@ export default function Login() {
             </Link>
           </View>
 
-          <View style={{ flexDirection: "row", justifyContent: "center", gap: 20 }}>
+          <View
+            style={{ flexDirection: "row", justifyContent: "center", gap: 20 }}
+          >
             <Link style={styles.linkText} href="/(consumers)">
               Consumer
             </Link>
