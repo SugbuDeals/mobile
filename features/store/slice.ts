@@ -144,6 +144,7 @@ const storeSlice = createSlice({
         state.error = null;
       })
       .addCase(updateStore.fulfilled, (state, action) => {
+        console.log("Store slice - updateStore.fulfilled:", action.payload);
         state.loading = false;
         state.error = null;
         state.userStore = action.payload;
@@ -153,6 +154,7 @@ const storeSlice = createSlice({
         if (storeIndex !== -1) {
           state.stores[storeIndex] = action.payload;
         }
+        console.log("Store slice - userStore updated to:", state.userStore);
       })
       .addCase(updateStore.rejected, (state, action) => {
         state.loading = false;

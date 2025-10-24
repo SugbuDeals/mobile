@@ -8,15 +8,15 @@ import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
 import React, { useMemo, useState } from "react";
 import {
-    Alert,
-    Platform,
-    ScrollView,
-    StatusBar,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View
+  Alert,
+  Platform,
+  ScrollView,
+  StatusBar,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View
 } from "react-native";
 
 export default function Settings() {
@@ -38,8 +38,10 @@ export default function Settings() {
   
   const [fullName, setName] = useState(defaultName);
   const [email, setEmail] = useState(defaultEmail);
-  const [isEditing, setIsEditing] = useState(false);
-  const [isSaving, setIsSaving] = useState(false);
+  const [isEditingStore, setIsEditingStore] = useState(false);
+  const [isEditingUser, setIsEditingUser] = useState(false);
+  const [isSavingStore, setIsSavingStore] = useState(false);
+  const [isSavingUser, setIsSavingUser] = useState(false);
 
   // Store data is already loaded by useStoreManagement hook in the layout
   // No need to load it again here
@@ -53,26 +55,32 @@ export default function Settings() {
     }
   }, [userStore]);
 
-  const handleEdit = () => {
-    setIsEditing(true);
+  const handleEditStore = () => {
+    setIsEditingStore(true);
   };
 
-  const handleCancelEdit = () => {
-    // Reset form to original values from auth state
-    setName(defaultName);
-    setEmail(defaultEmail);
-    
+  const handleEditUser = () => {
+    setIsEditingUser(true);
+  };
+
+  const handleCancelStoreEdit = () => {
     // Reset store fields to original values
     if (userStore) {
       setStoreName(userStore.name || "");
       setStoreDescription(userStore.description || "");
     }
-    
-    setIsEditing(false);
+    setIsEditingStore(false);
   };
 
-  const handleSave = async () => {
-    if (isSaving) return; // Prevent multiple saves
+  const handleCancelUserEdit = () => {
+    // Reset form to original values from auth state
+    setName(defaultName);
+    setEmail(defaultEmail);
+    setIsEditingUser(false);
+  };
+
+  const handleSaveStore = async () => {
+    if (isSavingStore) return; // Prevent multiple saves
     
     // Validate required fields
     if (!storeName.trim()) {
@@ -90,22 +98,19 @@ export default function Settings() {
       return;
     }
     
-    setIsSaving(true);
+    setIsSavingStore(true);
     try {
-      console.log("Saving changes:", {
+      console.log("Saving store changes:", {
         storeName: storeName.trim(),
         storeDescription: storeDescription.trim(),
-        fullName: fullName.trim(),
-        email: email.trim(),
       });
       
-      // Prepare update data - only include fields that have changed
-      const storeUpdateData: any = {
-        id: userStore.id,
-        userId: Number((userStore as any).userId ?? (userStore as any).ownerId ?? user?.id),
-      };
+      console.log("Current user:", user);
+      console.log("Current userStore:", userStore);
       
-      const userUpdateData: any = {};
+      // Prepare update data - only include fields that have changed
+      // Note: Don't include 'id' in the request body as it's passed in the URL
+      const storeUpdateData: any = {};
       
       // Only include store fields that are different from current values
       if (storeName.trim() !== (userStore.name || "")) {
@@ -114,14 +119,62 @@ export default function Settings() {
       if (storeDescription.trim() !== (userStore.description || "")) {
         storeUpdateData.description = storeDescription.trim();
       }
-
-      // Ensure verificationStatus is preserved if backend expects it in body
-      if (
-        (userStore as any)?.verificationStatus !== undefined &&
-        storeUpdateData.verificationStatus === undefined
-      ) {
-        storeUpdateData.verificationStatus = (userStore as any).verificationStatus;
+      
+      // NOTE: We are intentionally REMOVING 'userId' from here. 
+      // The thunk logic is updated to handle this removal and prevent the 500 error.
+      // The old line was: storeUpdateData.userId = Number(user?.id);
+      
+      // Update store if there are store changes 
+      const hasStoreChanges = storeUpdateData.name !== undefined || storeUpdateData.description !== undefined;
+      
+      if (hasStoreChanges) {
+        console.log("=== STORE UPDATE DEBUG ===");
+        console.log("Final storeUpdateData:", JSON.stringify(storeUpdateData, null, 2));
+        console.log("Store ID (from userStore):", userStore.id);
+        console.log("User ID (from user):", user?.id);
+        console.log("Store name:", storeUpdateData.name);
+        console.log("Store description:", storeUpdateData.description);
+        console.log("==========================");
+        
+        await updateStore({ id: userStore.id, ...storeUpdateData }).unwrap();
+        console.log("Store updated successfully");
+        
+        // Show success message
+        Alert.alert(
+          "Success",
+          "Store details updated successfully!",
+          [{ text: "OK" }]
+        );
+        
+        setIsEditingStore(false);
+      } else {
+        Alert.alert("Info", "No changes detected in store details.");
       }
+    } catch (error: any) {
+      console.error("Failed to save store changes:", error);
+      
+      // Show error message
+      Alert.alert(
+        "Error",
+        error?.message || "Failed to update store details. Please try again.",
+        [{ text: "OK" }]
+      );
+    } finally {
+      setIsSavingStore(false);
+    }
+  };
+
+  const handleSaveUser = async () => {
+    if (isSavingUser) return; // Prevent multiple saves
+    
+    setIsSavingUser(true);
+    try {
+      console.log("Saving user changes:", {
+        fullName: fullName.trim(),
+        email: email.trim(),
+      });
+      
+      const userUpdateData: any = {};
       
       // Only include user fields that are different from current values
       if (fullName.trim() !== defaultName) {
@@ -131,35 +184,32 @@ export default function Settings() {
         userUpdateData.email = email.trim();
       }
       
-      // Update store if there are store changes
-      if (storeUpdateData.name !== undefined || storeUpdateData.description !== undefined) {
-        await updateStore(storeUpdateData).unwrap();
-      }
-      
       // Update user if there are user changes
       if (Object.keys(userUpdateData).length > 0) {
-        await updateUser(Number(user.id), userUpdateData).unwrap();
+        await updateUser(Number(user?.id), userUpdateData).unwrap();
+        
+        // Show success message
+        Alert.alert(
+          "Success",
+          "User details updated successfully!",
+          [{ text: "OK" }]
+        );
+        
+        setIsEditingUser(false);
+      } else {
+        Alert.alert("Info", "No changes detected in user details.");
       }
-      
-      // Show success message
-      Alert.alert(
-        "Success",
-        "Information updated successfully!",
-        [{ text: "OK" }]
-      );
-      
-      setIsEditing(false);
     } catch (error: any) {
-      console.error("Failed to save changes:", error);
+      console.error("Failed to save user changes:", error);
       
       // Show error message
       Alert.alert(
         "Error",
-        error?.message || "Failed to update information. Please try again.",
+        error?.message || "Failed to update user details. Please try again.",
         [{ text: "OK" }]
       );
     } finally {
-      setIsSaving(false);
+      setIsSavingUser(false);
     }
   };
 
@@ -214,12 +264,12 @@ export default function Settings() {
               </View>
             </View>
             <TextInput
-              style={[styles.textInput, !isEditing && styles.disabledInput]}
+              style={[styles.textInput, !isEditingStore && styles.disabledInput]}
               placeholder="Enter your store name"
               value={storeName}
               onChangeText={setStoreName}
               placeholderTextColor="#9CA3AF"
-              editable={isEditing}
+              editable={isEditingStore}
             />
           </View>
 
@@ -231,14 +281,14 @@ export default function Settings() {
               </View>
             </View>
             <TextInput
-              style={[styles.textInput, styles.textArea, !isEditing && styles.disabledInput]}
+              style={[styles.textInput, styles.textArea, !isEditingStore && styles.disabledInput]}
               placeholder="Tell customers about your store"
               value={storeDescription}
               onChangeText={setStoreDescription}
               placeholderTextColor="#9CA3AF"
               multiline
               numberOfLines={3}
-              editable={isEditing}
+              editable={isEditingStore}
             />
           </View>
 
@@ -298,6 +348,30 @@ export default function Settings() {
               <Text style={styles.disabledText}>Coming Soon</Text>
             </View>
           </View>
+
+          {/* Store Edit Buttons */}
+          <View style={styles.inputGroup}>
+            {!isEditingStore ? (
+              <TouchableOpacity style={styles.editStoreButton} onPress={handleEditStore}>
+                <Text style={styles.editStoreButtonText}>Edit Store Details</Text>
+              </TouchableOpacity>
+            ) : (
+              <View style={styles.editButtons}>
+                <TouchableOpacity style={styles.cancelEditButton} onPress={handleCancelStoreEdit}>
+                  <Text style={styles.cancelEditButtonText}>Cancel</Text>
+                </TouchableOpacity>
+                <TouchableOpacity 
+                  style={[styles.saveEditButton, isSavingStore && styles.disabledButton]} 
+                  onPress={handleSaveStore}
+                  disabled={isSavingStore}
+                >
+                  <Text style={styles.saveEditButtonText}>
+                    {isSavingStore ? "Saving..." : "Save Store"}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            )}
+          </View>
         </View>
 
         <View style={styles.section}>
@@ -309,25 +383,25 @@ export default function Settings() {
           <View style={styles.inputGroup}>
             <Text style={styles.label}>Full Name</Text>
             <TextInput
-              style={[styles.textInput, !isEditing && styles.disabledInput]}
+              style={[styles.textInput, !isEditingUser && styles.disabledInput]}
               placeholder="Enter your full name"
               value={fullName}
               onChangeText={setName}
               placeholderTextColor="#9CA3AF"
-              editable={isEditing}
+              editable={isEditingUser}
             />
           </View>
 
           <View style={styles.inputGroup}>
             <Text style={styles.label}>Email Address</Text>
             <TextInput
-              style={[styles.textInput, !isEditing && styles.disabledInput]}
+              style={[styles.textInput, !isEditingUser && styles.disabledInput]}
               placeholder="Enter your email address"
               value={email}
               onChangeText={setEmail}
               placeholderTextColor="#9CA3AF"
               keyboardType="email-address"
-              editable={isEditing}
+              editable={isEditingUser}
             />
           </View>
 
@@ -348,32 +422,35 @@ export default function Settings() {
               </View>
             </View>
           )}
-        </View>
 
-        {/* User Profile Section */}
-        <View style={styles.profileSection}>
-          <View style={styles.profileInputGroup}>
-            {!isEditing ? (
-              <TouchableOpacity style={styles.editAccountButton} onPress={handleEdit}>
-                <Text style={styles.editAccountButtonText}>Edit Account</Text>
+          {/* User Edit Buttons */}
+          <View style={styles.inputGroup}>
+            {!isEditingUser ? (
+              <TouchableOpacity style={styles.editUserButton} onPress={handleEditUser}>
+                <Text style={styles.editUserButtonText}>Edit User Details</Text>
               </TouchableOpacity>
             ) : (
               <View style={styles.editButtons}>
-                <TouchableOpacity style={styles.cancelEditButton} onPress={handleCancelEdit}>
+                <TouchableOpacity style={styles.cancelEditButton} onPress={handleCancelUserEdit}>
                   <Text style={styles.cancelEditButtonText}>Cancel</Text>
                 </TouchableOpacity>
                 <TouchableOpacity 
-                  style={[styles.saveEditButton, isSaving && styles.disabledButton]} 
-                  onPress={handleSave}
-                  disabled={isSaving}
+                  style={[styles.saveEditButton, isSavingUser && styles.disabledButton]} 
+                  onPress={handleSaveUser}
+                  disabled={isSavingUser}
                 >
                   <Text style={styles.saveEditButtonText}>
-                    {isSaving ? "Saving..." : "Save Changes"}
+                    {isSavingUser ? "Saving..." : "Save User"}
                   </Text>
                 </TouchableOpacity>
               </View>
             )}
+          </View>
+        </View>
 
+        {/* Logout Section */}
+        <View style={styles.profileSection}>
+          <View style={styles.profileInputGroup}>
             <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
               <Text style={styles.logoutButtonText}>Logout Account</Text>
             </TouchableOpacity>
@@ -629,14 +706,26 @@ const styles = StyleSheet.create({
     backgroundColor: "#F3F4F6",
     borderColor: "#D1D5DB",
   },
-  editAccountButton: {
+  editStoreButton: {
     backgroundColor: "#277874",
     borderRadius: 12,
     paddingVertical: 12,
     alignItems: "center",
     marginTop: 8,
   },
-  editAccountButtonText: {
+  editStoreButtonText: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#ffffff",
+  },
+  editUserButton: {
+    backgroundColor: "#277874",
+    borderRadius: 12,
+    paddingVertical: 12,
+    alignItems: "center",
+    marginTop: 8,
+  },
+  editUserButtonText: {
     fontSize: 16,
     fontWeight: "600",
     color: "#ffffff",

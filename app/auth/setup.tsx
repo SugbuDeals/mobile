@@ -145,6 +145,7 @@ export default function RetailerSetup() {
             id: userStore.id,
             name: formData.storeName,
             description: formData.storeDescription,
+            userId: Number(user.id),
           }).unwrap();
         } catch (updateError: any) {
           Alert.alert("Error", updateError?.message || "Failed to update store. Please try again.");
