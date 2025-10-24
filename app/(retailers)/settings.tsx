@@ -8,21 +8,21 @@ import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
 import React, { useMemo, useState } from "react";
 import {
-  Alert,
-  Platform,
-  ScrollView,
-  StatusBar,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View
+    Alert,
+    Platform,
+    ScrollView,
+    StatusBar,
+    StyleSheet,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View
 } from "react-native";
 
 export default function Settings() {
 
   const { state: { user }, action: { updateUser } } = useLogin();
-  const { action: { updateStore }, state: { userStore, loading: storeLoading } } = useStore();
+  const { action: { updateStore }, state: { userStore } } = useStore();
   const dispatch = useAppDispatch();
   const [storeName, setStoreName] = useState("");
   const [storeDescription, setStoreDescription] = useState("");
@@ -110,7 +110,9 @@ export default function Settings() {
       
       // Prepare update data - only include fields that have changed
       // Note: Don't include 'id' in the request body as it's passed in the URL
-      const storeUpdateData: any = {};
+      const storeUpdateData: any = {
+        userId: Number(user?.id), // Required by API
+      };
       
       // Only include store fields that are different from current values
       if (storeName.trim() !== (userStore.name || "")) {
@@ -119,10 +121,6 @@ export default function Settings() {
       if (storeDescription.trim() !== (userStore.description || "")) {
         storeUpdateData.description = storeDescription.trim();
       }
-      
-      // NOTE: We are intentionally REMOVING 'userId' from here. 
-      // The thunk logic is updated to handle this removal and prevent the 500 error.
-      // The old line was: storeUpdateData.userId = Number(user?.id);
       
       // Update store if there are store changes 
       const hasStoreChanges = storeUpdateData.name !== undefined || storeUpdateData.description !== undefined;

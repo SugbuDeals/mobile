@@ -47,7 +47,7 @@ export type UpdateStoreDTO = {
   name?: string;
   description?: string;
   verificationStatus?: "UNVERIFIED" | "VERIFIED";
-  userId?: number; // Optional - will be added from auth state if needed
+  userId: number; // Required by API
 };
 
 export type Promotion = {

@@ -391,17 +391,21 @@ export const updateStore = createAsyncThunk<
   try {
     const { accessToken, user } = getState().auth;
 
-    if (!accessToken) {
+    if (!accessToken || !user?.id) {
       return rejectWithValue({
         message: "Authentication required. Please log in again.",
       });
     }
 
-    // Add userId from auth state if not provided
-    const requestData = {
-      ...updateData,
-      userId: updateData.userId || user?.id,
-    };
+    // Validate that userId is provided in updateData
+    if (!updateData.userId) {
+      return rejectWithValue({
+        message: "User ID is required for store update.",
+      });
+    }
+
+    console.log("Updating store with data:", updateData);
+    console.log("Store ID:", id);
 
     const response = await fetch(`${env.API_BASE_URL}/store/${id}`, {
       method: "PATCH",
@@ -409,18 +413,24 @@ export const updateStore = createAsyncThunk<
         "Content-Type": "application/json",
         Authorization: `Bearer ${accessToken}`,
       },
-      body: JSON.stringify(requestData),
+      body: JSON.stringify(updateData),
     });
+
+    console.log("Update store response status:", response.status);
 
     if (!response.ok) {
       const error = await response.json().catch(() => ({}));
+      console.log("Update store error:", error);
       return rejectWithValue({
         message: error.message || "Update store failed",
       });
     }
 
-    return response.json();
+    const result = await response.json();
+    console.log("Update store successful:", result);
+    return result;
   } catch (error) {
+    console.log("Update store catch error:", error);
     return rejectWithValue({
       message:
         error instanceof Error ? error.message : "An unknown error occured",
