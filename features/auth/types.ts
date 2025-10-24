@@ -6,11 +6,13 @@ export interface LoginCredentials {
 export interface LoginResponse {
   access_token: string;
   user: {
-    id: string;
+    id: number | string;
     email: string;
-    fullname: string;
-    phone: string;
-    user_type: 'consumer' | 'retailer';
+    name?: string;
+    fullname?: string;
+    role?: 'CONSUMER' | 'RETAILER' | string;
+    user_type?: 'consumer' | 'retailer';
+    createdAt?: string;
     retailer_setup_completed?: boolean;
   };
 }
@@ -25,3 +27,12 @@ export interface AuthState {
   loading: boolean;
   error: string | null;
 }
+
+export interface RegisterPayload {
+  name: string;
+  email: string;
+  password: string;
+  role: 'CONSUMER' | 'RETAILER';
+}
+
+export interface RegisterError { message: string }

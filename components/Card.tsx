@@ -31,7 +31,7 @@ export default function Card({
   elevation = 4,
   borderRadius = 16,
   backgroundColor = "#ffffff",
-  padding = 16,
+  padding = 0,
   margin = 8,
   shadow = true,
   borderWidth = 0,

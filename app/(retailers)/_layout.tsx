@@ -1,10 +1,18 @@
 import { logout } from "@/features/auth/slice";
+import { useStoreManagement } from "@/features/store";
 import { useAppDispatch } from "@/store/hooks";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { LinearGradient } from "expo-linear-gradient";
 import { Tabs, router } from "expo-router";
 import React from "react";
-import { Platform, StatusBar, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import {
+  Platform,
+  StatusBar,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from "react-native";
 
 const RetailerHeader = () => {
   const dispatch = useAppDispatch();
@@ -24,26 +32,28 @@ const RetailerHeader = () => {
       >
         <StatusBar barStyle="light-content" backgroundColor="transparent" />
         <View style={styles.headerContent}>
-          {/* Store Icon */}
-          <View style={styles.storeIconContainer}>
-            <Ionicons name="storefront" size={24} color="#ffffff" />
+          <View style={styles.headerLeft}>
+            <View style={styles.headerIcon}>
+              <Ionicons name="storefront" size={24} color="#ffffff" />
+            </View>
+            <View style={styles.headerText}>
+              <Text style={styles.headerTitle}>SugbuDeals</Text>
+              <Text style={styles.headerSubtitle}>Manage your Store</Text>
+            </View>
           </View>
-          
-          {/* App Title and Subtitle */}
-          <View style={styles.titleContainer}>
-            <Text style={styles.headerTitle}>SugbuDeals</Text>
-            <Text style={styles.headerSubtitle}>Manage your Store</Text>
-          </View>
-          
+
           {/* Right side buttons */}
           <View style={styles.rightButtonsContainer}>
             {/* Notification Bell */}
-            <View style={styles.notificationContainer}>
+            <TouchableOpacity
+              style={styles.notificationContainer}
+              onPress={() => router.push("/(retailers)/notifications")}
+            >
               <Ionicons name="notifications" size={20} color="#ffffff" />
-            </View>
-            
+            </TouchableOpacity>
+
             {/* Logout Button */}
-            <TouchableOpacity 
+            <TouchableOpacity
               style={styles.logoutContainer}
               onPress={handleLogout}
             >
@@ -57,6 +67,9 @@ const RetailerHeader = () => {
 };
 
 export default function RetailersLayout() {
+  // Load user's store data for all retailer pages
+  useStoreManagement();
+
   return (
     <Tabs
       screenOptions={{
@@ -79,6 +92,7 @@ export default function RetailersLayout() {
         name="promotions"
         options={{
           title: "Promotions",
+          headerShown: false,
           tabBarIcon: ({ color, size = 24 }) => (
             <Ionicons name="ticket" color={color} size={size} />
           ),
@@ -88,18 +102,41 @@ export default function RetailersLayout() {
         name="products"
         options={{
           title: "Products",
+          headerShown: false,
           tabBarIcon: ({ color, size = 24 }) => (
             <Ionicons name="cube" color={color} size={size} />
           ),
         }}
       />
       <Tabs.Screen
+        name="notifications"
+        options={{
+          title: "Notifications",
+          href: null,
+        }}
+      />
+      <Tabs.Screen
         name="settings"
         options={{
           title: "Settings",
+          headerShown: false,
           tabBarIcon: ({ color, size = 24 }) => (
             <Ionicons name="settings" color={color} size={size} />
           ),
+        }}
+      />
+      <Tabs.Screen
+        name="add-product"
+        options={{
+          headerShown: false,
+          href: null,
+        }}
+      />
+      <Tabs.Screen
+        name="edit-product"
+        options={{
+          headerShown: false,
+          href: null,
         }}
       />
     </Tabs>
@@ -115,47 +152,49 @@ const styles = StyleSheet.create({
     shadowRadius: 12,
     borderBottomRightRadius: 40,
     backgroundColor: "transparent",
-    overflow: "hidden"
+    overflow: "hidden",
   },
   headerContainer: {
-    paddingTop: Platform.OS === "ios" ? 50 : (StatusBar.currentHeight || 0),
-    paddingBottom: 8,
-    paddingHorizontal: 16,
+    paddingTop: Platform.OS === "ios" ? 50 : StatusBar.currentHeight || 0,
+    paddingBottom: 20,
+    paddingHorizontal: 20,
     borderBottomRightRadius: 40,
     overflow: "hidden",
   },
   headerContent: {
     flexDirection: "row",
     alignItems: "center",
+    marginTop: 4,
     justifyContent: "space-between",
-    backgroundColor: "transparent"
+    backgroundColor: "transparent",
   },
-  storeIconContainer: {
+  headerLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+    flex: 1,
+  },
+  headerIcon: {
     width: 40,
     height: 40,
     borderRadius: 8,
     backgroundColor: "#277874",
     justifyContent: "center",
     alignItems: "center",
+    marginRight: 12,
   },
-  titleContainer: {
+  headerText: {
     flex: 1,
-    alignItems: "center",
-    marginHorizontal: 10,
   },
   headerTitle: {
     fontSize: 24,
     fontWeight: "bold",
     color: "#ffffff",
-    textAlign: "center",
-    letterSpacing: 0.5,
+    marginBottom: 2,
   },
   headerSubtitle: {
     fontSize: 14,
     color: "#ffffff",
     opacity: 0.9,
-    marginTop: 2,
-    textAlign: "center",
   },
   rightButtonsContainer: {
     flexDirection: "row",

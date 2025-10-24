@@ -1,11 +1,12 @@
 import ConditionalNavigation from "@/components/ConditionalNavigation";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { LinearGradient } from "expo-linear-gradient";
-import { Tabs } from "expo-router";
+import { Tabs, useRouter } from "expo-router";
 import React from "react";
 import { Platform, StatusBar, StyleSheet, Text, View } from "react-native";
 
 const ConsumerHeader = () => {
+  const router = useRouter();
   return (
     <View style={styles.headerShadowContainer}>
       <LinearGradient
@@ -14,27 +15,41 @@ const ConsumerHeader = () => {
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 0 }}
       >
-        <StatusBar barStyle="light-content" backgroundColor="none" />
-        <View style={styles.headerContent} >
+        <StatusBar
+          barStyle="light-content"
+          translucent
+          backgroundColor="transparent"
+        />
+        <View style={styles.headerContent}>
           {/* Shopping Cart Icon */}
           <View style={styles.iconContainer}>
             <Ionicons name="cart" size={20} color="#ffffff" />
           </View>
-          
+
           {/* App Title and Tagline */}
           <View style={styles.titleContainer}>
             <Text style={styles.headerTitle}>SugbuDeals</Text>
             <Text style={styles.headerSubtitle}>Explore Deals!</Text>
           </View>
-          
+
           {/* Notification Bell */}
           <View style={styles.notificationContainer}>
-            <Ionicons name="notifications" size={20} color="#ffffff" />
+            <Ionicons
+              name="notifications"
+              size={20}
+              color="#ffffff"
+              onPress={() => router.push("/(consumers)/notifications")}
+            />
           </View>
-          
+
           {/* Profile Picture */}
           <View style={styles.profileContainer}>
-            <Ionicons name="person" size={20} color="#ffffff" />
+            <Ionicons
+              name="person"
+              size={20}
+              color="#ffffff"
+              onPress={() => router.push("/(consumers)/profile")}
+            />
           </View>
         </View>
       </LinearGradient>
@@ -89,6 +104,48 @@ export default function ConsumersLayout() {
             ),
           }}
         />
+        <Tabs.Screen
+          name="notifications"
+          options={{
+            href: null,
+          }}
+        />
+        <Tabs.Screen
+          name="recommendations"
+          options={{
+            href: null,
+          }}
+        />
+        <Tabs.Screen
+          name="storedetails"
+          options={{
+            href: null,
+          }}
+        />
+        <Tabs.Screen
+          name="product"
+          options={{
+            href: null,
+          }}
+        />
+        <Tabs.Screen
+          name="categories"
+          options={{
+            href: null,
+          }}
+        />
+        <Tabs.Screen
+          name="viewmap"
+          options={{
+            href: null,
+          }}
+        />
+        <Tabs.Screen
+          name="navigate"
+          options={{
+            href: null,
+          }}
+        />
       </Tabs>
     </ConditionalNavigation>
   );
@@ -105,7 +162,7 @@ const styles = StyleSheet.create({
     borderBottomRightRadius: 40,
   },
   headerContainer: {
-    paddingTop: Platform.OS === "ios" ? 50 : (StatusBar.currentHeight || 0),
+    paddingTop: Platform.OS === "ios" ? 50 : StatusBar.currentHeight || 0,
     paddingBottom: 8,
     paddingHorizontal: 16,
     borderBottomLeftRadius: 40,

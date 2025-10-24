@@ -1,23 +1,37 @@
 import Button from "@/components/Button";
-import Card from "@/components/Card";
 import TextField from "@/components/TextField";
+import { useLogin } from "@/features/auth";
+import { useStore } from "@/features/store";
+import Ionicons from "@expo/vector-icons/Ionicons";
 import { yupResolver } from "@hookform/resolvers/yup";
-import { Link } from "expo-router";
+import { Link, router } from "expo-router";
+import React from "react";
 import { Controller, useForm } from "react-hook-form";
-import { ScrollView, StyleSheet, Text, View } from "react-native";
+import {
+    Dimensions,
+    KeyboardAvoidingView,
+    Platform,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View,
+} from "react-native";
 import * as yup from "yup";
 
 const schema = yup.object().shape({
-  fullname: yup.string().required("Name is required"),
+  name: yup.string().required("Name is required"),
   email: yup.string().required("Email is required").email("Invalid email"),
-  phone: yup.string().required("Phone number is required"),
   password: yup
     .string()
     .required("Password is required")
     .min(8, "Password must contain at least 8 characters"),
 });
 
-export default function Login() {
+export default function Register() {
+  const { action: { register, login } } = useLogin();
+  const { action: { createStore } } = useStore();
+  const [submitting, setSubmitting] = React.useState(false);
   const {
     control,
     handleSubmit,
@@ -25,74 +39,116 @@ export default function Login() {
   } = useForm({
     resolver: yupResolver(schema),
     defaultValues: {
+      name: "",
       email: "",
       password: "",
     },
   });
+  const [isRetailer, setIsRetailer] = React.useState(false);
 
-  const onSignIn = (formData: yup.InferType<typeof schema>) => {
-    console.log(formData);
+  const onCreate = async (formData: yup.InferType<typeof schema>) => {
+    try {
+      setSubmitting(true);
+      const role = isRetailer ? "RETAILER" : "CONSUMER";
+      
+      // Register the user
+      const result = await register({ 
+        name: formData.name, 
+        email: formData.email, 
+        password: formData.password, 
+        role 
+      }).unwrap();
+      
+      // Automatically log in the user after successful registration
+      try {
+        const loginResult = await login({
+          email: formData.email,
+          password: formData.password,
+        }).unwrap();
+        
+        if (isRetailer) {
+          // Redirect retailers to setup page - store will be created during setup
+          router.replace("/auth/setup");
+        } else {
+          // Redirect consumers to their dashboard
+          router.replace("/(consumers)");
+        }
+      } catch (loginError) {
+        console.error("Auto-login failed:", loginError);
+        // If auto-login fails, redirect to login page
+        alert("Registration successful! Please log in to continue.");
+        router.replace("/auth/login");
+      }
+    } catch (e: any) {
+      alert(e?.message || "Registration failed");
+    } finally {
+      setSubmitting(false);
+    }
   };
 
+  const { width: screenWidth } = Dimensions.get("window");
+  const circleSize = Math.min(screenWidth * 1.1, 440);
+  const circleDynamicStyle = {
+    width: circleSize,
+    height: circleSize,
+    top: -circleSize * 0.15,
+    right: -circleSize * 0.20,
+    borderRadius: circleSize / 2,
+  } as const;
+
   return (
-    <View style={styles.background}>
-      <View style={styles.circle} />
-      <ScrollView
-        contentContainerStyle={{ flexGrow: 1, justifyContent: "center" }}
+    <View style={styles.container}>
+      <View style={[styles.topRightCircle, circleDynamicStyle]} />
+      <KeyboardAvoidingView
+        style={styles.flex}
+        behavior={Platform.select({ ios: "padding", android: undefined })}
       >
-        <View style={styles.container}>
-          <View style={styles.header}>
-            <Text style={styles.headerGreeting}>Creating Account</Text>
+        <ScrollView
+          contentContainerStyle={styles.scrollBody}
+          keyboardShouldPersistTaps="handled"
+        >
+          <View style={styles.headerSection}>
+            <Text style={styles.headerTitle}>Create Account</Text>
             <Text style={styles.headerSubtitle}>Join our community today</Text>
           </View>
 
-          <Card style={styles.card}>
-            {/* Full Name */}
+          <View style={styles.formSection}>
             <Controller
               control={control}
-              name="fullname"
+              name="name"
               rules={{ required: true }}
               render={({ field: { onChange, value } }) => (
                 <TextField
-                  label="Name"
+                  label="Full Name"
+                  iconComponent={<Ionicons name="person-outline" size={20} color="#14B8A6" />}
                   placeholder="John Doe"
                   value={value}
                   onChangeText={onChange}
-                  error={errors.fullname?.message}
+                  error={errors.name?.message as string}
                 />
               )}
             />
-            {/* Email */}
+
             <Controller
               control={control}
               name="email"
               rules={{ required: true }}
               render={({ field: { onChange, value } }) => (
                 <TextField
-                  label="Email"
+                  label="Email Address"
+                  iconComponent={<Ionicons name="mail-outline" size={20} color="#14B8A6" />}
                   placeholder="your@email.com"
+                  keyboardType="email-address"
+                  autoCapitalize="none"
                   value={value}
                   onChangeText={onChange}
-                  error={errors.email?.message}
+                  error={errors.email?.message as string}
                 />
               )}
             />
-            {/* Phone Number */}
-            <Controller
-              control={control}
-              name="phone"
-              rules={{ required: true }}
-              render={({ field: { onChange, value } }) => (
-                <TextField
-                  label="Phone"
-                  placeholder="(+63) 9123456780"
-                  value={value}
-                  onChangeText={onChange}
-                  error={errors.phone?.message}
-                />
-              )}
-            />
-            {/* Password */}
+
+            {/* Phone field removed as it is not used in routes */}
+
             <Controller
               control={control}
               name="password"
@@ -100,82 +156,155 @@ export default function Login() {
               render={({ field: { onChange, value } }) => (
                 <TextField
                   label="Password"
-                  placeholder="Enter your password..."
+                  iconComponent={<Ionicons name="lock-closed-outline" size={20} color="#14B8A6" />}
+                  placeholder="*********"
+                  secureTextEntry
                   value={value}
                   onChangeText={onChange}
-                  error={errors.password?.message}
-                  secureTextEntry
+                  error={errors.password?.message as string}
                 />
               )}
             />
-            <Button onPress={handleSubmit(onSignIn)}>
-              <Text>Sign Up</Text>
-            </Button>
-          </Card>
 
-          <View style={{ flexDirection: "row", justifyContent: "center" }}>
-            <Text style={{ color: "white" }}>Already have an account? </Text>
-            <Link style={{ color: "#FFBE5E", fontWeight: "bold" }} href="/auth/login">Sign In</Link>
+            <Text style={styles.label}>Select Role</Text>
+            <View style={styles.switchRow}>
+              <Text style={[styles.switchLabel, !isRetailer && styles.activeLabel]}>Customer</Text>
+              <TouchableOpacity
+                onPress={() => setIsRetailer((v) => !v)}
+                activeOpacity={0.9}
+                style={[styles.switchPill, isRetailer && styles.switchPillActive]}
+              >
+                <View style={[styles.switchThumb, isRetailer && styles.switchThumbRight]} />
+              </TouchableOpacity>
+              <Text style={[styles.switchLabel, isRetailer && styles.activeLabel]}>Store Owner</Text>
+            </View>
+
+            <Button onPress={handleSubmit(onCreate)} disabled={submitting}>
+              <Text style={styles.primaryButtonText}>{submitting ? "Creating..." : "Create Account"}</Text>
+            </Button>
+
+            <View style={styles.loginRow}>
+              <Text style={styles.loginText}>Already have an account? </Text>
+              <Link href="/auth/login">
+                <Text style={styles.loginLink}>Login</Text>
+              </Link>
+            </View>
           </View>
-        </View>
-      </ScrollView>
+        </ScrollView>
+      </KeyboardAvoidingView>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  background: {
-    flex: 1,
-    backgroundColor: "#0d9488",
-    position: "relative",
-  },
-  circle: {
-    position: "absolute",
-    top: -200,
-    right: -200,
-    width: 600,
-    height: 600,
-    backgroundColor: "#FFBE5E",
-    borderRadius: "100%",
-  },
   container: {
     flex: 1,
-    flexDirection: "column",
-    justifyContent: "center",
-    paddingHorizontal: 16,
+    backgroundColor: "#277874",
   },
-  card: {
-    flexDirection: "column",
-    justifyContent: "center",
-    gap: 6,
-    paddingHorizontal: 28,
+  flex: { flex: 1 },
+  scrollBody: {
+    flexGrow: 1,
+    paddingHorizontal: 24,
+    paddingTop: 68,
+    paddingBottom: 24,
   },
-  header: {
-    flexDirection: "column",
-    justifyContent: "center",
+  headerSection: {
     alignItems: "center",
-    gap: 12,
-    paddingBottom: 20,
+    marginBottom: 16,
   },
-  iconContainer: {
-    width: 48,
-    height: 48,
-    backgroundColor: "rgba(255, 255, 255, 0.2)",
-    borderRadius: 24,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  headerGreeting: {
-    fontSize: 26,
-    fontWeight: "bold",
-    color: "black",
+  headerTitle: {
+    fontSize: 24,
+    fontWeight: "700",
+    color: "#0f172a",
   },
   headerSubtitle: {
-    fontSize: 18,
-    color: "black",
+    fontSize: 14,
+    color: "#475569",
+    marginTop: 4,
   },
-  signInOptionsContainer: {
+  formSection: {
+    backgroundColor: "#ffffff",
+    borderRadius: 16,
+    padding: 20,
+    shadowColor: "#000",
+    shadowOpacity: 0.06,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 2,
+  },
+  label: {
+    fontSize: 14,
+    color: "#0f172a",
+    marginBottom: 6,
+    marginTop: 8,
+  },
+  switchRow: {
+    backgroundColor: "#dedede",
+    paddingHorizontal: 15,
+    paddingVertical: 10,
+    borderRadius: 7,
     flexDirection: "row",
-    justifyContent: "space-evenly",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginTop: 8,
+    marginBottom: 16,
+  },
+  switchLabel: {
+    color: "#64748b",
+    fontSize: 14,
+  },
+  activeLabel: {
+    color: "#0f172a",
+    fontWeight: "600",
+  },
+  switchPill: {
+    width: 80,
+    height: 30,
+    borderRadius: 999,
+    backgroundColor: "#e2e8f0",
+    padding: 4,
+    justifyContent: "center",
+  },
+  switchPillActive: {
+    backgroundColor: "#277874",
+  },
+  switchThumb: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    backgroundColor: "#ffffff",
+    transform: [{ translateX: 0 }],
+  },
+  switchThumbRight: {
+    transform: [{ translateX: 50 }],
+  },
+  primaryButtonText: {
+    color: "#ffffff",
+    fontSize: 16,
+    fontWeight: "600",
+  },
+  loginRow: {
+    flexDirection: "row",
+    justifyContent: "center",
+    alignItems: "center",
+    marginTop: 20,
+    marginBottom: 10,
+  },
+  loginText: {
+    color: "#475569",
+    fontSize: 14,
+  },
+  loginLink: {
+    color: "#277874",
+    fontSize: 14,
+    fontWeight: "700",
+  },
+  topRightCircle: {
+    position: "absolute",
+    top: 0,
+    right: 0,
+    zIndex: 0,
+    opacity: 0.9,
+    backgroundColor: "#FFBE5E",
   },
 });

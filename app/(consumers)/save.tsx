@@ -1,104 +1,174 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
-import React, { useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   ScrollView,
   StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
-  View
+  View,
 } from "react-native";
+
+import { useBookmarks } from "@/features/bookmarks";
+import { useCatalog } from "@/features/catalog";
+import { useStore } from "@/features/store";
 
 type SavedItem = {
   id: string;
   name: string;
   category: string;
-  type: 'product' | 'store';
+  type: "product" | "store";
   image?: string;
 };
 
 export default function Save() {
-  const [activeTab, setActiveTab] = useState<'products' | 'stores'>('products');
+  const [activeTab, setActiveTab] = useState<"products" | "stores">("products");
   const [searchQuery, setSearchQuery] = useState("");
-  const [selectedCategory, setSelectedCategory] = useState<string>('all');
+  const [selectedCategory, setSelectedCategory] = useState<string>("all");
+  const { action: bookmarkAction, state: bookmarkState } = useBookmarks();
+  const { state: catalogState, action: catalogAction } = useCatalog();
+  const { state: storeState, action: storeAction } = useStore();
 
-  // Temporary data arrays for demonstration
-  const savedProducts: SavedItem[] = [
-    { id: '1', name: 'Wireless Headphones', category: 'electronics', type: 'product' },
-    { id: '2', name: 'Cotton T-Shirt', category: 'clothing', type: 'product' },
-    { id: '3', name: 'Coffee Maker', category: 'home', type: 'product' },
-    { id: '4', name: 'Organic Apples', category: 'food', type: 'product' },
-    { id: '5', name: 'Face Moisturizer', category: 'beauty', type: 'product' },
-    { id: '6', name: 'Smartphone Case', category: 'electronics', type: 'product' },
-    { id: '7', name: 'Denim Jeans', category: 'clothing', type: 'product' },
-    { id: '8', name: 'Kitchen Blender', category: 'home', type: 'product' },
-  ];
+  useEffect(() => {
+    bookmarkAction.loadProductBookmarks();
+    bookmarkAction.loadStoreBookmarks();
+    if (!catalogState.products?.length) {
+      catalogAction.loadProducts();
+    }
+    if (!storeState.stores?.length) {
+      storeAction.findStores();
+    }
+  }, []);
 
-  const savedStores: SavedItem[] = [
-    { id: '1', name: 'QuickMart', category: 'grocery', type: 'store' },
-    { id: '2', name: 'TechWorld', category: 'electronics', type: 'store' },
-    { id: '3', name: 'Fashion Hub', category: 'fashion', type: 'store' },
-    { id: '4', name: 'Home Depot', category: 'home', type: 'store' },
-    { id: '5', name: 'Pizza Palace', category: 'restaurant', type: 'store' },
-    { id: '6', name: 'Fresh Market', category: 'grocery', type: 'store' },
-    { id: '7', name: 'Gadget Store', category: 'electronics', type: 'store' },
-    { id: '8', name: 'Style Boutique', category: 'fashion', type: 'store' },
-  ];
+  const savedProducts: SavedItem[] = useMemo(() => {
+    const products = catalogState.products || [];
+    return (bookmarkState.products || []).map((bp) => {
+      const match = products.find((p: any) => p.id === bp.productId);
+      return {
+        id: String(bp.productId),
+        name: match?.name || `Product #${bp.productId}`,
+        category: (match as any)?.category || "all",
+        type: "product",
+      } as SavedItem;
+    });
+  }, [bookmarkState.products, catalogState.products]);
+
+  const savedStores: SavedItem[] = useMemo(() => {
+    const stores = storeState.stores || [];
+    return (bookmarkState.stores || []).map((bs) => {
+      const match = stores.find((s: any) => s.id === bs.storeId);
+      return {
+        id: String(bs.storeId),
+        name: match?.name || `Store #${bs.storeId}`,
+        category: "all",
+        type: "store",
+      } as SavedItem;
+    });
+  }, [bookmarkState.stores, storeState.stores]);
 
   // Categories for filtering
-  const productCategories = ['all', 'electronics', 'clothing', 'home', 'food', 'beauty'];
-  const storeCategories = ['all', 'grocery', 'electronics', 'fashion', 'home', 'restaurant'];
+  const productCategories = [
+    "all",
+    "electronics",
+    "clothing",
+    "home",
+    "food",
+    "beauty",
+  ];
+  const storeCategories = [
+    "all",
+    "grocery",
+    "electronics",
+    "fashion",
+    "home",
+    "restaurant",
+  ];
 
-  const currentItems = activeTab === 'products' ? savedProducts : savedStores;
-  const currentCategories = activeTab === 'products' ? productCategories : storeCategories;
+  const currentItems = activeTab === "products" ? savedProducts : savedStores;
+  const currentCategories =
+    activeTab === "products" ? productCategories : storeCategories;
 
-  const filteredItems = currentItems.filter(item => {
-    const matchesSearch = item.name.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesCategory = selectedCategory === 'all' || item.category === selectedCategory;
+  const filteredItems = currentItems.filter((item) => {
+    const matchesSearch = item.name
+      .toLowerCase()
+      .includes(searchQuery.toLowerCase());
+    const matchesCategory =
+      selectedCategory === "all" || item.category === selectedCategory;
     return matchesSearch && matchesCategory;
   });
 
   const renderEmptyState = () => (
     <View style={styles.emptyState}>
-      <Ionicons 
-        name={activeTab === 'products' ? 'bag-outline' : 'storefront-outline'} 
-        size={80} 
-        color="#d1d5db" 
+      <Ionicons
+        name={activeTab === "products" ? "bag-outline" : "storefront-outline"}
+        size={80}
+        color="#d1d5db"
       />
       <Text style={styles.emptyTitle}>
-        No {activeTab === 'products' ? 'Products' : 'Stores'} Saved Yet
+        No {activeTab === "products" ? "Products" : "Stores"} Saved Yet
       </Text>
       <Text style={styles.emptySubtitle}>
-        Start exploring and save your favorite {activeTab === 'products' ? 'products' : 'stores'} to see them here
+        Start exploring and save your favorite{" "}
+        {activeTab === "products" ? "products" : "stores"} to see them here
       </Text>
     </View>
   );
 
-  const renderSavedItem = (item: SavedItem) => (
-    <View key={item.id} style={styles.savedItemCard}>
-      <View style={styles.itemImage}>
-        <Ionicons 
-          name={item.type === 'product' ? 'bag' : 'storefront'} 
-          size={24} 
-          color="#277874" 
-        />
+  const renderSavedItem = (item: SavedItem) => {
+    const onUnsave = () => {
+      if (item.type === "product") {
+        bookmarkAction.removeProductBookmark(Number(item.id));
+      } else {
+        bookmarkAction.removeStoreBookmark(Number(item.id));
+      }
+    };
+    return (
+      <View key={item.id} style={styles.card}>
+        <View style={styles.cardTopRow}>
+          <View style={styles.storeRow}>
+            <View style={styles.storeLogo}>
+              <Ionicons
+                name={
+                  item.type === "product" ? "bag-outline" : "storefront-outline"
+                }
+                size={22}
+                color="#277874"
+              />
+            </View>
+            <View>
+              <Text style={styles.storeName} numberOfLines={1}>
+                {item.name}
+              </Text>
+              <Text style={styles.storeLocation}>{item.category}</Text>
+            </View>
+          </View>
+          <Ionicons name="bookmark" size={20} color="#F59E0B" />
+        </View>
+
+        <View style={styles.cardBottomRow}>
+          <View style={styles.activePill}>
+            <Text style={styles.activePillText}>Saved</Text>
+          </View>
+          <View style={styles.spacer} />
+          <TouchableOpacity style={styles.removeButton} onPress={onUnsave}>
+            <Ionicons name="trash" size={20} color="#ef4444" />
+          </TouchableOpacity>
+        </View>
       </View>
-      <View style={styles.itemContent}>
-        <Text style={styles.itemName}>{item.name}</Text>
-        <Text style={styles.itemCategory}>{item.category}</Text>
-      </View>
-      <TouchableOpacity style={styles.removeButton}>
-        <Ionicons name="heart" size={20} color="#ef4444" />
-      </TouchableOpacity>
-    </View>
-  );
+    );
+  };
 
   return (
     <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
       {/* Search Bar */}
       <View style={styles.searchContainer}>
         <View style={styles.searchBox}>
-          <Ionicons name="search" size={20} color="#6b7280" style={styles.searchIcon} />
+          <Ionicons
+            name="search"
+            size={20}
+            color="#6b7280"
+            style={styles.searchIcon}
+          />
           <TextInput
             style={styles.searchInput}
             placeholder={`Search saved ${activeTab}...`}
@@ -112,18 +182,28 @@ export default function Save() {
       {/* Category Tabs */}
       <View style={styles.tabContainer}>
         <TouchableOpacity
-          style={[styles.tab, activeTab === 'products' && styles.activeTab]}
-          onPress={() => setActiveTab('products')}
+          style={[styles.tab, activeTab === "products" && styles.activeTab]}
+          onPress={() => setActiveTab("products")}
         >
-          <Text style={[styles.tabText, activeTab === 'products' && styles.activeTabText]}>
+          <Text
+            style={[
+              styles.tabText,
+              activeTab === "products" && styles.activeTabText,
+            ]}
+          >
             Products
           </Text>
         </TouchableOpacity>
         <TouchableOpacity
-          style={[styles.tab, activeTab === 'stores' && styles.activeTab]}
-          onPress={() => setActiveTab('stores')}
+          style={[styles.tab, activeTab === "stores" && styles.activeTab]}
+          onPress={() => setActiveTab("stores")}
         >
-          <Text style={[styles.tabText, activeTab === 'stores' && styles.activeTabText]}>
+          <Text
+            style={[
+              styles.tabText,
+              activeTab === "stores" && styles.activeTabText,
+            ]}
+          >
             Stores
           </Text>
         </TouchableOpacity>
@@ -137,14 +217,15 @@ export default function Save() {
               key={category}
               style={[
                 styles.categoryChip,
-                selectedCategory === category && styles.activeCategoryChip
+                selectedCategory === category && styles.activeCategoryChip,
               ]}
               onPress={() => setSelectedCategory(category)}
             >
               <Text
                 style={[
                   styles.categoryChipText,
-                  selectedCategory === category && styles.activeCategoryChipText
+                  selectedCategory === category &&
+                    styles.activeCategoryChipText,
                 ]}
               >
                 {category.charAt(0).toUpperCase() + category.slice(1)}
@@ -156,11 +237,9 @@ export default function Save() {
 
       {/* Saved Items */}
       <View style={styles.itemsContainer}>
-        {filteredItems.length === 0 ? (
-          renderEmptyState()
-        ) : (
-          filteredItems.map(renderSavedItem)
-        )}
+        {filteredItems.length === 0
+          ? renderEmptyState()
+          : filteredItems.map(renderSavedItem)}
       </View>
     </ScrollView>
   );
@@ -179,10 +258,10 @@ const styles = StyleSheet.create({
   searchBox: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#f3f4f6",
+    backgroundColor: "#E5E7EB",
     borderRadius: 12,
-    paddingHorizontal: 15,
-    paddingVertical: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
   },
   searchIcon: {
     marginRight: 10,
@@ -246,47 +325,50 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingBottom: 20,
   },
-  savedItemCard: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "#ffffff",
+  // Card styles (aligned with provided design)
+  card: {
+    backgroundColor: "#fff",
     borderRadius: 12,
     padding: 15,
-    marginBottom: 12,
+    marginBottom: 15,
+    elevation: 4,
     shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 4 },
     borderWidth: 1,
     borderColor: "#f3f4f6",
   },
-  itemImage: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
-    backgroundColor: "#f0f9ff",
-    justifyContent: "center",
+  cardTopRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
     alignItems: "center",
-    marginRight: 15,
   },
-  itemContent: {
-    flex: 1,
+  storeRow: { flexDirection: "row", alignItems: "center", columnGap: 12 },
+  storeLogo: {
+    width: 42,
+    height: 42,
+    borderRadius: 8,
+    backgroundColor: "#F1F5F9",
+    alignItems: "center",
+    justifyContent: "center",
   },
-  itemName: {
-    fontSize: 16,
-    fontWeight: "600",
-    color: "#111827",
-    marginBottom: 4,
-  },
-  itemCategory: {
-    fontSize: 14,
-    color: "#6b7280",
+  storeName: { fontWeight: "700", fontSize: 16, maxWidth: 200 },
+  storeLocation: {
+    color: "#6B7280",
+    fontSize: 13,
     textTransform: "capitalize",
   },
-  removeButton: {
-    padding: 8,
+  cardBottomRow: { marginTop: 14, flexDirection: "row", alignItems: "center" },
+  activePill: {
+    backgroundColor: "#D1FAE5",
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 100,
   },
+  activePillText: { color: "#1B6F5D", fontWeight: "600", fontSize: 12 },
+  spacer: { flex: 1 },
+  removeButton: { padding: 8 },
   emptyState: {
     alignItems: "center",
     justifyContent: "center",

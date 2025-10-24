@@ -1,0 +1,1599 @@
+{
+  "openapi": "3.0.0",
+  "paths": {
+    "/auth/login": {
+      "post": {
+        "operationId": "AuthController_login",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LoginDTO"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Returns JWT access token and user payload"
+          },
+          "401": {
+            "description": "Invalid credentials"
+          }
+        },
+        "summary": "Login with email and password",
+        "tags": [
+          "Auth"
+        ]
+      }
+    },
+    "/auth/register": {
+      "post": {
+        "operationId": "AuthController_register",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RegisterDTO"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "User registered successfully"
+          }
+        },
+        "summary": "Register a new user account",
+        "tags": [
+          "Auth"
+        ]
+      }
+    },
+    "/user/{id}": {
+      "get": {
+        "operationId": "UserController_findUniqueUser",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "User id",
+            "schema": {
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Returns the requested user"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "Users"
+        ]
+      },
+      "delete": {
+        "operationId": "UserController_deleteUser",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "User id",
+            "schema": {
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "User deleted successfully"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "Users"
+        ]
+      },
+      "patch": {
+        "operationId": "UserController_updateUser",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "User id",
+            "schema": {
+              "type": "number"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateUserDTO"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "User updated successfully"
+          },
+          "400": {
+            "description": "Invalid user id"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "Users"
+        ]
+      }
+    },
+    "/user": {
+      "get": {
+        "operationId": "UserController_findManyUsers",
+        "parameters": [
+          {
+            "name": "email",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "name",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "skip",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "number"
+            }
+          },
+          {
+            "name": "take",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Returns list of users"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "Users"
+        ]
+      }
+    },
+    "/store": {
+      "get": {
+        "operationId": "StoreController_findManyStores",
+        "parameters": [
+          {
+            "name": "search",
+            "required": false,
+            "in": "query",
+            "description": "Search stores by name or description",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "skip",
+            "required": false,
+            "in": "query",
+            "description": "Number of records to skip",
+            "schema": {
+              "type": "number"
+            }
+          },
+          {
+            "name": "take",
+            "required": false,
+            "in": "query",
+            "description": "Number of records to take",
+            "schema": {
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Returns list of stores"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "List stores",
+        "tags": [
+          "Stores"
+        ]
+      },
+      "post": {
+        "operationId": "StoreController_createStore",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateStoreDTO"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Create a store",
+        "tags": [
+          "Stores"
+        ]
+      }
+    },
+    "/store/{id}": {
+      "get": {
+        "operationId": "StoreController_findUniqueStore",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Returns a store"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Get store by id",
+        "tags": [
+          "Stores"
+        ]
+      },
+      "patch": {
+        "operationId": "StoreController_updateStore",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "number"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateStoreDTO"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Update a store",
+        "tags": [
+          "Stores"
+        ]
+      },
+      "delete": {
+        "operationId": "StoreController_deleteStore",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Store deleted"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Delete a store",
+        "tags": [
+          "Stores"
+        ]
+      }
+    },
+    "/product": {
+      "get": {
+        "operationId": "ProductController_findManyProducts",
+        "parameters": [
+          {
+            "name": "storeId",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "number"
+            }
+          },
+          {
+            "name": "isActive",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Returns list of products"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "List products with optional filters",
+        "tags": [
+          "Products"
+        ]
+      },
+      "post": {
+        "operationId": "ProductController_createProduct",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateProductDTO"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Create a product",
+        "tags": [
+          "Products"
+        ]
+      }
+    },
+    "/product/{id}": {
+      "get": {
+        "operationId": "ProductController_findUniqueProduct",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Returns a product"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Get product by id",
+        "tags": [
+          "Products"
+        ]
+      },
+      "patch": {
+        "operationId": "ProductController_updateProduct",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "number"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateProductDTO"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Update a product",
+        "tags": [
+          "Products"
+        ]
+      },
+      "delete": {
+        "operationId": "ProductController_deleteProduct",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Product deleted"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Delete a product",
+        "tags": [
+          "Products"
+        ]
+      }
+    },
+    "/promotions": {
+      "post": {
+        "operationId": "PromotionController_create",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreatePromotionDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Create a promotion",
+        "tags": [
+          "Promotions"
+        ]
+      },
+      "get": {
+        "operationId": "PromotionController_findAll",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Returns list of promotions"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "List promotions",
+        "tags": [
+          "Promotions"
+        ]
+      }
+    },
+    "/promotions/active": {
+      "get": {
+        "operationId": "PromotionController_findActive",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Returns list of active promotions"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "List active promotions",
+        "tags": [
+          "Promotions"
+        ]
+      }
+    },
+    "/promotions/{id}": {
+      "get": {
+        "operationId": "PromotionController_findOne",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Returns a promotion"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Get promotion by id",
+        "tags": [
+          "Promotions"
+        ]
+      },
+      "patch": {
+        "operationId": "PromotionController_update",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "number"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdatePromotionDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Update a promotion",
+        "tags": [
+          "Promotions"
+        ]
+      },
+      "delete": {
+        "operationId": "PromotionController_remove",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Promotion deleted"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Delete a promotion",
+        "tags": [
+          "Promotions"
+        ]
+      }
+    },
+    "/category": {
+      "get": {
+        "operationId": "CategoryController_findManyCategories",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Returns list of categories"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "List categories",
+        "tags": [
+          "Categories"
+        ]
+      },
+      "post": {
+        "operationId": "CategoryController_createCategory",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateCategoryDTO"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Create a category",
+        "tags": [
+          "Categories"
+        ]
+      }
+    },
+    "/category/{id}": {
+      "get": {
+        "operationId": "CategoryController_findUniqueCategory",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Returns a category"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Get category by id",
+        "tags": [
+          "Categories"
+        ]
+      },
+      "patch": {
+        "operationId": "CategoryController_updateCategory",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "number"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateCategoryDTO"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Update a category",
+        "tags": [
+          "Categories"
+        ]
+      },
+      "delete": {
+        "operationId": "CategoryController_deleteCategory",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Category deleted"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Delete a category",
+        "tags": [
+          "Categories"
+        ]
+      }
+    },
+    "/bookmarks/stores/list": {
+      "post": {
+        "operationId": "BookmarkController_listMyStoreBookmarks",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ListBookmarksDto"
+              },
+              "examples": {
+                "default": {
+                  "summary": "List first page",
+                  "value": {
+                    "take": 10,
+                    "skip": 0
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Returns store bookmarks for the user"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "List user bookmarked stores",
+        "tags": [
+          "Bookmarks"
+        ]
+      }
+    },
+    "/bookmarks/stores": {
+      "post": {
+        "operationId": "BookmarkController_bookmarkStore",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StoreBookmarkDto"
+              },
+              "examples": {
+                "default": {
+                  "summary": "Bookmark store 42",
+                  "value": {
+                    "storeId": 42
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Bookmark a store",
+        "tags": [
+          "Bookmarks"
+        ]
+      },
+      "delete": {
+        "operationId": "BookmarkController_unbookmarkStore",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StoreBookmarkDto"
+              },
+              "examples": {
+                "default": {
+                  "summary": "Unbookmark store 42",
+                  "value": {
+                    "storeId": 42
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Remove store bookmark",
+        "tags": [
+          "Bookmarks"
+        ]
+      }
+    },
+    "/bookmarks/products/list": {
+      "post": {
+        "operationId": "BookmarkController_listMyProductBookmarks",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ListBookmarksDto"
+              },
+              "examples": {
+                "default": {
+                  "summary": "List first page",
+                  "value": {
+                    "take": 10,
+                    "skip": 0
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Returns product bookmarks for the user"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "List user bookmarked products",
+        "tags": [
+          "Bookmarks"
+        ]
+      }
+    },
+    "/bookmarks/products": {
+      "post": {
+        "operationId": "BookmarkController_bookmarkProduct",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProductBookmarkDto"
+              },
+              "examples": {
+                "default": {
+                  "summary": "Bookmark product 99",
+                  "value": {
+                    "productId": 99
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Bookmark a product",
+        "tags": [
+          "Bookmarks"
+        ]
+      },
+      "delete": {
+        "operationId": "BookmarkController_unbookmarkProduct",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProductBookmarkDto"
+              },
+              "examples": {
+                "default": {
+                  "summary": "Unbookmark product 99",
+                  "value": {
+                    "productId": 99
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Remove product bookmark",
+        "tags": [
+          "Bookmarks"
+        ]
+      }
+    },
+    "/ai/chat": {
+      "post": {
+        "operationId": "AiController_chat",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChatRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "AI"
+        ]
+      }
+    },
+    "/ai/generate": {
+      "post": {
+        "operationId": "AiController_generateText",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TextGenerationDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "AI"
+        ]
+      }
+    },
+    "/ai/recommendations": {
+      "post": {
+        "operationId": "AiController_getRecommendations",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FreeformRecommendationDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "AI"
+        ]
+      }
+    }
+  },
+  "info": {
+    "title": "SugbuDeals API",
+    "description": "REST API for SugbuDeals: authentication, users, stores, products, categories, promotions, and AI endpoints.",
+    "version": "1.0.0",
+    "contact": {
+
+    }
+  },
+  "tags": [
+    {
+      "name": "Auth",
+      "description": "Authentication endpoints"
+    },
+    {
+      "name": "Users",
+      "description": "User management endpoints"
+    },
+    {
+      "name": "Stores",
+      "description": "Store management endpoints"
+    },
+    {
+      "name": "Products",
+      "description": "Product management endpoints"
+    },
+    {
+      "name": "Categories",
+      "description": "Category management endpoints"
+    },
+    {
+      "name": "Promotions",
+      "description": "Promotion management endpoints"
+    },
+    {
+      "name": "Bookmarks",
+      "description": "Bookmark stores and products"
+    },
+    {
+      "name": "AI",
+      "description": "AI chat, generation, and recommendations"
+    }
+  ],
+  "servers": [],
+  "components": {
+    "securitySchemes": {
+      "bearer": {
+        "scheme": "bearer",
+        "bearerFormat": "JWT",
+        "type": "http",
+        "description": "Include JWT token as: Bearer \u003Ctoken\u003E"
+      }
+    },
+    "schemas": {
+      "LoginDTO": {
+        "type": "object",
+        "properties": {
+          "email": {
+            "type": "string",
+            "example": "user@email.com"
+          },
+          "password": {
+            "type": "string",
+            "example": "root"
+          }
+        },
+        "required": [
+          "email",
+          "password"
+        ]
+      },
+      "RegisterDTO": {
+        "type": "object",
+        "properties": {
+          "email": {
+            "type": "string",
+            "example": "newuser@example.com"
+          },
+          "password": {
+            "type": "string",
+            "example": "password123"
+          },
+          "name": {
+            "type": "string",
+            "example": "Alice Doe"
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "CONSUMER",
+              "RETAILER"
+            ],
+            "example": "CONSUMER"
+          }
+        },
+        "required": [
+          "email",
+          "password",
+          "name",
+          "role"
+        ]
+      },
+      "UpdateUserDTO": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "example": "Jane Doe"
+          },
+          "email": {
+            "type": "string",
+            "example": "jane@example.com"
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "CONSUMER",
+              "RETAILER",
+              "ADMIN"
+            ]
+          }
+        }
+      },
+      "CreateStoreDTO": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "example": "Tech Hub"
+          },
+          "description": {
+            "type": "string",
+            "example": "Your friendly gadget store"
+          },
+          "ownerId": {
+            "type": "number",
+            "description": "The Store Owner's ID"
+          }
+        },
+        "required": [
+          "name",
+          "description",
+          "ownerId"
+        ]
+      },
+      "UpdateStoreDTO": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "example": "Tech Hub"
+          },
+          "description": {
+            "type": "string",
+            "example": "Your friendly gadget store"
+          },
+          "verificationStatus": {
+            "type": "string",
+            "enum": [
+              "UNVERIFIED",
+              "VERIFIED"
+            ]
+          },
+          "userId": {
+            "type": "number",
+            "description": "The Store Owner's ID"
+          }
+        },
+        "required": [
+          "userId"
+        ]
+      },
+      "CreateProductDTO": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "example": "Apple iPhone 15",
+            "description": "Product name"
+          },
+          "description": {
+            "type": "string",
+            "example": "Newest model with A17 chip",
+            "description": "Product description"
+          },
+          "price": {
+            "type": "number",
+            "example": 599.99,
+            "description": "Product price"
+          },
+          "stock": {
+            "type": "number",
+            "example": 100,
+            "description": "Units in stock"
+          },
+          "isActive": {
+            "type": "boolean",
+            "example": true,
+            "description": "Whether product is active"
+          },
+          "storeId": {
+            "type": "number",
+            "example": 1,
+            "description": "Related store id"
+          }
+        },
+        "required": [
+          "name",
+          "description",
+          "price",
+          "stock",
+          "storeId"
+        ]
+      },
+      "UpdateProductDTO": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "example": "Apple iPhone 15",
+            "description": "Product name"
+          },
+          "description": {
+            "type": "string",
+            "example": "Newest model with A17 chip",
+            "description": "Product description"
+          },
+          "price": {
+            "type": "number",
+            "example": 599.99,
+            "description": "Product price"
+          },
+          "stock": {
+            "type": "number",
+            "example": 100,
+            "description": "Units in stock"
+          },
+          "isActive": {
+            "type": "boolean",
+            "example": true,
+            "description": "Whether product is active"
+          }
+        }
+      },
+      "CreatePromotionDto": {
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": "string",
+            "example": "Holiday Sale"
+          },
+          "type": {
+            "type": "string",
+            "example": "percentage"
+          },
+          "description": {
+            "type": "string",
+            "example": "Up to 30% off select items"
+          },
+          "startsAt": {
+            "format": "date-time",
+            "type": "string",
+            "example": "2025-12-01T00:00:00.000Z"
+          },
+          "endsAt": {
+            "format": "date-time",
+            "type": "string",
+            "example": "2026-01-01T00:00:00.000Z"
+          },
+          "active": {
+            "type": "boolean",
+            "example": true
+          },
+          "discount": {
+            "type": "number",
+            "example": 15,
+            "description": "Discount value; interpret by type"
+          },
+          "productId": {
+            "type": "number",
+            "example": 1
+          }
+        },
+        "required": [
+          "title",
+          "type",
+          "description",
+          "discount",
+          "productId"
+        ]
+      },
+      "UpdatePromotionDto": {
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": "string",
+            "example": "Holiday Sale"
+          },
+          "type": {
+            "type": "string",
+            "example": "percentage"
+          },
+          "description": {
+            "type": "string",
+            "example": "Up to 30% off select items"
+          },
+          "startsAt": {
+            "format": "date-time",
+            "type": "string",
+            "example": "2025-12-01T00:00:00.000Z"
+          },
+          "endsAt": {
+            "format": "date-time",
+            "type": "string",
+            "example": "2026-01-01T00:00:00.000Z"
+          },
+          "active": {
+            "type": "boolean",
+            "example": true
+          },
+          "discount": {
+            "type": "number",
+            "example": 15,
+            "description": "Discount value; interpret by type"
+          },
+          "productId": {
+            "type": "number",
+            "example": 1
+          }
+        }
+      },
+      "CreateCategoryDTO": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "example": "Electronics"
+          }
+        },
+        "required": [
+          "name"
+        ]
+      },
+      "UpdateCategoryDTO": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "example": "Consumer Electronics"
+          }
+        }
+      },
+      "ListBookmarksDto": {
+        "type": "object",
+        "properties": {
+          "take": {
+            "type": "number",
+            "example": 10,
+            "description": "Number of results to return"
+          },
+          "skip": {
+            "type": "number",
+            "example": 0,
+            "description": "Number of results to skip"
+          }
+        }
+      },
+      "StoreBookmarkDto": {
+        "type": "object",
+        "properties": {
+          "storeId": {
+            "type": "number",
+            "example": 42,
+            "description": "ID of the store to bookmark/unbookmark"
+          }
+        },
+        "required": [
+          "storeId"
+        ]
+      },
+      "ProductBookmarkDto": {
+        "type": "object",
+        "properties": {
+          "productId": {
+            "type": "number",
+            "example": 99,
+            "description": "ID of the product to bookmark/unbookmark"
+          }
+        },
+        "required": [
+          "productId"
+        ]
+      },
+      "ChatMessageDto": {
+        "type": "object",
+        "properties": {
+          "role": {
+            "type": "string",
+            "enum": [
+              "user",
+              "assistant",
+              "system"
+            ]
+          },
+          "content": {
+            "type": "string",
+            "example": "Hello!"
+          }
+        },
+        "required": [
+          "role",
+          "content"
+        ]
+      },
+      "ChatRequestDto": {
+        "type": "object",
+        "properties": {
+          "messages": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ChatMessageDto"
+            }
+          }
+        },
+        "required": [
+          "messages"
+        ]
+      },
+      "TextGenerationDto": {
+        "type": "object",
+        "properties": {
+          "prompt": {
+            "type": "string",
+            "example": "Write a haiku about the sea"
+          }
+        },
+        "required": [
+          "prompt"
+        ]
+      },
+      "FreeformRecommendationDto": {
+        "type": "object",
+        "properties": {
+          "query": {
+            "type": "string",
+            "example": "budget mechanical keyboard"
+          },
+          "count": {
+            "type": "number",
+            "example": 6
+          }
+        },
+        "required": [
+          "query"
+        ]
+      }
+    }
+  }
+}
