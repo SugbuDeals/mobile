@@ -1,57 +1,92 @@
+import { useLogin } from "@/features/auth";
+import { useStore } from "@/features/store";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
-  Image,
-  Platform,
-  ScrollView,
-  StatusBar,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
+    Alert,
+    Platform,
+    ScrollView,
+    StatusBar,
+    StyleSheet,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View
 } from "react-native";
 
 export default function AddProduct() {
+  const { state: { user } } = useLogin();
+  const { action: { createProduct }, state: { loading, error } } = useStore();
   const [productName, setProductName] = useState("");
-  const [category, setCategory] = useState("");
-  const [regularPrice, setRegularPrice] = useState("");
-  const [discountAmount, setDiscountAmount] = useState("");
-  const [stockStatus, setStockStatus] = useState("");
-  const [searchKeywords, setSearchKeywords] = useState("");
-  const [selectedImage, setSelectedImage] = useState<any>(null);
+  const [description, setDescription] = useState("");
+  const [price, setPrice] = useState("");
+  const [stock, setStock] = useState("");
+  const [isActive, setIsActive] = useState(true);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const handleAddProduct = () => {
-    console.log("Adding product:", {
-      productName,
-      category,
-      regularPrice,
-      discountAmount,
-      stockStatus,
-      searchKeywords,
-      selectedImage,
-    });
-    // Handle add product logic here
-    router.back();
+  useEffect(() => {
+    
+  }, [user]);
+
+  const handleAddProduct = async () => {
+    // Double-check store setup before proceeding
+    
+
+    // Validate required fields
+    if (!productName.trim()) {
+      Alert.alert("Error", "Product name is required");
+      return;
+    }
+    if (!description.trim()) {
+      Alert.alert("Error", "Product description is required");
+      return;
+    }
+    if (!price.trim() || isNaN(Number(price))) {
+      Alert.alert("Error", "Please enter a valid price");
+      return;
+    }
+    if (!stock.trim() || isNaN(Number(stock)) || Number(stock) < 0) {
+      Alert.alert("Error", "Please enter a valid stock quantity");
+      return;
+    }
+
+    setIsSubmitting(true);
+    
+    try {
+      const productData = {
+        name: productName.trim(),
+        description: description.trim(),
+        price: Number(price),
+        stock: Number(stock),
+        isActive,
+        storeId: user?.store?.id || 1, // Use user's store ID or fallback
+      };
+
+      console.log("Creating product with data:", productData);
+      await createProduct(productData);
+      
+      Alert.alert("Success", "Product created successfully!", [
+        { text: "OK", onPress: () => router.back() }
+      ]);
+    } catch (err) {
+      console.error("Error creating product:", err);
+      Alert.alert("Error", "Failed to create product. Please try again.");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handleCancel = () => {
     router.back();
   };
 
-  const handleImageUpload = () => {
-    console.log("Upload image");
-    // Handle image upload logic here
-    // For demo, we'll use a placeholder image
-    setSelectedImage(require("@/assets/images/index.png"));
-  };
 
   return (
     <View style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor="transparent" />
-
+      
       {/* Header */}
       <LinearGradient
         colors={["#FFBE5D", "#277874"]}
@@ -66,12 +101,10 @@ export default function AddProduct() {
             </View>
             <View style={styles.headerText}>
               <Text style={styles.headerTitle}>Add</Text>
-              <Text style={styles.headerSubtitle}>
-                Add product to your inventory
-              </Text>
+              <Text style={styles.headerSubtitle}>Add product to your inventory</Text>
             </View>
           </View>
-
+          
           <View style={styles.notificationIcon}>
             <Ionicons name="notifications" size={20} color="#ffffff" />
           </View>
@@ -93,42 +126,41 @@ export default function AddProduct() {
             />
           </View>
 
-          {/* Category */}
+          {/* Description */}
           <View style={styles.inputGroup}>
-            <Text style={styles.label}>Category</Text>
-            <View style={styles.inputContainer}>
-              <TextInput
-                style={styles.textInput}
-                placeholder="Select category"
-                value={category}
-                onChangeText={setCategory}
-                placeholderTextColor="#9CA3AF"
-              />
-              <Ionicons name="chevron-down" size={20} color="#9CA3AF" />
-            </View>
+            <Text style={styles.label}>Description</Text>
+            <TextInput
+              style={[styles.textInput, styles.multilineInput]}
+              placeholder="Enter product description"
+              value={description}
+              onChangeText={setDescription}
+              placeholderTextColor="#9CA3AF"
+              multiline
+              numberOfLines={3}
+            />
           </View>
 
-          {/* Regular Price & Discount Amount */}
+          {/* Price & Stock */}
           <View style={styles.inputGroup}>
             <View style={styles.rowContainer}>
               <View style={styles.halfInput}>
-                <Text style={styles.label}>Regular Price</Text>
+                <Text style={styles.label}>Price</Text>
                 <TextInput
                   style={styles.textInput}
                   placeholder="Enter price"
-                  value={regularPrice}
-                  onChangeText={setRegularPrice}
+                  value={price}
+                  onChangeText={setPrice}
                   placeholderTextColor="#9CA3AF"
                   keyboardType="numeric"
                 />
               </View>
               <View style={styles.halfInput}>
-                <Text style={styles.label}>Discount Amount</Text>
+                <Text style={styles.label}>Stock Quantity</Text>
                 <TextInput
                   style={styles.textInput}
-                  placeholder="%"
-                  value={discountAmount}
-                  onChangeText={setDiscountAmount}
+                  placeholder="Enter quantity"
+                  value={stock}
+                  onChangeText={setStock}
                   placeholderTextColor="#9CA3AF"
                   keyboardType="numeric"
                 />
@@ -136,82 +168,48 @@ export default function AddProduct() {
             </View>
           </View>
 
-          {/* Stock Status */}
+          {/* Active Status */}
           <View style={styles.inputGroup}>
-            <Text style={styles.label}>Stock Status</Text>
-            <View style={styles.inputContainer}>
-              <TextInput
-                style={styles.textInput}
-                placeholder="Select Stock Status"
-                value={stockStatus}
-                onChangeText={setStockStatus}
-                placeholderTextColor="#9CA3AF"
-              />
-              <Ionicons name="chevron-down" size={20} color="#9CA3AF" />
-            </View>
-
-            {/* Stock Information */}
-            <View style={styles.stockInfo}>
-              <Text style={styles.stockInStock}>In Stock (45 Units)</Text>
-              <Text style={styles.stockLow}>
-                Low stock - only 5 units remaining
+            <Text style={styles.label}>Product Status</Text>
+            <View style={styles.toggleContainer}>
+              <Text style={styles.toggleLabel}>
+                {isActive ? "Active" : "Inactive"}
               </Text>
+              <TouchableOpacity
+                style={[styles.toggle, isActive && styles.toggleActive]}
+                onPress={() => setIsActive(!isActive)}
+              >
+                <View style={[styles.toggleThumb, isActive && styles.toggleThumbActive]} />
+              </TouchableOpacity>
             </View>
           </View>
 
           {/* Product Image */}
           <View style={styles.inputGroup}>
             <Text style={styles.label}>Product Image</Text>
-            <View style={styles.uploadArea}>
-              <Ionicons name="cloud-upload" size={40} color="#9CA3AF" />
-              <Text style={styles.uploadText}>
-                Upload image for your promotion
-              </Text>
-              <TouchableOpacity
-                style={styles.chooseFileButton}
-                onPress={handleImageUpload}
-              >
-                <Text style={styles.chooseFileText}>Choose File</Text>
-              </TouchableOpacity>
-            </View>
-
-            {/* Image Preview */}
-            {selectedImage && (
-              <View style={styles.imagePreview}>
-                <Image source={selectedImage} style={styles.previewImage} />
-                <TouchableOpacity style={styles.editImageButton}>
-                  <Ionicons name="create" size={16} color="#ffffff" />
-                </TouchableOpacity>
+            <View style={styles.comingSoonArea}>
+              <Ionicons name="image-outline" size={40} color="#9CA3AF" />
+              <Text style={styles.comingSoonText}>Image Upload</Text>
+              <Text style={styles.comingSoonSubtext}>Coming Soon</Text>
+              <View style={styles.comingSoonBadge}>
+                <Text style={styles.comingSoonBadgeText}>Feature in Development</Text>
               </View>
-            )}
-          </View>
-
-          {/* Search Keywords */}
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>Search Keywords</Text>
-            <TextInput
-              style={styles.textInput}
-              placeholder="Enter Keywords, separated by commas"
-              value={searchKeywords}
-              onChangeText={setSearchKeywords}
-              placeholderTextColor="#9CA3AF"
-              multiline
-            />
+            </View>
           </View>
 
           {/* Action Buttons */}
           <View style={styles.actionButtons}>
-            <TouchableOpacity
-              style={styles.addButton}
+            <TouchableOpacity 
+              style={[styles.addButton, isSubmitting && styles.addButtonDisabled]} 
               onPress={handleAddProduct}
+              disabled={isSubmitting}
             >
-              <Text style={styles.addButtonText}>ADD</Text>
+              <Text style={styles.addButtonText}>
+                {isSubmitting ? "CREATING..." : "ADD"}
+              </Text>
             </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.cancelButton}
-              onPress={handleCancel}
-            >
+            
+            <TouchableOpacity style={styles.cancelButton} onPress={handleCancel}>
               <Text style={styles.cancelButtonText}>Cancel</Text>
             </TouchableOpacity>
           </View>
@@ -426,5 +424,82 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "600",
     color: "#ffffff",
+  },
+  multilineInput: {
+    height: 80,
+    textAlignVertical: "top",
+  },
+  toggleContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  toggleLabel: {
+    fontSize: 16,
+    fontWeight: "500",
+    color: "#374151",
+  },
+  toggle: {
+    width: 50,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: "#E5E7EB",
+    justifyContent: "center",
+    paddingHorizontal: 2,
+  },
+  toggleActive: {
+    backgroundColor: "#10B981",
+  },
+  toggleThumb: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: "#ffffff",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  toggleThumbActive: {
+    transform: [{ translateX: 22 }],
+  },
+  addButtonDisabled: {
+    opacity: 0.6,
+  },
+  comingSoonArea: {
+    backgroundColor: "#F9FAFB",
+    borderWidth: 2,
+    borderColor: "#E5E7EB",
+    borderStyle: "dashed",
+    borderRadius: 12,
+    padding: 24,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  comingSoonText: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#374151",
+    marginTop: 12,
+    marginBottom: 4,
+  },
+  comingSoonSubtext: {
+    fontSize: 14,
+    color: "#6B7280",
+    marginBottom: 12,
+  },
+  comingSoonBadge: {
+    backgroundColor: "#FEF3C7",
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: "#F59E0B",
+  },
+  comingSoonBadgeText: {
+    fontSize: 12,
+    fontWeight: "500",
+    color: "#92400E",
   },
 });

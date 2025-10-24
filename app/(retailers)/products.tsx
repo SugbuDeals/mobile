@@ -1,156 +1,120 @@
+import { useLogin } from "@/features/auth";
+import { useStore } from "@/features/store";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
 import React, { useEffect, useRef, useState } from "react";
 import {
-  Dimensions,
-  Image,
-  Platform,
-  ScrollView,
-  StatusBar,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
+    Dimensions,
+    Platform,
+    ScrollView,
+    StatusBar,
+    StyleSheet,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View
 } from "react-native";
 
-interface Product {
-  id: string;
-  name: string;
-  category: string;
-  price: string;
-  stockStatus: "In Stock" | "Low Stock" | "Out of Stock";
-  discount?: string;
-  image: any;
-}
-
-const mockProducts: Product[] = [
-  {
-    id: "1",
-    name: "Pilot Frixion Erasable Pen",
-    category: "Office Supplies",
-    price: "$ 3,000.00",
-    stockStatus: "In Stock",
-    discount: "30% OFF",
-    image: require("@/assets/images/index.png"),
-  },
-  {
-    id: "2",
-    name: "Wireless Keyboard",
-    category: "Electronics",
-    price: "$ 350.00",
-    stockStatus: "Low Stock",
-    discount: "30% OFF",
-    image: require("@/assets/images/index1.png"),
-  },
-  {
-    id: "3",
-    name: "Whiteboard Marker Set",
-    category: "Office Supplies",
-    price: "$ 8.99",
-    stockStatus: "In Stock",
-    image: require("@/assets/images/index2.png"),
-  },
-  {
-    id: "4",
-    name: "Erasable Pen Set (5pcs)",
-    category: "Office Supplies",
-    price: "$ 15.99",
-    stockStatus: "Out of Stock",
-    image: require("@/assets/images/index3.png"),
-  },
-];
-
 export default function Products() {
+  const { state: { user } } = useLogin();
+  const { action: { findProducts, deleteProduct }, state: { products, loading } } = useStore();
   const [searchQuery, setSearchQuery] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(2);
   const [deleteModalVisible, setDeleteModalVisible] = useState(false);
-  const [productToDelete, setProductToDelete] = useState<Product | null>(null);
-  const [selectedProductId, setSelectedProductId] = useState<string | null>(
-    null
-  );
+  const [productToDelete, setProductToDelete] = useState<any | null>(null);
+  const [selectedProductId, setSelectedProductId] = useState<string | null>(null);
   const scrollViewRef = useRef<ScrollView>(null);
+
+  useEffect(() => {
+    // Fetch products for the current user's store
+    if (user && (user as any).id) {
+      findProducts({ storeId: Number((user as any).id) });
+    }
+  }, [user]);
 
   // Calculate optimal items per page based on screen height
   useEffect(() => {
     const calculateItemsPerPage = () => {
-      const windowHeight = Dimensions.get("window").height;
-
+      const windowHeight = Dimensions.get('window').height;
+      
       // Calculate available height for product list
       // Header: ~120px, Search: ~80px, Pagination: ~80px, Tab bar: ~65px
       const reservedHeight = 120 + 80 + 80 + 65;
       const availableHeight = windowHeight - reservedHeight;
-
+      
       // Each product card is approximately 112px (80px image + 32px padding)
       const cardHeight = 112;
       const maxItems = Math.floor(availableHeight / cardHeight);
-
+      
       // Ensure at least 1 item per page, but not more than total products
-      const optimalItems = Math.max(1, Math.min(maxItems, mockProducts.length));
+      const optimalItems = Math.max(1, Math.min(maxItems, products.length));
       setItemsPerPage(optimalItems);
     };
 
     calculateItemsPerPage();
-
+    
     // Listen for orientation changes
-    const subscription = Dimensions.addEventListener(
-      "change",
-      calculateItemsPerPage
-    );
-
+    const subscription = Dimensions.addEventListener('change', calculateItemsPerPage);
+    
     return () => subscription?.remove();
-  }, []);
+  }, [products.length]);
 
-  const filteredProducts = mockProducts.filter(
-    (product) =>
-      product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      product.category.toLowerCase().includes(searchQuery.toLowerCase())
+  const filteredProducts = products.filter(product =>
+    product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    (product.description && product.description.toLowerCase().includes(searchQuery.toLowerCase()))
   );
 
   const totalPages = Math.ceil(filteredProducts.length / itemsPerPage);
   const startIndex = (currentPage - 1) * itemsPerPage;
-  const currentProducts = filteredProducts.slice(
-    startIndex,
-    startIndex + itemsPerPage
-  );
+  const currentProducts = filteredProducts.slice(startIndex, startIndex + itemsPerPage);
 
   // Reset to page 1 when search query changes
   useEffect(() => {
     setCurrentPage(1);
   }, [searchQuery]);
 
-  const getStockStatusColor = (status: string) => {
-    switch (status) {
-      case "In Stock":
-        return "#10B981";
-      case "Low Stock":
-        return "#F59E0B";
-      case "Out of Stock":
-        return "#EF4444";
-      default:
-        return "#6B7280";
-    }
+  const getStockStatusColor = (stock: number) => {
+    if (stock > 10) return "#10B981"; // In Stock
+    if (stock > 0) return "#F59E0B"; // Low Stock
+    return "#EF4444"; // Out of Stock
+  };
+
+  const getStockStatusText = (stock: number) => {
+    if (stock > 10) return "In Stock";
+    if (stock > 0) return "Low Stock";
+    return "Out of Stock";
   };
 
   const handleEdit = (productId: string) => {
     router.push(`/(retailers)/edit-product?productId=${productId}`);
   };
 
-  const handleDelete = (product: Product) => {
+  const handleDelete = (product: any) => {
     setProductToDelete(product);
-    setSelectedProductId(product.id);
+    setSelectedProductId(product.id.toString());
     setDeleteModalVisible(true);
   };
 
-  const confirmDelete = () => {
+  const confirmDelete = async () => {
     if (productToDelete) {
-      console.log("Confirm delete product:", productToDelete.id);
-      // Handle actual delete logic here
-      setDeleteModalVisible(false);
-      setProductToDelete(null);
-      setSelectedProductId(null);
+      try {
+        console.log("Deleting product:", productToDelete.id);
+        await deleteProduct(Number(productToDelete.id));
+        
+        // Refresh the products list after successful deletion
+        if (user && (user as any).id) {
+          await findProducts({ storeId: Number((user as any).id) });
+        }
+        
+        setDeleteModalVisible(false);
+        setProductToDelete(null);
+        setSelectedProductId(null);
+      } catch (error) {
+        console.error("Error deleting product:", error);
+        // Keep modal open on error so user can try again
+      }
     }
   };
 
@@ -167,7 +131,7 @@ export default function Products() {
   return (
     <View style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor="transparent" />
-
+      
       {/* Header */}
       <LinearGradient
         colors={["#FFBE5D", "#277874"]}
@@ -185,7 +149,7 @@ export default function Products() {
               <Text style={styles.headerSubtitle}>Manage your products</Text>
             </View>
           </View>
-
+          
           <TouchableOpacity style={styles.addButton} onPress={handleAddProduct}>
             <Ionicons name="add" size={24} color="#ffffff" />
           </TouchableOpacity>
@@ -195,12 +159,7 @@ export default function Products() {
       {/* Search Bar */}
       <View style={styles.searchContainer}>
         <View style={styles.searchBar}>
-          <Ionicons
-            name="search"
-            size={20}
-            color="#9CA3AF"
-            style={styles.searchIcon}
-          />
+          <Ionicons name="search" size={20} color="#9CA3AF" style={styles.searchIcon} />
           <TextInput
             style={styles.searchInput}
             placeholder="Search products..."
@@ -212,101 +171,96 @@ export default function Products() {
       </View>
 
       {/* Product List */}
-      <ScrollView
+      <ScrollView 
         ref={scrollViewRef}
-        style={styles.content}
+        style={styles.content} 
         showsVerticalScrollIndicator={false}
       >
-        {currentProducts.map((product) => (
-          <View key={product.id} style={styles.productCard}>
-            {selectedProductId === product.id && deleteModalVisible ? (
-              <View style={styles.deleteModalOverlay}>
-                <View style={styles.modalContent}>
-                  <Text style={styles.modalTitle}>
-                    Are you sure to remove this product?
-                  </Text>
-                  <Text style={styles.modalProductName}>{product.name}</Text>
-
-                  <View style={styles.modalButtons}>
-                    <TouchableOpacity
-                      style={styles.removeButton}
-                      onPress={confirmDelete}
-                    >
-                      <Text style={styles.removeButtonText}>REMOVE</Text>
-                    </TouchableOpacity>
-
-                    <TouchableOpacity
-                      style={styles.cancelButton}
-                      onPress={cancelDelete}
-                    >
-                      <Text style={styles.cancelButtonText}>Cancel</Text>
-                    </TouchableOpacity>
+        {loading ? (
+          <View style={styles.loadingContainer}>
+            <Text style={styles.loadingText}>Loading products...</Text>
+          </View>
+        ) : currentProducts.length > 0 ? (
+          currentProducts.map((product) => (
+            <View key={product.id} style={styles.productCard}>
+              {selectedProductId === product.id.toString() && deleteModalVisible ? (
+                <View style={styles.deleteModalOverlay}>
+                  <View style={styles.modalContent}>
+                    <Text style={styles.modalTitle}>Are you sure to remove this product?</Text>
+                    <Text style={styles.modalProductName}>{product.name}</Text>
+                    
+                    <View style={styles.modalButtons}>
+                      <TouchableOpacity 
+                        style={styles.removeButton}
+                        onPress={confirmDelete}
+                      >
+                        <Text style={styles.removeButtonText}>REMOVE</Text>
+                      </TouchableOpacity>
+                      
+                      <TouchableOpacity 
+                        style={styles.cancelButton}
+                        onPress={cancelDelete}
+                      >
+                        <Text style={styles.cancelButtonText}>Cancel</Text>
+                      </TouchableOpacity>
+                    </View>
                   </View>
                 </View>
-              </View>
-            ) : (
-              <>
-                <Image source={product.image} style={styles.productImage} />
-
-                <View style={styles.productInfo}>
-                  <View style={styles.productHeader}>
-                    <View style={styles.productDetails}>
-                      <Text style={styles.productName}>{product.name}</Text>
-                      <Text style={styles.productCategory}>
-                        {product.category}
-                      </Text>
-                    </View>
-
-                    {product.discount && (
-                      <View style={styles.discountTag}>
-                        <Text style={styles.discountText}>
-                          {product.discount}
+              ) : (
+                <>
+                  <View style={styles.productImagePlaceholder}>
+                    <Ionicons name="cube-outline" size={32} color="#9CA3AF" />
+                  </View>
+                  
+                  <View style={styles.productInfo}>
+                    <View style={styles.productHeader}>
+                      <View style={styles.productDetails}>
+                        <Text style={styles.productName}>{product.name}</Text>
+                        <Text style={styles.productCategory}>
+                          {product.description || 'No description'}
                         </Text>
                       </View>
-                    )}
-                  </View>
-
-                  <View style={styles.stockStatus}>
-                    <View
-                      style={[
-                        styles.stockTag,
-                        {
-                          backgroundColor: getStockStatusColor(
-                            product.stockStatus
-                          ),
-                        },
-                      ]}
-                    >
-                      <Text style={styles.stockText}>
-                        {product.stockStatus}
-                      </Text>
+                    </View>
+                    
+                    <View style={styles.stockStatus}>
+                      <View style={[styles.stockTag, { backgroundColor: getStockStatusColor(product.stock) }]}>
+                        <Text style={styles.stockText}>{getStockStatusText(product.stock)}</Text>
+                      </View>
+                    </View>
+                    
+                    <View style={styles.productFooter}>
+                      <Text style={styles.productPrice}>${product.price}</Text>
+                      
+                      <View style={styles.actionButtons}>
+                        <TouchableOpacity 
+                          style={styles.actionButton}
+                          onPress={() => handleEdit(product.id.toString())}
+                        >
+                          <Ionicons name="create" size={16} color="#ffffff" />
+                        </TouchableOpacity>
+                        
+                        <TouchableOpacity 
+                          style={styles.actionButton}
+                          onPress={() => handleDelete(product)}
+                        >
+                          <Ionicons name="trash" size={16} color="#ffffff" />
+                        </TouchableOpacity>
+                      </View>
                     </View>
                   </View>
-
-                  <View style={styles.productFooter}>
-                    <Text style={styles.productPrice}>{product.price}</Text>
-
-                    <View style={styles.actionButtons}>
-                      <TouchableOpacity
-                        style={styles.actionButton}
-                        onPress={() => handleEdit(product.id)}
-                      >
-                        <Ionicons name="create" size={16} color="#ffffff" />
-                      </TouchableOpacity>
-
-                      <TouchableOpacity
-                        style={styles.actionButton}
-                        onPress={() => handleDelete(product)}
-                      >
-                        <Ionicons name="trash" size={16} color="#ffffff" />
-                      </TouchableOpacity>
-                    </View>
-                  </View>
-                </View>
-              </>
-            )}
+                </>
+              )}
+            </View>
+          ))
+        ) : (
+          <View style={styles.emptyContainer}>
+            <Ionicons name="cube-outline" size={64} color="#9CA3AF" />
+            <Text style={styles.emptyText}>No products found</Text>
+            <Text style={styles.emptySubtext}>
+              {searchQuery ? 'Try adjusting your search terms' : 'Add your first product to get started'}
+            </Text>
           </View>
-        ))}
+        )}
       </ScrollView>
 
       {/* Pagination - Only show if there are multiple pages */}
@@ -317,22 +271,21 @@ export default function Products() {
               key={index + 1}
               style={[
                 styles.pageButton,
-                currentPage === index + 1 && styles.activePageButton,
+                currentPage === index + 1 && styles.activePageButton
               ]}
               onPress={() => setCurrentPage(index + 1)}
             >
-              <Text
-                style={[
-                  styles.pageButtonText,
-                  currentPage === index + 1 && styles.activePageButtonText,
-                ]}
-              >
+              <Text style={[
+                styles.pageButtonText,
+                currentPage === index + 1 && styles.activePageButtonText
+              ]}>
                 {index + 1}
               </Text>
             </TouchableOpacity>
           ))}
         </View>
       )}
+
     </View>
   );
 }
@@ -441,6 +394,15 @@ const styles = StyleSheet.create({
     height: 80,
     borderRadius: 8,
     marginRight: 16,
+  },
+  productImagePlaceholder: {
+    width: 80,
+    height: 80,
+    borderRadius: 8,
+    marginRight: 16,
+    backgroundColor: "#F3F4F6",
+    justifyContent: "center",
+    alignItems: "center",
   },
   productInfo: {
     flex: 1,
@@ -562,6 +524,8 @@ const styles = StyleSheet.create({
     alignItems: "center",
     zIndex: 10,
     // Ensure it maintains the same dimensions as the product card
+   
+    
   },
   modalContent: {
     alignItems: "center",
@@ -623,5 +587,35 @@ const styles = StyleSheet.create({
     color: "#ffffff",
     fontSize: 15,
     fontWeight: "600",
+  },
+  loadingContainer: {
+    backgroundColor: "#ffffff",
+    borderRadius: 12,
+    padding: 40,
+    alignItems: "center",
+    marginBottom: 16,
+  },
+  loadingText: {
+    fontSize: 16,
+    color: "#6b7280",
+  },
+  emptyContainer: {
+    backgroundColor: "#ffffff",
+    borderRadius: 12,
+    padding: 40,
+    alignItems: "center",
+    marginBottom: 16,
+  },
+  emptyText: {
+    fontSize: 18,
+    fontWeight: "600",
+    color: "#374151",
+    marginTop: 16,
+    marginBottom: 8,
+  },
+  emptySubtext: {
+    fontSize: 14,
+    color: "#6b7280",
+    textAlign: "center",
   },
 });

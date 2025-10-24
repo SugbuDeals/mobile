@@ -1,62 +1,50 @@
+import { useLogin } from "@/features/auth";
+import { useStore } from "@/features/store";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { LinearGradient } from "expo-linear-gradient";
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
-  Image,
-  Platform,
-  ScrollView,
-  StatusBar,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
+    Platform,
+    ScrollView,
+    StatusBar,
+    StyleSheet,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View
 } from "react-native";
 
-interface Product {
-  id: string;
-  name: string;
-  price: string;
-  image: any;
-}
-
-const mockProducts: Product[] = [
-  {
-    id: "1",
-    name: "Pilot Frixion Erasable Pen",
-    price: "$3.39",
-    image: require("@/assets/images/index.png"), // Using existing image
-  },
-  {
-    id: "2",
-    name: "Erasable Pen Set (5pcs)",
-    price: "$15.99",
-    image: require("@/assets/images/index1.png"),
-  },
-  {
-    id: "3",
-    name: "Whiteboard Marker (4pcs)",
-    price: "$8.99",
-    image: require("@/assets/images/index2.png"),
-  },
-];
-
 export default function Promotions() {
+  const { state: { user } } = useLogin();
+  const { action: { findProducts }, state: { products, loading: productsLoading } } = useStore();
   const [promotionTitle, setPromotionTitle] = useState("");
   const [discountAmount, setDiscountAmount] = useState("");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
   const [selectedProducts, setSelectedProducts] = useState<string[]>([]);
 
+  useEffect(() => {
+    // Check if store setup is completed when component mounts
+   
+
+    // Fetch products for the current user's store
+    if (user && (user as any).id) {
+      findProducts({ storeId: Number((user as any).id) });
+    }
+  }, [user]);
+
   const toggleProductSelection = (productId: string) => {
-    setSelectedProducts((prev) =>
+    setSelectedProducts(prev =>
       prev.includes(productId)
-        ? prev.filter((id) => id !== productId)
+        ? prev.filter(id => id !== productId)
         : [...prev, productId]
     );
   };
 
   const handleCreatePromotion = () => {
+    // Double-check store setup before proceeding
+   
+
     // Handle promotion creation logic here
     console.log("Creating promotion:", {
       title: promotionTitle,
@@ -70,7 +58,7 @@ export default function Promotions() {
   return (
     <View style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor="transparent" />
-
+      
       {/* Header */}
       <LinearGradient
         colors={["#FFBE5D", "#277874"]}
@@ -96,12 +84,7 @@ export default function Promotions() {
           <View style={styles.inputGroup}>
             <Text style={styles.label}>Promotion Title</Text>
             <View style={styles.inputContainer}>
-              <Ionicons
-                name="create"
-                size={20}
-                color="#9CA3AF"
-                style={styles.inputIcon}
-              />
+              <Ionicons name="create" size={20} color="#9CA3AF" style={styles.inputIcon} />
               <TextInput
                 style={styles.textInput}
                 placeholder="e.g. Summer Sale on Office Supplies"
@@ -116,12 +99,7 @@ export default function Promotions() {
           <View style={styles.inputGroup}>
             <Text style={styles.label}>Discount Amount</Text>
             <View style={styles.inputContainer}>
-              <Ionicons
-                name="cash"
-                size={20}
-                color="#9CA3AF"
-                style={styles.inputIcon}
-              />
+              <Ionicons name="cash" size={20} color="#9CA3AF" style={styles.inputIcon} />
               <TextInput
                 style={styles.textInput}
                 placeholder="e.g. 20% or $5.00"
@@ -137,12 +115,7 @@ export default function Promotions() {
             <Text style={styles.label}>Promotion Period</Text>
             <View style={styles.dateRow}>
               <View style={[styles.inputContainer, styles.dateInput]}>
-                <Ionicons
-                  name="calendar"
-                  size={20}
-                  color="#9CA3AF"
-                  style={styles.inputIcon}
-                />
+                <Ionicons name="calendar" size={20} color="#9CA3AF" style={styles.inputIcon} />
                 <TextInput
                   style={styles.textInput}
                   placeholder="mm/dd/yyyy"
@@ -152,12 +125,7 @@ export default function Promotions() {
                 />
               </View>
               <View style={[styles.inputContainer, styles.dateInput]}>
-                <Ionicons
-                  name="calendar"
-                  size={20}
-                  color="#9CA3AF"
-                  style={styles.inputIcon}
-                />
+                <Ionicons name="calendar" size={20} color="#9CA3AF" style={styles.inputIcon} />
                 <TextInput
                   style={styles.textInput}
                   placeholder="mm/dd/yyyy"
@@ -172,51 +140,58 @@ export default function Promotions() {
           {/* Product Selection */}
           <View style={styles.inputGroup}>
             <Text style={styles.label}>Select Products</Text>
-            {mockProducts.map((product) => (
-              <TouchableOpacity
-                key={product.id}
-                style={styles.productCard}
-                onPress={() => toggleProductSelection(product.id)}
-              >
-                <View style={styles.productContent}>
-                  <View style={styles.checkboxContainer}>
-                    <View
-                      style={[
+            {productsLoading ? (
+              <View style={styles.loadingContainer}>
+                <Text style={styles.loadingText}>Loading products...</Text>
+              </View>
+            ) : products.length > 0 ? (
+              products.map((product) => (
+                <TouchableOpacity
+                  key={product.id}
+                  style={styles.productCard}
+                  onPress={() => toggleProductSelection(product.id.toString())}
+                >
+                  <View style={styles.productContent}>
+                    <View style={styles.checkboxContainer}>
+                      <View style={[
                         styles.checkbox,
-                        selectedProducts.includes(product.id) &&
-                          styles.checkboxSelected,
-                      ]}
-                    >
-                      {selectedProducts.includes(product.id) && (
-                        <Ionicons name="checkmark" size={12} color="#ffffff" />
-                      )}
+                        selectedProducts.includes(product.id.toString()) && styles.checkboxSelected
+                      ]}>
+                        {selectedProducts.includes(product.id.toString()) && (
+                          <Ionicons name="checkmark" size={12} color="#ffffff" />
+                        )}
+                      </View>
+                    </View>
+                    
+                    <View style={styles.productImagePlaceholder}>
+                      <Ionicons name="cube-outline" size={24} color="#9CA3AF" />
+                    </View>
+                    
+                    <View style={styles.productInfo}>
+                      <Text style={styles.productName}>{product.name}</Text>
+                      <Text style={styles.productPrice}>${product.price}</Text>
                     </View>
                   </View>
-
-                  <Image source={product.image} style={styles.productImage} />
-
-                  <View style={styles.productInfo}>
-                    <Text style={styles.productName}>{product.name}</Text>
-                    <Text style={styles.productPrice}>{product.price}</Text>
-                  </View>
-                </View>
-              </TouchableOpacity>
-            ))}
+                </TouchableOpacity>
+              ))
+            ) : (
+              <View style={styles.emptyContainer}>
+                <Ionicons name="cube-outline" size={48} color="#9CA3AF" />
+                <Text style={styles.emptyText}>No products available</Text>
+                <Text style={styles.emptySubtext}>Add products to your store first to create promotions</Text>
+              </View>
+            )}
           </View>
 
           {/* Info Message */}
           <View style={styles.infoCard}>
             <Text style={styles.infoText}>
-              Customer will be notified about this promotion based on their
-              saved preferences and search history for included products.
+              Customer will be notified about this promotion based on their saved preferences and search history for included products.
             </Text>
           </View>
 
           {/* Create Button */}
-          <TouchableOpacity
-            style={styles.createButton}
-            onPress={handleCreatePromotion}
-          >
+          <TouchableOpacity style={styles.createButton} onPress={handleCreatePromotion}>
             <Text style={styles.createButtonText}>Create Promotion</Text>
           </TouchableOpacity>
         </View>
@@ -353,6 +328,15 @@ const styles = StyleSheet.create({
     borderRadius: 6,
     marginRight: 10,
   },
+  productImagePlaceholder: {
+    width: 40,
+    height: 40,
+    borderRadius: 6,
+    marginRight: 10,
+    backgroundColor: "#F3F4F6",
+    justifyContent: "center",
+    alignItems: "center",
+  },
   productInfo: {
     flex: 1,
   },
@@ -392,5 +376,35 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: "600",
     color: "#ffffff",
+  },
+  loadingContainer: {
+    backgroundColor: "#F3F4F6",
+    borderRadius: 10,
+    padding: 20,
+    alignItems: "center",
+    marginBottom: 10,
+  },
+  loadingText: {
+    fontSize: 14,
+    color: "#6B7280",
+  },
+  emptyContainer: {
+    backgroundColor: "#F3F4F6",
+    borderRadius: 10,
+    padding: 20,
+    alignItems: "center",
+    marginBottom: 10,
+  },
+  emptyText: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#374151",
+    marginTop: 12,
+    marginBottom: 4,
+  },
+  emptySubtext: {
+    fontSize: 12,
+    color: "#6B7280",
+    textAlign: "center",
   },
 });
