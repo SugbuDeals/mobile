@@ -376,15 +376,21 @@ export default function RetailerDashboard() {
   useEffect(() => {
     // Fetch active promotions and products
     console.log("Dashboard - Fetching active promotions...");
-    findActivePromotions();
     
     // Also fetch products so we can show product details in promotions
     if (user && userStore) {
       console.log("Dashboard - Fetching products for store:", userStore.id);
       findProducts({ storeId: userStore.id });
+      // Fetch promotions only for this store
+      findActivePromotions(userStore.id);
     } else if (user && (user as any).id) {
       console.log("Dashboard - No userStore, trying with user ID:", (user as any).id);
       findProducts({ storeId: Number((user as any).id) });
+      // Fetch promotions only for this store
+      findActivePromotions(Number((user as any).id));
+    } else {
+      // If no store info available, fetch all promotions (fallback)
+      findActivePromotions();
     }
   }, [user, userStore]);
 
@@ -392,8 +398,14 @@ export default function RetailerDashboard() {
   useFocusEffect(
     useCallback(() => {
       console.log("Dashboard - Refreshing promotions on focus...");
-      findActivePromotions();
-    }, [findActivePromotions])
+      if (userStore) {
+        findActivePromotions(userStore.id);
+      } else if (user && (user as any).id) {
+        findActivePromotions(Number((user as any).id));
+      } else {
+        findActivePromotions();
+      }
+    }, [findActivePromotions, userStore, user])
   );
 
   const getStoreInitial = (storeName: string) => {
