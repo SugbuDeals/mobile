@@ -1,5 +1,5 @@
 import { createSlice } from "@reduxjs/toolkit";
-import { createStore, findActivePromotions, findProducts, findPromotions, findStoreById, findStores, findUserStore, updateStore } from "./thunk";
+import { createProduct, createStore, deleteProduct, findActivePromotions, findProducts, findPromotions, findStoreById, findStores, findUserStore, updateProduct, updateStore } from "./thunk";
 import { Store } from "./types";
 
 const initialState: {
@@ -174,6 +174,51 @@ const storeSlice = createSlice({
       .addCase(findStoreById.rejected, (state, action) => {
         state.loading = false;
         state.error = action.payload?.message || "Find store by ID failed";
+      })
+      // Create Product
+      .addCase(createProduct.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(createProduct.fulfilled, (state, action) => {
+        state.loading = false;
+        state.error = null;
+        state.products.push(action.payload);
+      })
+      .addCase(createProduct.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload?.message || "Create product failed";
+      })
+      // Update Product
+      .addCase(updateProduct.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(updateProduct.fulfilled, (state, action) => {
+        state.loading = false;
+        state.error = null;
+        const index = state.products.findIndex(product => product.id === action.payload.id);
+        if (index !== -1) {
+          state.products[index] = action.payload;
+        }
+      })
+      .addCase(updateProduct.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload?.message || "Update product failed";
+      })
+      // Delete Product
+      .addCase(deleteProduct.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(deleteProduct.fulfilled, (state, action) => {
+        state.loading = false;
+        state.error = null;
+        state.products = state.products.filter(product => product.id !== action.payload.id);
+      })
+      .addCase(deleteProduct.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload?.message || "Delete product failed";
       });
   },
 });

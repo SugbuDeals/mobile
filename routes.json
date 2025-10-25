@@ -1301,13 +1301,13 @@
               "VERIFIED"
             ]
           },
-          "userId": {
+          "ownerId": {
             "type": "number",
             "description": "The Store Owner's ID"
           }
         },
         "required": [
-          "userId"
+          "ownerId"
         ]
       },
       "CreateProductDTO": {
@@ -1340,7 +1340,6 @@
           },
           "storeId": {
             "type": "number",
-            "example": 1,
             "description": "Related store id"
           }
         },

@@ -12,12 +12,13 @@ export type Product = {
   id: number;
   name: string;
   description: string;
-  price: number;
+  price: number | string; // API returns string, we'll convert to number
   stock: number;
   isActive: boolean;
   storeId: number;
-  createdAt?: Date;
-  updatedAt?: Date;
+  createdAt?: Date | string;
+  updatedAt?: Date | string;
+  categoryId?: number | null;
 };
 
 export type CreateProductDTO = {

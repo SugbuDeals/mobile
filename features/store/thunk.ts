@@ -126,7 +126,14 @@ export const findProducts = createAsyncThunk<
       });
     }
 
-    return response.json();
+    const products = await response.json();
+    
+    // Transform the data to ensure proper types
+    return products.map((product: any) => ({
+      ...product,
+      price: typeof product.price === 'string' ? parseFloat(product.price) : product.price,
+      stock: typeof product.stock === 'string' ? parseInt(product.stock) : product.stock,
+    }));
   } catch (error) {
     return rejectWithValue({
       message:
