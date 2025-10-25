@@ -25,6 +25,7 @@ export default function Products() {
   const [deleteModalVisible, setDeleteModalVisible] = useState(false);
   const [productToDelete, setProductToDelete] = useState<any | null>(null);
   const [selectedProductId, setSelectedProductId] = useState<string | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
   const scrollViewRef = useRef<ScrollView>(null);
   const lastFetchedStoreId = useRef<number | null>(null);
 
@@ -119,6 +120,7 @@ export default function Products() {
 
   const confirmDelete = async () => {
     if (productToDelete) {
+      setIsDeleting(true);
       try {
         console.log("Deleting product:", productToDelete.id);
         await deleteProduct(Number(productToDelete.id));
@@ -128,12 +130,32 @@ export default function Products() {
           await findProducts({ storeId: userStore.id });
         }
         
+        // Adjust current page if necessary after deletion
+        const remainingProducts = products.filter(p => p.id !== productToDelete.id);
+        const remainingFilteredProducts = remainingProducts.filter(product =>
+          product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          (product.description && product.description.toLowerCase().includes(searchQuery.toLowerCase()))
+        );
+        
+        const newTotalPages = Math.ceil(remainingFilteredProducts.length / itemsPerPage);
+        
+        // If current page is beyond the new total pages, go to the last available page
+        if (currentPage > newTotalPages && newTotalPages > 0) {
+          setCurrentPage(newTotalPages);
+        }
+        // If no products left, reset to page 1
+        else if (newTotalPages === 0) {
+          setCurrentPage(1);
+        }
+        
         setDeleteModalVisible(false);
         setProductToDelete(null);
         setSelectedProductId(null);
       } catch (error) {
         console.error("Error deleting product:", error);
         // Keep modal open on error so user can try again
+      } finally {
+        setIsDeleting(false);
       }
     }
   };
@@ -211,15 +233,19 @@ export default function Products() {
                     
                     <View style={styles.modalButtons}>
                       <TouchableOpacity 
-                        style={styles.removeButton}
+                        style={[styles.removeButton, isDeleting && styles.removeButtonDisabled]}
                         onPress={confirmDelete}
+                        disabled={isDeleting}
                       >
-                        <Text style={styles.removeButtonText}>REMOVE</Text>
+                        <Text style={styles.removeButtonText}>
+                          {isDeleting ? "REMOVING..." : "REMOVE"}
+                        </Text>
                       </TouchableOpacity>
                       
                       <TouchableOpacity 
-                        style={styles.cancelButton}
+                        style={[styles.cancelButton, isDeleting && styles.cancelButtonDisabled]}
                         onPress={cancelDelete}
+                        disabled={isDeleting}
                       >
                         <Text style={styles.cancelButtonText}>Cancel</Text>
                       </TouchableOpacity>
@@ -593,6 +619,10 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     textTransform: "uppercase",
   },
+  removeButtonDisabled: {
+    backgroundColor: "#9CA3AF",
+    opacity: 0.6,
+  },
   cancelButton: {
     backgroundColor: "#277874",
     borderRadius: 6,
@@ -607,6 +637,10 @@ const styles = StyleSheet.create({
     color: "#ffffff",
     fontSize: 15,
     fontWeight: "600",
+  },
+  cancelButtonDisabled: {
+    backgroundColor: "#9CA3AF",
+    opacity: 0.6,
   },
   loadingContainer: {
     backgroundColor: "#ffffff",
