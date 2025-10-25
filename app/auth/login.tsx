@@ -1,12 +1,14 @@
 import Button from "@/components/Button";
 import Divider from "@/components/Divider";
+import ErrorAlert from "@/components/ErrorAlert";
+import LoadingSpinner from "@/components/LoadingSpinner";
 import TextField from "@/components/TextField";
 import { useLogin } from "@/features/auth";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 import { yupResolver } from "@hookform/resolvers/yup";
 import { Link, router } from "expo-router";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { Controller, useForm } from "react-hook-form";
 import {
   Dimensions,
@@ -31,6 +33,8 @@ export default function Login() {
     state: { accessToken, loading, user, error },
   } = useLogin();
 
+  const [showError, setShowError] = useState(false);
+
   const {
     control,
     handleSubmit,
@@ -46,10 +50,50 @@ export default function Login() {
   useEffect(() => {
     console.log(`access_token: ${accessToken}`);
     console.log(`error: ${error}`);
-  }, [accessToken, error]);
+    
+    // Show error when there's an error and not loading
+    if (error && !loading) {
+      setShowError(true);
+    } else {
+      setShowError(false);
+    }
+  }, [accessToken, error, loading]);
 
   const onSignIn = (formData: yup.InferType<typeof schema>) => {
+    setShowError(false); // Hide any existing errors when attempting to login
     login(formData);
+  };
+
+  const dismissError = () => {
+    setShowError(false);
+  };
+
+  const getErrorMessage = (error: string | null) => {
+    if (!error) return "";
+    
+    // Format common error messages for better UX
+    if (error.toLowerCase().includes('invalid credentials') || 
+        error.toLowerCase().includes('incorrect password')) {
+      return "Invalid email or password. Please check your credentials and try again.";
+    }
+    
+    if (error.toLowerCase().includes('user not found') || 
+        error.toLowerCase().includes('account not found')) {
+      return "No account found with this email address. Please check your email or sign up.";
+    }
+    
+    if (error.toLowerCase().includes('network') || 
+        error.toLowerCase().includes('connection')) {
+      return "Network error. Please check your internet connection and try again.";
+    }
+    
+    if (error.toLowerCase().includes('server') || 
+        error.toLowerCase().includes('internal')) {
+      return "Server error. Please try again later.";
+    }
+    
+    // Return the original error message if no specific formatting is needed
+    return error;
   };
 
   useEffect(() => {
@@ -77,6 +121,15 @@ export default function Login() {
 
   return (
     <View style={styles.container}>
+      {/* Loading overlay */}
+      {loading && (
+        <LoadingSpinner 
+          overlay={true} 
+          text="Signing you in..." 
+          size="large" 
+        />
+      )}
+      
       {/* Decorative top-right circle (using a View since image asset isn't present) */}
       <View style={[styles.topRightCircle, circleDynamicStyle]} />
       <KeyboardAvoidingView
@@ -99,6 +152,14 @@ export default function Login() {
           </View>
 
           <View style={styles.formSection}>
+            {/* Error Alert */}
+            <ErrorAlert
+              message={getErrorMessage(error)}
+              visible={showError}
+              onDismiss={dismissError}
+              type="error"
+            />
+
             <Controller
               control={control}
               name="email"
@@ -146,8 +207,10 @@ export default function Login() {
               <Text style={styles.forgotText}>Forgot Password?</Text>
             </TouchableOpacity>
 
-            <Button onPress={handleSubmit(onSignIn)}>
-              <Text style={styles.primaryButtonText}>Sign In</Text>
+            <Button onPress={handleSubmit(onSignIn)} disabled={loading}>
+              <Text style={styles.primaryButtonText}>
+                {loading ? "Signing In..." : "Sign In"}
+              </Text>
             </Button>
 
             <Divider text="Or continue with" />
