@@ -1,6 +1,7 @@
 import { useLogin } from "@/features/auth";
 import { useStore } from "@/features/store";
 import Ionicons from "@expo/vector-icons/Ionicons";
+import DateTimePicker from '@react-native-community/datetimepicker';
 import { LinearGradient } from "expo-linear-gradient";
 import React, { useEffect, useState } from "react";
 import {
@@ -16,43 +17,189 @@ import {
 
 export default function Promotions() {
   const { state: { user } } = useLogin();
-  const { action: { findProducts }, state: { products, loading: productsLoading } } = useStore();
+  const { action: { findProducts, createPromotion, findActivePromotions }, state: { products, activePromotions, loading: productsLoading, error } } = useStore();
   const [promotionTitle, setPromotionTitle] = useState("");
-  const [discountAmount, setDiscountAmount] = useState("");
-  const [startDate, setStartDate] = useState("");
-  const [endDate, setEndDate] = useState("");
-  const [selectedProducts, setSelectedProducts] = useState<string[]>([]);
+  const [startDate, setStartDate] = useState(new Date());
+  const [endDate, setEndDate] = useState(new Date());
+  const [selectedProducts, setSelectedProducts] = useState<{[productId: string]: {discount: string, type: 'percentage' | 'fixed'}}>({});
+  const [description, setDescription] = useState("");
+  const [isCreating, setIsCreating] = useState(false);
+  const [showStartDatePicker, setShowStartDatePicker] = useState(false);
+  const [showEndDatePicker, setShowEndDatePicker] = useState(false);
 
   useEffect(() => {
     // Check if store setup is completed when component mounts
    
 
-    // Fetch products for the current user's store
+    // Fetch products and active promotions for the current user's store
     if (user && (user as any).id) {
       findProducts({ storeId: Number((user as any).id) });
+      findActivePromotions(); // Fetch active promotions to know which products are unavailable
     }
   }, [user]);
 
   const toggleProductSelection = (productId: string) => {
-    setSelectedProducts(prev =>
-      prev.includes(productId)
-        ? prev.filter(id => id !== productId)
-        : [...prev, productId]
-    );
+    setSelectedProducts(prev => {
+      if (prev[productId]) {
+        const newState = {...prev};
+        delete newState[productId];
+        return newState;
+      } else {
+        return {
+          ...prev,
+          [productId]: {
+            discount: '',
+            type: 'percentage'
+          }
+        };
+      }
+    });
   };
 
-  const handleCreatePromotion = () => {
-    // Double-check store setup before proceeding
-   
+  const updateProductDiscount = (productId: string, discount: string) => {
+    setSelectedProducts(prev => ({
+      ...prev,
+      [productId]: {
+        ...prev[productId],
+        discount
+      }
+    }));
+  };
 
-    // Handle promotion creation logic here
-    console.log("Creating promotion:", {
-      title: promotionTitle,
-      discount: discountAmount,
-      startDate,
-      endDate,
-      selectedProducts,
+  const updateProductDiscountType = (productId: string, type: 'percentage' | 'fixed') => {
+    setSelectedProducts(prev => ({
+      ...prev,
+      [productId]: {
+        ...prev[productId],
+        type
+      }
+    }));
+  };
+
+  // Get products that are not already in active promotions
+  const getAvailableProducts = () => {
+    const promotedProductIds = activePromotions.map(promotion => promotion.productId);
+    return products.filter(product => !promotedProductIds.includes(product.id));
+  };
+
+  // Check if a product is already in an active promotion
+  const isProductInActivePromotion = (productId: number) => {
+    return activePromotions.some(promotion => promotion.productId === productId);
+  };
+
+  const availableProducts = getAvailableProducts();
+
+  const formatDate = (date: Date) => {
+    return date.toLocaleDateString('en-US', {
+      month: '2-digit',
+      day: '2-digit',
+      year: 'numeric'
     });
+  };
+
+  const handleStartDateChange = (event: any, selectedDate?: Date) => {
+    setShowStartDatePicker(false);
+    if (selectedDate) {
+      setStartDate(selectedDate);
+    }
+  };
+
+  const handleEndDateChange = (event: any, selectedDate?: Date) => {
+    setShowEndDatePicker(false);
+    if (selectedDate) {
+      setEndDate(selectedDate);
+    }
+  };
+
+  const handleCreatePromotion = async () => {
+    // Validate required fields
+    if (!promotionTitle.trim()) {
+      alert("Please enter a promotion title");
+      return;
+    }
+    
+    if (!startDate) {
+      alert("Please select a start date");
+      return;
+    }
+    
+    if (!endDate) {
+      alert("Please select an end date");
+      return;
+    }
+    
+    const selectedProductIds = Object.keys(selectedProducts);
+    if (selectedProductIds.length === 0) {
+      alert("Please select at least one product");
+      return;
+    }
+
+    // Validate all product discounts
+    for (const productId of selectedProductIds) {
+      const productData = selectedProducts[productId];
+      if (!productData.discount.trim()) {
+        alert(`Please enter a discount for all selected products`);
+        return;
+      }
+      
+      const discount = parseFloat(productData.discount);
+      if (isNaN(discount) || discount <= 0) {
+        alert(`Please enter a valid discount amount for all products`);
+        return;
+      }
+    }
+
+    // Validate dates
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+    const now = new Date();
+    
+    if (start < now) {
+      alert("Start date must be in the future");
+      return;
+    }
+    
+    if (end <= start) {
+      alert("End date must be after start date");
+      return;
+    }
+
+    setIsCreating(true);
+
+    try {
+      // Create promotion for each selected product with individual discounts
+      const promises = selectedProductIds.map(productId => {
+        const productData = selectedProducts[productId];
+        return createPromotion({
+          title: promotionTitle,
+          type: productData.type,
+          description: description || `${productData.type === 'percentage' ? `${productData.discount}%` : `$${productData.discount}`} off`,
+          startsAt: start.toISOString(),
+          endsAt: end.toISOString(),
+          discount: parseFloat(productData.discount),
+          productId: parseInt(productId),
+        });
+      });
+
+      await Promise.all(promises);
+      
+      // Refresh active promotions to show the new promotion in dashboard
+      findActivePromotions();
+      
+      // Reset form
+      setPromotionTitle("");
+      setStartDate(new Date());
+      setEndDate(new Date());
+      setSelectedProducts({});
+      setDescription("");
+      
+      alert("Promotion created successfully!");
+    } catch (error) {
+      console.error("Error creating promotion:", error);
+      alert("Failed to create promotion. Please try again.");
+    } finally {
+      setIsCreating(false);
+    }
   };
 
   return (
@@ -95,17 +242,21 @@ export default function Promotions() {
             </View>
           </View>
 
-          {/* Discount Amount */}
+
+
+          {/* Description */}
           <View style={styles.inputGroup}>
-            <Text style={styles.label}>Discount Amount</Text>
+            <Text style={styles.label}>Description (Optional)</Text>
             <View style={styles.inputContainer}>
-              <Ionicons name="cash" size={20} color="#9CA3AF" style={styles.inputIcon} />
+              <Ionicons name="document-text" size={20} color="#9CA3AF" style={styles.inputIcon} />
               <TextInput
                 style={styles.textInput}
-                placeholder="e.g. 20% or $5.00"
-                value={discountAmount}
-                onChangeText={setDiscountAmount}
+                placeholder="e.g. Special summer sale on office supplies"
+                value={description}
+                onChangeText={setDescription}
                 placeholderTextColor="#9CA3AF"
+                multiline
+                numberOfLines={2}
               />
             </View>
           </View>
@@ -114,25 +265,25 @@ export default function Promotions() {
           <View style={styles.inputGroup}>
             <Text style={styles.label}>Promotion Period</Text>
             <View style={styles.dateRow}>
-              <View style={[styles.inputContainer, styles.dateInput]}>
-                <Ionicons name="calendar" size={20} color="#9CA3AF" style={styles.inputIcon} />
-                <TextInput
-                  style={styles.textInput}
-                  placeholder="mm/dd/yyyy"
-                  value={startDate}
-                  onChangeText={setStartDate}
-                  placeholderTextColor="#9CA3AF"
-                />
+              <View style={styles.dateColumn}>
+                <Text style={styles.dateLabel}>Start Date</Text>
+                <TouchableOpacity 
+                  style={[styles.inputContainer, styles.dateInput]}
+                  onPress={() => setShowStartDatePicker(true)}
+                >
+                  <Ionicons name="calendar" size={20} color="#9CA3AF" style={styles.inputIcon} />
+                  <Text style={styles.dateText}>{formatDate(startDate)}</Text>
+                </TouchableOpacity>
               </View>
-              <View style={[styles.inputContainer, styles.dateInput]}>
-                <Ionicons name="calendar" size={20} color="#9CA3AF" style={styles.inputIcon} />
-                <TextInput
-                  style={styles.textInput}
-                  placeholder="mm/dd/yyyy"
-                  value={endDate}
-                  onChangeText={setEndDate}
-                  placeholderTextColor="#9CA3AF"
-                />
+              <View style={styles.dateColumn}>
+                <Text style={styles.dateLabel}>End Date</Text>
+                <TouchableOpacity 
+                  style={[styles.inputContainer, styles.dateInput]}
+                  onPress={() => setShowEndDatePicker(true)}
+                >
+                  <Ionicons name="calendar" size={20} color="#9CA3AF" style={styles.inputIcon} />
+                  <Text style={styles.dateText}>{formatDate(endDate)}</Text>
+                </TouchableOpacity>
               </View>
             </View>
           </View>
@@ -145,35 +296,129 @@ export default function Promotions() {
                 <Text style={styles.loadingText}>Loading products...</Text>
               </View>
             ) : products.length > 0 ? (
-              products.map((product) => (
-                <TouchableOpacity
-                  key={product.id}
-                  style={styles.productCard}
-                  onPress={() => toggleProductSelection(product.id.toString())}
-                >
-                  <View style={styles.productContent}>
-                    <View style={styles.checkboxContainer}>
-                      <View style={[
-                        styles.checkbox,
-                        selectedProducts.includes(product.id.toString()) && styles.checkboxSelected
-                      ]}>
-                        {selectedProducts.includes(product.id.toString()) && (
-                          <Ionicons name="checkmark" size={12} color="#ffffff" />
-                        )}
-                      </View>
-                    </View>
-                    
-                    <View style={styles.productImagePlaceholder}>
-                      <Ionicons name="cube-outline" size={24} color="#9CA3AF" />
-                    </View>
-                    
-                    <View style={styles.productInfo}>
-                      <Text style={styles.productName}>{product.name}</Text>
-                      <Text style={styles.productPrice}>${product.price}</Text>
-                    </View>
+              <View>
+                {/* Available Products */}
+                {availableProducts.length > 0 && (
+                  <View>
+                    <Text style={styles.sectionSubtitle}>Available Products ({availableProducts.length})</Text>
+                    {availableProducts.map((product) => {
+                      const isSelected = selectedProducts[product.id.toString()];
+                      return (
+                        <View key={product.id} style={styles.productCard}>
+                          <TouchableOpacity
+                            style={styles.productContent}
+                            onPress={() => toggleProductSelection(product.id.toString())}
+                          >
+                            <View style={styles.checkboxContainer}>
+                              <View style={[
+                                styles.checkbox,
+                                isSelected && styles.checkboxSelected
+                              ]}>
+                                {isSelected && (
+                                  <Ionicons name="checkmark" size={12} color="#ffffff" />
+                                )}
+                              </View>
+                            </View>
+                            
+                            <View style={styles.productImagePlaceholder}>
+                              <Ionicons name="cube-outline" size={24} color="#9CA3AF" />
+                            </View>
+                            
+                            <View style={styles.productInfo}>
+                              <Text style={styles.productName}>{product.name}</Text>
+                              <Text style={styles.productPrice}>${product.price}</Text>
+                            </View>
+                          </TouchableOpacity>
+                          
+                          {/* Individual Discount Input for Selected Products */}
+                          {isSelected && (
+                            <View style={styles.discountInputContainer}>
+                              <Text style={styles.discountLabel}>Discount for this product:</Text>
+                              <View style={styles.discountInputRow}>
+                                <View style={styles.discountTypeSelector}>
+                                  <TouchableOpacity
+                                    style={[
+                                      styles.discountTypeButton,
+                                      isSelected.type === 'percentage' && styles.discountTypeButtonSelected
+                                    ]}
+                                    onPress={() => updateProductDiscountType(product.id.toString(), 'percentage')}
+                                  >
+                                    <Text style={[
+                                      styles.discountTypeButtonText,
+                                      isSelected.type === 'percentage' && styles.discountTypeButtonTextSelected
+                                    ]}>
+                                      %
+                                    </Text>
+                                  </TouchableOpacity>
+                                  <TouchableOpacity
+                                    style={[
+                                      styles.discountTypeButton,
+                                      isSelected.type === 'fixed' && styles.discountTypeButtonSelected
+                                    ]}
+                                    onPress={() => updateProductDiscountType(product.id.toString(), 'fixed')}
+                                  >
+                                    <Text style={[
+                                      styles.discountTypeButtonText,
+                                      isSelected.type === 'fixed' && styles.discountTypeButtonTextSelected
+                                    ]}>
+                                      $
+                                    </Text>
+                                  </TouchableOpacity>
+                                </View>
+                                <TextInput
+                                  style={styles.discountInput}
+                                  placeholder={isSelected.type === 'percentage' ? "20" : "5.00"}
+                                  value={isSelected.discount}
+                                  onChangeText={(text) => updateProductDiscount(product.id.toString(), text)}
+                                  keyboardType="numeric"
+                                  placeholderTextColor="#9CA3AF"
+                                />
+                              </View>
+                            </View>
+                          )}
+                        </View>
+                      );
+                    })}
                   </View>
-                </TouchableOpacity>
-              ))
+                )}
+
+                {/* Unavailable Products (Already in Promotions) */}
+                {products.filter(product => isProductInActivePromotion(product.id)).length > 0 && (
+                  <View style={styles.unavailableSection}>
+                    <Text style={styles.sectionSubtitle}>Currently in Active Promotions</Text>
+                    {products.filter(product => isProductInActivePromotion(product.id)).map((product) => (
+                      <View key={product.id} style={[styles.productCard, styles.unavailableProductCard]}>
+                        <View style={styles.productContent}>
+                          <View style={styles.checkboxContainer}>
+                            <View style={[styles.checkbox, styles.unavailableCheckbox]}>
+                              <Ionicons name="lock-closed" size={12} color="#9CA3AF" />
+                            </View>
+                          </View>
+                          
+                          <View style={styles.productImagePlaceholder}>
+                            <Ionicons name="cube-outline" size={24} color="#9CA3AF" />
+                          </View>
+                          
+                          <View style={styles.productInfo}>
+                            <Text style={[styles.productName, styles.unavailableProductName]}>{product.name}</Text>
+                            <Text style={[styles.productPrice, styles.unavailableProductPrice]}>${product.price}</Text>
+                            <Text style={styles.unavailableText}>Already in active promotion</Text>
+                          </View>
+                        </View>
+                      </View>
+                    ))}
+                  </View>
+                )}
+
+                {/* No Available Products */}
+                {availableProducts.length === 0 && (
+                  <View style={styles.emptyContainer}>
+                    <Ionicons name="lock-closed" size={48} color="#9CA3AF" />
+                    <Text style={styles.emptyText}>No products available for promotion</Text>
+                    <Text style={styles.emptySubtext}>All products are currently in active promotions</Text>
+                  </View>
+                )}
+              </View>
             ) : (
               <View style={styles.emptyContainer}>
                 <Ionicons name="cube-outline" size={48} color="#9CA3AF" />
@@ -188,14 +433,70 @@ export default function Promotions() {
             <Text style={styles.infoText}>
               Customer will be notified about this promotion based on their saved preferences and search history for included products.
             </Text>
+            {Object.keys(selectedProducts).length > 0 && (
+              <View style={styles.discountPreview}>
+                <Text style={styles.discountPreviewTitle}>Discount Preview:</Text>
+                {Object.entries(selectedProducts).map(([productId, productData]) => {
+                  const product = products.find(p => p.id.toString() === productId);
+                  if (!product || !productData.discount) return null;
+                  
+                  const discount = parseFloat(productData.discount);
+                  if (isNaN(discount)) return null;
+                  
+                  const discountedPrice = productData.type === 'percentage' 
+                    ? product.price * (1 - discount / 100)
+                    : Math.max(0, product.price - discount);
+                  
+                  return (
+                    <View key={productId} style={styles.discountPreviewItem}>
+                      <Text style={styles.discountPreviewProduct}>{product.name}</Text>
+                      <View style={styles.discountPreviewPrice}>
+                        <Text style={styles.discountPreviewOriginal}>${product.price}</Text>
+                        <Text style={styles.discountPreviewNew}>${discountedPrice.toFixed(2)}</Text>
+                        <Text style={styles.discountPreviewType}>
+                          ({productData.type === 'percentage' ? `${discount}%` : `$${discount}`} off)
+                        </Text>
+                      </View>
+                    </View>
+                  );
+                })}
+              </View>
+            )}
           </View>
 
           {/* Create Button */}
-          <TouchableOpacity style={styles.createButton} onPress={handleCreatePromotion}>
-            <Text style={styles.createButtonText}>Create Promotion</Text>
+          <TouchableOpacity 
+            style={[styles.createButton, isCreating && styles.createButtonDisabled]} 
+            onPress={handleCreatePromotion}
+            disabled={isCreating}
+          >
+            <Text style={styles.createButtonText}>
+              {isCreating ? "Creating..." : "Create Promotion"}
+            </Text>
           </TouchableOpacity>
         </View>
       </ScrollView>
+
+      {/* Date Pickers */}
+      {showStartDatePicker && (
+        <DateTimePicker
+          value={startDate}
+          mode="date"
+          display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+          onChange={handleStartDateChange}
+          minimumDate={new Date()}
+        />
+      )}
+
+      {showEndDatePicker && (
+        <DateTimePicker
+          value={endDate}
+          mode="date"
+          display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+          onChange={handleEndDateChange}
+          minimumDate={startDate}
+        />
+      )}
     </View>
   );
 }
@@ -285,8 +586,22 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     gap: 10,
   },
+  dateColumn: {
+    flex: 1,
+  },
+  dateLabel: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: "#6B7280",
+    marginBottom: 6,
+  },
   dateInput: {
     flex: 1,
+  },
+  dateText: {
+    flex: 1,
+    fontSize: 14,
+    color: "#374151",
   },
   productCard: {
     backgroundColor: "#ffffff",
@@ -377,6 +692,37 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     color: "#ffffff",
   },
+  createButtonDisabled: {
+    backgroundColor: "#9CA3AF",
+    shadowOpacity: 0.1,
+    elevation: 2,
+  },
+  typeSelector: {
+    flexDirection: "row",
+    gap: 10,
+  },
+  typeButton: {
+    flex: 1,
+    backgroundColor: "#F9FAFB",
+    borderWidth: 1,
+    borderColor: "#E5E7EB",
+    borderRadius: 10,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    alignItems: "center",
+  },
+  typeButtonSelected: {
+    backgroundColor: "#FFBE5D",
+    borderColor: "#FFBE5D",
+  },
+  typeButtonText: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#6B7280",
+  },
+  typeButtonTextSelected: {
+    color: "#ffffff",
+  },
   loadingContainer: {
     backgroundColor: "#F3F4F6",
     borderRadius: 10,
@@ -406,5 +752,138 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: "#6B7280",
     textAlign: "center",
+  },
+  sectionSubtitle: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#374151",
+    marginBottom: 12,
+    marginTop: 8,
+  },
+  unavailableSection: {
+    marginTop: 20,
+    paddingTop: 16,
+    borderTopWidth: 1,
+    borderTopColor: "#E5E7EB",
+  },
+  unavailableProductCard: {
+    backgroundColor: "#F9FAFB",
+    borderColor: "#E5E7EB",
+    opacity: 0.7,
+  },
+  unavailableCheckbox: {
+    backgroundColor: "#F3F4F6",
+    borderColor: "#D1D5DB",
+  },
+  unavailableProductName: {
+    color: "#9CA3AF",
+  },
+  unavailableProductPrice: {
+    color: "#9CA3AF",
+  },
+  unavailableText: {
+    fontSize: 12,
+    color: "#EF4444",
+    fontWeight: "500",
+    marginTop: 2,
+  },
+  discountPreview: {
+    marginTop: 16,
+    padding: 12,
+    backgroundColor: "#F0FDF4",
+    borderRadius: 8,
+    borderLeftWidth: 3,
+    borderLeftColor: "#10B981",
+  },
+  discountPreviewTitle: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#059669",
+    marginBottom: 8,
+  },
+  discountPreviewItem: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 4,
+  },
+  discountPreviewProduct: {
+    fontSize: 13,
+    color: "#374151",
+    flex: 1,
+  },
+  discountPreviewPrice: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  discountPreviewOriginal: {
+    fontSize: 12,
+    color: "#9CA3AF",
+    textDecorationLine: "line-through",
+  },
+  discountPreviewNew: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: "#10B981",
+  },
+  discountPreviewType: {
+    fontSize: 11,
+    color: "#6B7280",
+    marginLeft: 4,
+  },
+  discountInputContainer: {
+    marginTop: 12,
+    padding: 12,
+    backgroundColor: "#F9FAFB",
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: "#E5E7EB",
+  },
+  discountLabel: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: "#374151",
+    marginBottom: 8,
+  },
+  discountInputRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  discountTypeSelector: {
+    flexDirection: "row",
+    backgroundColor: "#ffffff",
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: "#D1D5DB",
+    overflow: "hidden",
+  },
+  discountTypeButton: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    backgroundColor: "#ffffff",
+  },
+  discountTypeButtonSelected: {
+    backgroundColor: "#FFBE5D",
+  },
+  discountTypeButtonText: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: "#6B7280",
+  },
+  discountTypeButtonTextSelected: {
+    color: "#ffffff",
+  },
+  discountInput: {
+    flex: 1,
+    backgroundColor: "#ffffff",
+    borderWidth: 1,
+    borderColor: "#D1D5DB",
+    borderRadius: 6,
+    paddingHorizontal: 8,
+    paddingVertical: 6,
+    fontSize: 14,
+    color: "#374151",
   },
 });

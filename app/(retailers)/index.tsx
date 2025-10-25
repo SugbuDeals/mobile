@@ -2,9 +2,10 @@ import Card from "@/components/Card";
 import { useLogin } from "@/features/auth";
 import { useStore } from "@/features/store";
 import Ionicons from "@expo/vector-icons/Ionicons";
-import { router } from "expo-router";
-import React, { useEffect } from "react";
+import { router, useFocusEffect } from "expo-router";
+import React, { useCallback, useEffect, useState } from "react";
 import {
+    Alert,
     Dimensions,
     ImageBackground,
     ScrollView,
@@ -63,7 +64,38 @@ const ViewsTodayCard = () => (
   </Card>
 );
 
-const PromotionCard = ({ promotion }: { promotion: any }) => {
+const PromotionCard = ({ promotion, activePromotions }: { promotion: any; activePromotions: any[] }) => {
+  const { action: { updatePromotion, deletePromotion, findProducts, findProductById }, state: { products } } = useStore();
+  const [isUpdating, setIsUpdating] = useState(false);
+  const [showProductDetails, setShowProductDetails] = useState(false);
+  const [promotionProducts, setPromotionProducts] = useState<any[]>([]);
+
+  // Find all products associated with this promotion
+  React.useEffect(() => {
+    console.log("PromotionCard - Looking for products with IDs:", promotion.productIds || promotion.productId);
+    console.log("PromotionCard - Available products:", products);
+    
+    const productIds = promotion.productIds || [promotion.productId];
+    
+    if (productIds.length > 0 && products.length > 0) {
+      const foundProducts = productIds.map((id: number) => 
+        products.find(p => p.id === id)
+      ).filter(Boolean); // Remove undefined products
+      
+      console.log("PromotionCard - Found products:", foundProducts);
+      setPromotionProducts(foundProducts);
+      
+      // If some products are missing, try to fetch them
+      const missingIds = productIds.filter((id: number) => !products.find(p => p.id === id));
+      if (missingIds.length > 0) {
+        console.log("PromotionCard - Missing products, fetching:", missingIds);
+        missingIds.forEach((id: number) => findProductById(id));
+      }
+    } else if (productIds.length > 0 && products.length === 0) {
+      console.log("PromotionCard - No products loaded yet, productIds:", productIds);
+    }
+  }, [promotion.productIds, promotion.productId, products]);
+
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
     return date.toLocaleDateString('en-US', { 
@@ -90,18 +122,91 @@ const PromotionCard = ({ promotion }: { promotion: any }) => {
     return `${discount}% OFF`;
   };
 
+  const calculateDiscountedPrice = (originalPrice: number, type: string, discount: number) => {
+    if (type === 'percentage') {
+      return originalPrice * (1 - discount / 100);
+    } else if (type === 'fixed') {
+      return Math.max(0, originalPrice - discount);
+    }
+    return originalPrice;
+  };
+
+  const handleToggleActive = async () => {
+    setIsUpdating(true);
+    try {
+      // Update all related promotions
+      const productIds: number[] = promotion.productIds || [promotion.productId];
+      const promises = productIds.map((productId: number) => {
+        // Find the original promotion for this product
+        const originalPromotion = activePromotions.find(p => p.productId === productId);
+        if (originalPromotion) {
+          return updatePromotion({
+            id: originalPromotion.id,
+            active: !originalPromotion.active
+          });
+        }
+        return Promise.resolve();
+      });
+      
+      await Promise.all(promises);
+    } catch (error) {
+      console.error("Error updating promotion:", error);
+      Alert.alert("Error", "Failed to update promotion");
+    } finally {
+      setIsUpdating(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    Alert.alert(
+      "Delete Promotion",
+      "Are you sure you want to delete this promotion? This will remove it from all affected products.",
+      [
+        {
+          text: "Cancel",
+          style: "cancel"
+        },
+        {
+          text: "Delete",
+          style: "destructive",
+          onPress: async () => {
+            setIsUpdating(true);
+            try {
+              // Delete all related promotions
+              const productIds: number[] = promotion.productIds || [promotion.productId];
+              const promises = productIds.map((productId: number) => {
+                // Find the original promotion for this product
+                const originalPromotion = activePromotions.find(p => p.productId === productId);
+                if (originalPromotion) {
+                  return deletePromotion(originalPromotion.id);
+                }
+                return Promise.resolve();
+              });
+              
+              await Promise.all(promises);
+            } catch (error) {
+              console.error("Error deleting promotion:", error);
+              Alert.alert("Error", "Failed to delete promotion");
+            } finally {
+              setIsUpdating(false);
+            }
+          }
+        }
+      ]
+    );
+  };
+
   const daysLeft = calculateDaysLeft(promotion.endsAt);
 
+  const handlePromotionClick = () => {
+    setShowProductDetails(!showProductDetails);
+  };
+
   return (
-    <TouchableOpacity style={styles.promotionCard}>
+    <TouchableOpacity style={styles.promotionCard} onPress={handlePromotionClick}>
       <View style={styles.promotionContent}>
         <View style={styles.promotionHeader}>
           <Text style={styles.promotionTitle}>{promotion.title}</Text>
-          <View style={styles.discountTag}>
-            <Text style={styles.discountText}>
-              {formatDiscount(promotion.type, promotion.discount)}
-            </Text>
-          </View>
         </View>
         
         <Text style={styles.promotionDescription}>{promotion.description}</Text>
@@ -130,6 +235,90 @@ const PromotionCard = ({ promotion }: { promotion: any }) => {
             </Text>
           )}
         </View>
+
+        {/* Product Details - shown when clicked */}
+        {showProductDetails && (
+          <View style={styles.productDetailsSection}>
+            <View style={styles.productDetailsHeader}>
+              <Ionicons name="cube-outline" size={20} color="#277874" />
+              <Text style={styles.productDetailsTitle}>
+                Affected Products ({promotionProducts.length})
+              </Text>
+            </View>
+            <View style={styles.productDetailsContent}>
+              {promotionProducts.length > 0 ? (
+                promotionProducts.map((product, index) => {
+                  // Find the specific discount for this product
+                  const productDiscount = promotion.productDiscounts?.find((pd: {productId: number, discount: number, type: string}) => pd.productId === product.id) || 
+                                        { discount: promotion.discount, type: promotion.type };
+                  
+                  return (
+                    <View key={product.id} style={styles.productItem}>
+                      <Text style={styles.productDetailsName}>{product.name}</Text>
+                      <Text style={styles.productDetailsDescription}>{product.description}</Text>
+                      <View style={styles.productDetailsFooter}>
+                        <View style={styles.priceContainer}>
+                          <Text style={styles.productDetailsPrice}>${product.price}</Text>
+                          <Text style={styles.productDetailsDiscountedPrice}>
+                            ${calculateDiscountedPrice(product.price, productDiscount.type, productDiscount.discount).toFixed(2)}
+                          </Text>
+                          <Text style={styles.productDiscountInfo}>
+                            ({productDiscount.type === 'percentage' ? `${productDiscount.discount}%` : `$${productDiscount.discount}`} off)
+                          </Text>
+                        </View>
+                        <Text style={styles.productDetailsStock}>Stock: {product.stock}</Text>
+                      </View>
+                      {index < promotionProducts.length - 1 && (
+                        <View style={styles.productSeparator} />
+                      )}
+                    </View>
+                  );
+                })
+              ) : (
+                <View style={styles.loadingContainer}>
+                  <Text style={styles.loadingText}>Loading product details...</Text>
+                  <Text style={styles.loadingSubtext}>
+                    Product IDs: {(promotion.productIds || [promotion.productId]).join(', ')}
+                  </Text>
+                </View>
+              )}
+            </View>
+            
+            {/* Show discount summary when expanded */}
+            <View style={styles.discountSummary}>
+              <Text style={styles.discountSummaryText}>
+                Individual discounts applied to selected products
+              </Text>
+            </View>
+          </View>
+        )}
+
+        {/* Action Buttons */}
+        <View style={styles.promotionActions}>
+          <TouchableOpacity 
+            style={[styles.actionButton, styles.toggleButton]}
+            onPress={handleToggleActive}
+            disabled={isUpdating}
+          >
+            <Ionicons 
+              name={promotion.active ? "pause" : "play"} 
+              size={16} 
+              color="#ffffff" 
+            />
+            <Text style={styles.actionButtonText}>
+              {isUpdating ? "Updating..." : (promotion.active ? "Pause" : "Activate")}
+            </Text>
+          </TouchableOpacity>
+          
+          <TouchableOpacity 
+            style={[styles.actionButton, styles.deleteButton]}
+            onPress={handleDelete}
+            disabled={isUpdating}
+          >
+            <Ionicons name="trash" size={16} color="#ffffff" />
+            <Text style={styles.actionButtonText}>Delete</Text>
+          </TouchableOpacity>
+        </View>
       </View>
     </TouchableOpacity>
   );
@@ -137,17 +326,75 @@ const PromotionCard = ({ promotion }: { promotion: any }) => {
 
 export default function RetailerDashboard() {
   const { state: { user } } = useLogin();
-  const { action: { findActivePromotions }, state: { userStore, activePromotions, loading } } = useStore();
+  const { action: { findActivePromotions, findProducts }, state: { userStore, activePromotions, loading, products } } = useStore();
+
+  // Group promotions by title to show as single promotions with multiple products
+  const groupedPromotions = React.useMemo(() => {
+    const groups: { [key: string]: any[] } = {};
+    
+    activePromotions.forEach(promotion => {
+      // Group by title only, since products can have different discounts
+      const key = promotion.title;
+      if (!groups[key]) {
+        groups[key] = [];
+      }
+      groups[key].push(promotion);
+    });
+    
+    // Convert groups to array and sort by creation date
+    return Object.values(groups).map(group => ({
+      ...group[0], // Use first promotion as base
+      productIds: group.map(p => p.productId), // Collect all product IDs
+      products: group.map(p => p.productId), // For compatibility
+      // Store individual product discounts for display
+      productDiscounts: group.map(p => ({
+        productId: p.productId,
+        discount: p.discount,
+        type: p.type
+      }))
+    })).sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
+  }, [activePromotions]);
 
   // Debug: Log userStore changes
   React.useEffect(() => {
     console.log("Dashboard - userStore state:", userStore);
   }, [userStore]);
 
+  // Debug: Log activePromotions changes
+  React.useEffect(() => {
+    console.log("Dashboard - activePromotions state:", activePromotions);
+    console.log("Dashboard - activePromotions length:", activePromotions.length);
+    console.log("Dashboard - groupedPromotions:", groupedPromotions);
+  }, [activePromotions, groupedPromotions]);
+
+  // Debug: Log products changes
+  React.useEffect(() => {
+    console.log("Dashboard - products state:", products);
+    console.log("Dashboard - products length:", products.length);
+  }, [products]);
+
   useEffect(() => {
-    // Fetch active promotions
+    // Fetch active promotions and products
+    console.log("Dashboard - Fetching active promotions...");
     findActivePromotions();
-  }, []);
+    
+    // Also fetch products so we can show product details in promotions
+    if (user && userStore) {
+      console.log("Dashboard - Fetching products for store:", userStore.id);
+      findProducts({ storeId: userStore.id });
+    } else if (user && (user as any).id) {
+      console.log("Dashboard - No userStore, trying with user ID:", (user as any).id);
+      findProducts({ storeId: Number((user as any).id) });
+    }
+  }, [user, userStore]);
+
+  // Refresh promotions when component comes into focus
+  useFocusEffect(
+    useCallback(() => {
+      console.log("Dashboard - Refreshing promotions on focus...");
+      findActivePromotions();
+    }, [findActivePromotions])
+  );
 
   const getStoreInitial = (storeName: string) => {
     return storeName ? storeName.charAt(0).toUpperCase() : 'S';
@@ -211,21 +458,36 @@ export default function RetailerDashboard() {
 
       {/* Active Promotions */}
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Active Promotions</Text>
+        <View style={styles.sectionHeader}>
+          <Text style={styles.sectionTitle}>Active Promotions</Text>
+          <TouchableOpacity 
+            style={styles.createPromotionButton}
+            onPress={() => router.push("/(retailers)/promotions")}
+          >
+            <Ionicons name="add" size={16} color="#ffffff" />
+            <Text style={styles.createPromotionButtonText}>Create</Text>
+          </TouchableOpacity>
+        </View>
         <View>
           {loading ? (
             <View style={styles.loadingContainer}>
               <Text style={styles.loadingText}>Loading promotions...</Text>
             </View>
-          ) : activePromotions.length > 0 ? (
-            activePromotions.map((promotion) => (
-              <PromotionCard key={promotion.id} promotion={promotion} />
+          ) : groupedPromotions.length > 0 ? (
+            groupedPromotions.map((promotion) => (
+              <PromotionCard key={`${promotion.title}-${promotion.discount}-${promotion.type}`} promotion={promotion} activePromotions={activePromotions} />
             ))
           ) : (
             <View style={styles.emptyContainer}>
               <Ionicons name="ticket-outline" size={48} color="#9CA3AF" />
               <Text style={styles.emptyText}>No active promotions</Text>
               <Text style={styles.emptySubtext}>Create your first promotion to boost sales!</Text>
+              <TouchableOpacity 
+                style={styles.emptyActionButton}
+                onPress={() => router.push("/(retailers)/promotions")}
+              >
+                <Text style={styles.emptyActionButtonText}>Create Promotion</Text>
+              </TouchableOpacity>
             </View>
           )}
         </View>
@@ -356,6 +618,26 @@ const styles = StyleSheet.create({
     color: "#1f2937",
     marginBottom: 16,
   },
+  sectionHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 16,
+  },
+  createPromotionButton: {
+    backgroundColor: "#FFBE5D",
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 8,
+    gap: 4,
+  },
+  createPromotionButtonText: {
+    color: "#ffffff",
+    fontSize: 14,
+    fontWeight: "600",
+  },
   weeklyViewsContainer: {
     position: 'relative',
   },
@@ -465,6 +747,19 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     color: "#ffffff",
   },
+  discountSummary: {
+    backgroundColor: "#F0FDF4",
+    borderRadius: 8,
+    padding: 8,
+    marginBottom: 12,
+    borderLeftWidth: 3,
+    borderLeftColor: "#10B981",
+  },
+  discountSummaryText: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: "#059669",
+  },
   promotionDescription: {
     fontSize: 14,
     color: "#6b7280",
@@ -538,5 +833,122 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: "#6b7280",
     textAlign: "center",
+  },
+  emptyActionButton: {
+    backgroundColor: "#FFBE5D",
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderRadius: 8,
+    marginTop: 16,
+  },
+  emptyActionButtonText: {
+    color: "#ffffff",
+    fontSize: 14,
+    fontWeight: "600",
+  },
+  promotionActions: {
+    flexDirection: "row",
+    gap: 8,
+    marginTop: 16,
+  },
+  actionButton: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    gap: 4,
+  },
+  toggleButton: {
+    backgroundColor: "#277874",
+  },
+  deleteButton: {
+    backgroundColor: "#EF4444",
+  },
+  actionButtonText: {
+    color: "#ffffff",
+    fontSize: 12,
+    fontWeight: "600",
+  },
+  productDetailsSection: {
+    backgroundColor: "#F9FAFB",
+    borderRadius: 12,
+    padding: 16,
+    marginTop: 16,
+    borderWidth: 1,
+    borderColor: "#E5E7EB",
+  },
+  productDetailsHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 12,
+  },
+  productDetailsTitle: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#277874",
+    marginLeft: 8,
+  },
+  productDetailsContent: {
+    flex: 1,
+  },
+  productDetailsName: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: "#1f2937",
+    marginBottom: 4,
+  },
+  productDetailsDescription: {
+    fontSize: 14,
+    color: "#6b7280",
+    lineHeight: 20,
+    marginBottom: 12,
+  },
+  productDetailsFooter: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  priceContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  productDetailsPrice: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#9CA3AF",
+    textDecorationLine: "line-through",
+  },
+  productDetailsDiscountedPrice: {
+    fontSize: 18,
+    fontWeight: "700",
+    color: "#10B981",
+  },
+  productDiscountInfo: {
+    fontSize: 12,
+    color: "#6B7280",
+    marginTop: 2,
+    fontStyle: "italic",
+  },
+  productDetailsStock: {
+    fontSize: 14,
+    color: "#6b7280",
+    fontWeight: "500",
+  },
+  loadingSubtext: {
+    fontSize: 12,
+    color: "#9CA3AF",
+    marginTop: 4,
+  },
+  productItem: {
+    marginBottom: 12,
+  },
+  productSeparator: {
+    height: 1,
+    backgroundColor: "#E5E7EB",
+    marginVertical: 12,
   },
 });

@@ -38,7 +38,7 @@ export default function EditProduct() {
       
       try {
         // First try to find the product in the current products list
-        if (userStore?.id) {
+        if (userStore?.id && products.length === 0) {
           await findProducts({ storeId: userStore.id });
         }
         
@@ -52,7 +52,8 @@ export default function EditProduct() {
           setPrice(productToEdit.price?.toString() || "");
           setStock(productToEdit.stock?.toString() || "");
           setIsActive(productToEdit.isActive !== false);
-        } else {
+        } else if (products.length > 0) {
+          // Only show error if we have products but the specific one wasn't found
           Alert.alert("Error", "Product not found");
         }
       } catch (error) {
@@ -62,7 +63,32 @@ export default function EditProduct() {
     };
 
     fetchProduct();
-  }, [productId, userStore?.id, products]);
+  }, [productId, userStore?.id]); // Removed 'products' from dependencies to prevent infinite loop
+
+  // Separate effect to sync form with updated product data (only when products change)
+  useEffect(() => {
+    if (productId && products.length > 0) {
+      const updatedProduct = products.find(product => product.id.toString() === productId);
+      if (updatedProduct && currentProduct && updatedProduct.id === currentProduct.id) {
+        // Only update form if the product data has actually changed
+        const hasChanged = 
+          updatedProduct.name !== productName ||
+          updatedProduct.description !== description ||
+          updatedProduct.price?.toString() !== price ||
+          updatedProduct.stock?.toString() !== stock ||
+          updatedProduct.isActive !== isActive;
+        
+        if (hasChanged) {
+          setCurrentProduct(updatedProduct);
+          setProductName(updatedProduct.name);
+          setDescription(updatedProduct.description || "");
+          setPrice(updatedProduct.price?.toString() || "");
+          setStock(updatedProduct.stock?.toString() || "");
+          setIsActive(updatedProduct.isActive !== false);
+        }
+      }
+    }
+  }, [products]); // This effect only runs when products array changes
 
   const handleSaveProduct = async () => {
     if (!productId || !currentProduct) {

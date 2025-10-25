@@ -64,3 +64,24 @@ export type Promotion = {
   createdAt?: Date;
   updatedAt?: Date;
 };
+
+export type CreatePromotionDTO = {
+  title: string;
+  type: 'percentage' | 'fixed';
+  description: string;
+  startsAt: string;
+  endsAt: string;
+  discount: number;
+  productId: number;
+};
+
+export type UpdatePromotionDTO = {
+  title?: string;
+  type?: 'percentage' | 'fixed';
+  description?: string;
+  startsAt?: string;
+  endsAt?: string;
+  discount?: number;
+  productId?: number;
+  active?: boolean;
+};
