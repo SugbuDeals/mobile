@@ -18,7 +18,7 @@ import {
 
 export default function Products() {
   const { state: { user } } = useLogin();
-  const { action: { findProducts, deleteProduct }, state: { products, loading } } = useStore();
+  const { action: { findProducts, deleteProduct }, state: { products, loading, userStore } } = useStore();
   const [searchQuery, setSearchQuery] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(2);
@@ -26,13 +26,15 @@ export default function Products() {
   const [productToDelete, setProductToDelete] = useState<any | null>(null);
   const [selectedProductId, setSelectedProductId] = useState<string | null>(null);
   const scrollViewRef = useRef<ScrollView>(null);
+  const lastFetchedStoreId = useRef<number | null>(null);
 
   useEffect(() => {
     // Fetch products for the current user's store
-    if (user && (user as any).id) {
-      findProducts({ storeId: Number((user as any).id) });
+    if (userStore?.id && lastFetchedStoreId.current !== userStore.id) {
+      lastFetchedStoreId.current = userStore.id;
+      findProducts({ storeId: userStore.id });
     }
-  }, [user]);
+  }, [userStore?.id]);
 
   // Calculate optimal items per page based on screen height
   useEffect(() => {
@@ -104,8 +106,8 @@ export default function Products() {
         await deleteProduct(Number(productToDelete.id));
         
         // Refresh the products list after successful deletion
-        if (user && (user as any).id) {
-          await findProducts({ storeId: Number((user as any).id) });
+        if (userStore?.id) {
+          await findProducts({ storeId: userStore.id });
         }
         
         setDeleteModalVisible(false);

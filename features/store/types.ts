@@ -12,12 +12,13 @@ export type Product = {
   id: number;
   name: string;
   description: string;
-  price: number;
+  price: number | string; // API returns string, we'll convert to number
   stock: number;
   isActive: boolean;
   storeId: number;
-  createdAt?: Date;
-  updatedAt?: Date;
+  createdAt?: Date | string;
+  updatedAt?: Date | string;
+  categoryId?: number | null;
 };
 
 export type CreateProductDTO = {
@@ -47,7 +48,7 @@ export type UpdateStoreDTO = {
   name?: string;
   description?: string;
   verificationStatus?: "UNVERIFIED" | "VERIFIED";
-  userId?: number; // Optional - will be added from auth state if needed
+  userId: number; // Required by API
 };
 
 export type Promotion = {
@@ -62,4 +63,25 @@ export type Promotion = {
   productId: number;
   createdAt?: Date;
   updatedAt?: Date;
+};
+
+export type CreatePromotionDTO = {
+  title: string;
+  type: 'percentage' | 'fixed';
+  description: string;
+  startsAt: string;
+  endsAt: string;
+  discount: number;
+  productId: number;
+};
+
+export type UpdatePromotionDTO = {
+  title?: string;
+  type?: 'percentage' | 'fixed';
+  description?: string;
+  startsAt?: string;
+  endsAt?: string;
+  discount?: number;
+  productId?: number;
+  active?: boolean;
 };

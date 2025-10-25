@@ -1,6 +1,6 @@
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import * as thunk from "./thunk";
-import { CreateProductDTO, CreateStoreDTO, UpdateProductDTO, UpdateStoreDTO } from "./types";
+import { CreateProductDTO, CreatePromotionDTO, CreateStoreDTO, UpdateProductDTO, UpdatePromotionDTO, UpdateStoreDTO } from "./types";
 export { useStoreManagement } from "./hooks";
 
 export const useStore = () => {
@@ -11,6 +11,8 @@ export const useStore = () => {
   const findUserStore = (userId: number) => dispatch(thunk.findUserStore(userId));
   const findProducts = (filters?: { storeId?: number; isActive?: boolean }) => 
     dispatch(thunk.findProducts(filters || {}));
+  const findProductById = (productId: number) => 
+    dispatch(thunk.findProductById(productId));
   const createProduct = (productData: CreateProductDTO) => 
     dispatch(thunk.createProduct(productData));
   const updateProduct = (productData: { id: number } & UpdateProductDTO) => 
@@ -18,6 +20,11 @@ export const useStore = () => {
   const deleteProduct = (productId: number) => dispatch(thunk.deleteProduct(productId));
   const findPromotions = () => dispatch(thunk.findPromotions());
   const findActivePromotions = () => dispatch(thunk.findActivePromotions());
+  const createPromotion = (promotionData: CreatePromotionDTO) => 
+    dispatch(thunk.createPromotion(promotionData));
+  const updatePromotion = (promotionData: { id: number } & UpdatePromotionDTO) => 
+    dispatch(thunk.updatePromotion(promotionData));
+  const deletePromotion = (promotionId: number) => dispatch(thunk.deletePromotion(promotionId));
   const createStore = (storeData: CreateStoreDTO) => 
     dispatch(thunk.createStore(storeData));
   const updateStore = (storeData: { id: number } & UpdateStoreDTO) => 
@@ -30,11 +37,15 @@ export const useStore = () => {
       findStores,
       findUserStore,
       findProducts,
+      findProductById,
       createProduct,
       updateProduct,
       deleteProduct,
       findPromotions,
       findActivePromotions,
+      createPromotion,
+      updatePromotion,
+      deletePromotion,
       createStore,
       updateStore,
       findStoreById,

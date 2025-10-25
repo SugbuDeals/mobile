@@ -8,21 +8,21 @@ import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
 import React, { useMemo, useState } from "react";
 import {
-  Alert,
-  Platform,
-  ScrollView,
-  StatusBar,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View
+    Alert,
+    Platform,
+    ScrollView,
+    StatusBar,
+    StyleSheet,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View
 } from "react-native";
 
 export default function Settings() {
 
-  const { state: { user }, action: { updateUser } } = useLogin();
-  const { action: { updateStore }, state: { userStore, loading: storeLoading } } = useStore();
+  const { state: { user }, action: { updateUser, deleteUser } } = useLogin();
+  const { action: { updateStore }, state: { userStore } } = useStore();
   const dispatch = useAppDispatch();
   const [storeName, setStoreName] = useState("");
   const [storeDescription, setStoreDescription] = useState("");
@@ -110,7 +110,9 @@ export default function Settings() {
       
       // Prepare update data - only include fields that have changed
       // Note: Don't include 'id' in the request body as it's passed in the URL
-      const storeUpdateData: any = {};
+      const storeUpdateData: any = {
+        userId: Number(user?.id), // Required by API
+      };
       
       // Only include store fields that are different from current values
       if (storeName.trim() !== (userStore.name || "")) {
@@ -119,10 +121,6 @@ export default function Settings() {
       if (storeDescription.trim() !== (userStore.description || "")) {
         storeUpdateData.description = storeDescription.trim();
       }
-      
-      // NOTE: We are intentionally REMOVING 'userId' from here. 
-      // The thunk logic is updated to handle this removal and prevent the 500 error.
-      // The old line was: storeUpdateData.userId = Number(user?.id);
       
       // Update store if there are store changes 
       const hasStoreChanges = storeUpdateData.name !== undefined || storeUpdateData.description !== undefined;
@@ -216,6 +214,45 @@ export default function Settings() {
   const handleLogout = () => {
     dispatch(logout());
     router.replace("/auth/login");
+  };
+
+  const handleDeleteAccount = () => {
+    Alert.alert(
+      "Delete Account",
+      "Are you sure you want to permanently delete your account? This action cannot be undone and will remove all your data, store, products, and preferences.",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Delete Account",
+          style: "destructive",
+          onPress: () => {
+            // Show confirmation dialog
+            Alert.alert(
+              "Final Confirmation",
+              "This is your last chance. Are you absolutely sure you want to delete your account? This will also delete your store and all products.",
+              [
+                { text: "Cancel", style: "cancel" },
+                {
+                  text: "Yes, Delete Forever",
+                  style: "destructive",
+                  onPress: async () => {
+                    try {
+                      if (!user || !(user as any).id) return;
+                      const id = Number((user as any).id);
+                      await deleteUser(id).unwrap();
+                      Alert.alert("Account Deleted", "Your account has been permanently deleted.");
+                      router.replace("/auth/login");
+                    } catch (error: any) {
+                      Alert.alert("Error", error?.message || "Failed to delete account. Please try again.");
+                    }
+                  },
+                },
+              ]
+            );
+          },
+        },
+      ]
+    );
   };
 
   return (
@@ -448,11 +485,15 @@ export default function Settings() {
           </View>
         </View>
 
-        {/* Logout Section */}
+        {/* Account Actions Section */}
         <View style={styles.profileSection}>
           <View style={styles.profileInputGroup}>
             <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
               <Text style={styles.logoutButtonText}>Logout Account</Text>
+            </TouchableOpacity>
+            
+            <TouchableOpacity style={styles.deleteButton} onPress={handleDeleteAccount}>
+              <Text style={styles.deleteButtonText}>Delete Account</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -772,6 +813,20 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   logoutButtonText: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#ffffff",
+  },
+  deleteButton: {
+    backgroundColor: "#DC2626",
+    borderRadius: 12,
+    paddingVertical: 12,
+    alignItems: "center",
+    marginTop: 8,
+    borderWidth: 2,
+    borderColor: "#B91C1C",
+  },
+  deleteButtonText: {
     fontSize: 16,
     fontWeight: "600",
     color: "#ffffff",

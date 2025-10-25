@@ -2,11 +2,11 @@ import env from "@/config/env";
 import type { RootState } from "@/store/types";
 import { createAsyncThunk } from "@reduxjs/toolkit";
 import {
-  LoginCredentials,
-  LoginError,
-  LoginResponse,
-  RegisterError,
-  RegisterPayload,
+    LoginCredentials,
+    LoginError,
+    LoginResponse,
+    RegisterError,
+    RegisterPayload,
 } from "./types";
 
 /**
@@ -145,6 +145,40 @@ export const register = createAsyncThunk<
     
     const userData = await response.json();
     return userData;
+  } catch (error) {
+    return rejectWithValue({
+      message:
+        error instanceof Error ? error.message : "An unknown error occured",
+    });
+  }
+});
+
+/**
+ * Delete user account by id
+ */
+export const deleteUser = createAsyncThunk<
+  { success: boolean },
+  number,
+  { rejectValue: LoginError; state: RootState }
+>("auth/deleteUser", async (id, { getState, rejectWithValue }) => {
+  try {
+    const token = getState().auth.accessToken;
+    const response = await fetch(`${env.API_BASE_URL}/user/${id}`, {
+      method: "DELETE",
+      headers: {
+        "Content-Type": "application/json",
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+    });
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({}));
+      return rejectWithValue({
+        message: error.message || "Failed to delete user account",
+      });
+    }
+
+    return { success: true };
   } catch (error) {
     return rejectWithValue({
       message:

@@ -16,52 +16,11 @@ import {
     View
 } from "react-native";
 
-// Mock products data (same as in products.tsx)
-const mockProducts = [
-  {
-    id: "1",
-    name: "Pilot Frixion Erasable Pen",
-    category: "Office Supplies",
-    price: "$ 3,000.00",
-    stockStatus: "In Stock",
-    discount: "30%",
-    image: require("@/assets/images/index.png"),
-    searchKeywords: "Erasable Pen, Pen, Ballpen, Erase",
-  },
-  {
-    id: "2",
-    name: "Wireless Keyboard",
-    category: "Electronics",
-    price: "$ 350.00",
-    stockStatus: "Low Stock",
-    discount: "30%",
-    image: require("@/assets/images/index1.png"),
-    searchKeywords: "Keyboard, Wireless, Electronics, Computer",
-  },
-  {
-    id: "3",
-    name: "Whiteboard Marker Set",
-    category: "Office Supplies",
-    price: "$ 8.99",
-    stockStatus: "In Stock",
-    image: require("@/assets/images/index2.png"),
-    searchKeywords: "Whiteboard, Marker, Office, Writing",
-  },
-  {
-    id: "4",
-    name: "Erasable Pen Set (5pcs)",
-    category: "Office Supplies",
-    price: "$ 15.99",
-    stockStatus: "Out of Stock",
-    image: require("@/assets/images/index3.png"),
-    searchKeywords: "Pen Set, Erasable, Office, Writing",
-  },
-];
 
 export default function EditProduct() {
   const { productId } = useLocalSearchParams();
   const { state: { user } } = useLogin();
-  const { action: { updateProduct, findProducts }, state: { loading, error } } = useStore();
+  const { action: { updateProduct, findProducts }, state: { loading, error, products, userStore } } = useStore();
   
   // Initialize state with empty values
   const [productName, setProductName] = useState("");
@@ -79,17 +38,24 @@ export default function EditProduct() {
       
       try {
         // First try to find the product in the current products list
-        await findProducts({ storeId: user?.store?.id });
+        if (userStore?.id && products.length === 0) {
+          await findProducts({ storeId: userStore.id });
+        }
         
-        // For now, use mock data - in a real app, you'd fetch the specific product
-        const productToEdit = mockProducts.find(product => product.id === productId) || mockProducts[0];
+        // Find the product in the current products list from Redux store
+        const productToEdit = products.find(product => product.id.toString() === productId);
         
-        setCurrentProduct(productToEdit);
-        setProductName(productToEdit.name);
-        setDescription(productToEdit.description || "");
-        setPrice(productToEdit.price?.replace(/[^0-9.]/g, '') || "");
-        setStock(productToEdit.stock?.toString() || "");
-        setIsActive(productToEdit.isActive !== false);
+        if (productToEdit) {
+          setCurrentProduct(productToEdit);
+          setProductName(productToEdit.name);
+          setDescription(productToEdit.description || "");
+          setPrice(productToEdit.price?.toString() || "");
+          setStock(productToEdit.stock?.toString() || "");
+          setIsActive(productToEdit.isActive !== false);
+        } else if (products.length > 0) {
+          // Only show error if we have products but the specific one wasn't found
+          Alert.alert("Error", "Product not found");
+        }
       } catch (error) {
         console.error("Error fetching product:", error);
         Alert.alert("Error", "Failed to load product data");
@@ -97,7 +63,32 @@ export default function EditProduct() {
     };
 
     fetchProduct();
-  }, [productId, user?.store?.id]);
+  }, [productId, userStore?.id]); // Removed 'products' from dependencies to prevent infinite loop
+
+  // Separate effect to sync form with updated product data (only when products change)
+  useEffect(() => {
+    if (productId && products.length > 0) {
+      const updatedProduct = products.find(product => product.id.toString() === productId);
+      if (updatedProduct && currentProduct && updatedProduct.id === currentProduct.id) {
+        // Only update form if the product data has actually changed
+        const hasChanged = 
+          updatedProduct.name !== productName ||
+          updatedProduct.description !== description ||
+          updatedProduct.price?.toString() !== price ||
+          updatedProduct.stock?.toString() !== stock ||
+          updatedProduct.isActive !== isActive;
+        
+        if (hasChanged) {
+          setCurrentProduct(updatedProduct);
+          setProductName(updatedProduct.name);
+          setDescription(updatedProduct.description || "");
+          setPrice(updatedProduct.price?.toString() || "");
+          setStock(updatedProduct.stock?.toString() || "");
+          setIsActive(updatedProduct.isActive !== false);
+        }
+      }
+    }
+  }, [products]); // This effect only runs when products array changes
 
   const handleSaveProduct = async () => {
     if (!productId || !currentProduct) {
@@ -268,18 +259,6 @@ export default function EditProduct() {
             </View>
           </View>
 
-          {/* Search Keywords */}
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>Search Keywords</Text>
-            <TextInput
-              style={styles.textInput}
-              placeholder="Enter Keywords, separated by commas"
-              value={searchKeywords}
-              onChangeText={setSearchKeywords}
-              placeholderTextColor="#9CA3AF"
-              multiline
-            />
-          </View>
 
           {/* Action Buttons */}
           <View style={styles.actionButtons}>

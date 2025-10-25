@@ -18,37 +18,47 @@ import {
 
 export default function AddProduct() {
   const { state: { user } } = useLogin();
-  const { action: { createProduct }, state: { loading, error } } = useStore();
+  const { action: { createProduct }, state: { loading, error, userStore } } = useStore();
   const [productName, setProductName] = useState("");
   const [description, setDescription] = useState("");
   const [price, setPrice] = useState("");
   const [stock, setStock] = useState("");
   const [isActive, setIsActive] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [validationErrors, setValidationErrors] = useState<{[key: string]: boolean}>({});
 
   useEffect(() => {
     
   }, [user]);
 
   const handleAddProduct = async () => {
-    // Double-check store setup before proceeding
+    // Clear previous validation errors
+    setValidationErrors({});
     
-
     // Validate required fields
+    const errors: {[key: string]: boolean} = {};
+    let hasErrors = false;
+
     if (!productName.trim()) {
-      Alert.alert("Error", "Product name is required");
-      return;
+      errors.productName = true;
+      hasErrors = true;
     }
     if (!description.trim()) {
-      Alert.alert("Error", "Product description is required");
-      return;
+      errors.description = true;
+      hasErrors = true;
     }
-    if (!price.trim() || isNaN(Number(price))) {
-      Alert.alert("Error", "Please enter a valid price");
-      return;
+    if (!price.trim() || isNaN(Number(price)) || Number(price) <= 0) {
+      errors.price = true;
+      hasErrors = true;
     }
     if (!stock.trim() || isNaN(Number(stock)) || Number(stock) < 0) {
-      Alert.alert("Error", "Please enter a valid stock quantity");
+      errors.stock = true;
+      hasErrors = true;
+    }
+
+    if (hasErrors) {
+      setValidationErrors(errors);
+      Alert.alert("Validation Error", "Please fill in all required fields correctly.");
       return;
     }
 
@@ -61,15 +71,22 @@ export default function AddProduct() {
         price: Number(price),
         stock: Number(stock),
         isActive,
-        storeId: user?.store?.id || 1, // Use user's store ID or fallback
+        storeId: userStore?.id || 1, // Use user's store ID or fallback
       };
 
       console.log("Creating product with data:", productData);
       await createProduct(productData);
       
-      Alert.alert("Success", "Product created successfully!", [
-        { text: "OK", onPress: () => router.back() }
-      ]);
+      Alert.alert(
+        "Success!", 
+        "Product has been added to your inventory successfully.", 
+        [
+          { 
+            text: "View Inventory", 
+            onPress: () => router.push("/(retailers)/products") 
+          }
+        ]
+      );
     } catch (err) {
       console.error("Error creating product:", err);
       Alert.alert("Error", "Failed to create product. Please try again.");
@@ -116,24 +133,41 @@ export default function AddProduct() {
         <View style={styles.formCard}>
           {/* Product Name */}
           <View style={styles.inputGroup}>
-            <Text style={styles.label}>Product Name</Text>
+            <Text style={styles.label}>Product Name <Text style={styles.required}>*</Text></Text>
             <TextInput
-              style={styles.textInput}
+              style={[
+                styles.textInput,
+                validationErrors.productName && styles.textInputError
+              ]}
               placeholder="Enter product name"
               value={productName}
-              onChangeText={setProductName}
+              onChangeText={(text) => {
+                setProductName(text);
+                if (validationErrors.productName) {
+                  setValidationErrors(prev => ({ ...prev, productName: false }));
+                }
+              }}
               placeholderTextColor="#9CA3AF"
             />
           </View>
 
           {/* Description */}
           <View style={styles.inputGroup}>
-            <Text style={styles.label}>Description</Text>
+            <Text style={styles.label}>Description <Text style={styles.required}>*</Text></Text>
             <TextInput
-              style={[styles.textInput, styles.multilineInput]}
+              style={[
+                styles.textInput, 
+                styles.multilineInput,
+                validationErrors.description && styles.textInputError
+              ]}
               placeholder="Enter product description"
               value={description}
-              onChangeText={setDescription}
+              onChangeText={(text) => {
+                setDescription(text);
+                if (validationErrors.description) {
+                  setValidationErrors(prev => ({ ...prev, description: false }));
+                }
+              }}
               placeholderTextColor="#9CA3AF"
               multiline
               numberOfLines={3}
@@ -144,23 +178,39 @@ export default function AddProduct() {
           <View style={styles.inputGroup}>
             <View style={styles.rowContainer}>
               <View style={styles.halfInput}>
-                <Text style={styles.label}>Price</Text>
+                <Text style={styles.label}>Price <Text style={styles.required}>*</Text></Text>
                 <TextInput
-                  style={styles.textInput}
+                  style={[
+                    styles.textInput,
+                    validationErrors.price && styles.textInputError
+                  ]}
                   placeholder="Enter price"
                   value={price}
-                  onChangeText={setPrice}
+                  onChangeText={(text) => {
+                    setPrice(text);
+                    if (validationErrors.price) {
+                      setValidationErrors(prev => ({ ...prev, price: false }));
+                    }
+                  }}
                   placeholderTextColor="#9CA3AF"
                   keyboardType="numeric"
                 />
               </View>
               <View style={styles.halfInput}>
-                <Text style={styles.label}>Stock Quantity</Text>
+                <Text style={styles.label}>Stock Quantity <Text style={styles.required}>*</Text></Text>
                 <TextInput
-                  style={styles.textInput}
+                  style={[
+                    styles.textInput,
+                    validationErrors.stock && styles.textInputError
+                  ]}
                   placeholder="Enter quantity"
                   value={stock}
-                  onChangeText={setStock}
+                  onChangeText={(text) => {
+                    setStock(text);
+                    if (validationErrors.stock) {
+                      setValidationErrors(prev => ({ ...prev, stock: false }));
+                    }
+                  }}
                   placeholderTextColor="#9CA3AF"
                   keyboardType="numeric"
                 />
@@ -297,6 +347,10 @@ const styles = StyleSheet.create({
     color: "#374151",
     marginBottom: 8,
   },
+  required: {
+    color: "#EF4444",
+    fontWeight: "bold",
+  },
   textInput: {
     backgroundColor: "#F9FAFB",
     borderWidth: 1,
@@ -306,6 +360,10 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     fontSize: 16,
     color: "#374151",
+  },
+  textInputError: {
+    borderColor: "#EF4444",
+    backgroundColor: "#FEF2F2",
   },
   inputContainer: {
     flexDirection: "row",
