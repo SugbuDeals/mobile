@@ -2,8 +2,8 @@ import { useLogin } from "@/features/auth";
 import { useStore } from "@/features/store";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { LinearGradient } from "expo-linear-gradient";
-import { router } from "expo-router";
-import React, { useEffect, useRef, useState } from "react";
+import { router, useFocusEffect } from "expo-router";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
     Dimensions,
     Platform,
@@ -33,8 +33,26 @@ export default function Products() {
     if (userStore?.id && lastFetchedStoreId.current !== userStore.id) {
       lastFetchedStoreId.current = userStore.id;
       findProducts({ storeId: userStore.id });
+    } else if (user && (user as any).id && !userStore?.id) {
+      // Fallback: if userStore is not available yet, try using user ID directly
+      // This handles the timing issue when navigating directly to inventory
+      console.log("Products page - userStore not available, using user ID as fallback");
+      findProducts({ storeId: Number((user as any).id) });
     }
-  }, [userStore?.id]);
+  }, [userStore?.id, user]);
+
+  // Refresh products when component comes into focus
+  useFocusEffect(
+    useCallback(() => {
+      console.log("Products page - Refreshing products on focus...");
+      if (userStore?.id) {
+        findProducts({ storeId: userStore.id });
+      } else if (user && (user as any).id) {
+        console.log("Products page - userStore not available on focus, using user ID");
+        findProducts({ storeId: Number((user as any).id) });
+      }
+    }, [userStore?.id, user, findProducts])
+  );
 
   // Calculate optimal items per page based on screen height
   useEffect(() => {
