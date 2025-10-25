@@ -1,3 +1,4 @@
+import { useLogin } from "@/features/auth";
 import { logout } from "@/features/auth/slice";
 import { fetchUserById } from "@/features/auth/thunk";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
@@ -5,12 +6,12 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import { router } from "expo-router";
 import React, { useEffect, useMemo, useState } from "react";
 import {
-  Alert,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
+    Alert,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View,
 } from "react-native";
 import Button from "../../components/Button";
 import TextField from "../../components/TextField";
@@ -19,6 +20,7 @@ import Toggle from "../../components/Toggle";
 export default function Profile() {
   const dispatch = useAppDispatch();
   const { user, accessToken } = useAppSelector((state) => state.auth);
+  const { action: { deleteUser } } = useLogin();
 
   const defaultName = (user as any)?.fullname || (user as any)?.name || "";
   const defaultEmail = (user as any)?.email || "";
@@ -77,6 +79,45 @@ export default function Profile() {
         },
       },
     ]);
+  };
+
+  const handleDeleteAccount = () => {
+    Alert.alert(
+      "Delete Account",
+      "Are you sure you want to permanently delete your account? This action cannot be undone and will remove all your data, bookmarks, and preferences.",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Delete Account",
+          style: "destructive",
+          onPress: () => {
+            // Show confirmation dialog
+            Alert.alert(
+              "Final Confirmation",
+              "This is your last chance. Are you absolutely sure you want to delete your account?",
+              [
+                { text: "Cancel", style: "cancel" },
+                {
+                  text: "Yes, Delete Forever",
+                  style: "destructive",
+                  onPress: async () => {
+                    try {
+                      if (!user || !(user as any).id) return;
+                      const id = Number((user as any).id);
+                      await deleteUser(id).unwrap();
+                      Alert.alert("Account Deleted", "Your account has been permanently deleted.");
+                      router.replace("/auth/login");
+                    } catch (error: any) {
+                      Alert.alert("Error", error?.message || "Failed to delete account. Please try again.");
+                    }
+                  },
+                },
+              ]
+            );
+          },
+        },
+      ]
+    );
   };
 
   const handleEditProfile = () => {
@@ -188,6 +229,14 @@ export default function Profile() {
             >
               <Text style={styles.buttonText}>Logout Account</Text>
             </Button>
+
+            <Button
+              variant="danger"
+              style={styles.deleteButton}
+              onPress={handleDeleteAccount}
+            >
+              <Text style={styles.buttonText}>Delete Account</Text>
+            </Button>
           </View>
         </View>
       </View>
@@ -256,6 +305,14 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     paddingVertical: 16,
     marginTop: 8,
+  },
+  deleteButton: {
+    backgroundColor: "#dc2626",
+    borderRadius: 12,
+    paddingVertical: 16,
+    marginTop: 8,
+    borderWidth: 2,
+    borderColor: "#b91c1c",
   },
   editButtonsContainer: {
     flexDirection: "row",

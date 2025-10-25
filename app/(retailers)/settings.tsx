@@ -21,7 +21,7 @@ import {
 
 export default function Settings() {
 
-  const { state: { user }, action: { updateUser } } = useLogin();
+  const { state: { user }, action: { updateUser, deleteUser } } = useLogin();
   const { action: { updateStore }, state: { userStore } } = useStore();
   const dispatch = useAppDispatch();
   const [storeName, setStoreName] = useState("");
@@ -214,6 +214,45 @@ export default function Settings() {
   const handleLogout = () => {
     dispatch(logout());
     router.replace("/auth/login");
+  };
+
+  const handleDeleteAccount = () => {
+    Alert.alert(
+      "Delete Account",
+      "Are you sure you want to permanently delete your account? This action cannot be undone and will remove all your data, store, products, and preferences.",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Delete Account",
+          style: "destructive",
+          onPress: () => {
+            // Show confirmation dialog
+            Alert.alert(
+              "Final Confirmation",
+              "This is your last chance. Are you absolutely sure you want to delete your account? This will also delete your store and all products.",
+              [
+                { text: "Cancel", style: "cancel" },
+                {
+                  text: "Yes, Delete Forever",
+                  style: "destructive",
+                  onPress: async () => {
+                    try {
+                      if (!user || !(user as any).id) return;
+                      const id = Number((user as any).id);
+                      await deleteUser(id).unwrap();
+                      Alert.alert("Account Deleted", "Your account has been permanently deleted.");
+                      router.replace("/auth/login");
+                    } catch (error: any) {
+                      Alert.alert("Error", error?.message || "Failed to delete account. Please try again.");
+                    }
+                  },
+                },
+              ]
+            );
+          },
+        },
+      ]
+    );
   };
 
   return (
@@ -446,11 +485,15 @@ export default function Settings() {
           </View>
         </View>
 
-        {/* Logout Section */}
+        {/* Account Actions Section */}
         <View style={styles.profileSection}>
           <View style={styles.profileInputGroup}>
             <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
               <Text style={styles.logoutButtonText}>Logout Account</Text>
+            </TouchableOpacity>
+            
+            <TouchableOpacity style={styles.deleteButton} onPress={handleDeleteAccount}>
+              <Text style={styles.deleteButtonText}>Delete Account</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -770,6 +813,20 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   logoutButtonText: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#ffffff",
+  },
+  deleteButton: {
+    backgroundColor: "#DC2626",
+    borderRadius: 12,
+    paddingVertical: 12,
+    alignItems: "center",
+    marginTop: 8,
+    borderWidth: 2,
+    borderColor: "#B91C1C",
+  },
+  deleteButtonText: {
     fontSize: 16,
     fontWeight: "600",
     color: "#ffffff",

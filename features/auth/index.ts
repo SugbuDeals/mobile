@@ -15,11 +15,15 @@ export const useLogin = () => {
   const updateUser = (id: number, data: { name?: string; email?: string }) =>
     dispatch(thunk.updateUser({ id, data }));
 
+  const deleteUser = (id: number) =>
+    dispatch(thunk.deleteUser(id));
+
   return {
     action: {
       login,
       register,
       updateUser,
+      deleteUser,
     },
     state,
   };

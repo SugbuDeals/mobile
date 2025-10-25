@@ -1,5 +1,5 @@
 import { createSlice } from "@reduxjs/toolkit";
-import { fetchUserById, login, updateUser } from "./thunk";
+import { deleteUser, fetchUserById, login, updateUser } from "./thunk";
 import { AuthState } from "./types";
 
 const initialState: AuthState = {
@@ -72,6 +72,21 @@ const authSlice = createSlice({
       .addCase(updateUser.rejected, (state, action) => {
         state.loading = false;
         state.error = action.payload?.message || "Failed to update user";
+      })
+      // Delete user
+      .addCase(deleteUser.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(deleteUser.fulfilled, (state) => {
+        state.loading = false;
+        state.accessToken = null;
+        state.user = null;
+        state.error = null;
+      })
+      .addCase(deleteUser.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload?.message || "Failed to delete user account";
       });
   },
 });
