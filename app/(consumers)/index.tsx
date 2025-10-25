@@ -6,12 +6,12 @@ import { useStore } from "@/features/store";
 import { useRouter } from "expo-router";
 import { useEffect } from "react";
 import {
-  Image,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
+    Image,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View,
 } from "react-native";
 
 const STATIC_CATEGORIES: Category[] = [
@@ -51,7 +51,7 @@ export default function Home() {
   return (
     <ScrollView style={styles.container}>
       <Greeting name={displayName} />
-      <Categories categories={displayCategories.slice(0, 4)} />
+      <Categories categories={displayCategories.slice(0, 4)} router={router} />
       <Recommendations products={products || []} router={router} />
       <NearbyStores stores={stores || []} loading={loading} router={router} />
     </ScrollView>
@@ -69,10 +69,14 @@ function Greeting({ name }: { name: string }) {
   );
 }
 
-function Categories({ categories }: { categories: Category[] }) {
+function Categories({ categories, router }: { categories: Category[]; router: any }) {
   return (
     <View style={styles.section}>
-      <SectionHeader title="Categories" linkText="See All" />
+      <SectionHeader 
+        title="Categories" 
+        linkText="See All" 
+        onPress={() => router.push("/(consumers)/categories")}
+      />
       <View style={styles.grid}>
         {categories.map((cat) => (
           <View key={cat.id} style={styles.gridItem}>
@@ -178,7 +182,11 @@ function NearbyStores({
 
   return (
     <View style={styles.section}>
-      <SectionHeader title="Nearby Stores" linkText="View Map" />
+      <SectionHeader 
+        title="Nearby Stores" 
+        linkText="View Map" 
+        onPress={() => router.push("/(consumers)/viewmap")}
+      />
       {stores.map((s) => (
         <TouchableOpacity
           key={s.id ?? s.name}
