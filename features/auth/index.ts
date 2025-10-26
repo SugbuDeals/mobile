@@ -18,12 +18,20 @@ export const useLogin = () => {
   const deleteUser = (id: number) =>
     dispatch(thunk.deleteUser(id));
 
+  const fetchAllUsers = (params?: { name?: string; email?: string; skip?: number; take?: number }) =>
+    dispatch(thunk.fetchAllUsers(params));
+
+  const deleteUserByAdmin = (id: number) =>
+    dispatch(thunk.deleteUserByAdmin(id));
+
   return {
     action: {
       login,
       register,
       updateUser,
       deleteUser,
+      fetchAllUsers,
+      deleteUserByAdmin,
     },
     state,
   };

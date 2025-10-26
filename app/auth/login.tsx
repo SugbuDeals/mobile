@@ -98,14 +98,54 @@ export default function Login() {
 
   useEffect(() => {
     if (!loading && accessToken && user) {
-      const normalizedRole = String(
-        (user as any).user_type ?? (user as any).role ?? ""
-      ).toLowerCase();
-      if (normalizedRole === "retailer") {
-        router.replace("/(retailers)");
-      } else {
-        router.replace("/(consumers)");
-      }
+      // Get role from multiple possible fields and normalize to lowercase
+      const userType = String((user as any).user_type ?? (user as any).userType ?? "").trim().toLowerCase();
+      const role = String((user as any).role ?? "").trim().toLowerCase();
+      
+      console.log("=== LOGIN REDIRECT DEBUG ===");
+      console.log("User object:", JSON.stringify(user));
+      console.log("User type field:", (user as any).user_type || (user as any).userType);
+      console.log("User type normalized:", userType);
+      console.log("User role field:", (user as any).role);
+      console.log("User role normalized:", role);
+      
+      // Check for admin role - comparing normalized lowercase values
+      // Also check for uppercase 'ADMIN' in original data
+      const isAdmin = 
+        userType === "admin" || 
+        role === "admin" || 
+        userType === "administrator" ||
+        role === "administrator" ||
+        String((user as any).user_type ?? "").toUpperCase() === "ADMIN" ||
+        String((user as any).role ?? "").toUpperCase() === "ADMIN";
+      
+      // Check for retailer role - comparing normalized lowercase values  
+      const isRetailer = 
+        userType === "retailer" || 
+        role === "retailer" ||
+        String((user as any).user_type ?? "").toUpperCase() === "RETAILER" ||
+        String((user as any).role ?? "").toUpperCase() === "RETAILER";
+      
+      console.log("Is admin:", isAdmin);
+      console.log("Is retailer:", isRetailer);
+      console.log("=== END LOGIN REDIRECT DEBUG ===");
+      
+      // Small delay to ensure state is fully updated before navigation
+      const timeoutId = setTimeout(() => {
+        if (isAdmin) {
+          console.log("✅ REDIRECTING TO ADMIN DASHBOARD");
+          router.replace("/(admin)");
+        } else if (isRetailer) {
+          console.log("✅ REDIRECTING TO RETAILER DASHBOARD");
+          router.replace("/(retailers)");
+        } else {
+          console.log("⚠️ DEFAULTING TO CONSUMER DASHBOARD (user may not have a valid role)");
+          router.replace("/(consumers)");
+        }
+      }, 100);
+      
+      // Cleanup timeout on unmount
+      return () => clearTimeout(timeoutId);
     }
   }, [accessToken, loading, user]);
 
@@ -232,20 +272,6 @@ export default function Login() {
             <Text style={styles.footerText}>Don&apos;t have an account? </Text>
             <Link href="/auth/register" style={styles.linkText}>
               Sign up
-            </Link>
-          </View>
-
-          <View
-            style={{ flexDirection: "row", justifyContent: "center", gap: 20 }}
-          >
-            <Link style={styles.linkText} href="/(consumers)">
-              Consumer
-            </Link>
-            <Link style={styles.linkText} href="/auth/setup">
-              Retailer Setup
-            </Link>
-            <Link style={styles.linkText} href="/(admin)">
-              Admin
             </Link>
           </View>
         </ScrollView>

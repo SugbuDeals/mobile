@@ -10,8 +10,8 @@ export interface LoginResponse {
     email: string;
     name?: string;
     fullname?: string;
-    role?: 'CONSUMER' | 'RETAILER' | string;
-    user_type?: 'consumer' | 'retailer';
+    role?: 'CONSUMER' | 'RETAILER' | 'ADMIN' | string;
+    user_type?: 'consumer' | 'retailer' | 'admin';
     createdAt?: string;
     retailer_setup_completed?: boolean;
   };
@@ -32,7 +32,7 @@ export interface RegisterPayload {
   name: string;
   email: string;
   password: string;
-  role: 'CONSUMER' | 'RETAILER';
+  role: 'CONSUMER' | 'RETAILER' | 'ADMIN';
 }
 
 export interface RegisterError { message: string }

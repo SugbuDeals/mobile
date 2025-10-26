@@ -1,56 +1,151 @@
+import env from "@/config/env";
+import { useLogin } from "@/features/auth";
+import { useStore } from "@/features/store";
 import { Ionicons } from "@expo/vector-icons";
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
-  Dimensions,
-  Image,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
+    ActivityIndicator,
+    Dimensions,
+    Image,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View,
 } from "react-native";
 
 const { width } = Dimensions.get("window");
 
-// Mock data for recent users
-const recentUsers = [
-  {
-    id: "1",
-    name: "Mike Chen",
-    email: "mike.chen@email.com",
-    avatar: "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=100&h=100&fit=crop&crop=face",
-    timeAgo: "2m ago",
-  },
-  {
-    id: "2",
-    name: "Emma Davis",
-    email: "emma.davis@email.com",
-    avatar: "https://images.unsplash.com/photo-1494790108755-2616b612b786?w=100&h=100&fit=crop&crop=face",
-    timeAgo: "5m ago",
-  },
-  {
-    id: "3",
-    name: "Alex Rodriguez",
-    email: "alex.rodriguez@email.com",
-    avatar: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100&h=100&fit=crop&crop=face",
-    timeAgo: "10m ago",
-  },
-];
-
 export default function AdminDashboard() {
+  const { state: authState, action: authActions } = useLogin();
+  const { action: storeActions, state: { promotions, loading: storeLoading } } = useStore();
+  
+  const [isLoading, setIsLoading] = useState(true);
   const [aiQuery, setAiQuery] = useState("");
   const [aiResponse, setAiResponse] = useState("");
+  const [isLoadingAI, setIsLoadingAI] = useState(false);
 
-  const handleTestAI = () => {
-    if (aiQuery.trim()) {
-      setAiResponse("AI response will appear here...");
+  useEffect(() => {
+    // Fetch all users
+    if (authState.allUsers.length === 0) {
+      authActions.fetchAllUsers();
+    }
+    
+    // Fetch all promotions
+    storeActions.findPromotions();
+    
+    // Set loading to false after a short delay
+    const timer = setTimeout(() => setIsLoading(false), 500);
+    return () => clearTimeout(timer);
+  }, []);
+
+  // Calculate today's date for filtering
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  
+  const getTodayStart = () => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    return today;
+  };
+  
+  const getTodayEnd = () => {
+    const today = new Date();
+    today.setHours(23, 59, 59, 999);
+    return today;
+  };
+  
+  const isCreatedToday = (createdAt: string) => {
+    const createdDate = new Date(createdAt);
+    return createdDate >= getTodayStart() && createdDate <= getTodayEnd();
+  };
+
+  // Filter users created today
+  const recentUsersToday = authState.allUsers.filter(user => {
+    const createdAt = user.createdAt || user.created_at;
+    if (!createdAt) return false;
+    return isCreatedToday(createdAt);
+  });
+
+  // Format time ago for recent users
+  const getTimeAgo = (createdAt: string) => {
+    const created = new Date(createdAt);
+    const now = new Date();
+    const diffMs = now.getTime() - created.getTime();
+    const diffMins = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMs / 3600000);
+    
+    if (diffMins < 1) return "Just now";
+    if (diffMins < 60) return `${diffMins}m ago`;
+    if (diffHours < 1) return "Less than 1h ago";
+    return `${diffHours}h ago`;
+  };
+
+  // Calculate metrics
+  const totalUsers = authState.allUsers.length;
+  const totalPromotions = promotions.length;
+  
+  // Format number with commas
+  const formatNumber = (num: number) => {
+    return num.toLocaleString('en-US');
+  };
+
+  // Handle AI test submission
+  const handleTestAI = async () => {
+    if (!aiQuery.trim() || isLoadingAI) return;
+    
+    setIsLoadingAI(true);
+    setAiResponse("Processing...");
+    
+    try {
+      const response = await fetch(`${env.API_BASE_URL}/ai/recommendations`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(authState.accessToken ? { Authorization: `Bearer ${authState.accessToken}` } : {}),
+        },
+        body: JSON.stringify({ query: aiQuery, count: 10 }),
+      });
+      
+      const rawText = await response.text();
+      let jsonData: any = {};
+      
+      try {
+        jsonData = rawText ? JSON.parse(rawText) : {};
+      } catch {
+        jsonData = { content: rawText };
+      }
+      
+      // Extract AI response text
+      const aiText =
+        jsonData?.content ||
+        jsonData?.messages?.find((m: any) => m?.role === "assistant")?.content ||
+        jsonData?.insight ||
+        jsonData?.summary ||
+        jsonData?.message ||
+        "AI response received";
+      
+      setAiResponse(aiText);
+    } catch (error) {
+      setAiResponse("Error: Could not fetch AI recommendations. Please try again.");
+      console.error("AI error:", error);
+    } finally {
+      setIsLoadingAI(false);
     }
   };
 
+  if (isLoading || authState.usersLoading || storeLoading) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color="#1B6F5D" />
+        <Text style={styles.loadingText}>Loading dashboard...</Text>
+      </View>
+    );
+  }
+
   return (
     <View style={styles.container}>
-
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
         {/* Key Metrics Cards */}
         <View style={styles.metricsSection}>
@@ -58,45 +153,45 @@ export default function AdminDashboard() {
             <View style={styles.metricCard}>
               <View style={styles.metricHeader}>
                 <Text style={styles.metricLabel}>Total Users</Text>
-                <View style={[styles.metricIcon, { backgroundColor: "#10B981" }]}>
-                  <Ionicons name="people" size={20} color="#ffffff" />
+                <View style={[styles.metricIcon, { backgroundColor: "#D1FAE5" }]}>
+                  <Ionicons name="people" size={20} color="#1B6F5D" />
                 </View>
               </View>
-              <Text style={styles.metricValue}>2,847</Text>
+              <Text style={styles.metricValue}>{formatNumber(totalUsers)}</Text>
               <Text style={styles.metricChange}>+12% vs last month</Text>
             </View>
 
             <View style={styles.metricCard}>
               <View style={styles.metricHeader}>
                 <Text style={styles.metricLabel}>AI Deal Found</Text>
-                <View style={[styles.metricIcon, { backgroundColor: "#10B981" }]}>
-                  <Ionicons name="pricetag" size={20} color="#ffffff" />
+                <View style={[styles.metricIcon, { backgroundColor: "#DBEAFE" }]}>
+                  <Ionicons name="pricetag" size={20} color="#3B82F6" />
                 </View>
               </View>
-              <Text style={styles.metricValue}>45,231</Text>
+              <Text style={styles.metricValue}>{formatNumber(totalPromotions)}</Text>
               <Text style={styles.metricChange}>+8% vs last month</Text>
             </View>
 
             <View style={styles.metricCard}>
               <View style={styles.metricHeader}>
                 <Text style={styles.metricLabel}>Total Income</Text>
-                <View style={[styles.metricIcon, { backgroundColor: "#10B981" }]}>
-                  <Ionicons name="cash" size={20} color="#ffffff" />
+                <View style={[styles.metricIcon, { backgroundColor: "#FEF3C7" }]}>
+                  <Ionicons name="cash" size={20} color="#F59E0B" />
                 </View>
               </View>
-              <Text style={styles.metricValue}>$2.4M</Text>
-              <Text style={styles.metricChange}>+15% this month</Text>
+              <Text style={styles.metricValue}>N/A</Text>
+              <Text style={styles.metricChange}>Tracking coming soon</Text>
             </View>
 
             <View style={styles.metricCard}>
               <View style={styles.metricHeader}>
                 <Text style={styles.metricLabel}>AI Queries</Text>
-                <View style={[styles.metricIcon, { backgroundColor: "#3B82F6" }]}>
-                  <Ionicons name="hardware-chip" size={20} color="#ffffff" />
+                <View style={[styles.metricIcon, { backgroundColor: "#F3F4F6" }]}>
+                  <Ionicons name="hardware-chip" size={20} color="#6B7280" />
                 </View>
               </View>
-              <Text style={styles.metricValue}>8,942</Text>
-              <Text style={styles.metricChange}>+5% vs last month</Text>
+              <Text style={styles.metricValue}>N/A</Text>
+              <Text style={styles.metricChange}>Tracking coming soon</Text>
             </View>
           </View>
         </View>
@@ -115,45 +210,78 @@ export default function AdminDashboard() {
               value={aiQuery}
               onChangeText={setAiQuery}
               placeholderTextColor="#9CA3AF"
+              editable={!isLoadingAI}
             />
             
             <View style={styles.aiButtons}>
-              <TouchableOpacity style={styles.testButton} onPress={handleTestAI}>
-                <Text style={styles.testButtonText}>Test AI</Text>
+              <TouchableOpacity 
+                style={[styles.testButton, isLoadingAI && styles.testButtonDisabled]} 
+                onPress={handleTestAI}
+                disabled={isLoadingAI || !aiQuery.trim()}
+              >
+                {isLoadingAI ? (
+                  <ActivityIndicator size="small" color="#ffffff" />
+                ) : (
+                  <Text style={styles.testButtonText}>Test AI</Text>
+                )}
               </TouchableOpacity>
               
-              <TouchableOpacity style={styles.historyButton}>
+              <TouchableOpacity 
+                style={styles.refreshButton}
+                onPress={() => {
+                  setAiQuery("");
+                  setAiResponse("");
+                }}
+              >
                 <Ionicons name="refresh" size={20} color="#6B7280" />
               </TouchableOpacity>
             </View>
             
-            <Text style={styles.aiResponseText}>
-              {aiResponse || "AI response will appear here..."}
-            </Text>
+            {aiResponse && (
+              <View style={styles.aiResponseContainer}>
+                <Text style={styles.aiResponseText}>{aiResponse}</Text>
+              </View>
+            )}
           </View>
         </View>
 
         {/* Recent Users Section */}
         <View style={styles.usersSection}>
           <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Recent Users</Text>
+            <Text style={styles.sectionTitle}>Recent Users Today</Text>
             <TouchableOpacity>
               <Text style={styles.viewAllText}>View All</Text>
             </TouchableOpacity>
           </View>
           
-          <View style={styles.usersList}>
-            {recentUsers.map((user) => (
-              <View key={user.id} style={styles.userCard}>
-                <Image source={{ uri: user.avatar }} style={styles.userAvatar} />
-                <View style={styles.userInfo}>
-                  <Text style={styles.userName}>{user.name}</Text>
-                  <Text style={styles.userEmail}>{user.email}</Text>
-                </View>
-                <Text style={styles.userTime}>{user.timeAgo}</Text>
-              </View>
-            ))}
-          </View>
+          {recentUsersToday.length === 0 ? (
+            <View style={styles.emptyState}>
+              <Ionicons name="people-outline" size={48} color="#9CA3AF" />
+              <Text style={styles.emptyStateText}>No new users today</Text>
+            </View>
+          ) : (
+            <View style={styles.usersList}>
+              {recentUsersToday.slice(0, 5).map((user) => {
+                const createdAt = user.createdAt || user.created_at;
+                const avatarUrl = user.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(user.name || user.fullname || user.email || 'U')}&background=random`;
+                
+                return (
+                  <View key={user.id} style={styles.userCard}>
+                    <Image source={{ uri: avatarUrl }} style={styles.userAvatar} />
+                    <View style={styles.userInfo}>
+                      <Text style={styles.userName}>
+                        {user.name || user.fullname || user.email || "Unknown"}
+                      </Text>
+                      <Text style={styles.userEmail}>{user.email}</Text>
+                    </View>
+                    {createdAt && (
+                      <Text style={styles.userTime}>{getTimeAgo(createdAt)}</Text>
+                    )}
+                  </View>
+                );
+              })}
+            </View>
+          )}
         </View>
       </ScrollView>
     </View>
@@ -179,7 +307,7 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
   },
   metricCard: {
-    backgroundColor: "#f8fafc",
+    backgroundColor: "#ffffff",
     borderRadius: 12,
     padding: 16,
     width: (width - 60) / 2,
@@ -206,16 +334,18 @@ const styles = StyleSheet.create({
     fontSize: 25,
     fontWeight: "900",
     color: "#1f2937",
-    marginBottom: 4,
+    marginTop: 4,
   },
   metricLabel: {
     fontSize: 14,
     color: "#6b7280",
+    fontWeight: "500",
   },
   metricChange: {
     fontSize: 12,
     color: "#10B981",
     fontWeight: "500",
+    marginTop: 2,
   },
   aiSection: {
     marginBottom: 20,
@@ -270,12 +400,15 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
   },
+  testButtonDisabled: {
+    opacity: 0.6,
+  },
   testButtonText: {
     color: "#ffffff",
     fontSize: 16,
     fontWeight: "600",
   },
-  historyButton: {
+  refreshButton: {
     flex: 0.15,
     height: 48,
     borderRadius: 8,
@@ -283,10 +416,18 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
   },
+  aiResponseContainer: {
+    backgroundColor: "#f9fafb",
+    borderRadius: 8,
+    padding: 12,
+    marginTop: 8,
+    borderWidth: 1,
+    borderColor: "#e5e7eb",
+  },
   aiResponseText: {
     fontSize: 14,
-    color: "#6b7280",
-    fontStyle: "italic",
+    color: "#1f2937",
+    lineHeight: 20,
   },
   usersSection: {
     marginBottom: 24,
@@ -327,6 +468,33 @@ const styles = StyleSheet.create({
   },
   userTime: {
     fontSize: 12,
+    color: "#9ca3af",
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "#f8fafc",
+  },
+  loadingText: {
+    marginTop: 12,
+    fontSize: 16,
+    color: "#6b7280",
+  },
+  emptyState: {
+    backgroundColor: "#ffffff",
+    borderRadius: 12,
+    padding: 32,
+    alignItems: "center",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  emptyStateText: {
+    marginTop: 12,
+    fontSize: 14,
     color: "#9ca3af",
   },
 });

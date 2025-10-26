@@ -20,7 +20,10 @@ export default function AuthWrapper({ children }: AuthWrapperProps) {
   }, [authLoading]);
 
   // Show loading screen while initializing
-  if (!isInitialized || authLoading || (user && (user as any).user_type === "retailer" && !isStoreLoaded && storeLoading)) {
+  // Don't check for store loading if user is admin
+  const isAdmin = user && ((user as any).user_type === "admin" || (user as any).role === "ADMIN");
+  const needsStoreData = user && (user as any).user_type === "retailer" && !isStoreLoaded && storeLoading;
+  if (!isInitialized || authLoading || (!isAdmin && needsStoreData)) {
     return (
       <View style={styles.loadingContainer}>
         <Text style={styles.loadingText}>Loading...</Text>

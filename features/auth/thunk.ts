@@ -186,3 +186,83 @@ export const deleteUser = createAsyncThunk<
     });
   }
 });
+
+/**
+ * Fetch all users with optional filters
+ */
+export const fetchAllUsers = createAsyncThunk<
+  any[],
+  { name?: string; email?: string; skip?: number; take?: number } | void,
+  { rejectValue: LoginError; state: RootState }
+>("auth/fetchAllUsers", async (params, { getState, rejectWithValue }) => {
+  try {
+    const token = getState().auth.accessToken;
+    
+    // Build query string
+    const searchParams = new URLSearchParams();
+    if (params) {
+      if (params.name) searchParams.append("name", params.name);
+      if (params.email) searchParams.append("email", params.email);
+      if (params.skip) searchParams.append("skip", params.skip.toString());
+      if (params.take) searchParams.append("take", params.take.toString());
+    }
+    
+    const url = `${env.API_BASE_URL}/user${searchParams.toString() ? `?${searchParams.toString()}` : ""}`;
+    
+    const response = await fetch(url, {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+    });
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({}));
+      return rejectWithValue({
+        message: error.message || "Failed to fetch users",
+      });
+    }
+
+    return response.json();
+  } catch (error) {
+    return rejectWithValue({
+      message:
+        error instanceof Error ? error.message : "An unknown error occured",
+    });
+  }
+});
+
+/**
+ * Delete user by admin (remove user account)
+ */
+export const deleteUserByAdmin = createAsyncThunk<
+  { success: boolean },
+  number,
+  { rejectValue: LoginError; state: RootState }
+>("auth/deleteUserByAdmin", async (id, { getState, rejectWithValue }) => {
+  try {
+    const token = getState().auth.accessToken;
+    const response = await fetch(`${env.API_BASE_URL}/user/${id}`, {
+      method: "DELETE",
+      headers: {
+        "Content-Type": "application/json",
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+    });
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({}));
+      return rejectWithValue({
+        message: error.message || "Failed to delete user",
+      });
+    }
+
+    return { success: true };
+  } catch (error) {
+    return rejectWithValue({
+      message:
+        error instanceof Error ? error.message : "An unknown error occured",
+    });
+  }
+});

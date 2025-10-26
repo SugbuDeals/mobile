@@ -1,61 +1,21 @@
+import { useLogin } from "@/features/auth";
 import { Ionicons } from "@expo/vector-icons";
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
-  Dimensions,
-  Image,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
+    ActivityIndicator,
+    Alert,
+    Dimensions,
+    Image,
+    Modal,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View,
 } from "react-native";
 
 const { width } = Dimensions.get("window");
-
-// Mock data for users
-const mockUsers = [
-  {
-    id: 1,
-    name: "Sarah Johnson",
-    email: "sarah.johnson@email.com",
-    role: "Retailer",
-    status: "Active",
-    avatar: "https://images.unsplash.com/photo-1494790108755-2616b612b786?ixlib=rb-4.0.3&auto=format&fit=crop&w=150&q=80"
-  },
-  {
-    id: 2,
-    name: "Mike Chen",
-    email: "mike.chen@email.com",
-    role: "Consumer",
-    status: "Inactive",
-    avatar: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?ixlib=rb-4.0.3&auto=format&fit=crop&w=150&q=80"
-  },
-  {
-    id: 3,
-    name: "Emma Davis",
-    email: "emma.davis@email.com",
-    role: "Consumer",
-    status: "Active",
-    avatar: "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?ixlib=rb-4.0.3&auto=format&fit=crop&w=150&q=80"
-  },
-  {
-    id: 4,
-    name: "Alex Rodriguez",
-    email: "alex.rodriguez@email.com",
-    role: "Consumer",
-    status: "Suspended",
-    avatar: "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?ixlib=rb-4.0.3&auto=format&fit=crop&w=150&q=80"
-  },
-  {
-    id: 5,
-    name: "Lisa Park",
-    email: "lisa.park@email.com",
-    role: "Consumer",
-    status: "Active",
-    avatar: "https://images.unsplash.com/photo-1544005313-94ddf0286df2?ixlib=rb-4.0.3&auto=format&fit=crop&w=150&q=80"
-  }
-];
 
 // Metrics Cards Component
 const MetricsCard = ({ label, value, icon, color, bgColor }: {
@@ -77,7 +37,7 @@ const MetricsCard = ({ label, value, icon, color, bgColor }: {
 );
 
 // User Card Component
-const UserCard = ({ user }: { user: typeof mockUsers[0] }) => {
+const UserCard = ({ user, onDelete }: { user: any; onDelete: (id: number) => void }) => {
   const getStatusColor = (status: string) => {
     switch (status) {
       case "Active": return { bg: "#D1FAE5", text: "#065F46" };
@@ -87,22 +47,34 @@ const UserCard = ({ user }: { user: typeof mockUsers[0] }) => {
     }
   };
 
-  const statusColors = getStatusColor(user.status);
+  // Determine role from user data
+  const userRole = user.role || user.user_type || "Unknown";
+  const displayRole = userRole.replace("_", " ").replace(/^\w/, (c: string) => c.toUpperCase());
+  
+  // Determine status (you can map this based on your business logic)
+  const status = "Active"; // You can add a status field to your user model
+  const statusColors = getStatusColor(status);
+
+  // Get user's avatar (you might need to adjust this based on your user model)
+  const avatarUrl = user.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(user.name || user.email)}&background=random`;
 
   return (
     <View style={styles.userCard}>
-      <Image source={{ uri: user.avatar }} style={styles.userAvatar} />
+      <Image source={{ uri: avatarUrl }} style={styles.userAvatar} />
       <View style={styles.userInfo}>
-        <Text style={styles.userName}>{user.name}</Text>
+        <Text style={styles.userName}>{user.name || user.fullname || user.email}</Text>
         <Text style={styles.userEmail}>{user.email}</Text>
-        <Text style={styles.userRole}>{user.role}</Text>
+        <Text style={styles.userRole}>{displayRole}</Text>
       </View>
       <View style={styles.userActions}>
         <View style={[styles.statusBadge, { backgroundColor: statusColors.bg }]}>
-          <Text style={[styles.statusText, { color: statusColors.text }]}>{user.status}</Text>
+          <Text style={[styles.statusText, { color: statusColors.text }]}>{status}</Text>
         </View>
-        <TouchableOpacity style={styles.menuButton}>
-          <Ionicons name="ellipsis-vertical" size={20} color="#6B7280" />
+        <TouchableOpacity 
+          style={styles.menuButton}
+          onPress={() => onDelete(user.id)}
+        >
+          <Ionicons name="trash-outline" size={20} color="#DC2626" />
         </TouchableOpacity>
       </View>
     </View>
@@ -130,12 +102,73 @@ const FilterButton = ({
 );
 
 export default function Users() {
+  const { action, state } = useLogin();
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedUserType, setSelectedUserType] = useState("All");
   const [selectedStatus, setSelectedStatus] = useState("All");
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
+  const [userToDelete, setUserToDelete] = useState<number | null>(null);
+  
+  // Get current logged-in user ID
+  const currentUserId = state.user?.id;
 
-  const userTypes = ["All", "Consumer", "Retailer"];
-  const statusFilters = ["All", "Active", "Inactive", "Blocked"];
+  const userTypes = ["All", "CONSUMER", "RETAILER", "ADMIN"];
+  const statusFilters = ["All", "Active", "Inactive", "Suspended"];
+
+  useEffect(() => {
+    // Fetch users when component mounts
+    action.fetchAllUsers();
+  }, []);
+
+  // Filter users based on search and filters
+  const filteredUsers = (state.allUsers || []).filter((user) => {
+    const matchesSearch = 
+      searchQuery === "" ||
+      user.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      user.email?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      user.fullname?.toLowerCase().includes(searchQuery.toLowerCase());
+
+    const matchesType = 
+      selectedUserType === "All" ||
+      user.role === selectedUserType ||
+      user.user_type === selectedUserType;
+
+    return matchesSearch && matchesType;
+  });
+
+  // Calculate metrics
+  const totalUsers = filteredUsers.length;
+  const activeUsers = filteredUsers.length; // You can add status field to user model
+  const consumers = filteredUsers.filter(u => u.role === "CONSUMER" || u.user_type === "consumer").length;
+  const retailers = filteredUsers.filter(u => u.role === "RETAILER" || u.user_type === "retailer").length;
+
+  const handleDeleteUser = async (id: number) => {
+    // Prevent users from deleting themselves
+    if (id === currentUserId) {
+      Alert.alert("Error", "You cannot delete your own account");
+      return;
+    }
+    setUserToDelete(id);
+    setShowConfirmModal(true);
+  };
+
+  const confirmDeleteUser = async () => {
+    if (userToDelete !== null) {
+      try {
+        await action.deleteUserByAdmin(userToDelete);
+        // Refresh the users list
+        await action.fetchAllUsers();
+        setShowConfirmModal(false);
+        setUserToDelete(null);
+      } catch (error) {
+        Alert.alert("Error", "Failed to delete user");
+      }
+    }
+  };
+
+  const handleAddUser = () => {
+    Alert.alert("Add User", "User registration should be done through the registration screen");
+  };
 
   return (
     <View style={styles.container}>
@@ -145,31 +178,31 @@ export default function Users() {
           <View style={styles.metricsGrid}>
             <MetricsCard
               label="Total Users"
-              value="1,247"
+              value={totalUsers.toString()}
               icon="people"
               color="#1B6F5D"
               bgColor="#D1FAE5"
             />
             <MetricsCard
-              label="Active Users"
-              value="892"
-              icon="checkmark-circle"
+              label="Consumers"
+              value={consumers.toString()}
+              icon="person"
+              color="#3B82F6"
+              bgColor="#DBEAFE"
+            />
+            <MetricsCard
+              label="Retailers"
+              value={retailers.toString()}
+              icon="storefront"
               color="#F59E0B"
               bgColor="#FEF3C7"
             />
             <MetricsCard
-              label="Deal Queries"
-              value="15,432"
-              icon="add-circle"
-              color="#1B6F5D"
+              label="Active Users"
+              value={activeUsers.toString()}
+              icon="checkmark-circle"
+              color="#10B981"
               bgColor="#D1FAE5"
-            />
-            <MetricsCard
-              label="Suspends"
-              value="15"
-              icon="person-remove"
-              color="#DC2626"
-              bgColor="#FEE2E2"
             />
           </View>
         </View>
@@ -178,7 +211,7 @@ export default function Users() {
         <View style={styles.userManagementSection}>
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>User Management</Text>
-            <TouchableOpacity style={styles.addUserButton}>
+            <TouchableOpacity style={styles.addUserButton} onPress={handleAddUser}>
               <Ionicons name="add" size={16} color="#ffffff" />
               <Text style={styles.addUserText}>Add User</Text>
             </TouchableOpacity>
@@ -203,34 +236,81 @@ export default function Users() {
               {userTypes.map((type) => (
                 <FilterButton
                   key={type}
-                  label={type}
+                  label={type.replace("_", " ")}
                   isSelected={selectedUserType === type}
                   onPress={() => setSelectedUserType(type)}
                 />
               ))}
             </View>
-            
-            <Text style={styles.filterLabel}>User Status:</Text>
-            <View style={styles.filterRow}>
-              {statusFilters.map((status) => (
-                <FilterButton
-                  key={status}
-                  label={status}
-                  isSelected={selectedStatus === status}
-                  onPress={() => setSelectedStatus(status)}
-                />
-              ))}
-            </View>
           </View>
 
+          {/* Loading State */}
+          {state.usersLoading && (
+            <View style={styles.loadingContainer}>
+              <ActivityIndicator size="large" color="#1B6F5D" />
+              <Text style={styles.loadingText}>Loading users...</Text>
+            </View>
+          )}
+
+          {/* Error State */}
+          {state.error && !state.usersLoading && (
+            <View style={styles.errorContainer}>
+              <Text style={styles.errorText}>{state.error}</Text>
+            </View>
+          )}
+
           {/* User List */}
-          <View style={styles.userList}>
-            {mockUsers.map((user) => (
-              <UserCard key={user.id} user={user} />
-            ))}
-          </View>
+          {!state.usersLoading && filteredUsers.length === 0 && (
+            <View style={styles.emptyContainer}>
+              <Ionicons name="people-outline" size={64} color="#D1D5DB" />
+              <Text style={styles.emptyText}>No users found</Text>
+            </View>
+          )}
+
+          {!state.usersLoading && (
+            <View style={styles.userList}>
+              {filteredUsers.map((user) => (
+                <UserCard key={user.id} user={user} onDelete={handleDeleteUser} />
+              ))}
+            </View>
+          )}
         </View>
       </ScrollView>
+
+      {/* Confirmation Modal */}
+      <Modal
+        visible={showConfirmModal}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setShowConfirmModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Ionicons name="warning-outline" size={64} color="#DC2626" style={styles.modalIcon} />
+            <Text style={styles.modalTitle}>Delete User</Text>
+            <Text style={styles.modalText}>
+              Are you sure you want to delete this user? This action cannot be undone.
+            </Text>
+            <View style={styles.modalButtons}>
+              <TouchableOpacity
+                style={[styles.modalButton, styles.cancelButton]}
+                onPress={() => {
+                  setShowConfirmModal(false);
+                  setUserToDelete(null);
+                }}
+              >
+                <Text style={styles.cancelButtonText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.modalButton, styles.deleteButton]}
+                onPress={confirmDeleteUser}
+              >
+                <Text style={styles.deleteButtonText}>Delete</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -288,6 +368,7 @@ const styles = StyleSheet.create({
     fontSize: 26,
     fontWeight: "900",
     color: "#1F2937",
+    marginTop: 4,
   },
 
   // ===== USER MANAGEMENT SECTION =====
@@ -353,7 +434,6 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     color: "#374151",
     marginBottom: 8,
-
   },
   filterRow: {
     flexDirection: "row",
@@ -434,5 +514,93 @@ const styles = StyleSheet.create({
   },
   menuButton: {
     padding: 4,
+  },
+
+  // ===== LOADING & ERROR STATES =====
+  loadingContainer: {
+    alignItems: "center",
+    padding: 32,
+  },
+  loadingText: {
+    marginTop: 12,
+    fontSize: 16,
+    color: "#6B7280",
+  },
+  errorContainer: {
+    backgroundColor: "#FEE2E2",
+    padding: 16,
+    borderRadius: 8,
+    marginBottom: 16,
+  },
+  errorText: {
+    color: "#DC2626",
+    fontSize: 14,
+  },
+  emptyContainer: {
+    alignItems: "center",
+    padding: 64,
+  },
+  emptyText: {
+    marginTop: 16,
+    fontSize: 16,
+    color: "#6B7280",
+  },
+
+  // ===== MODAL =====
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  modalContent: {
+    backgroundColor: "#ffffff",
+    borderRadius: 16,
+    padding: 24,
+    width: width - 80,
+    alignItems: "center",
+  },
+  modalIcon: {
+    marginBottom: 16,
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: "bold",
+    color: "#1F2937",
+    marginBottom: 8,
+  },
+  modalText: {
+    fontSize: 16,
+    color: "#6B7280",
+    textAlign: "center",
+    marginBottom: 24,
+  },
+  modalButtons: {
+    flexDirection: "row",
+    gap: 12,
+    width: "100%",
+  },
+  modalButton: {
+    flex: 1,
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    borderRadius: 8,
+    alignItems: "center",
+  },
+  cancelButton: {
+    backgroundColor: "#F3F4F6",
+  },
+  cancelButtonText: {
+    color: "#374151",
+    fontSize: 16,
+    fontWeight: "600",
+  },
+  deleteButton: {
+    backgroundColor: "#DC2626",
+  },
+  deleteButtonText: {
+    color: "#ffffff",
+    fontSize: 16,
+    fontWeight: "600",
   },
 });

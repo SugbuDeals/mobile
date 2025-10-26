@@ -1,12 +1,13 @@
 import { createSlice } from "@reduxjs/toolkit";
-import { deleteUser, fetchUserById, login, updateUser } from "./thunk";
-import { AuthState } from "./types";
+import { deleteUser, deleteUserByAdmin, fetchAllUsers, fetchUserById, login, updateUser } from "./thunk";
 
-const initialState: AuthState = {
+const initialState = {
   accessToken: null,
   user: null,
   loading: false,
   error: null,
+  allUsers: [] as any[],
+  usersLoading: false,
 };
 
 const authSlice = createSlice({
@@ -17,6 +18,7 @@ const authSlice = createSlice({
       state.accessToken = null;
       state.user = null;
       state.error = null;
+      state.allUsers = [];
     },
     completeRetailerSetup: (state) => {
       if (state.user) {
@@ -87,6 +89,30 @@ const authSlice = createSlice({
       .addCase(deleteUser.rejected, (state, action) => {
         state.loading = false;
         state.error = action.payload?.message || "Failed to delete user account";
+      })
+      // Fetch all users
+      .addCase(fetchAllUsers.pending, (state) => {
+        state.usersLoading = true;
+        state.error = null;
+      })
+      .addCase(fetchAllUsers.fulfilled, (state, action) => {
+        state.usersLoading = false;
+        state.allUsers = action.payload;
+      })
+      .addCase(fetchAllUsers.rejected, (state, action) => {
+        state.usersLoading = false;
+        state.error = action.payload?.message || "Failed to fetch users";
+      })
+      // Delete user by admin
+      .addCase(deleteUserByAdmin.pending, (state) => {
+        state.usersLoading = true;
+      })
+      .addCase(deleteUserByAdmin.fulfilled, (state) => {
+        state.usersLoading = false;
+      })
+      .addCase(deleteUserByAdmin.rejected, (state, action) => {
+        state.usersLoading = false;
+        state.error = action.payload?.message || "Failed to delete user";
       });
   },
 });

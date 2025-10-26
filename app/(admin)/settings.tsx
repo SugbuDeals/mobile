@@ -1,16 +1,22 @@
+import { logout } from "@/features/auth/slice";
+import { useAppDispatch } from "@/store/hooks";
 import { Ionicons } from "@expo/vector-icons";
+import { router } from "expo-router";
 import React, { useState } from "react";
 import {
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
+    Alert,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View,
 } from "react-native";
 
 // ===== MAIN COMPONENT =====
 export default function AdminSettings() {
+  const dispatch = useAppDispatch();
+  
   // State management for all form inputs
   const [aiResponse, setAiResponse] = useState("");
   const [searchRadius, setSearchRadius] = useState("25");
@@ -20,7 +26,29 @@ export default function AdminSettings() {
   // Event handlers
   const handleSave = () => console.log("Settings saved");
   const handleCancel = () => console.log("Changes cancelled");
-  const handleLogout = () => console.log("User logged out");
+  
+  const handleLogout = () => {
+    Alert.alert(
+      "Logout",
+      "Are you sure you want to logout?",
+      [
+        {
+          text: "Cancel",
+          style: "cancel"
+        },
+        {
+          text: "Logout",
+          style: "destructive",
+          onPress: () => {
+            // Dispatch logout action to clear Redux state
+            dispatch(logout());
+            // Navigate back to login screen
+            router.replace("/auth/login");
+          }
+        }
+      ]
+    );
+  };
 
   return (
     <View style={styles.container}>
