@@ -97,6 +97,7 @@ export default function AllRecommendations() {
                       name: product.name,
                       storeId: product.storeId,
                       price: product.price,
+                      description: product.description,
                       productId: product.id,
                       ...(isPromoted && promotion ? { promotionId: promotion.id } : {}),
                     },

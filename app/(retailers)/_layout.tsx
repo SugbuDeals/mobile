@@ -52,13 +52,7 @@ const RetailerHeader = () => {
               <Ionicons name="notifications" size={20} color="#ffffff" />
             </TouchableOpacity>
 
-            {/* Logout Button */}
-            <TouchableOpacity
-              style={styles.logoutContainer}
-              onPress={handleLogout}
-            >
-              <Ionicons name="log-out" size={20} color="#ffffff" />
-            </TouchableOpacity>
+            
           </View>
         </View>
       </LinearGradient>

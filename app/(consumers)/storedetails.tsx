@@ -124,6 +124,7 @@ function DealsGrid({
         name: p.name,
         storeId: p.storeId || storeId,
         price: p.price,
+        description: p.description,
         productId: p.id,
       },
     });

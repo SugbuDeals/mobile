@@ -144,6 +144,7 @@ function PromotionModal({
         name: item.product.name,
         storeId: item.product.storeId,
         price: item.product.price,
+        description: item.product.description,
         productId: item.product.id,
         promotionId: item.promotion.id,
       },
@@ -280,6 +281,7 @@ function Recommendations({
         name: p.name,
         storeId: p.storeId,
         price: p.price,
+        description: p.description,
         productId: p.id,
       },
     });

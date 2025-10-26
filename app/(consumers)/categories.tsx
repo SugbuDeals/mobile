@@ -402,6 +402,7 @@ function StoreSection({
                     store: storeName,
                     storeId: storeId,
                     price: product.price?.replace("₱", ""),
+                    description: product.description,
                     productId: product.id,
                   },
                 })

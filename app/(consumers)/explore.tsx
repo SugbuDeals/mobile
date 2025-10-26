@@ -297,7 +297,7 @@ export default function Explore() {
                       <TouchableOpacity
                         style={styles.detailsBtn}
                         accessibilityRole="button"
-                        onPress={() => router.push({ pathname: "/(consumers)/product", params: { name: item?.name || item?.title, storeId: item?.storeId || item?.store?.id, price: item?.price, productId: item?.id } })}
+                        onPress={() => router.push({ pathname: "/(consumers)/product", params: { name: item?.name || item?.title, storeId: item?.storeId || item?.store?.id, price: item?.price, description: item?.description, productId: item?.id } })}
                       >
                         <Text style={styles.detailsBtnText}>Details</Text>
                       </TouchableOpacity>
