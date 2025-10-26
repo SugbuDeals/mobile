@@ -1,12 +1,13 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
+import { useRouter } from "expo-router";
 import React, { useEffect, useMemo, useState } from "react";
 import {
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View,
 } from "react-native";
 
 import { useBookmarks } from "@/features/bookmarks";
@@ -22,6 +23,7 @@ type SavedItem = {
 };
 
 export default function Save() {
+  const router = useRouter();
   const [activeTab, setActiveTab] = useState<"products" | "stores">("products");
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<string>("all");
@@ -122,8 +124,46 @@ export default function Save() {
         bookmarkAction.removeStoreBookmark(Number(item.id));
       }
     };
+
+    const handleItemPress = () => {
+      if (item.type === "product") {
+        const product = catalogState.products?.find(
+          (p: any) => p.id === Number(item.id)
+        );
+        if (product) {
+          router.push({
+            pathname: "/(consumers)/product",
+            params: {
+              name: product.name,
+              storeId: product.storeId,
+              price: product.price,
+              productId: product.id,
+            },
+          });
+        }
+      } else {
+        const store = storeState.stores?.find(
+          (s: any) => s.id === Number(item.id)
+        );
+        if (store) {
+          router.push({
+            pathname: "/(consumers)/storedetails",
+            params: {
+              store: store.name,
+              storeId: store.id,
+            },
+          });
+        }
+      }
+    };
+
     return (
-      <View key={item.id} style={styles.card}>
+      <TouchableOpacity
+        key={item.id}
+        style={styles.card}
+        onPress={handleItemPress}
+        activeOpacity={0.7}
+      >
         <View style={styles.cardTopRow}>
           <View style={styles.storeRow}>
             <View style={styles.storeLogo}>
@@ -150,11 +190,17 @@ export default function Save() {
             <Text style={styles.activePillText}>Saved</Text>
           </View>
           <View style={styles.spacer} />
-          <TouchableOpacity style={styles.removeButton} onPress={onUnsave}>
+          <TouchableOpacity
+            style={styles.removeButton}
+            onPress={(e) => {
+              e.stopPropagation();
+              onUnsave();
+            }}
+          >
             <Ionicons name="trash" size={20} color="#ef4444" />
           </TouchableOpacity>
         </View>
-      </View>
+      </TouchableOpacity>
     );
   };
 

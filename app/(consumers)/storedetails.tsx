@@ -1,18 +1,18 @@
 import { useBookmarks } from "@/features/bookmarks";
 import { useCatalog } from "@/features/catalog";
 import Ionicons from "@expo/vector-icons/Ionicons";
-import { useLocalSearchParams } from "expo-router";
+import { useLocalSearchParams, useRouter } from "expo-router";
 import React from "react";
 import {
-  Image,
-  SafeAreaView,
-  ScrollView,
-  StatusBar,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
+    Image,
+    SafeAreaView,
+    ScrollView,
+    StatusBar,
+    StyleSheet,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View,
 } from "react-native";
 
 export default function StoreDetailsScreen() {
@@ -98,6 +98,7 @@ function DealsGrid({
   query?: string;
   category?: string;
 }) {
+  const router = useRouter();
   const {
     state: { products },
   } = useCatalog();
@@ -116,10 +117,27 @@ function DealsGrid({
     });
   }, [products, storeId, query, category]);
 
+  const handleProductPress = (p: any) => {
+    router.push({
+      pathname: "/(consumers)/product",
+      params: {
+        name: p.name,
+        storeId: p.storeId || storeId,
+        price: p.price,
+        productId: p.id,
+      },
+    });
+  };
+
   return (
     <View style={gridStyles.grid}>
       {filtered.map((p: any) => (
-        <View key={p.id} style={gridStyles.card}>
+        <TouchableOpacity
+          key={p.id}
+          style={gridStyles.card}
+          onPress={() => handleProductPress(p)}
+          activeOpacity={0.8}
+        >
           <Image
             source={require("../../assets/images/partial-react-logo.png")}
             style={gridStyles.image}
@@ -132,7 +150,7 @@ function DealsGrid({
               </Text>
             )}
           </View>
-        </View>
+        </TouchableOpacity>
       ))}
     </View>
   );

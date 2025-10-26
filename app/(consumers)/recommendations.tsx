@@ -3,14 +3,14 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import { useRouter } from "expo-router";
 import React from "react";
 import {
-  Image,
-  SafeAreaView,
-  ScrollView,
-  StatusBar,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
+    Image,
+    SafeAreaView,
+    ScrollView,
+    StatusBar,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View,
 } from "react-native";
 
 export default function AllRecommendations() {
@@ -39,7 +39,20 @@ export default function AllRecommendations() {
       >
         {(products || []).map((p: any) => (
           <View key={p.id} style={styles.card}>
-            <TouchableOpacity activeOpacity={0.9}>
+            <TouchableOpacity
+              activeOpacity={0.9}
+              onPress={() =>
+                router.push({
+                  pathname: "/(consumers)/product",
+                  params: {
+                    name: p.name,
+                    storeId: p.storeId,
+                    price: p.price,
+                    productId: p.id,
+                  },
+                })
+              }
+            >
               <View style={styles.imageWrap}>
                 {/* Placeholder image since products may not have images */}
                 <Image
