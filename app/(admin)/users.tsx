@@ -434,8 +434,8 @@ export default function Users() {
                   placeholder="Enter name"
                   placeholderTextColor="#9CA3AF"
                 />
-              </View>
-
+            </View>
+            
               <View style={styles.editFormGroup}>
                 <Text style={styles.editFormLabel}>Email</Text>
                 <TextInput
@@ -470,9 +470,9 @@ export default function Users() {
                         {role}
                       </Text>
                     </TouchableOpacity>
-                  ))}
-                </View>
-              </View>
+              ))}
+            </View>
+          </View>
             </ScrollView>
 
             <View style={styles.editModalButtons}>
@@ -575,10 +575,10 @@ export default function Users() {
                         {role}
                       </Text>
                     </TouchableOpacity>
-                  ))}
-                </View>
-              </View>
-            </ScrollView>
+            ))}
+          </View>
+        </View>
+      </ScrollView>
 
             <View style={styles.editModalButtons}>
               <TouchableOpacity

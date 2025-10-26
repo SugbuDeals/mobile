@@ -222,7 +222,7 @@ export default function AdminDashboard() {
                 {isLoadingAI ? (
                   <ActivityIndicator size="small" color="#ffffff" />
                 ) : (
-                  <Text style={styles.testButtonText}>Test AI</Text>
+                <Text style={styles.testButtonText}>Test AI</Text>
                 )}
               </TouchableOpacity>
               
@@ -260,27 +260,27 @@ export default function AdminDashboard() {
               <Text style={styles.emptyStateText}>No new users today</Text>
             </View>
           ) : (
-            <View style={styles.usersList}>
+          <View style={styles.usersList}>
               {recentUsersToday.slice(0, 5).map((user) => {
                 const createdAt = user.createdAt || user.created_at;
                 const avatarUrl = user.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(user.name || user.fullname || user.email || 'U')}&background=random`;
                 
                 return (
-                  <View key={user.id} style={styles.userCard}>
+              <View key={user.id} style={styles.userCard}>
                     <Image source={{ uri: avatarUrl }} style={styles.userAvatar} />
-                    <View style={styles.userInfo}>
+                <View style={styles.userInfo}>
                       <Text style={styles.userName}>
                         {user.name || user.fullname || user.email || "Unknown"}
                       </Text>
-                      <Text style={styles.userEmail}>{user.email}</Text>
-                    </View>
+                  <Text style={styles.userEmail}>{user.email}</Text>
+                </View>
                     {createdAt && (
                       <Text style={styles.userTime}>{getTimeAgo(createdAt)}</Text>
                     )}
-                  </View>
+              </View>
                 );
               })}
-            </View>
+          </View>
           )}
         </View>
       </ScrollView>
