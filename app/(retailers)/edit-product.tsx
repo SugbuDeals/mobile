@@ -40,6 +40,10 @@ export default function EditProduct() {
         // First try to find the product in the current products list
         if (userStore?.id && products.length === 0) {
           await findProducts({ storeId: userStore.id });
+        } else if (user && (user as any).id && !userStore?.id && products.length === 0) {
+          // Fallback: if userStore is not available yet, try using user ID directly
+          console.log("Edit product - userStore not available, using user ID as fallback");
+          await findProducts({ storeId: Number((user as any).id) });
         }
         
         // Find the product in the current products list from Redux store
@@ -63,7 +67,7 @@ export default function EditProduct() {
     };
 
     fetchProduct();
-  }, [productId, userStore?.id]); // Removed 'products' from dependencies to prevent infinite loop
+  }, [productId, userStore?.id, user]); // Added user to dependencies for fallback
 
   // Separate effect to sync form with updated product data (only when products change)
   useEffect(() => {

@@ -34,7 +34,7 @@ export default function Promotions() {
     // Fetch products and active promotions for the current user's store
     if (user && (user as any).id) {
       findProducts({ storeId: Number((user as any).id) });
-      findActivePromotions(); // Fetch active promotions to know which products are unavailable
+      findActivePromotions(Number((user as any).id)); // Fetch active promotions only for this store
     }
   }, [user]);
 
@@ -184,7 +184,9 @@ export default function Promotions() {
       await Promise.all(promises);
       
       // Refresh active promotions to show the new promotion in dashboard
-      findActivePromotions();
+      if (user && (user as any).id) {
+        findActivePromotions(Number((user as any).id));
+      }
       
       // Reset form
       setPromotionTitle("");

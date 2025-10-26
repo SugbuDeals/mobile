@@ -19,7 +19,7 @@ export const useStore = () => {
     dispatch(thunk.updateProduct(productData));
   const deleteProduct = (productId: number) => dispatch(thunk.deleteProduct(productId));
   const findPromotions = () => dispatch(thunk.findPromotions());
-  const findActivePromotions = () => dispatch(thunk.findActivePromotions());
+  const findActivePromotions = (storeId?: number) => dispatch(thunk.findActivePromotions({ storeId }));
   const createPromotion = (promotionData: CreatePromotionDTO) => 
     dispatch(thunk.createPromotion(promotionData));
   const updatePromotion = (promotionData: { id: number } & UpdatePromotionDTO) => 

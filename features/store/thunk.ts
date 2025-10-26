@@ -372,17 +372,18 @@ export const findPromotions = createAsyncThunk<
 
 export const findActivePromotions = createAsyncThunk<
   Promotion[],
-  undefined,
+  { storeId?: number },
   { rejectValue: { message: string }; state: RootState }
->("store/findActivePromotions", async (_, { rejectWithValue, getState }) => {
+>("store/findActivePromotions", async ({ storeId }, { rejectWithValue, getState }) => {
   try {
     const { accessToken, user } = getState().auth;
-    const { userStore } = getState().store;
+    const { userStore, products } = getState().store;
 
     console.log("findActivePromotions - Making API call to:", `${env.API_BASE_URL}/promotions`);
     console.log("findActivePromotions - Using access token:", accessToken ? "Present" : "Missing");
     console.log("findActivePromotions - Current user:", user);
     console.log("findActivePromotions - Current userStore:", userStore);
+    console.log("findActivePromotions - Requested storeId:", storeId);
 
     const response = await fetch(`${env.API_BASE_URL}/promotions`, {
       method: "GET",
@@ -406,8 +407,25 @@ export const findActivePromotions = createAsyncThunk<
     console.log("findActivePromotions - All promotions response:", allPromotions);
     
     // Filter for active promotions
-    const activePromotions = allPromotions.filter((promotion: any) => promotion.active === true);
+    let activePromotions = allPromotions.filter((promotion: any) => promotion.active === true);
     console.log("findActivePromotions - Filtered active promotions:", activePromotions);
+    
+    // If storeId is provided, filter promotions by store ownership
+    if (storeId) {
+      // Get product IDs that belong to the specified store
+      const storeProductIds = products
+        .filter(product => product.storeId === storeId)
+        .map(product => product.id);
+      
+      console.log("findActivePromotions - Store product IDs:", storeProductIds);
+      
+      // Filter promotions to only include those for products owned by the store
+      activePromotions = activePromotions.filter((promotion: any) => 
+        storeProductIds.includes(promotion.productId)
+      );
+      
+      console.log("findActivePromotions - Store-filtered promotions:", activePromotions);
+    }
     
     return activePromotions;
   } catch (error) {
