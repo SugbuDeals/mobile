@@ -1,4 +1,4 @@
-﻿import store from "@/store";
+import store from "@/store";
 import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { Provider } from "react-redux";

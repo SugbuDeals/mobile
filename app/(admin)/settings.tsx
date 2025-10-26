@@ -219,9 +219,9 @@ const styles = StyleSheet.create({
     backgroundColor: "#ffffff", // White card background
     borderRadius: 16, // Rounded corners
     padding: 24, // Internal padding
-    shadowColor: "#000", // Shadow for depth
+    shadowColor: "#277874", // Shadow for depth
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
+    shadowOpacity: 0.15,
     shadowRadius: 8,
     elevation: 5, // Android shadow
     marginBottom: 20, // Space between cards
@@ -237,7 +237,7 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 18,
     fontWeight: "bold", // Bold text
-    color: "#1F2937", // Dark gray text
+    color: "#277874", // Teal text
     marginLeft: 8, // Space after icon
   },
   
@@ -264,7 +264,7 @@ const styles = StyleSheet.create({
   textInput: {
     backgroundColor: "#ffffff", // White background
     borderWidth: 1,
-    borderColor: "#E5E7EB", // Light gray border
+    borderColor: "#277874", // Teal border
     borderRadius: 8, // Rounded corners
     paddingHorizontal: 16, // Horizontal padding
     paddingVertical: 14, // Vertical padding
@@ -299,7 +299,7 @@ const styles = StyleSheet.create({
   cancelButton: {
     backgroundColor: "#ffffff", // White background
     borderWidth: 1,
-    borderColor: "#E5E7EB", // Light gray border
+    borderColor: "#277874", // Teal border
     paddingHorizontal: 24,
     paddingVertical: 12,
     borderRadius: 8,
@@ -307,7 +307,7 @@ const styles = StyleSheet.create({
     alignItems: "center", // Center content
   },
   cancelButtonText: {
-    color: "#374151", // Dark gray text
+    color: "#277874", // Teal text
     fontSize: 16,
     fontWeight: "600", // Semi-bold
   },

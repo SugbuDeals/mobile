@@ -37,7 +37,11 @@ const MetricsCard = ({ label, value, icon, color, bgColor }: {
 );
 
 // User Card Component
-const UserCard = ({ user, onDelete }: { user: any; onDelete: (id: number) => void }) => {
+const UserCard = ({ user, onDelete, onEdit }: { 
+  user: any; 
+  onDelete: (id: number) => void;
+  onEdit: (user: any) => void;
+}) => {
   const getStatusColor = (status: string) => {
     switch (status) {
       case "Active": return { bg: "#D1FAE5", text: "#065F46" };
@@ -70,6 +74,12 @@ const UserCard = ({ user, onDelete }: { user: any; onDelete: (id: number) => voi
         <View style={[styles.statusBadge, { backgroundColor: statusColors.bg }]}>
           <Text style={[styles.statusText, { color: statusColors.text }]}>{status}</Text>
         </View>
+        <TouchableOpacity 
+          style={styles.menuButton}
+          onPress={() => onEdit(user)}
+        >
+          <Ionicons name="create-outline" size={20} color="#3B82F6" />
+        </TouchableOpacity>
         <TouchableOpacity 
           style={styles.menuButton}
           onPress={() => onDelete(user.id)}
@@ -108,6 +118,20 @@ export default function Users() {
   const [selectedStatus, setSelectedStatus] = useState("All");
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [userToDelete, setUserToDelete] = useState<number | null>(null);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [userToEdit, setUserToEdit] = useState<any>(null);
+  const [editName, setEditName] = useState("");
+  const [editEmail, setEditEmail] = useState("");
+  const [editRole, setEditRole] = useState("CONSUMER");
+  const [isSaving, setIsSaving] = useState(false);
+  
+  // Add user modal state
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [addName, setAddName] = useState("");
+  const [addEmail, setAddEmail] = useState("");
+  const [addPassword, setAddPassword] = useState("");
+  const [addRole, setAddRole] = useState("CONSUMER");
+  const [isAdding, setIsAdding] = useState(false);
   
   // Get current logged-in user ID
   const currentUserId = state.user?.id;
@@ -152,6 +176,43 @@ export default function Users() {
     setShowConfirmModal(true);
   };
 
+  const handleEditUser = (user: any) => {
+    setUserToEdit(user);
+    setEditName(user.name || user.fullname || "");
+    setEditEmail(user.email || "");
+    setEditRole(user.role || user.user_type || "CONSUMER");
+    setShowEditModal(true);
+  };
+
+  const handleSaveEdit = async () => {
+    if (!userToEdit) return;
+    
+    if (!editName.trim() || !editEmail.trim()) {
+      Alert.alert("Error", "Name and email are required");
+      return;
+    }
+
+    setIsSaving(true);
+    
+    try {
+      await action.updateUser(userToEdit.id, {
+        name: editName.trim(),
+        email: editEmail.trim(),
+      });
+      
+      // Refresh users list
+      await action.fetchAllUsers();
+      
+      setShowEditModal(false);
+      setUserToEdit(null);
+      Alert.alert("Success", "User updated successfully");
+    } catch (error) {
+      Alert.alert("Error", "Failed to update user");
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
   const confirmDeleteUser = async () => {
     if (userToDelete !== null) {
       try {
@@ -167,7 +228,39 @@ export default function Users() {
   };
 
   const handleAddUser = () => {
-    Alert.alert("Add User", "User registration should be done through the registration screen");
+    setShowAddModal(true);
+  };
+
+  const handleSaveAddUser = async () => {
+    if (!addName.trim() || !addEmail.trim() || !addPassword.trim()) {
+      Alert.alert("Error", "All fields are required");
+      return;
+    }
+
+    setIsAdding(true);
+    
+    try {
+      await action.register({
+        name: addName.trim(),
+        email: addEmail.trim(),
+        password: addPassword,
+        role: addRole,
+      });
+      
+      // Refresh users list
+      await action.fetchAllUsers();
+      
+      setShowAddModal(false);
+      setAddName("");
+      setAddEmail("");
+      setAddPassword("");
+      setAddRole("CONSUMER");
+      Alert.alert("Success", "User created successfully");
+    } catch (error) {
+      Alert.alert("Error", "Failed to create user");
+    } finally {
+      setIsAdding(false);
+    }
   };
 
   return (
@@ -270,7 +363,7 @@ export default function Users() {
           {!state.usersLoading && (
             <View style={styles.userList}>
               {filteredUsers.map((user) => (
-                <UserCard key={user.id} user={user} onDelete={handleDeleteUser} />
+                <UserCard key={user.id} user={user} onDelete={handleDeleteUser} onEdit={handleEditUser} />
               ))}
             </View>
           )}
@@ -311,6 +404,210 @@ export default function Users() {
           </View>
         </View>
       </Modal>
+
+      {/* Edit User Modal */}
+      <Modal
+        visible={showEditModal}
+        transparent={true}
+        animationType="slide"
+        onRequestClose={() => setShowEditModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.editModalContent}>
+            <View style={styles.editModalHeader}>
+              <Text style={styles.editModalTitle}>Edit User</Text>
+              <TouchableOpacity
+                onPress={() => setShowEditModal(false)}
+                style={styles.closeButton}
+              >
+                <Ionicons name="close" size={24} color="#6B7280" />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView style={styles.editModalScroll}>
+              <View style={styles.editFormGroup}>
+                <Text style={styles.editFormLabel}>Name</Text>
+                <TextInput
+                  style={styles.editFormInput}
+                  value={editName}
+                  onChangeText={setEditName}
+                  placeholder="Enter name"
+                  placeholderTextColor="#9CA3AF"
+                />
+              </View>
+
+              <View style={styles.editFormGroup}>
+                <Text style={styles.editFormLabel}>Email</Text>
+                <TextInput
+                  style={styles.editFormInput}
+                  value={editEmail}
+                  onChangeText={setEditEmail}
+                  placeholder="Enter email"
+                  placeholderTextColor="#9CA3AF"
+                  keyboardType="email-address"
+                  autoCapitalize="none"
+                />
+              </View>
+
+              <View style={styles.editFormGroup}>
+                <Text style={styles.editFormLabel}>Role</Text>
+                <View style={styles.roleSelector}>
+                  {["CONSUMER", "RETAILER", "ADMIN"].map((role) => (
+                    <TouchableOpacity
+                      key={role}
+                      style={[
+                        styles.roleButton,
+                        editRole === role && styles.roleButtonSelected
+                      ]}
+                      onPress={() => setEditRole(role)}
+                    >
+                      <Text
+                        style={[
+                          styles.roleButtonText,
+                          editRole === role && styles.roleButtonTextSelected
+                        ]}
+                      >
+                        {role}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </View>
+            </ScrollView>
+
+            <View style={styles.editModalButtons}>
+              <TouchableOpacity
+                style={[styles.editModalButton, styles.cancelEditButton]}
+                onPress={() => setShowEditModal(false)}
+              >
+                <Text style={styles.cancelEditButtonText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.editModalButton, styles.saveButton]}
+                onPress={handleSaveEdit}
+                disabled={isSaving}
+              >
+                {isSaving ? (
+                  <ActivityIndicator size="small" color="#ffffff" />
+                ) : (
+                  <Text style={styles.saveButtonText}>Save Changes</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Add User Modal */}
+      <Modal
+        visible={showAddModal}
+        transparent={true}
+        animationType="slide"
+        onRequestClose={() => setShowAddModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.editModalContent}>
+            <View style={styles.editModalHeader}>
+              <Text style={styles.editModalTitle}>Add New User</Text>
+              <TouchableOpacity
+                onPress={() => setShowAddModal(false)}
+                style={styles.closeButton}
+              >
+                <Ionicons name="close" size={24} color="#6B7280" />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView style={styles.editModalScroll}>
+              <View style={styles.editFormGroup}>
+                <Text style={styles.editFormLabel}>Name</Text>
+                <TextInput
+                  style={styles.editFormInput}
+                  value={addName}
+                  onChangeText={setAddName}
+                  placeholder="Enter name"
+                  placeholderTextColor="#9CA3AF"
+                />
+              </View>
+
+              <View style={styles.editFormGroup}>
+                <Text style={styles.editFormLabel}>Email</Text>
+                <TextInput
+                  style={styles.editFormInput}
+                  value={addEmail}
+                  onChangeText={setAddEmail}
+                  placeholder="Enter email"
+                  placeholderTextColor="#9CA3AF"
+                  keyboardType="email-address"
+                  autoCapitalize="none"
+                />
+              </View>
+
+              <View style={styles.editFormGroup}>
+                <Text style={styles.editFormLabel}>Password</Text>
+                <TextInput
+                  style={styles.editFormInput}
+                  value={addPassword}
+                  onChangeText={setAddPassword}
+                  placeholder="Enter password"
+                  placeholderTextColor="#9CA3AF"
+                  secureTextEntry
+                />
+              </View>
+
+              <View style={styles.editFormGroup}>
+                <Text style={styles.editFormLabel}>Role</Text>
+                <View style={styles.roleSelector}>
+                  {["CONSUMER", "RETAILER", "ADMIN"].map((role) => (
+                    <TouchableOpacity
+                      key={role}
+                      style={[
+                        styles.roleButton,
+                        addRole === role && styles.roleButtonSelected
+                      ]}
+                      onPress={() => setAddRole(role)}
+                    >
+                      <Text
+                        style={[
+                          styles.roleButtonText,
+                          addRole === role && styles.roleButtonTextSelected
+                        ]}
+                      >
+                        {role}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </View>
+            </ScrollView>
+
+            <View style={styles.editModalButtons}>
+              <TouchableOpacity
+                style={[styles.editModalButton, styles.cancelEditButton]}
+                onPress={() => {
+                  setShowAddModal(false);
+                  setAddName("");
+                  setAddEmail("");
+                  setAddPassword("");
+                  setAddRole("CONSUMER");
+                }}
+              >
+                <Text style={styles.cancelEditButtonText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.editModalButton, styles.saveButton]}
+                onPress={handleSaveAddUser}
+                disabled={isAdding}
+              >
+                {isAdding ? (
+                  <ActivityIndicator size="small" color="#ffffff" />
+                ) : (
+                  <Text style={styles.saveButtonText}>Create User</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -341,9 +638,9 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     padding: 16,
     width: (width - 60) / 2,
-    shadowColor: "#000",
+    shadowColor: "#277874",
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
+    shadowOpacity: 0.15,
     shadowRadius: 4,
     elevation: 3,
   },
@@ -367,7 +664,7 @@ const styles = StyleSheet.create({
   metricValue: {
     fontSize: 26,
     fontWeight: "900",
-    color: "#1F2937",
+    color: "#277874",
     marginTop: 4,
   },
 
@@ -384,18 +681,18 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 24,
     fontWeight: "bold",
-    color: "#1F2937",
+    color: "#277874",
   },
   addUserButton: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#20B2AA",
+    backgroundColor: "#FFBE5D",
     paddingHorizontal: 16,
     paddingVertical: 10,
     borderRadius: 8,
   },
   addUserText: {
-    color: "#ffffff",
+    color: "#1f2937",
     fontSize: 14,
     fontWeight: "600",
     marginLeft: 6,
@@ -444,15 +741,17 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 8,
     borderRadius: 20,
-    backgroundColor: "#F3F4F6",
+    backgroundColor: "#f0f9f8",
+    borderWidth: 1,
+    borderColor: "#277874",
   },
   filterButtonSelected: {
-    backgroundColor: "#1B6F5D",
+    backgroundColor: "#277874",
   },
   filterButtonText: {
     fontSize: 14,
     fontWeight: "500",
-    color: "#374151",
+    color: "#277874",
   },
   filterButtonTextSelected: {
     color: "#ffffff",
@@ -468,7 +767,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#ffffff",
     borderRadius: 12,
     padding: 16,
-    shadowColor: "#000",
+    shadowColor: "#277874",
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.05,
     shadowRadius: 2,
@@ -491,7 +790,7 @@ const styles = StyleSheet.create({
   },
   userEmail: {
     fontSize: 14,
-    color: "#6B7280",
+    color: "#277874",
     marginBottom: 2,
   },
   userRole: {
@@ -507,13 +806,17 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 12,
+    backgroundColor: "#e0f2f1",
   },
   statusText: {
     fontSize: 12,
     fontWeight: "500",
+    color: "#277874",
   },
   menuButton: {
-    padding: 4,
+    padding: 8,
+    borderRadius: 6,
+    backgroundColor: "#f0f9f8",
   },
 
   // ===== LOADING & ERROR STATES =====
@@ -599,6 +902,110 @@ const styles = StyleSheet.create({
     backgroundColor: "#DC2626",
   },
   deleteButtonText: {
+    color: "#ffffff",
+    fontSize: 16,
+    fontWeight: "600",
+  },
+
+  // ===== EDIT/ADD USER MODAL =====
+  editModalContent: {
+    backgroundColor: "#ffffff",
+    borderRadius: 20,
+    width: width - 40,
+    maxHeight: "80%",
+    overflow: "hidden",
+  },
+  editModalHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    padding: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: "#E5E7EB",
+  },
+  editModalTitle: {
+    fontSize: 20,
+    fontWeight: "bold",
+    color: "#1F2937",
+  },
+  closeButton: {
+    width: 32,
+    height: 32,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  editModalScroll: {
+    maxHeight: 400,
+  },
+  editFormGroup: {
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+  },
+  editFormLabel: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#374151",
+    marginBottom: 8,
+  },
+  editFormInput: {
+    backgroundColor: "#F9FAFB",
+    borderWidth: 1,
+    borderColor: "#E5E7EB",
+    borderRadius: 8,
+    padding: 12,
+    fontSize: 16,
+    color: "#1F2937",
+  },
+  roleSelector: {
+    flexDirection: "row",
+    gap: 8,
+    flexWrap: "wrap",
+  },
+  roleButton: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 8,
+    backgroundColor: "#F3F4F6",
+    borderWidth: 1,
+    borderColor: "#E5E7EB",
+  },
+  roleButtonSelected: {
+    backgroundColor: "#277874",
+    borderColor: "#277874",
+  },
+  roleButtonText: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#374151",
+  },
+  roleButtonTextSelected: {
+    color: "#ffffff",
+  },
+  editModalButtons: {
+    flexDirection: "row",
+    gap: 12,
+    padding: 20,
+    borderTopWidth: 1,
+    borderTopColor: "#E5E7EB",
+  },
+  editModalButton: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 8,
+    alignItems: "center",
+  },
+  cancelEditButton: {
+    backgroundColor: "#F3F4F6",
+  },
+  cancelEditButtonText: {
+    color: "#374151",
+    fontSize: 16,
+    fontWeight: "600",
+  },
+  saveButton: {
+    backgroundColor: "#277874",
+  },
+  saveButtonText: {
     color: "#ffffff",
     fontSize: 16,
     fontWeight: "600",

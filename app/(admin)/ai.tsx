@@ -289,7 +289,7 @@ export default function AITesting() {
           </View>
           
           {chatResponse && (
-            <View style={styles.responseArea}>
+          <View style={styles.responseArea}>
               <Text style={styles.responseText}>{chatResponse}</Text>
             </View>
           )}
@@ -309,7 +309,7 @@ export default function AITesting() {
           
           <Text style={styles.description}>
             Generate text based on a prompt. Useful for creating descriptions, content, or creative writing.
-          </Text>
+            </Text>
           
           <TextInput
             style={styles.inputField}
@@ -363,9 +363,9 @@ export default function AITesting() {
               <View style={[styles.labelBadge, { backgroundColor: "#FEF3C7" }]}>
                 <Text style={[styles.labelText, { color: "#92400E" }]}>/ai/recommendations</Text>
               </View>
-            </View>
           </View>
-          
+        </View>
+
           <Text style={styles.description}>
             Get AI-powered product recommendations based on natural language queries. Perfect for deal finding.
           </Text>
@@ -423,7 +423,7 @@ export default function AITesting() {
               <Text style={styles.responseText}>{recommendationResponse}</Text>
             </View>
           )}
-        </View>
+                  </View>
 
         {/* Query History Section */}
         <View style={styles.section}>
@@ -439,7 +439,7 @@ export default function AITesting() {
                   <Ionicons name="trash-outline" size={20} color="#DC2626" />
                 </TouchableOpacity>
               )}
-            </View>
+                </View>
           </View>
           
           {queryHistory.length === 0 ? (
@@ -473,9 +473,9 @@ export default function AITesting() {
                   <Text style={styles.historyResponse} numberOfLines={3}>
                     {item.response.substring(0, 150)}...
                   </Text>
-                </View>
-              ))}
-            </View>
+              </View>
+            ))}
+          </View>
           )}
         </View>
       </ScrollView>
@@ -500,9 +500,9 @@ const styles = StyleSheet.create({
     backgroundColor: "#ffffff",
     borderRadius: 16,
     padding: 20,
-    shadowColor: "#000",
+    shadowColor: "#277874",
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
+    shadowOpacity: 0.15,
     shadowRadius: 8,
     elevation: 3,
   },
@@ -517,11 +517,11 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 20,
     fontWeight: "bold",
-    color: "#1F2937",
+    color: "#277874",
     flex: 1,
   },
   labelBadge: {
-    backgroundColor: "#DBEAFE",
+    backgroundColor: "#e0f2f1",
     paddingHorizontal: 12,
     paddingVertical: 4,
     borderRadius: 12,
@@ -529,7 +529,7 @@ const styles = StyleSheet.create({
   labelText: {
     fontSize: 12,
     fontWeight: "600",
-    color: "#1E40AF",
+    color: "#277874",
   },
   description: {
     fontSize: 14,
@@ -580,7 +580,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   actionButton: {
-    backgroundColor: "#3B82F6",
+    backgroundColor: "#FFBE5D",
     paddingHorizontal: 24,
     paddingVertical: 12,
     borderRadius: 12,
@@ -598,19 +598,19 @@ const styles = StyleSheet.create({
   refreshButton: {
     width: 48,
     height: 48,
-    backgroundColor: "#F3F4F6",
+    backgroundColor: "#f0f9f8",
     borderRadius: 12,
     justifyContent: "center",
     alignItems: "center",
   },
   generateButton: {
-    backgroundColor: "#10B981",
+    backgroundColor: "#277874",
   },
   recommendationButton: {
-    backgroundColor: "#F59E0B",
+    backgroundColor: "#FFBE5D",
   },
   actionButtonText: {
-    color: "#ffffff",
+    color: "#1f2937",
     fontSize: 16,
     fontWeight: "600",
   },
@@ -655,11 +655,11 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   historyCard: {
-    backgroundColor: "#F9FAFB",
+    backgroundColor: "#f0f9f8",
     borderRadius: 12,
     padding: 16,
     borderWidth: 1,
-    borderColor: "#E5E7EB",
+    borderColor: "#277874",
   },
   historyCardHeader: {
     flexDirection: "row",
@@ -679,7 +679,7 @@ const styles = StyleSheet.create({
     paddingVertical: 2,
     borderRadius: 6,
     borderWidth: 1,
-    borderColor: "#E5E7EB",
+    borderColor: "#277874",
   },
   historyBadgeText: {
     fontSize: 10,
