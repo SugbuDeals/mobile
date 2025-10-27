@@ -4,15 +4,15 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import { useRouter } from "expo-router";
 import React, { useEffect } from "react";
 import {
-  Image,
-  SafeAreaView,
-  ScrollView,
-  StatusBar,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
+    Image,
+    SafeAreaView,
+    ScrollView,
+    StatusBar,
+    StyleSheet,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View,
 } from "react-native";
 
 export default function CategoriesPage() {
@@ -349,6 +349,14 @@ function StoreSection({
   isOpen: boolean;
   products: any[];
 }) {
+  const router = useRouter();
+  const {
+    state: { stores },
+  } = useStore();
+  
+  const storeInfo = stores.find((s: any) => s.name === storeName);
+  const storeId = storeInfo?.id;
+
   return (
     <View style={sectionStyles.container}>
       <View style={sectionStyles.storeHeader}>
@@ -386,6 +394,19 @@ function StoreSection({
             <TouchableOpacity
               key={product.id}
               style={sectionStyles.productCard}
+              onPress={() =>
+                router.push({
+                  pathname: "/(consumers)/product",
+                  params: {
+                    name: product.name,
+                    store: storeName,
+                    storeId: storeId,
+                    price: product.price?.replace("₱", ""),
+                    description: product.description,
+                    productId: product.id,
+                  },
+                })
+              }
             >
               <Image
                 source={product.image}

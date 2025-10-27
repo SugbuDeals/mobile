@@ -3,6 +3,14 @@ export type Category = {
   name: string;
 };
 
+export type CreateCategoryDTO = {
+  name: string;
+};
+
+export type UpdateCategoryDTO = {
+  name?: string;
+};
+
 export type Product = {
   id: number;
   name: string;

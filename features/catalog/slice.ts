@@ -1,5 +1,5 @@
 import { createSlice } from "@reduxjs/toolkit";
-import { findCategories, findProducts } from "./thunk";
+import { createCategory, deleteCategory, findCategories, findProducts, updateCategory } from "./thunk";
 import { Category, Product } from "./types";
 
 type CatalogState = {
@@ -45,6 +45,48 @@ const catalogSlice = createSlice({
       .addCase(findProducts.rejected, (state, action) => {
         state.loading = false;
         state.error = action.payload?.message || "Find products failed";
+      })
+      // Create category
+      .addCase(createCategory.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(createCategory.fulfilled, (state, action) => {
+        state.loading = false;
+        state.categories.push(action.payload);
+      })
+      .addCase(createCategory.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload?.message || "Create category failed";
+      })
+      // Update category
+      .addCase(updateCategory.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(updateCategory.fulfilled, (state, action) => {
+        state.loading = false;
+        const index = state.categories.findIndex(cat => cat.id === action.payload.id);
+        if (index !== -1) {
+          state.categories[index] = action.payload;
+        }
+      })
+      .addCase(updateCategory.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload?.message || "Update category failed";
+      })
+      // Delete category
+      .addCase(deleteCategory.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(deleteCategory.fulfilled, (state, action) => {
+        state.loading = false;
+        state.categories = state.categories.filter(cat => cat.id !== action.payload.id);
+      })
+      .addCase(deleteCategory.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload?.message || "Delete category failed";
       });
   },
 });

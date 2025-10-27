@@ -11,6 +11,11 @@ export default function ConditionalNavigation({ children }: ConditionalNavigatio
   /*
   const { user, accessToken } = useAppSelector((state) => state.auth);
 
+  // If user is an admin, redirect to admin dashboard
+  if (accessToken && (user?.user_type === 'admin' || user?.role === 'ADMIN')) {
+    return <Redirect href="/(admin)" />;
+  }
+
   // If user is a retailer and hasn't completed setup, redirect to setup page
   if (accessToken && user?.user_type === 'retailer' && !user?.retailer_setup_completed) {
     return <Redirect href="/(retailers)/setup" />;

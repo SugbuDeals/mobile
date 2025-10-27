@@ -1,16 +1,18 @@
 import { useCatalog } from "@/features/catalog";
+import { useStore } from "@/features/store";
+import type { Promotion } from "@/features/store/types";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { useRouter } from "expo-router";
-import React from "react";
+import React, { useEffect, useMemo } from "react";
 import {
-  Image,
-  SafeAreaView,
-  ScrollView,
-  StatusBar,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
+    Image,
+    SafeAreaView,
+    ScrollView,
+    StatusBar,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View,
 } from "react-native";
 
 export default function AllRecommendations() {
@@ -18,6 +20,48 @@ export default function AllRecommendations() {
   const {
     state: { products },
   } = useCatalog();
+  const {
+    state: { activePromotions },
+    action: { findActivePromotions },
+  } = useStore();
+
+  useEffect(() => {
+    findActivePromotions();
+  }, [findActivePromotions]);
+
+  // Create a map to quickly find promotions by productId
+  const promotionMap = useMemo(() => {
+    const map = new Map<number, Promotion>();
+    activePromotions.forEach(promotion => {
+      map.set(promotion.productId, promotion);
+    });
+    return map;
+  }, [activePromotions]);
+
+  // Calculate discounted price
+  const getDiscountedPrice = (originalPrice: number, promotion: Promotion) => {
+    if (promotion.type === 'percentage') {
+      return originalPrice * (1 - promotion.discount / 100);
+    } else {
+      return Math.max(0, originalPrice - promotion.discount);
+    }
+  };
+
+  // Create combined list of products with promotion info
+  const displayItems = useMemo(() => {
+    const items = products.map(product => ({
+      product,
+      isPromoted: promotionMap.has(product.id),
+      promotion: promotionMap.get(product.id),
+    }));
+
+    // Sort: promoted items first, then regular products
+    return items.sort((a, b) => {
+      if (a.isPromoted && !b.isPromoted) return -1;
+      if (!a.isPromoted && b.isPromoted) return 1;
+      return 0;
+    });
+  }, [products, promotionMap]);
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -37,45 +81,85 @@ export default function AllRecommendations() {
         contentContainerStyle={styles.grid}
         showsVerticalScrollIndicator={false}
       >
-        {(products || []).map((p: any) => (
-          <View key={p.id} style={styles.card}>
-            <TouchableOpacity activeOpacity={0.9}>
-              <View style={styles.imageWrap}>
-                {/* Placeholder image since products may not have images */}
-                <Image
-                  source={require("../../assets/images/react-logo.png")}
-                  style={styles.image}
-                />
-                <Text style={styles.badge}>New</Text>
-              </View>
-              <View style={styles.storeRow}>
-                <View style={styles.storeLogo}>
+        {displayItems.map(({ product, isPromoted, promotion }) => {
+          const displayPrice = isPromoted && promotion && product.price
+            ? getDiscountedPrice(product.price, promotion)
+            : product.price;
+
+          return (
+            <View key={product.id} style={[styles.card, isPromoted && styles.promotedCard]}>
+              <TouchableOpacity
+                activeOpacity={0.9}
+                onPress={() =>
+                  router.push({
+                    pathname: "/(consumers)/product",
+                    params: {
+                      name: product.name,
+                      storeId: product.storeId,
+                      price: product.price,
+                      description: product.description,
+                      productId: product.id,
+                      ...(isPromoted && promotion ? { promotionId: promotion.id } : {}),
+                    },
+                  })
+                }
+              >
+                <View style={styles.imageWrap}>
+                  {/* Placeholder image since products may not have images */}
                   <Image
-                    source={require("../../assets/images/icon.png")}
-                    style={styles.storeLogoImg}
+                    source={require("../../assets/images/react-logo.png")}
+                    style={styles.image}
                   />
+                  {isPromoted && promotion ? (
+                    <View style={styles.promotionBadge}>
+                      <Text style={styles.promotionBadgeText}>
+                        {promotion.type === 'percentage' 
+                          ? `${promotion.discount}% OFF` 
+                          : `₱${promotion.discount} OFF`}
+                      </Text>
+                    </View>
+                  ) : (
+                    <Text style={styles.badge}>New</Text>
+                  )}
                 </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.storeName}>
-                    {p.storeName ?? "SugbuDeals"}
-                  </Text>
-                  <Text style={styles.storeDesc}>
-                    {p.storeDesc ?? "Local Store"}
-                  </Text>
+                <View style={styles.storeRow}>
+                  <View style={styles.storeLogo}>
+                    <Image
+                      source={require("../../assets/images/icon.png")}
+                      style={styles.storeLogoImg}
+                    />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.storeName}>
+                      {product.storeName ?? "SugbuDeals"}
+                    </Text>
+                    <Text style={styles.storeDesc}>
+                      {product.storeDesc ?? "Local Store"}
+                    </Text>
+                  </View>
+                  <View style={styles.activePill}>
+                    <Text style={styles.activeText}>Active</Text>
+                  </View>
                 </View>
-                <View style={styles.activePill}>
-                  <Text style={styles.activeText}>Active</Text>
-                </View>
-              </View>
-              <Text style={styles.itemTitle} numberOfLines={1}>
-                {p.name}
-              </Text>
-              {p.price != null && (
-                <Text style={styles.price}>₱{Number(p.price).toFixed(2)}</Text>
-              )}
-            </TouchableOpacity>
-          </View>
-        ))}
+                <Text style={styles.itemTitle} numberOfLines={1}>
+                  {product.name}
+                </Text>
+                {displayPrice != null && (
+                  <View style={styles.priceContainer}>
+                    {isPromoted && product.price && (
+                      <Text style={styles.originalPrice}>
+                        ₱{Number(product.price).toFixed(2)}
+                      </Text>
+                    )}
+                    <Text style={[styles.price, isPromoted && styles.discountedPrice]}>
+                      ₱{Number(displayPrice).toFixed(2)}
+                    </Text>
+                  </View>
+                )}
+              </TouchableOpacity>
+            </View>
+          );
+        })}
       </ScrollView>
     </SafeAreaView>
   );
@@ -153,5 +237,41 @@ const styles = StyleSheet.create({
     paddingBottom: 12,
     color: "#1B6F5D",
     fontWeight: "900",
+  },
+  // Promoted Product Styles
+  promotedCard: {
+    borderWidth: 2,
+    borderColor: "#FFBE5D",
+  },
+  promotionBadge: {
+    position: "absolute",
+    top: 10,
+    left: 10,
+    backgroundColor: "#FFBE5D",
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 6,
+    zIndex: 1,
+  },
+  promotionBadgeText: {
+    color: "#ffffff",
+    fontSize: 11,
+    fontWeight: "bold",
+  },
+  priceContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    paddingHorizontal: 12,
+  },
+  originalPrice: {
+    fontSize: 13,
+    color: "#9CA3AF",
+    textDecorationLine: "line-through",
+  },
+  discountedPrice: {
+    fontSize: 15,
+    fontWeight: "bold",
+    color: "#10B981",
   },
 });

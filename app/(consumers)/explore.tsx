@@ -6,13 +6,14 @@ import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
 import React, { useCallback, useMemo, useState } from "react";
 import {
-    ActivityIndicator,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View
+  ActivityIndicator,
+  Modal,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View
 } from "react-native";
 
 export default function Explore() {
@@ -26,6 +27,14 @@ export default function Explore() {
   const [isEditingPrompt, setIsEditingPrompt] = useState(true);
   const [lastSubmittedQuery, setLastSubmittedQuery] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<"best" | "cheapest" | "closest">("best");
+  const [showHistoryModal, setShowHistoryModal] = useState(false);
+  const [queryHistory, setQueryHistory] = useState<Array<{
+    id: number;
+    query: string;
+    response: string;
+    timestamp: Date;
+    resultsCount: number;
+  }>>([]);
   const router = useRouter();
 
   const hasResults = useMemo(
@@ -110,6 +119,17 @@ export default function Explore() {
         if (product) setInsightsSummary(`I found the best deals for ${product}`);
       }
       if (Array.isArray(items)) setRecommendations(items);
+      
+      // Add to query history
+      const historyEntry = {
+        id: Date.now(),
+        query: query,
+        response: insightText || "No response received",
+        timestamp: new Date(),
+        resultsCount: Array.isArray(items) ? items.length : 0
+      };
+      setQueryHistory(prev => [historyEntry, ...prev.slice(0, 9)]); // Keep last 10 entries
+      
       setInsightsExpanded(false);
       setIsEditingPrompt(false);
     } catch (e) {
@@ -120,10 +140,11 @@ export default function Explore() {
   }, [searchQuery, loading, accessToken, extractPrimaryProduct]);
 
   return (
-    <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
-      <View style={styles.content}>
-        {/* When editing, show prompt panel; otherwise show Insights panel styled like the prompt */}
-        <View style={styles.searchContainer}>
+    <>
+      <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
+        <View style={styles.content}>
+          {/* When editing, show prompt panel; otherwise show Insights panel styled like the prompt */}
+          <View style={styles.searchContainer}>
           {isEditingPrompt ? (
             <View style={styles.searchBox}>
               <View style={styles.topRow}>
@@ -297,7 +318,7 @@ export default function Explore() {
                       <TouchableOpacity
                         style={styles.detailsBtn}
                         accessibilityRole="button"
-                        onPress={() => router.push({ pathname: "/(consumers)/product", params: { name: item?.name || item?.title, storeId: item?.storeId || item?.store?.id, price: item?.price, productId: item?.id } })}
+                        onPress={() => router.push({ pathname: "/(consumers)/product", params: { name: item?.name || item?.title, storeId: item?.storeId || item?.store?.id, price: item?.price, description: item?.description, productId: item?.id } })}
                       >
                         <Text style={styles.detailsBtnText}>Details</Text>
                       </TouchableOpacity>
@@ -309,7 +330,83 @@ export default function Explore() {
           </View>
         )}
       </View>
+
+      {/* Query History Modal */}
+      <Modal
+        visible={showHistoryModal}
+        transparent={true}
+        animationType="slide"
+        onRequestClose={() => setShowHistoryModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Query History</Text>
+              <TouchableOpacity
+                onPress={() => setShowHistoryModal(false)}
+                style={styles.closeButton}
+              >
+                <Ionicons name="close" size={24} color="#6B7280" />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView style={styles.historyList}>
+              {queryHistory.length > 0 ? (
+                queryHistory.map((entry) => (
+                  <View key={entry.id} style={styles.historyCard}>
+                    <View style={styles.historyHeader}>
+                      <Text style={styles.historyQuery} numberOfLines={2}>
+                        {entry.query}
+                      </Text>
+                      <Text style={styles.historyTimestamp}>
+                        {entry.timestamp.toLocaleDateString()} {entry.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                      </Text>
+                    </View>
+                    <Text style={styles.historyResponse} numberOfLines={3}>
+                      {entry.response}
+                    </Text>
+                    <View style={styles.historyFooter}>
+                      <View style={styles.resultsBadge}>
+                        <Ionicons name="list-outline" size={14} color="#277874" />
+                        <Text style={styles.resultsText}>{entry.resultsCount} results</Text>
+                      </View>
+                      <TouchableOpacity 
+                        style={styles.reuseButton}
+                        onPress={() => {
+                          setSearchQuery(entry.query);
+                          setShowHistoryModal(false);
+                        }}
+                      >
+                        <Ionicons name="refresh-outline" size={16} color="#277874" />
+                        <Text style={styles.reuseButtonText}>Reuse</Text>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                ))
+              ) : (
+                <View style={styles.emptyHistoryState}>
+                  <Ionicons name="time-outline" size={48} color="#9CA3AF" />
+                  <Text style={styles.emptyHistoryText}>No queries yet</Text>
+                  <Text style={styles.emptyHistorySubtext}>
+                    Your AI recommendation queries will appear here
+                  </Text>
+                </View>
+              )}
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
     </ScrollView>
+    
+    {/* History Button - positioned outside the prompt panel */}
+    <TouchableOpacity 
+      style={styles.historyButton} 
+      onPress={() => setShowHistoryModal(true)} 
+      accessibilityRole="button"
+    >
+      <Ionicons name="time-outline" size={20} color="#ffffff" />
+    </TouchableOpacity>
+  </>
   );
 }
 
@@ -536,6 +633,23 @@ const styles = StyleSheet.create({
     backgroundColor: "#277874",
     borderRadius: 2,
   },
+  historyButton: {
+    position: "absolute",
+    bottom: 10,
+    right: 20,
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: "#1f7a6e",
+    justifyContent: "center",
+    alignItems: "center",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+    zIndex: 10,
+  },
   sendButton: {
     width: 40,
     height: 40,
@@ -640,5 +754,125 @@ const styles = StyleSheet.create({
   detailsBtnText: {
     color: "#ffffff",
     fontWeight: "700",
+  },
+
+  // ===== HISTORY MODAL STYLES =====
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  modalContent: {
+    backgroundColor: "#ffffff",
+    borderRadius: 20,
+    width: "90%",
+    maxHeight: "80%",
+    overflow: "hidden",
+  },
+  modalHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    padding: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: "#E5E7EB",
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: "bold",
+    color: "#277874",
+  },
+  closeButton: {
+    width: 32,
+    height: 32,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  historyList: {
+    maxHeight: 400,
+  },
+  historyCard: {
+    backgroundColor: "#f8fafc",
+    borderRadius: 12,
+    padding: 16,
+    margin: 16,
+    marginBottom: 8,
+    borderWidth: 1,
+    borderColor: "#E5E7EB",
+  },
+  historyHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
+    marginBottom: 8,
+  },
+  historyQuery: {
+    flex: 1,
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#1F2937",
+    marginRight: 12,
+  },
+  historyTimestamp: {
+    fontSize: 12,
+    color: "#6B7280",
+    fontWeight: "500",
+  },
+  historyResponse: {
+    fontSize: 14,
+    color: "#4B5563",
+    lineHeight: 20,
+    marginBottom: 12,
+  },
+  historyFooter: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  resultsBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#e0f2f1",
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+    gap: 4,
+  },
+  resultsText: {
+    fontSize: 12,
+    color: "#277874",
+    fontWeight: "500",
+  },
+  reuseButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#f0f9f8",
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+    gap: 4,
+  },
+  reuseButtonText: {
+    fontSize: 12,
+    color: "#277874",
+    fontWeight: "600",
+  },
+  emptyHistoryState: {
+    alignItems: "center",
+    padding: 40,
+  },
+  emptyHistoryText: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#6B7280",
+    marginTop: 12,
+    marginBottom: 8,
+  },
+  emptyHistorySubtext: {
+    fontSize: 14,
+    color: "#9CA3AF",
+    textAlign: "center",
+    lineHeight: 20,
   },
 });
