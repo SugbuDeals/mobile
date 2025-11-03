@@ -6,14 +6,15 @@ import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
 import React, { useCallback, useMemo, useState } from "react";
 import {
-  ActivityIndicator,
-  Modal,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View
+    ActivityIndicator,
+    Image,
+    Modal,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View
 } from "react-native";
 
 export default function Explore() {
@@ -304,7 +305,14 @@ export default function Explore() {
                       )}
                     </View>
                     <View style={styles.cardBodyRow}>
-                      <View style={styles.placeholderImage} />
+                      {item?.imageUrl ? (
+                        <Image
+                          source={{ uri: item.imageUrl }}
+                          style={styles.resultImage}
+                        />
+                      ) : (
+                        <View style={styles.placeholderImage} />
+                      )}
                       <View style={styles.cardInfo}>
                         <Text style={styles.cardTitle} numberOfLines={2}>{item?.name || item?.title || "Product"}</Text>
                         <Text style={styles.cardMeta}>{item?.store?.name || item?.storeName || "Store"}</Text>
@@ -318,7 +326,7 @@ export default function Explore() {
                       <TouchableOpacity
                         style={styles.detailsBtn}
                         accessibilityRole="button"
-                        onPress={() => router.push({ pathname: "/(consumers)/product", params: { name: item?.name || item?.title, storeId: item?.storeId || item?.store?.id, price: item?.price, description: item?.description, productId: item?.id } })}
+                        onPress={() => router.push({ pathname: "/(consumers)/product", params: { name: item?.name || item?.title, storeId: item?.storeId || item?.store?.id, price: item?.price, description: item?.description, productId: item?.id, imageUrl: item?.imageUrl || "" } })}
                       >
                         <Text style={styles.detailsBtnText}>Details</Text>
                       </TouchableOpacity>
@@ -538,6 +546,12 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   placeholderImage: {
+    width: 110,
+    height: 90,
+    borderRadius: 12,
+    backgroundColor: "#f1f5f9",
+  },
+  resultImage: {
     width: 110,
     height: 90,
     borderRadius: 12,

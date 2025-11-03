@@ -8,13 +8,13 @@ import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
 import { useEffect, useMemo, useState } from "react";
 import {
-  Image,
-  Modal,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
+    Image,
+    Modal,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View,
 } from "react-native";
 
 const STATIC_CATEGORIES: Category[] = [
@@ -146,6 +146,7 @@ function PromotionModal({
         price: item.product.price,
         description: item.product.description,
         productId: item.product.id,
+        imageUrl: item.product.imageUrl || "",
         promotionId: item.promotion.id,
       },
     });
@@ -197,7 +198,11 @@ function PromotionModal({
                   activeOpacity={0.8}
                 >
                   <Image
-                    source={require("../../assets/images/react-logo.png")}
+                    source={
+                      product.imageUrl
+                        ? { uri: product.imageUrl }
+                        : require("../../assets/images/react-logo.png")
+                    }
                     style={styles.modalProductImage}
                   />
                   <View style={styles.modalProductInfo}>
@@ -276,16 +281,17 @@ function Recommendations({
 
   const handleProductPress = (p: Product) => {
     router.push({
-      pathname: "/(consumers)/product",
-      params: {
-        name: p.name,
-        storeId: p.storeId,
-        price: p.price,
-        description: p.description,
-        productId: p.id,
-      },
-    });
-  };
+                  pathname: "/(consumers)/product",
+                  params: {
+                    name: p.name,
+                    storeId: p.storeId,
+                    price: p.price,
+                    description: p.description,
+                    productId: p.id,
+                    imageUrl: p.imageUrl || "",
+                  },
+                });
+              };
 
   return (
     <View style={styles.section}>
@@ -330,7 +336,11 @@ function Recommendations({
               >
                 <View style={styles.imageWrap}>
                   <Image
-                    source={require("../../assets/images/react-logo.png")}
+                    source={
+                      p.imageUrl
+                        ? { uri: p.imageUrl }
+                        : require("../../assets/images/react-logo.png")
+                    }
                     style={styles.image}
                   />
                   <Text style={styles.badge}>New</Text>
@@ -374,10 +384,17 @@ function Recommendations({
                 <View style={styles.promotionCard}>
                   {/* Left side - Image */}
                   <View style={styles.promotionCardLeft}>
-                    <Image
-                      source={require("../../assets/images/react-logo.png")}
-                      style={styles.promotionCardImage}
-                    />
+                    {group.products[0]?.product?.imageUrl ? (
+                      <Image
+                        source={{ uri: group.products[0].product.imageUrl }}
+                        style={styles.promotionCardImage}
+                      />
+                    ) : (
+                      <Image
+                        source={require("../../assets/images/react-logo.png")}
+                        style={styles.promotionCardImage}
+                      />
+                    )}
                   </View>
                   {/* Right side - Color with text */}
                   <View style={styles.promotionCardRight}>

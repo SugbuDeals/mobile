@@ -1,11 +1,14 @@
 import { useLogin } from "@/features/auth";
 import { useStore } from "@/features/store";
+import { uploadFile } from "@/utils/fileUpload";
 import Ionicons from "@expo/vector-icons/Ionicons";
+import * as ImagePicker from "expo-image-picker";
 import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
 import React, { useEffect, useState } from "react";
 import {
     Alert,
+    Image,
     Platform,
     ScrollView,
     StatusBar,
@@ -17,7 +20,7 @@ import {
 } from "react-native";
 
 export default function AddProduct() {
-  const { state: { user } } = useLogin();
+  const { state: { user, accessToken } } = useLogin();
   const { action: { createProduct }, state: { loading, error, userStore } } = useStore();
   const [productName, setProductName] = useState("");
   const [description, setDescription] = useState("");
@@ -26,10 +29,69 @@ export default function AddProduct() {
   const [isActive, setIsActive] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [validationErrors, setValidationErrors] = useState<{[key: string]: boolean}>({});
+  const [imageUri, setImageUri] = useState<string | null>(null);
+  const [imageUrl, setImageUrl] = useState<string | null>(null);
+  const [uploadingImage, setUploadingImage] = useState(false);
 
   useEffect(() => {
-    
+    // Request image picker permissions
+    (async () => {
+      if (Platform.OS !== 'web') {
+        const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+        if (status !== 'granted') {
+          Alert.alert('Permission required', 'Sorry, we need camera roll permissions to upload images!');
+        }
+      }
+    })();
   }, [user]);
+
+  const pickImage = async () => {
+    try {
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [4, 3],
+        quality: 0.8,
+      });
+
+      if (!result.canceled && result.assets[0]) {
+        const uri = result.assets[0].uri;
+        setImageUri(uri);
+        setImageUrl(null); // Clear previous upload URL
+        
+        // Upload image immediately
+        await handleImageUpload(uri);
+      }
+    } catch (error) {
+      console.error("Error picking image:", error);
+      Alert.alert("Error", "Failed to pick image. Please try again.");
+    }
+  };
+
+  const handleImageUpload = async (uri: string) => {
+    if (!accessToken) {
+      Alert.alert("Error", "Please log in to upload images.");
+      return;
+    }
+
+    setUploadingImage(true);
+    try {
+      const result = await uploadFile(uri, accessToken);
+      setImageUrl(result.url || result.filename);
+      Alert.alert("Success", "Image uploaded successfully!");
+    } catch (error) {
+      console.error("Image upload error:", error);
+      Alert.alert("Upload Error", error instanceof Error ? error.message : "Failed to upload image. Please try again.");
+      setImageUri(null);
+    } finally {
+      setUploadingImage(false);
+    }
+  };
+
+  const removeImage = () => {
+    setImageUri(null);
+    setImageUrl(null);
+  };
 
   const handleAddProduct = async () => {
     // Clear previous validation errors
@@ -65,6 +127,20 @@ export default function AddProduct() {
     setIsSubmitting(true);
     
     try {
+      // If there's an image but it hasn't been uploaded yet, upload it first
+      if (imageUri && !imageUrl && accessToken) {
+        setUploadingImage(true);
+        try {
+          const result = await uploadFile(imageUri, accessToken);
+          setImageUrl(result.url || result.filename);
+        } catch (error) {
+          console.error("Image upload error:", error);
+          Alert.alert("Upload Error", "Failed to upload image. Creating product without image.");
+        } finally {
+          setUploadingImage(false);
+        }
+      }
+
       const productData = {
         name: productName.trim(),
         description: description.trim(),
@@ -72,6 +148,7 @@ export default function AddProduct() {
         stock: Number(stock),
         isActive,
         storeId: userStore?.id || 1, // Use user's store ID or fallback
+        ...(imageUrl && { imageUrl }), // Include imageUrl if available
       };
 
       console.log("Creating product with data:", productData);
@@ -237,25 +314,58 @@ export default function AddProduct() {
           {/* Product Image */}
           <View style={styles.inputGroup}>
             <Text style={styles.label}>Product Image</Text>
-            <View style={styles.comingSoonArea}>
-              <Ionicons name="image-outline" size={40} color="#9CA3AF" />
-              <Text style={styles.comingSoonText}>Image Upload</Text>
-              <Text style={styles.comingSoonSubtext}>Coming Soon</Text>
-              <View style={styles.comingSoonBadge}>
-                <Text style={styles.comingSoonBadgeText}>Feature in Development</Text>
+            {imageUri || imageUrl ? (
+              <View style={styles.imagePreview}>
+                <Image 
+                  source={{ uri: imageUri || imageUrl || undefined }} 
+                  style={styles.previewImage}
+                  resizeMode="cover"
+                />
+                <TouchableOpacity 
+                  style={styles.editImageButton}
+                  onPress={pickImage}
+                  disabled={uploadingImage}
+                >
+                  <Ionicons name="camera" size={18} color="#ffffff" />
+                </TouchableOpacity>
+                <TouchableOpacity 
+                  style={styles.removeImageButton}
+                  onPress={removeImage}
+                  disabled={uploadingImage}
+                >
+                  <Ionicons name="trash" size={18} color="#ffffff" />
+                </TouchableOpacity>
+                {uploadingImage && (
+                  <View style={styles.uploadingOverlay}>
+                    <Text style={styles.uploadingText}>Uploading...</Text>
+                  </View>
+                )}
               </View>
-            </View>
+            ) : (
+              <TouchableOpacity 
+                style={styles.uploadArea}
+                onPress={pickImage}
+                disabled={uploadingImage}
+              >
+                <Ionicons name="image-outline" size={40} color="#FFBE5D" />
+                <Text style={styles.uploadText}>Tap to upload image</Text>
+                <Text style={styles.uploadSubtext}>PNG, JPG or WEBP (Max 2MB)</Text>
+                {uploadingImage && (
+                  <Text style={styles.uploadingText}>Uploading...</Text>
+                )}
+              </TouchableOpacity>
+            )}
           </View>
 
           {/* Action Buttons */}
           <View style={styles.actionButtons}>
             <TouchableOpacity 
-              style={[styles.addButton, isSubmitting && styles.addButtonDisabled]} 
+              style={[styles.addButton, (isSubmitting || uploadingImage) && styles.addButtonDisabled]} 
               onPress={handleAddProduct}
-              disabled={isSubmitting}
+              disabled={isSubmitting || uploadingImage}
             >
               <Text style={styles.addButtonText}>
-                {isSubmitting ? "CREATING..." : "ADD"}
+                {isSubmitting ? "CREATING..." : uploadingImage ? "UPLOADING..." : "ADD"}
               </Text>
             </TouchableOpacity>
             
@@ -423,8 +533,29 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     color: "#FFBE5D",
   },
+  uploadArea: {
+    backgroundColor: "#F9FAFB",
+    borderWidth: 2,
+    borderColor: "#FFBE5D",
+    borderStyle: "dashed",
+    borderRadius: 12,
+    padding: 24,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  uploadText: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#FFBE5D",
+    marginTop: 12,
+    marginBottom: 4,
+  },
+  uploadSubtext: {
+    fontSize: 12,
+    color: "#6B7280",
+  },
   imagePreview: {
-    marginTop: 16,
+    marginTop: 8,
     position: "relative",
   },
   previewImage: {
@@ -436,13 +567,40 @@ const styles = StyleSheet.create({
   editImageButton: {
     position: "absolute",
     top: 8,
-    right: 8,
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: "rgba(0, 0, 0, 0.5)",
+    right: 48,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: "rgba(0, 0, 0, 0.6)",
     justifyContent: "center",
     alignItems: "center",
+  },
+  removeImageButton: {
+    position: "absolute",
+    top: 8,
+    right: 8,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: "rgba(239, 68, 68, 0.8)",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  uploadingOverlay: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
+    borderRadius: 12,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  uploadingText: {
+    color: "#ffffff",
+    fontSize: 14,
+    fontWeight: "600",
   },
   actionButtons: {
     marginTop: 5,

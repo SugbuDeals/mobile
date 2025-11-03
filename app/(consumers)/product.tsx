@@ -6,17 +6,17 @@ import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import React, { useMemo, useState } from "react";
 import {
-  Dimensions,
-  Image,
-  Modal,
-  Platform,
-  SafeAreaView,
-  ScrollView,
-  StatusBar,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
+    Dimensions,
+    Image,
+    Modal,
+    Platform,
+    SafeAreaView,
+    ScrollView,
+    StatusBar,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View,
 } from "react-native";
 
 export default function ProductDetailScreen() {
@@ -53,7 +53,7 @@ export default function ProductDetailScreen() {
       ? (params.distance as unknown as number)
       : Number(params.distance || 0);
   const productDiscount = (params.discount as string) || "";
-  const productImageUrl = (params.imageUrl as string) || "";
+  const productImageUrl = (params.imageUrl as string) || actualProduct?.imageUrl || "";
   const productDescription = actualProduct?.description || "";
 
   return (

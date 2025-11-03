@@ -287,6 +287,58 @@
         ]
       }
     },
+    "/store/nearby": {
+      "get": {
+        "description": "Returns stores within a specified radius of the given coordinates, sorted by distance. Uses the Haversine formula to calculate distances in kilometers.",
+        "operationId": "StoreController_findNearby",
+        "parameters": [
+          {
+            "name": "latitude",
+            "required": true,
+            "in": "query",
+            "description": "Latitude of the search center point",
+            "schema": {
+              "example": 10.3157,
+              "type": "number"
+            }
+          },
+          {
+            "name": "longitude",
+            "required": true,
+            "in": "query",
+            "description": "Longitude of the search center point",
+            "schema": {
+              "example": 123.8854,
+              "type": "number"
+            }
+          },
+          {
+            "name": "radius",
+            "required": false,
+            "in": "query",
+            "description": "Search radius in kilometers (default: 10km, max: 50 results)",
+            "schema": {
+              "example": 5,
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Returns array of stores with calculated distance field, ordered by proximity"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Find stores near a location",
+        "tags": [
+          "Stores"
+        ]
+      }
+    },
     "/store/{id}": {
       "get": {
         "operationId": "StoreController_findUniqueStore",
@@ -1137,6 +1189,103 @@
           "AI"
         ]
       }
+    },
+    "/files/{filename}": {
+      "get": {
+        "operationId": "FileController_getFile",
+        "parameters": [
+          {
+            "name": "filename",
+            "required": true,
+            "in": "path",
+            "description": "Name of the file to serve",
+            "schema": {
+              "example": "image-1234567890.jpg",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Get/serve a file",
+        "tags": [
+          "Files"
+        ]
+      },
+      "delete": {
+        "operationId": "FileController_deleteFile",
+        "parameters": [
+          {
+            "name": "filename",
+            "required": true,
+            "in": "path",
+            "description": "Name of the file to delete",
+            "schema": {
+              "example": "image-1234567890.jpg",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "File deleted successfully"
+          },
+          "404": {
+            "description": "File not found"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Delete a file",
+        "tags": [
+          "Files"
+        ]
+      }
+    },
+    "/files": {
+      "post": {
+        "operationId": "FileController_uploadFiles",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "file": {
+                    "type": "string",
+                    "format": "binary"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "File uploaded successfully"
+          },
+          "400": {
+            "description": "No file uploaded or invalid file"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Upload a file",
+        "tags": [
+          "Files"
+        ]
+      }
     }
   },
   "info": {
@@ -1258,6 +1407,11 @@
               "RETAILER",
               "ADMIN"
             ]
+          },
+          "imageUrl": {
+            "type": "string",
+            "example": "http://localhost:3000/files/file-1762098832774-779762879.webp",
+            "description": "The url of the file"
           }
         }
       },
@@ -1266,15 +1420,62 @@
         "properties": {
           "name": {
             "type": "string",
-            "example": "Tech Hub"
+            "example": "Tech Hub",
+            "description": "The name of the store"
           },
           "description": {
             "type": "string",
-            "example": "Your friendly gadget store"
+            "example": "Your friendly gadget store offering the latest electronics and accessories",
+            "description": "A brief description of the store and what it offers"
+          },
+          "latitude": {
+            "type": "number",
+            "example": 10.3157,
+            "description": "The latitude coordinate of the store location",
+            "minimum": -90,
+            "maximum": 90
+          },
+          "longitude": {
+            "type": "number",
+            "example": 123.8854,
+            "description": "The longitude coordinate of the store location",
+            "minimum": -180,
+            "maximum": 180
+          },
+          "address": {
+            "type": "string",
+            "example": "123 Main Street, Building A",
+            "description": "The street address of the store"
+          },
+          "city": {
+            "type": "string",
+            "example": "Mandaue City",
+            "description": "The city where the store is located"
+          },
+          "state": {
+            "type": "string",
+            "example": "Cebu",
+            "description": "The state or province where the store is located"
+          },
+          "country": {
+            "type": "string",
+            "example": "Philippines",
+            "description": "The country where the store is located"
+          },
+          "postalCode": {
+            "type": "string",
+            "example": "6014",
+            "description": "The postal or ZIP code of the store location"
           },
           "ownerId": {
             "type": "number",
-            "description": "The Store Owner's ID"
+            "example": 42,
+            "description": "The unique identifier of the store owner"
+          },
+          "imageUrl": {
+            "type": "string",
+            "example": "http://localhost:3000/files/file-1762098832774-779762879.webp",
+            "description": "The url of the file"
           }
         },
         "required": [
@@ -1288,27 +1489,73 @@
         "properties": {
           "name": {
             "type": "string",
-            "example": "Tech Hub"
+            "example": "Tech Hub Premium",
+            "description": "The updated name of the store"
           },
           "description": {
             "type": "string",
-            "example": "Your friendly gadget store"
+            "example": "Your premium destination for the latest electronics, gadgets, and tech accessories",
+            "description": "An updated description of the store and what it offers"
+          },
+          "latitude": {
+            "type": "number",
+            "example": 10.3157,
+            "description": "The updated latitude coordinate of the store location",
+            "minimum": -90,
+            "maximum": 90
+          },
+          "longitude": {
+            "type": "number",
+            "example": 123.8854,
+            "description": "The updated longitude coordinate of the store location",
+            "minimum": -180,
+            "maximum": 180
+          },
+          "address": {
+            "type": "string",
+            "example": "456 Commerce Avenue, Suite 200",
+            "description": "The updated street address of the store"
+          },
+          "city": {
+            "type": "string",
+            "example": "Cebu City",
+            "description": "The updated city where the store is located"
+          },
+          "state": {
+            "type": "string",
+            "example": "Cebu",
+            "description": "The updated state or province where the store is located"
+          },
+          "country": {
+            "type": "string",
+            "example": "Philippines",
+            "description": "The updated country where the store is located"
+          },
+          "postalCode": {
+            "type": "string",
+            "example": "6000",
+            "description": "The updated postal or ZIP code of the store location"
           },
           "verificationStatus": {
             "type": "string",
             "enum": [
               "UNVERIFIED",
               "VERIFIED"
-            ]
+            ],
+            "description": "The verification status of the store",
+            "example": "VERIFIED"
           },
           "ownerId": {
             "type": "number",
-            "description": "The Store Owner's ID"
+            "example": 42,
+            "description": "The unique identifier of the updated store owner"
+          },
+          "imageUrl": {
+            "type": "string",
+            "example": "http://localhost:3000/files/file-1762098832774-779762879.webp",
+            "description": "The url of the file"
           }
-        },
-        "required": [
-          "ownerId"
-        ]
+        }
       },
       "CreateProductDTO": {
         "type": "object",
@@ -1341,6 +1588,11 @@
           "storeId": {
             "type": "number",
             "description": "Related store id"
+          },
+          "imageUrl": {
+            "type": "string",
+            "example": "http://localhost:3000/files/file-1762098832774-779762879.webp",
+            "description": "The url of the file"
           }
         },
         "required": [
@@ -1378,6 +1630,11 @@
             "type": "boolean",
             "example": true,
             "description": "Whether product is active"
+          },
+          "imageUrl": {
+            "type": "string",
+            "example": "http://localhost:3000/files/file-1762098832774-779762879.webp",
+            "description": "The url of the file"
           }
         }
       },
