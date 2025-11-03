@@ -2,6 +2,7 @@ import env from "@/config/env";
 import { useLogin } from "@/features/auth";
 import { useStore } from "@/features/store";
 import { Ionicons } from "@expo/vector-icons";
+import { useRouter } from "expo-router";
 import React, { useEffect, useState } from "react";
 import {
     ActivityIndicator,
@@ -20,6 +21,7 @@ const { width } = Dimensions.get("window");
 export default function AdminDashboard() {
   const { state: authState, action: authActions } = useLogin();
   const { action: storeActions, state: { promotions, loading: storeLoading } } = useStore();
+  const router = useRouter();
   
   const [isLoading, setIsLoading] = useState(true);
   const [aiQuery, setAiQuery] = useState("");
@@ -196,6 +198,38 @@ export default function AdminDashboard() {
           </View>
         </View>
 
+        {/* Quick Views */}
+        <View style={styles.quickViewsSection}>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>Quick Views</Text>
+          </View>
+          <View style={styles.quickGrid}>
+            <TouchableOpacity style={styles.quickCard} onPress={() => router.push("/(admin)/view-product") }>
+              <View style={[styles.quickIcon, { backgroundColor: "#e0f2f1" }]}>
+                <Ionicons name="cube" size={20} color="#277874" />
+              </View>
+              <Text style={styles.quickTitle}>View Products</Text>
+              <Text style={styles.quickSub}>Browse all products</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity style={styles.quickCard} onPress={() => router.push("/(admin)/view-store") }>
+              <View style={[styles.quickIcon, { backgroundColor: "#f0f9ff" }]}>
+                <Ionicons name="storefront" size={20} color="#3B82F6" />
+              </View>
+              <Text style={styles.quickTitle}>View Stores</Text>
+              <Text style={styles.quickSub}>See registered stores</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity style={styles.quickCard} onPress={() => router.push("/(admin)/view-promotion") }>
+              <View style={[styles.quickIcon, { backgroundColor: "#fef3c7" }]}>
+                <Ionicons name="pricetag" size={20} color="#F59E0B" />
+              </View>
+              <Text style={styles.quickTitle}>View Promotions</Text>
+              <Text style={styles.quickSub}>All active and archived</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+
         {/* AI Deal Finder Test Section */}
         <View style={styles.aiSection}>
           <View style={styles.sectionHeader}>
@@ -296,6 +330,44 @@ const styles = StyleSheet.create({
   content: {
     flex: 1,
     paddingHorizontal: 20,
+  },
+  quickViewsSection: {
+    marginBottom: 16,
+  },
+  quickGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    justifyContent: "space-between",
+  },
+  quickCard: {
+    backgroundColor: "#ffffff",
+    borderRadius: 12,
+    padding: 16,
+    width: (width - 60) / 2,
+    marginBottom: 12,
+    shadowColor: "#277874",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  quickIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 8,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 10,
+  },
+  quickTitle: {
+    fontSize: 16,
+    fontWeight: "800",
+    color: "#1f2937",
+  },
+  quickSub: {
+    fontSize: 12,
+    color: "#6b7280",
+    marginTop: 2,
   },
   metricsSection: {
     marginBottom: 10,

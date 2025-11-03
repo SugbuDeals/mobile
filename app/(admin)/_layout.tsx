@@ -134,6 +134,30 @@ export default function AdminLayout() {
           }}
         />
         <Tabs.Screen
+          name="view-product"
+          options={{
+            title: "Products",
+            header: () => <AdminHeader title="Products" subtitle="Browse all products" />,
+            href: null,
+          }}
+        />
+        <Tabs.Screen
+          name="view-store"
+          options={{
+            title: "Stores",
+            header: () => <AdminHeader title="Stores" subtitle="Browse all stores" />,
+            href: null,
+          }}
+        />
+        <Tabs.Screen
+          name="view-promotion"
+          options={{
+            title: "Promotions",
+            header: () => <AdminHeader title="Promotions" subtitle="Browse all promotions" />,
+            href: null,
+          }}
+        />
+        <Tabs.Screen
           name="settings"
           options={{
             title: "Settings",
