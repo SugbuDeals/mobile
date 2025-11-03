@@ -1,3 +1,4 @@
+import env from "@/config/env";
 import { useBookmarks } from "@/features/bookmarks";
 import { useCatalog } from "@/features/catalog";
 import { useStore } from "@/features/store";
@@ -63,7 +64,13 @@ export default function ProductDetailScreen() {
 
   const logoFromList = stores.find((s: any) => s.id === productStoreId)?.imageUrl as string | undefined;
   const logoFromSelected = (selectedStore && selectedStore.id === productStoreId) ? (selectedStore as any).imageUrl : undefined;
-  const logoUrl = logoFromSelected || logoFromList;
+  const rawLogo = logoFromSelected || logoFromList;
+  const logoUrl = (() => {
+    if (!rawLogo) return undefined;
+    if (/^https?:\/\//i.test(rawLogo)) return rawLogo;
+    if (rawLogo.startsWith('/')) return `${env.API_BASE_URL}${rawLogo}`;
+    return `${env.API_BASE_URL}/files/${rawLogo}`;
+  })();
   return (
     <SafeAreaView style={styles.safeArea}>
       <StatusBar barStyle="dark-content" backgroundColor="#fff" />

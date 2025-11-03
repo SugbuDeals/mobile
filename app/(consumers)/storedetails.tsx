@@ -1,3 +1,4 @@
+import env from "@/config/env";
 import { useBookmarks } from "@/features/bookmarks";
 import { useCatalog } from "@/features/catalog";
 import { useStore } from "@/features/store";
@@ -172,7 +173,13 @@ function StoreHero({ storeName }: { storeName: string }) {
     if (storeId) findStoreById(storeId);
   }, [storeId]);
   const storeFromList = stores?.find((s: any) => s.id === storeId);
-  const logoUrl = ((selectedStore && selectedStore.id === storeId) ? (selectedStore as any).imageUrl : undefined) || (storeFromList as any)?.imageUrl;
+  const rawLogo = ((selectedStore && selectedStore.id === storeId) ? (selectedStore as any).imageUrl : undefined) || (storeFromList as any)?.imageUrl;
+  const logoUrl = (() => {
+    if (!rawLogo) return undefined;
+    if (/^https?:\/\//i.test(rawLogo)) return rawLogo;
+    if (rawLogo.startsWith('/')) return `${env.API_BASE_URL}${rawLogo}`;
+    return `${env.API_BASE_URL}/files/${rawLogo}`;
+  })();
   const isSaved = helpers.isStoreBookmarked(storeId);
   const toggle = () => {
     if (storeId == null) return;
