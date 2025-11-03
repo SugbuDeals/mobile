@@ -1,4 +1,5 @@
 import { useLogin } from "@/features/auth";
+import { useCatalog } from "@/features/catalog";
 import { useStore } from "@/features/store";
 import { uploadFile } from "@/utils/fileUpload";
 import Ionicons from "@expo/vector-icons/Ionicons";
@@ -22,6 +23,7 @@ import {
 export default function AddProduct() {
   const { state: { user, accessToken } } = useLogin();
   const { action: { createProduct }, state: { loading, error, userStore } } = useStore();
+  const { action: { loadCategories }, state: { categories } } = useCatalog();
   const [productName, setProductName] = useState("");
   const [description, setDescription] = useState("");
   const [price, setPrice] = useState("");
@@ -32,6 +34,8 @@ export default function AddProduct() {
   const [imageUri, setImageUri] = useState<string | null>(null);
   const [imageUrl, setImageUrl] = useState<string | null>(null);
   const [uploadingImage, setUploadingImage] = useState(false);
+  const [selectedCategoryId, setSelectedCategoryId] = useState<number | null>(null);
+  const [showCategoryList, setShowCategoryList] = useState(false);
 
   useEffect(() => {
     // Request image picker permissions
@@ -43,6 +47,7 @@ export default function AddProduct() {
         }
       }
     })();
+    loadCategories();
   }, [user]);
 
   const pickImage = async () => {
@@ -149,6 +154,7 @@ export default function AddProduct() {
         isActive,
         storeId: userStore?.id || 1, // Use user's store ID or fallback
         ...(imageUrl && { imageUrl }), // Include imageUrl if available
+        categoryId: selectedCategoryId ?? undefined,
       };
 
       console.log("Creating product with data:", productData);
@@ -294,6 +300,43 @@ export default function AddProduct() {
               </View>
             </View>
           </View>
+
+      {/* Category */}
+      <View style={styles.inputGroup}>
+        <Text style={styles.label}>Category</Text>
+        <TouchableOpacity
+          style={styles.inputContainer}
+          onPress={() => setShowCategoryList((v) => !v)}
+        >
+          <Ionicons name="pricetags" size={18} color="#6B7280" />
+          <Text style={{ marginLeft: 8, color: "#374151", fontSize: 16 }}>
+            {selectedCategoryId
+              ? categories.find((c) => c.id === selectedCategoryId)?.name || "Select category"
+              : "Select category"}
+          </Text>
+        </TouchableOpacity>
+        {showCategoryList && (
+          <View style={{ marginTop: 8, borderWidth: 1, borderColor: "#E5E7EB", borderRadius: 12, backgroundColor: "#F9FAFB" }}>
+            {categories.map((cat) => (
+              <TouchableOpacity
+                key={cat.id}
+                onPress={() => {
+                  setSelectedCategoryId(cat.id);
+                  setShowCategoryList(false);
+                }}
+                style={{ paddingVertical: 10, paddingHorizontal: 12 }}
+              >
+                <Text style={{ fontSize: 16, color: "#374151" }}>{cat.name}</Text>
+              </TouchableOpacity>
+            ))}
+            {categories.length === 0 && (
+              <View style={{ paddingVertical: 12, paddingHorizontal: 12 }}>
+                <Text style={{ fontSize: 14, color: "#6B7280" }}>No categories available</Text>
+              </View>
+            )}
+          </View>
+        )}
+      </View>
 
           {/* Active Status */}
           <View style={styles.inputGroup}>
@@ -503,22 +546,6 @@ const styles = StyleSheet.create({
   stockLow: {
     fontSize: 14,
     color: "#EF4444",
-  },
-  uploadArea: {
-    backgroundColor: "#F9FAFB",
-    borderWidth: 2,
-    borderColor: "#D1D5DB",
-    borderStyle: "dashed",
-    borderRadius: 12,
-    padding: 24,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  uploadText: {
-    fontSize: 16,
-    color: "#6B7280",
-    marginVertical: 12,
-    textAlign: "center",
   },
   chooseFileButton: {
     backgroundColor: "#ffffff",

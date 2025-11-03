@@ -102,10 +102,18 @@ export default function RetailersLayout() {
           ),
         }}
       />
+    
       <Tabs.Screen
         name="notifications"
         options={{
           title: "Notifications",
+          href: null,
+        }}
+      />
+      <Tabs.Screen
+        name="categories"
+        options={{
+          title: "Categories",
           href: null,
         }}
       />

@@ -1471,11 +1471,6 @@
             "type": "number",
             "example": 42,
             "description": "The unique identifier of the store owner"
-          },
-          "imageUrl": {
-            "type": "string",
-            "example": "http://localhost:3000/files/file-1762098832774-779762879.webp",
-            "description": "The url of the file"
           }
         },
         "required": [
@@ -1549,11 +1544,6 @@
             "type": "number",
             "example": 42,
             "description": "The unique identifier of the updated store owner"
-          },
-          "imageUrl": {
-            "type": "string",
-            "example": "http://localhost:3000/files/file-1762098832774-779762879.webp",
-            "description": "The url of the file"
           }
         }
       },
