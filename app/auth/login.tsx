@@ -136,14 +136,9 @@ export default function Login() {
           console.log("✅ REDIRECTING TO ADMIN DASHBOARD");
           router.replace("/(admin)");
         } else if (isRetailer) {
-          const setupCompleted = Boolean((user as any).retailer_setup_completed);
-          if (!setupCompleted) {
-            console.log("🛠️ RETAILER WITHOUT SETUP → REDIRECTING TO SETUP");
-            router.replace("/auth/setup");
-          } else {
-            console.log("✅ RETAILER SETUP COMPLETE → DASHBOARD");
-            router.replace("/(retailers)");
-          }
+          // Always send retailers to their dashboard on login; setup is handled only after registration
+          console.log("➡️ RETAILER LOGIN → DASHBOARD");
+          router.replace("/(retailers)");
         } else {
           console.log("⚠️ DEFAULTING TO CONSUMER DASHBOARD (user may not have a valid role)");
           router.replace("/(consumers)");
