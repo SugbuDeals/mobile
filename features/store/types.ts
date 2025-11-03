@@ -7,6 +7,13 @@ export type Store = {
   verificationStatus: "UNVERIFIED" | "VERIFIED";
   ownerId?: number;
   userId?: number;
+  latitude?: number;
+  longitude?: number;
+  address?: string;
+  city?: string;
+  state?: string;
+  country?: string;
+  postalCode?: string;
 };
 
 export type Product = {
@@ -47,6 +54,13 @@ export type CreateStoreDTO = {
   description: string;
   ownerId: number;
   imageUrl?: string;
+  latitude?: number;
+  longitude?: number;
+  address?: string;
+  city?: string;
+  state?: string;
+  country?: string;
+  postalCode?: string;
 };
 
 export type UpdateStoreDTO = {
@@ -55,6 +69,13 @@ export type UpdateStoreDTO = {
   imageUrl?: string;
   verificationStatus?: "UNVERIFIED" | "VERIFIED";
   ownerId?: number;
+  latitude?: number;
+  longitude?: number;
+  address?: string;
+  city?: string;
+  state?: string;
+  country?: string;
+  postalCode?: string;
 };
 
 export type Promotion = {

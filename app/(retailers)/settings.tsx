@@ -7,6 +7,7 @@ import { uploadFile } from "@/utils/fileUpload";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import * as ImagePicker from "expo-image-picker";
 import { LinearGradient } from "expo-linear-gradient";
+import * as Location from "expo-location";
 import { router } from "expo-router";
 import React, { useMemo, useState } from "react";
 import {
@@ -45,6 +46,10 @@ export default function Settings() {
   const [isSavingUser, setIsSavingUser] = useState(false);
   const [uploadingLogo, setUploadingLogo] = useState(false);
   const [storeLogoUrl, setStoreLogoUrl] = useState<string | undefined>(undefined);
+  const [address, setAddress] = useState("");
+  const [latitude, setLatitude] = useState<number | undefined>(undefined);
+  const [longitude, setLongitude] = useState<number | undefined>(undefined);
+  const [isGettingLocation, setIsGettingLocation] = useState(false);
 
   // Store data is already loaded by useStoreManagement hook in the layout
   // No need to load it again here
@@ -56,6 +61,9 @@ export default function Settings() {
       setStoreName(userStore.name || "");
       setStoreDescription(userStore.description || "");
       setStoreLogoUrl(userStore.imageUrl || undefined);
+      setAddress(userStore.address || "");
+      setLatitude(userStore.latitude);
+      setLongitude(userStore.longitude);
     }
   }, [userStore]);
 
@@ -126,9 +134,25 @@ export default function Settings() {
       if (typeof storeLogoUrl === 'string' && storeLogoUrl.length > 0 && storeLogoUrl !== (userStore.imageUrl || undefined)) {
         storeUpdateData.imageUrl = storeLogoUrl;
       }
+      if ((address || "") !== (userStore.address || "")) {
+        storeUpdateData.address = address;
+      }
+      if (latitude !== (userStore.latitude)) {
+        storeUpdateData.latitude = latitude;
+      }
+      if (longitude !== (userStore.longitude)) {
+        storeUpdateData.longitude = longitude;
+      }
       
       // Update store if there are store changes 
-      const hasStoreChanges = storeUpdateData.name !== undefined || storeUpdateData.description !== undefined || storeUpdateData.imageUrl !== undefined;
+      const hasStoreChanges = (
+        storeUpdateData.name !== undefined ||
+        storeUpdateData.description !== undefined ||
+        storeUpdateData.imageUrl !== undefined ||
+        storeUpdateData.address !== undefined ||
+        storeUpdateData.latitude !== undefined ||
+        storeUpdateData.longitude !== undefined
+      );
       
       if (hasStoreChanges) {
         console.log("=== STORE UPDATE DEBUG ===");
@@ -164,6 +188,34 @@ export default function Settings() {
       );
     } finally {
       setIsSavingStore(false);
+    }
+  };
+
+  const handleGetCurrentLocation = async () => {
+    try {
+      setIsGettingLocation(true);
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== "granted") {
+        Alert.alert("Permission required", "Location permission is needed to set your store location.");
+        return;
+      }
+      const pos = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+      setLatitude(pos.coords.latitude);
+      setLongitude(pos.coords.longitude);
+
+      const places = await Location.reverseGeocodeAsync({ latitude: pos.coords.latitude, longitude: pos.coords.longitude });
+      if (places && places.length > 0) {
+        const p = places[0];
+        const line = [p.name, p.street, p.subregion, p.city || p.region, p.postalCode, p.country]
+          .filter(Boolean)
+          .join(", ");
+        setAddress(line);
+      }
+      Alert.alert("Location captured", "Coordinates and address have been filled. Save Store to apply.");
+    } catch (e: any) {
+      Alert.alert("Location Error", e?.message || "Failed to get current location");
+    } finally {
+      setIsGettingLocation(false);
     }
   };
 
@@ -362,28 +414,46 @@ export default function Settings() {
 
           <View style={styles.inputGroup}>
             <View style={styles.labelContainer}>
-              <Text style={styles.label}>Contact Email</Text>
-              <View style={styles.comingSoonBadge}>
-                <Text style={styles.comingSoonBadgeText}>Coming Soon</Text>
-              </View>
+              <Text style={styles.label}>Store Address</Text>
+              <TouchableOpacity style={styles.mapButton} onPress={handleGetCurrentLocation} disabled={!isEditingStore || isGettingLocation}>
+                <Text style={[styles.mapButtonText, (!isEditingStore || isGettingLocation) && { color: '#9CA3AF' }]}>
+                  {isGettingLocation ? "Getting..." : "Click here to get current location"}
+                </Text>
+                <Ionicons name="location" size={18} color={(!isEditingStore || isGettingLocation) ? "#9CA3AF" : "#FFBE5D"} />
+              </TouchableOpacity>
             </View>
-            <View style={[styles.textInput, styles.disabledInput]}>
-              <Text style={styles.disabledText}>Coming Soon</Text>
+            <TextInput
+              style={[styles.textInput, !isEditingStore && styles.disabledInput]}
+              placeholder="Store address"
+              value={address}
+              onChangeText={setAddress}
+              placeholderTextColor="#9CA3AF"
+              editable={isEditingStore}
+            />
+            <View style={{ flexDirection: 'row', gap: 12, marginTop: 12 }}>
+              <TextInput
+                style={[styles.textInput, { flex: 1 }, !isEditingStore && styles.disabledInput]}
+                placeholder="Latitude"
+                value={latitude !== undefined ? String(latitude) : ""}
+                onChangeText={(t) => setLatitude(t ? Number(t) : undefined)}
+                placeholderTextColor="#9CA3AF"
+                keyboardType="decimal-pad"
+                editable={isEditingStore}
+              />
+              <TextInput
+                style={[styles.textInput, { flex: 1 }, !isEditingStore && styles.disabledInput]}
+                placeholder="Longitude"
+                value={longitude !== undefined ? String(longitude) : ""}
+                onChangeText={(t) => setLongitude(t ? Number(t) : undefined)}
+                placeholderTextColor="#9CA3AF"
+                keyboardType="decimal-pad"
+                editable={isEditingStore}
+              />
             </View>
-            <Text style={styles.helperText}>We will use this for important updates.</Text>
+            <Text style={styles.helperText}>Tap the button to auto-fill your current location.</Text>
           </View>
 
-          <View style={styles.inputGroup}>
-            <View style={styles.labelContainer}>
-              <Text style={styles.label}>Store Address</Text>
-              <View style={styles.comingSoonBadge}>
-                <Text style={styles.comingSoonBadgeText}>Coming Soon</Text>
-              </View>
-            </View>
-            <View style={[styles.textInput, styles.disabledInput]}>
-              <Text style={styles.disabledText}>Coming Soon</Text>
-            </View>
-          </View>
+          
 
           <View style={styles.inputGroup}>
             <View style={styles.labelContainer}>

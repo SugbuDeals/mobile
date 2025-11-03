@@ -1,17 +1,10 @@
 import { useStore } from "@/features/store";
 import Ionicons from "@expo/vector-icons/Ionicons";
+import * as Location from "expo-location";
 import { useRouter } from "expo-router";
 import React, { useEffect, useState } from "react";
-import {
-  Image,
-  Linking,
-  SafeAreaView,
-  StatusBar,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
-} from "react-native";
+import { Linking, SafeAreaView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import MapView, { Marker, PROVIDER_GOOGLE } from "react-native-maps";
 
 export default function ViewMap() {
   const router = useRouter();
@@ -20,6 +13,7 @@ export default function ViewMap() {
     action: { findStores },
   } = useStore();
   const [isLoading, setIsLoading] = useState(false);
+  const [initialRegion, setInitialRegion] = useState<any>(null);
 
   useEffect(() => {
     const load = async () => {
@@ -28,6 +22,18 @@ export default function ViewMap() {
           setIsLoading(true);
           await (findStores() as any);
         }
+        const { status } = await Location.requestForegroundPermissionsAsync();
+        if (status === "granted") {
+          const pos = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+          setInitialRegion({
+            latitude: pos.coords.latitude,
+            longitude: pos.coords.longitude,
+            latitudeDelta: 0.05,
+            longitudeDelta: 0.05,
+          });
+        } else {
+          setInitialRegion({ latitude: 10.3157, longitude: 123.8854, latitudeDelta: 0.2, longitudeDelta: 0.2 });
+        }
       } finally {
         setIsLoading(false);
       }
@@ -35,9 +41,11 @@ export default function ViewMap() {
     load();
   }, [stores, findStores]);
 
-  const handleOpenInMaps = (storeAddress?: string) => {
-    const address = storeAddress || "123 Market Street";
-    const url = `https://maps.google.com/maps?q=${encodeURIComponent(address)}`;
+  const handleOpenInMaps = (store: any) => {
+    const hasCoords = typeof store?.latitude === 'number' && typeof store?.longitude === 'number';
+    const url = hasCoords
+      ? `https://www.google.com/maps/search/?api=1&query=${store.latitude},${store.longitude}`
+      : `https://maps.google.com/maps?q=${encodeURIComponent(store?.address || "")}`;
     Linking.openURL(url);
   };
 
@@ -56,32 +64,31 @@ export default function ViewMap() {
 
       {/* Map Container */}
       <View style={styles.mapContainer}>
-        <Image
-          source={require("../../assets/images/partial-react-logo.png")}
-          style={styles.mapImage}
-        />
-
-        {/* Simple placeholder markers */}
-        <View style={[styles.marker, { top: "25%", left: "45%" }]}>
-          <View style={styles.greenMarker} />
-        </View>
-        <View style={[styles.marker, { top: "60%", left: "25%" }]}>
-          <View style={styles.greenMarker} />
-        </View>
-        <View style={[styles.marker, { top: "60%", right: "25%" }]}>
-          <View style={styles.greenMarker} />
-        </View>
-        <View style={[styles.marker, { top: "35%", right: "35%" }]}>
-          <View style={styles.redMarker} />
-        </View>
+        {initialRegion && (
+          <MapView
+            style={{ flex: 1 }}
+            provider={PROVIDER_GOOGLE}
+            initialRegion={initialRegion}
+            showsUserLocation
+          >
+            {(stores || [])
+              .filter((s: any) => typeof s.latitude === 'number' && typeof s.longitude === 'number')
+              .map((s: any) => (
+                <Marker
+                  key={s.id}
+                  coordinate={{ latitude: s.latitude, longitude: s.longitude }}
+                  title={s.name}
+                  description={s.address || s.description}
+                  onCalloutPress={() => handleOpenInMaps(s)}
+                />
+              ))}
+          </MapView>
+        )}
       </View>
 
       {/* Open in Maps Button */}
       <View style={styles.buttonContainer}>
-        <TouchableOpacity
-          style={styles.openMapsButton}
-          onPress={() => handleOpenInMaps()}
-        >
+        <TouchableOpacity style={styles.openMapsButton} onPress={() => Linking.openURL("https://maps.google.com/maps") }>
           <Ionicons name="map-outline" size={20} color="#1B6F5D" />
           <Text style={styles.buttonText}>Open in Maps</Text>
         </TouchableOpacity>
