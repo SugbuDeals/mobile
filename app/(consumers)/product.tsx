@@ -3,21 +3,11 @@ import { useCatalog } from "@/features/catalog";
 import { useStore } from "@/features/store";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
+import * as Location from "expo-location";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import React, { useMemo, useState } from "react";
-import {
-    Dimensions,
-    Image,
-    Modal,
-    Platform,
-    SafeAreaView,
-    ScrollView,
-    StatusBar,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View,
-} from "react-native";
+import { Dimensions, Image, Linking, Modal, Platform, SafeAreaView, ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import MapView, { Marker } from "react-native-maps";
 
 export default function ProductDetailScreen() {
   const params = useLocalSearchParams() as Record<string, string | undefined>;
@@ -144,32 +134,65 @@ function LocationCard({
   storeId?: number;
   onNavigate: () => void;
 }) {
+  const {
+    state: { stores, selectedStore },
+  } = useStore();
+  const store = stores.find((s: any) => s.id === storeId) || (selectedStore && selectedStore.id === storeId ? selectedStore : undefined);
+  const latitude = (store as any)?.latitude;
+  const longitude = (store as any)?.longitude;
+  const address = (store as any)?.address || "";
+  const [region, setRegion] = React.useState<any | null>(null);
+
+  React.useEffect(() => {
+    (async () => {
+      try {
+        const { status } = await Location.requestForegroundPermissionsAsync();
+        if (status === "granted" && typeof latitude === 'number' && typeof longitude === 'number') {
+          const pos = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+          setRegion({
+            latitude: latitude,
+            longitude: longitude,
+            latitudeDelta: Math.abs(latitude - pos.coords.latitude) + 0.02,
+            longitudeDelta: Math.abs(longitude - pos.coords.longitude) + 0.02,
+          });
+        } else if (typeof latitude === 'number' && typeof longitude === 'number') {
+          setRegion({ latitude, longitude, latitudeDelta: 0.02, longitudeDelta: 0.02 });
+        }
+      } catch {}
+    })();
+  }, [latitude, longitude]);
+
+  const openExternalDirections = () => {
+    if (typeof latitude === 'number' && typeof longitude === 'number') {
+      Linking.openURL(`https://www.google.com/maps/dir/?api=1&destination=${latitude},${longitude}`);
+    } else if (address) {
+      Linking.openURL(`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(address)}`);
+    } else {
+      onNavigate();
+    }
+  };
+
   return (
     <View style={locStyles.container}>
       <Text style={locStyles.sectionTitle}>Location</Text>
       <View style={locStyles.card}>
-        <Image
-          source={require("../../assets/images/partial-react-logo.png")}
-          style={locStyles.mapImage}
-        />
+        {region ? (
+          <MapView style={locStyles.mapImage} initialRegion={region}>
+            {typeof latitude === 'number' && typeof longitude === 'number' && (
+              <Marker coordinate={{ latitude, longitude }} title={storeName} description={address} />
+            )}
+          </MapView>
+        ) : (
+          <Image source={require("../../assets/images/partial-react-logo.png")} style={locStyles.mapImage} />
+        )}
         <View style={locStyles.detailsRow}>
           <View style={locStyles.locationDetails}>
-            <Text style={locStyles.address}>123 Market Street</Text>
-            <Text style={locStyles.distance}>1.2 miles away • 8 min drive</Text>
+            <Text style={locStyles.address}>{address || "Store location"}</Text>
+            <Text style={locStyles.distance}>Navigate to destination</Text>
           </View>
           <View style={locStyles.buttonContainer}>
-            <TouchableOpacity
-              style={locStyles.navigateButton}
-              activeOpacity={0.85}
-              onPress={onNavigate}
-            >
-              <View
-                style={{
-                  flexDirection: "row",
-                  alignItems: "center",
-                  justifyContent: "center",
-                }}
-              >
+            <TouchableOpacity style={locStyles.navigateButton} activeOpacity={0.85} onPress={openExternalDirections}>
+              <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "center" }}>
                 <Ionicons name="navigate" size={16} color="#ffffff" />
                 <Text style={locStyles.buttonTitle}> Navigate</Text>
               </View>

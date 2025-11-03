@@ -9,8 +9,8 @@ import MapView, { Marker, PROVIDER_GOOGLE } from "react-native-maps";
 export default function ViewMap() {
   const router = useRouter();
   const {
-    state: { stores },
-    action: { findStores },
+    state: { nearbyStores },
+    action: { findNearbyStores },
   } = useStore();
   const [isLoading, setIsLoading] = useState(false);
   const [initialRegion, setInitialRegion] = useState<any>(null);
@@ -18,10 +18,6 @@ export default function ViewMap() {
   useEffect(() => {
     const load = async () => {
       try {
-        if (!stores || stores.length === 0) {
-          setIsLoading(true);
-          await (findStores() as any);
-        }
         const { status } = await Location.requestForegroundPermissionsAsync();
         if (status === "granted") {
           const pos = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
@@ -31,6 +27,7 @@ export default function ViewMap() {
             latitudeDelta: 0.05,
             longitudeDelta: 0.05,
           });
+          await (findNearbyStores({ latitude: pos.coords.latitude, longitude: pos.coords.longitude, radiusKm: 10 }) as any);
         } else {
           setInitialRegion({ latitude: 10.3157, longitude: 123.8854, latitudeDelta: 0.2, longitudeDelta: 0.2 });
         }
@@ -39,7 +36,7 @@ export default function ViewMap() {
       }
     };
     load();
-  }, [stores, findStores]);
+  }, [findNearbyStores]);
 
   const handleOpenInMaps = (store: any) => {
     const hasCoords = typeof store?.latitude === 'number' && typeof store?.longitude === 'number';
@@ -71,7 +68,7 @@ export default function ViewMap() {
             initialRegion={initialRegion}
             showsUserLocation
           >
-            {(stores || [])
+            {(nearbyStores || [])
               .filter((s: any) => typeof s.latitude === 'number' && typeof s.longitude === 'number')
               .map((s: any) => (
                 <Marker

@@ -14,6 +14,7 @@ export type Store = {
   state?: string;
   country?: string;
   postalCode?: string;
+  distance?: number;
 };
 
 export type Product = {

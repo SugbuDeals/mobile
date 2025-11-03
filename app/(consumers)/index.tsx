@@ -5,16 +5,17 @@ import type { Category, Product } from "@/features/catalog/types";
 import { useStore } from "@/features/store";
 import type { Promotion } from "@/features/store/types";
 import { LinearGradient } from "expo-linear-gradient";
+import * as Location from "expo-location";
 import { useRouter } from "expo-router";
 import { useEffect, useMemo, useState } from "react";
 import {
-  Image,
-  Modal,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
+    Image,
+    Modal,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View,
 } from "react-native";
 
 const STATIC_CATEGORIES: Category[] = [
@@ -32,8 +33,8 @@ export default function Home() {
     state: { user },
   } = useLogin();
   const {
-    state: { stores, loading, activePromotions },
-    action: { findStores, findActivePromotions },
+    state: { nearbyStores, loading, activePromotions },
+    action: { findStores, findNearbyStores, findActivePromotions },
   } = useStore();
   const {
     state: { categories, products },
@@ -46,11 +47,21 @@ export default function Home() {
   } | null>(null);
 
   useEffect(() => {
-    findStores();
-    loadCategories();
-    loadProducts();
-    findActivePromotions(); // Get all active promotions (no storeId filter for consumers)
-  }, [findStores, loadCategories, loadProducts, findActivePromotions]);
+    (async () => {
+      loadCategories();
+      loadProducts();
+      findActivePromotions();
+      try {
+        const { status } = await Location.requestForegroundPermissionsAsync();
+        if (status === "granted") {
+          const pos = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+          await (findNearbyStores({ latitude: pos.coords.latitude, longitude: pos.coords.longitude, radiusKm: 10 }) as any);
+        } else {
+          // fallback: no nearby if no permission
+        }
+      } catch {}
+    })();
+  }, [findNearbyStores, loadCategories, loadProducts, findActivePromotions]);
 
   const displayName =
     (user as any)?.name || (user as any)?.fullname || (user as any)?.email || "there";
@@ -70,7 +81,7 @@ export default function Home() {
       }
           router={router} 
         />
-        <NearbyStores stores={stores || []} loading={loading} router={router} />
+        <NearbyStores stores={nearbyStores || []} loading={loading} router={router} />
       </ScrollView>
       
       {/* Promotion Products Overlay */}
