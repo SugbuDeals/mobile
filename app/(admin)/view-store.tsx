@@ -1,3 +1,4 @@
+import { useLogin } from "@/features/auth";
 import { useStore } from "@/features/store";
 import { Ionicons } from "@expo/vector-icons";
 import React, { useEffect } from "react";
@@ -5,9 +6,13 @@ import { ActivityIndicator, Image, ScrollView, StyleSheet, Text, TouchableOpacit
 
 export default function AdminViewStores() {
   const { state: storeState, action: storeActions } = useStore();
+  const { state: authState, action: authActions } = useLogin();
 
   useEffect(() => {
     storeActions.findStores();
+    if (authState.allUsers.length === 0) {
+      authActions.fetchAllUsers();
+    }
   }, []);
 
   if (storeState.loading && storeState.stores.length === 0) {
@@ -21,7 +26,7 @@ export default function AdminViewStores() {
 
   return (
     <View style={styles.container}>
-      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+      <ScrollView style={styles.content} contentContainerStyle={styles.contentContainer} showsVerticalScrollIndicator={false}>
         <View style={styles.headerRow}>
           <Text style={styles.title}>Stores</Text>
           <View style={styles.countBadge}>
@@ -54,6 +59,12 @@ export default function AdminViewStores() {
                         {store.verificationStatus === "VERIFIED" ? "Verified" : "Unverified"}
                       </Text>
                     </View>
+                    {store.ownerId && authState.allUsers.length > 0 && !authState.allUsers.some((u) => u.id === store.ownerId) && (
+                      <View style={[styles.metaPill, styles.deletePill]}>
+                        <Ionicons name="alert-circle" size={14} color="#991B1B" />
+                        <Text style={[styles.metaText, { color: "#991B1B" }]}>Recommended to delete</Text>
+                      </View>
+                    )}
                   </View>
                 </View>
                 <TouchableOpacity style={styles.chevron}>
@@ -77,6 +88,9 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingHorizontal: 20,
     paddingTop: 20,
+  },
+  contentContainer: {
+    paddingBottom: 32,
   },
   headerRow: {
     flexDirection: "row",
@@ -147,6 +161,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 6,
     borderRadius: 999,
+  },
+  deletePill: {
+    backgroundColor: "#FEE2E2",
   },
   metaText: {
     fontSize: 12,

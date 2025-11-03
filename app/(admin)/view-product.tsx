@@ -9,6 +9,7 @@ export default function AdminViewProducts() {
 
   useEffect(() => {
     storeActions.findProducts();
+    storeActions.findStores();
   }, []);
 
   const products = storeState.products.filter((p) =>
@@ -24,9 +25,11 @@ export default function AdminViewProducts() {
     );
   }
 
+  const isOrphanProduct = (storeId: number) => !storeState.stores.some((s) => s.id === storeId);
+
   return (
     <View style={styles.container}>
-      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+      <ScrollView style={styles.content} contentContainerStyle={styles.contentContainer} showsVerticalScrollIndicator={false}>
         <View style={styles.headerRow}>
           <Text style={styles.title}>Products</Text>
           <View style={styles.countBadge}>
@@ -80,6 +83,12 @@ export default function AdminViewProducts() {
                         {product.isActive ? "Active" : "Inactive"}
                       </Text>
                     </View>
+                    {isOrphanProduct(product.storeId) && (
+                      <View style={[styles.metaPill, styles.deletePill]}>
+                        <Ionicons name="alert-circle" size={14} color="#991B1B" />
+                        <Text style={[styles.metaText, { color: "#991B1B" }]}>Recommended to delete</Text>
+                      </View>
+                    )}
                   </View>
                 </View>
                 <TouchableOpacity style={styles.chevron}>
@@ -103,6 +112,9 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingHorizontal: 20,
     paddingTop: 20,
+  },
+  contentContainer: {
+    paddingBottom: 32,
   },
   headerRow: {
     flexDirection: "row",
@@ -189,6 +201,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 6,
     borderRadius: 999,
+  },
+  deletePill: {
+    backgroundColor: "#FEE2E2",
   },
   metaText: {
     fontSize: 12,
