@@ -22,7 +22,8 @@ import {
 export default function ProductDetailScreen() {
   const params = useLocalSearchParams() as Record<string, string | undefined>;
   const {
-    state: { stores },
+    state: { stores, selectedStore },
+    action: { findProductById, findStoreById },
   } = useStore();
   const {
     state: { products },
@@ -39,8 +40,22 @@ export default function ProductDetailScreen() {
     return null;
   }, [productId, products]);
 
+  // Ensure we fetch product details if missing or lacking storeId
+  React.useEffect(() => {
+    if (productId && (!actualProduct || !(actualProduct as any)?.storeId)) {
+      findProductById(productId);
+    }
+  }, [productId, actualProduct, findProductById]);
+
   const productName = (params.name as string) || actualProduct?.name || "Product";
-  const productStoreId = params.storeId ? Number(params.storeId) : undefined;
+  const productStoreId = params.storeId ? Number(params.storeId) : (actualProduct as any)?.storeId;
+
+  // Ensure we fetch store info if missing in list
+  React.useEffect(() => {
+    if (productStoreId) {
+      findStoreById(productStoreId);
+    }
+  }, [productStoreId, findStoreById]);
   const productStore =
     (params.store as string) ||
     (stores.find((s: any) => s.id === productStoreId)?.name ?? "Store");
@@ -56,6 +71,9 @@ export default function ProductDetailScreen() {
   const productImageUrl = (params.imageUrl as string) || actualProduct?.imageUrl || "";
   const productDescription = actualProduct?.description || "";
 
+  const logoFromList = stores.find((s: any) => s.id === productStoreId)?.imageUrl as string | undefined;
+  const logoFromSelected = (selectedStore && selectedStore.id === productStoreId) ? (selectedStore as any).imageUrl : undefined;
+  const logoUrl = logoFromSelected || logoFromList;
   return (
     <SafeAreaView style={styles.safeArea}>
       <StatusBar barStyle="dark-content" backgroundColor="#fff" />
@@ -66,6 +84,7 @@ export default function ProductDetailScreen() {
         <StoreHeader
           storeName={productStore}
           storeId={productStoreId}
+          logoUrl={logoUrl}
           onOpenStore={() =>
             router.push({
               pathname: "/(consumers)/storedetails",
@@ -481,10 +500,12 @@ const prodStyles = StyleSheet.create({
 function StoreHeader({
   storeName,
   storeId,
+  logoUrl,
   onOpenStore,
 }: {
   storeName: string;
   storeId?: number;
+  logoUrl?: string;
   onOpenStore?: () => void;
 }) {
   const params = useLocalSearchParams() as Record<string, string | undefined>;
@@ -505,10 +526,10 @@ function StoreHeader({
       />
       <View style={hdrStyles.storeInfoContainer}>
         <View style={hdrStyles.logoAndName}>
-          <View style={hdrStyles.quickMartLogo}>
-            <Ionicons name="flash" color="#fff" size={20} />
-            <Text style={hdrStyles.logoText}>quickmart</Text>
-          </View>
+          <Image
+            source={typeof logoUrl === 'string' && logoUrl.length > 0 ? { uri: logoUrl } : require("../../assets/images/partial-react-logo.png")}
+            style={{ width: 64, height: 64, borderRadius: 12, backgroundColor: '#fff', marginTop: 15 }}
+          />
           <View style={hdrStyles.storeDetails}>
             <Text style={hdrStyles.storeName}>{storeName}</Text>
             <Text style={hdrStyles.storeDescription}>

@@ -12,7 +12,7 @@ export const useLogin = () => {
   const register = (payload: RegisterPayload) =>
     dispatch(thunk.register(payload));
 
-  const updateUser = (id: number, data: { name?: string; email?: string }) =>
+  const updateUser = (id: number, data: { name?: string; email?: string; imageUrl?: string }) =>
     dispatch(thunk.updateUser({ id, data }));
 
   const deleteUser = (id: number) =>

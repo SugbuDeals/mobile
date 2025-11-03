@@ -1,5 +1,6 @@
 import { useBookmarks } from "@/features/bookmarks";
 import { useCatalog } from "@/features/catalog";
+import { useStore } from "@/features/store";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import React from "react";
@@ -139,10 +140,14 @@ function DealsGrid({
           onPress={() => handleProductPress(p)}
           activeOpacity={0.8}
         >
-          <Image
-            source={require("../../assets/images/partial-react-logo.png")}
-            style={gridStyles.image}
-          />
+          {typeof p.imageUrl === 'string' && p.imageUrl.length > 0 ? (
+            <Image source={{ uri: p.imageUrl }} style={gridStyles.image} />
+          ) : (
+            <Image
+              source={require("../../assets/images/partial-react-logo.png")}
+              style={gridStyles.image}
+            />
+          )}
           <View style={gridStyles.textArea}>
             <Text style={gridStyles.productName}>{p.name}</Text>
             {p.price != null && (
@@ -162,6 +167,12 @@ function StoreHero({ storeName }: { storeName: string }) {
   const params = useLocalSearchParams() as Record<string, string | undefined>;
   const storeId = params.storeId ? Number(params.storeId) : undefined;
   const { helpers, action } = useBookmarks();
+  const { state: { selectedStore, stores }, action: { findStoreById } } = useStore();
+  React.useEffect(() => {
+    if (storeId) findStoreById(storeId);
+  }, [storeId]);
+  const storeFromList = stores?.find((s: any) => s.id === storeId);
+  const logoUrl = ((selectedStore && selectedStore.id === storeId) ? (selectedStore as any).imageUrl : undefined) || (storeFromList as any)?.imageUrl;
   const isSaved = helpers.isStoreBookmarked(storeId);
   const toggle = () => {
     if (storeId == null) return;
@@ -188,7 +199,11 @@ function StoreHero({ storeName }: { storeName: string }) {
       </View>
       <View style={heroStyles.identityBlock}>
         <View style={heroStyles.logoWrapper}>
-          <View style={heroStyles.logoBox} />
+          {logoUrl ? (
+            <Image source={{ uri: logoUrl }} style={{ width: 84, height: 84, borderRadius: 20 }} />
+          ) : (
+            <View style={heroStyles.logoBox} />
+          )}
           <Text style={heroStyles.name}>{storeName}</Text>
           <Text style={heroStyles.desc}>Stationary, Groceries, Home</Text>
           <View style={heroStyles.chipsRow}>

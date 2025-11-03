@@ -132,6 +132,12 @@ export default function AddProduct() {
     setIsSubmitting(true);
     
     try {
+      // Ensure store is available
+      if (!userStore?.id) {
+        Alert.alert("Store required", "Please create or select your store before adding products.");
+        return;
+      }
+
       // If there's an image but it hasn't been uploaded yet, upload it first
       if (imageUri && !imageUrl && accessToken) {
         setUploadingImage(true);
@@ -152,13 +158,12 @@ export default function AddProduct() {
         price: Number(price),
         stock: Number(stock),
         isActive,
-        storeId: userStore?.id || 1, // Use user's store ID or fallback
-        ...(imageUrl && { imageUrl }), // Include imageUrl if available
-        categoryId: selectedCategoryId ?? undefined,
+        storeId: userStore.id, // Use user's store ID
+        ...(typeof imageUrl === "string" && imageUrl.length > 0 ? { imageUrl } : {}), // Include imageUrl if available and valid
       };
 
       console.log("Creating product with data:", productData);
-      await createProduct(productData);
+      await createProduct(productData).unwrap();
       
       Alert.alert(
         "Success!", 
@@ -172,7 +177,10 @@ export default function AddProduct() {
       );
     } catch (err) {
       console.error("Error creating product:", err);
-      Alert.alert("Error", "Failed to create product. Please try again.");
+      const message = (err && typeof err === "object" && 'message' in (err as any))
+        ? (err as any).message
+        : "Failed to create product. Please try again.";
+      Alert.alert("Error", message);
     } finally {
       setIsSubmitting(false);
     }

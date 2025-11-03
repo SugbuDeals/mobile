@@ -52,25 +52,67 @@ export async function uploadFile(
     }
 
     const result = await response.json();
-    
-    // The API might return different formats - handle both
+
+    // Normalize various possible response shapes into a string filename and/or url
+    const pickString = (...vals: unknown[]): string | undefined => {
+      for (const v of vals) {
+        if (typeof v === 'string' && v.trim().length > 0) return v;
+      }
+      return undefined;
+    };
+
+    const extractFromObject = (obj: any): { filename?: string; url?: string } => {
+      if (!obj || typeof obj !== 'object') return {};
+      // Common fields
+      const url = pickString(obj.url);
+      const direct = pickString(obj.filename, obj.name, obj.fileName, obj.path);
+      // Nested possibilities (some uploaders wrap payload)
+      const nested = typeof obj.filename === 'object' ? extractFromObject(obj.filename) : {};
+      return {
+        url: url || nested.url,
+        filename: direct || nested.filename,
+      };
+    };
+
+    let normalized: { filename?: string; url?: string } = {};
+
     if (typeof result === 'string') {
-      // If it returns just the filename as a string
-      return { filename: result, url: `${env.API_BASE_URL}/files/${result}` };
-    } else if (result.filename || result.url) {
-      // If it returns an object with filename/url
-      return {
-        filename: result.filename || result.name,
-        url: result.url || `${env.API_BASE_URL}/files/${result.filename || result.name}`,
-      };
-    } else {
-      // Fallback - construct URL from filename if available
-      const uploadedFilename = result.name || result || filename;
-      return {
-        filename: uploadedFilename,
-        url: `${env.API_BASE_URL}/files/${uploadedFilename}`,
-      };
+      normalized = { filename: result };
+    } else if (Array.isArray(result)) {
+      // Take first valid entry
+      for (const item of result) {
+        const ex = extractFromObject(item);
+        if (ex.url || ex.filename) { normalized = ex; break; }
+      }
+    } else if (typeof result === 'object') {
+      normalized = extractFromObject(result);
     }
+
+    const finalFilename = (() => {
+      // Derive filename from provided fields or from url path
+      const fromDirect = pickString(normalized.filename, filename);
+      if (fromDirect) return fromDirect;
+      const u = pickString(normalized.url);
+      if (u) {
+        try { return new URL(u).pathname.split('/').pop() || filename; } catch { /* ignore */ }
+      }
+      return filename;
+    })();
+
+    let finalUrl = pickString(normalized.url);
+    // Normalize bad hosts (e.g., localhost) to API_BASE_URL
+    if (!finalUrl || /localhost|127\.0\.0\.1/i.test(finalUrl)) {
+      finalUrl = finalFilename ? `${env.API_BASE_URL}/files/${finalFilename}` : undefined;
+    }
+
+    if (!finalFilename && !finalUrl) {
+      throw new Error('Upload succeeded but no filename/url was returned');
+    }
+
+    return {
+      filename: finalFilename || filename,
+      url: finalUrl,
+    };
   } catch (error) {
     console.error('File upload error:', error);
     throw error instanceof Error 

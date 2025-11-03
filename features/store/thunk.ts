@@ -483,18 +483,11 @@ export const updateStore = createAsyncThunk<
   { rejectValue: { message: string }; state: RootState }
 >("store/updateStore", async ({ id, ...updateData }, { rejectWithValue, getState }) => {
   try {
-    const { accessToken, user } = getState().auth;
+    const { accessToken } = getState().auth;
 
-    if (!accessToken || !user?.id) {
+    if (!accessToken) {
       return rejectWithValue({
         message: "Authentication required. Please log in again.",
-      });
-    }
-
-    // Validate that userId is provided in updateData
-    if (!updateData.userId) {
-      return rejectWithValue({
-        message: "User ID is required for store update.",
       });
     }
 

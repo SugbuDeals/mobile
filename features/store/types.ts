@@ -54,7 +54,7 @@ export type UpdateStoreDTO = {
   description?: string;
   imageUrl?: string;
   verificationStatus?: "UNVERIFIED" | "VERIFIED";
-  userId: number; // Required by API
+  ownerId?: number;
 };
 
 export type Promotion = {

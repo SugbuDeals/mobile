@@ -8,13 +8,13 @@ import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
 import { useEffect, useMemo, useState } from "react";
 import {
-    Image,
-    Modal,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View,
+  Image,
+  Modal,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from "react-native";
 
 const STATIC_CATEGORIES: Category[] = [
@@ -53,7 +53,7 @@ export default function Home() {
   }, [findStores, loadCategories, loadProducts, findActivePromotions]);
 
   const displayName =
-    user?.name || (user as any)?.fullname || user?.email || "there";
+    (user as any)?.name || (user as any)?.fullname || (user as any)?.email || "there";
   const displayCategories =
     categories?.length > 0 ? categories : STATIC_CATEGORIES;
 
@@ -464,7 +464,7 @@ function NearbyStores({
           onPress={() => handleStorePress(s)}
         >
           <Image
-            source={require("../../assets/images/partial-react-logo.png")}
+            source={typeof s.imageUrl === 'string' && s.imageUrl.length > 0 ? { uri: s.imageUrl } : require("../../assets/images/partial-react-logo.png")}
             style={styles.storeIcon}
           />
           <View style={styles.info}>
