@@ -2,17 +2,17 @@ import { useLogin } from "@/features/auth";
 import { logout } from "@/features/auth/slice";
 import { fetchUserById } from "@/features/auth/thunk";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
-import { uploadFile } from "@/utils/fileUpload";
+import { getFileUrl, uploadFile } from "@/utils/fileUpload";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import * as ImagePicker from "expo-image-picker";
 import { router } from "expo-router";
 import React, { useEffect, useMemo, useState } from "react";
 import {
-    Alert, Image, ScrollView,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View
+  Alert, Image, ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View
 } from "react-native";
 import Button from "../../components/Button";
 import TextField from "../../components/TextField";
@@ -38,7 +38,11 @@ export default function Profile() {
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
   const [uploadingImage, setUploadingImage] = useState(false);
   const currentImageUrl = (user as any)?.imageUrl as string | undefined;
-  const [imageUrl, setImageUrl] = useState<string | undefined>(currentImageUrl);
+  const normalizedInitialUrl =
+    typeof currentImageUrl === "string" && currentImageUrl.length
+      ? (currentImageUrl.startsWith("http") ? currentImageUrl : getFileUrl(currentImageUrl))
+      : undefined;
+  const [imageUrl, setImageUrl] = useState<string | undefined>(normalizedInitialUrl);
   const [isEditing, setIsEditing] = useState(false);
 
   useEffect(() => {
@@ -78,13 +82,18 @@ export default function Profile() {
         quality: 0.8,
       });
       if (result.canceled || !result.assets?.[0]?.uri) return;
+      // Immediately show local preview
+      setImageUrl(result.assets[0].uri);
       if (!accessToken) {
         Alert.alert('Error', 'You must be logged in to upload an image.');
         return;
       }
       setUploadingImage(true);
       const upload = await uploadFile(result.assets[0].uri, accessToken);
-      setImageUrl(upload.url || upload.filename);
+      const uploadedUrl = upload.url || (upload.filename ? getFileUrl(upload.filename) : undefined);
+      if (uploadedUrl) {
+        setImageUrl(uploadedUrl);
+      }
       Alert.alert('Success', 'Profile photo uploaded. Remember to Save Changes.');
     } catch (err: any) {
       Alert.alert('Upload Error', err?.message || 'Failed to upload image');
@@ -170,9 +179,18 @@ export default function Profile() {
             )}
           </View>
           <TouchableOpacity
-            style={styles.editPhotoButton}
-            onPress={pickProfileImage}
-            disabled={uploadingImage}
+            style={[
+              styles.editPhotoButton,
+              !isEditing ? { opacity: 0.5 } : null,
+            ]}
+            onPress={() => {
+              if (!isEditing) {
+                Alert.alert('Edit required', 'Tap Edit Profile first to change your photo.');
+                return;
+              }
+              pickProfileImage();
+            }}
+            disabled={uploadingImage || !isEditing}
           >
             <Ionicons name={uploadingImage ? "time" : "add"} size={16} color="#ffffff" />
           </TouchableOpacity>
