@@ -389,7 +389,7 @@ export default function Settings() {
             <View style={styles.labelContainer}>
               <Text style={styles.label}>Store Logo</Text>
             </View>
-            <View style={styles.uploadArea}>
+            <View style={[styles.uploadArea, (!isEditingStore) && styles.disabledUploadArea]}>
               <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
                 {storeLogoUrl ? (
                   <Image source={{ uri: storeLogoUrl }} style={{ width: 56, height: 56, borderRadius: 12 }} />
@@ -398,12 +398,15 @@ export default function Settings() {
                     <Ionicons name="image" size={24} color="#D1D5DB" />
                   </View>
                 )}
-                <TouchableOpacity onPress={pickStoreLogo} disabled={uploadingLogo}>
-                  <Text style={{ color: uploadingLogo ? "#9CA3AF" : "#277874", fontWeight: "600" }}>
+                <TouchableOpacity onPress={pickStoreLogo} disabled={!isEditingStore || uploadingLogo}>
+                  <Text style={{ color: (!isEditingStore || uploadingLogo) ? "#9CA3AF" : "#277874", fontWeight: "600" }}>
                     {uploadingLogo ? "Uploading..." : storeLogoUrl ? "Change Logo" : "Upload Logo"}
                   </Text>
                 </TouchableOpacity>
               </View>
+              {!isEditingStore && (
+                <Text style={[styles.helperText, { marginTop: 8 }]}>Tap "Edit Store Details" to change your logo.</Text>
+              )}
             </View>
           </View>
 
