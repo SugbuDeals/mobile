@@ -548,6 +548,9 @@ function StoreHeader({
       action.removeProductBookmark(productId);
     else action.addProductBookmark(productId);
   };
+  const { state: { stores, selectedStore } } = useStore();
+  const store = stores.find((s: any) => s.id === storeId) || (selectedStore && selectedStore.id === storeId ? selectedStore : undefined);
+  const description = (store as any)?.description || "";
   return (
     <View style={hdrStyles.container}>
       <Image
@@ -562,9 +565,11 @@ function StoreHeader({
           />
           <View style={hdrStyles.storeDetails}>
             <Text style={hdrStyles.storeName}>{storeName}</Text>
-            <Text style={hdrStyles.storeDescription}>
-              Stationary, Groceries, Home
-            </Text>
+            {description ? (
+              <Text style={hdrStyles.storeDescription} numberOfLines={2}>
+                {description}
+              </Text>
+            ) : null}
           </View>
         </View>
         <View style={hdrStyles.bookmarkIcon} />

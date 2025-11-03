@@ -180,6 +180,7 @@ function StoreHero({ storeName }: { storeName: string }) {
     if (rawLogo.startsWith('/')) return `${env.API_BASE_URL}${rawLogo}`;
     return `${env.API_BASE_URL}/files/${rawLogo}`;
   })();
+  const description = (selectedStore && selectedStore.id === storeId ? (selectedStore as any)?.description : undefined) || (storeFromList as any)?.description || "";
   const isSaved = helpers.isStoreBookmarked(storeId);
   const toggle = () => {
     if (storeId == null) return;
@@ -212,7 +213,9 @@ function StoreHero({ storeName }: { storeName: string }) {
             <View style={heroStyles.logoBox} />
           )}
           <Text style={heroStyles.name}>{storeName}</Text>
-          <Text style={heroStyles.desc}>Stationary, Groceries, Home</Text>
+          {description ? (
+            <Text style={heroStyles.desc} numberOfLines={3}>{description}</Text>
+          ) : null}
           <View style={heroStyles.chipsRow}>
             <View style={[heroStyles.chip, heroStyles.chipPrimary]}>
               <Text style={heroStyles.chipPrimaryText}>Open Now</Text>

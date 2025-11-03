@@ -9,13 +9,13 @@ import * as Location from "expo-location";
 import { useRouter } from "expo-router";
 import { useEffect, useMemo, useState } from "react";
 import {
-    Image,
-    Modal,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View,
+  Image,
+  Modal,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from "react-native";
 
 const STATIC_CATEGORIES: Category[] = [
@@ -482,7 +482,19 @@ function NearbyStores({
             <Text style={[styles.text, styles.bold]} numberOfLines={1}>
               {s.name}
             </Text>
-            <Text style={styles.text}>{s.distance ?? "~1.2 km"}</Text>
+            {!!s.description && (
+              <Text style={[styles.text]} numberOfLines={2}>
+                {s.description}
+              </Text>
+            )}
+            <Text style={styles.text}>
+              {(() => {
+                const d = (s as any)?.distance;
+                if (typeof d === 'number' && isFinite(d)) return `${d.toFixed(2)} km`;
+                if (typeof d === 'string' && d.trim().length > 0 && !isNaN(Number(d))) return `${Number(d).toFixed(2)} km`;
+                return "~1.20 km";
+              })()}
+            </Text>
             <Text style={styles.text}>{s.rating ?? "4.5 ★"}</Text>
           </View>
         </TouchableOpacity>
