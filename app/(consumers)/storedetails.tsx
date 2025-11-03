@@ -101,9 +101,19 @@ function DealsGrid({
   category?: string;
 }) {
   const router = useRouter();
-  const {
-    state: { products },
-  } = useCatalog();
+  const { state: { products } } = useCatalog();
+  const { state: { activePromotions } } = useStore();
+  const getDiscounted = React.useCallback((p: any) => {
+    const promo = (activePromotions as any[])?.find?.((ap: any) => ap.productId === p.id && ap.active === true);
+    if (!promo) return undefined;
+    const base = Number(p.price);
+    if (!isFinite(base)) return undefined;
+    const type = String(promo.type || '').toLowerCase();
+    const value = Number(promo.discount || 0);
+    if (type === 'percentage') return Math.max(0, base * (1 - value / 100));
+    if (type === 'fixed') return Math.max(0, base - value);
+    return undefined;
+  }, [activePromotions]);
   const filtered = React.useMemo(() => {
     const q = query.trim().toLowerCase();
     const source = (products || []).filter((p: any) =>
@@ -151,11 +161,17 @@ function DealsGrid({
           )}
           <View style={gridStyles.textArea}>
             <Text style={gridStyles.productName}>{p.name}</Text>
-            {p.price != null && (
-              <Text style={gridStyles.price}>
-                ₱{Number(p.price).toFixed(2)}
-              </Text>
-            )}
+          {p.price != null && (() => {
+            const dp = getDiscounted(p);
+            return dp !== undefined ? (
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                <Text style={gridStyles.priceOld}>₱{Number(p.price).toFixed(2)}</Text>
+                <Text style={gridStyles.price}>₱{dp.toFixed(2)}</Text>
+              </View>
+            ) : (
+              <Text style={gridStyles.price}>₱{Number(p.price).toFixed(2)}</Text>
+            );
+          })()}
           </View>
         </TouchableOpacity>
       ))}
@@ -302,6 +318,7 @@ const gridStyles = StyleSheet.create({
   textArea: { paddingHorizontal: 12, paddingTop: 8, paddingBottom: 10 },
   productName: { fontWeight: "700" },
   price: { color: "#1B6F5D", fontWeight: "900", marginTop: 6 },
+  priceOld: { color: "#9CA3AF", textDecorationLine: 'line-through', marginTop: 6 },
 });
 
 const heroStyles = StyleSheet.create({

@@ -339,7 +339,15 @@ function Recommendations({
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={styles.row}
         >
-          {products.map((p) => (
+          {products.map((p) => {
+            const promo = promotions.find(pr => pr.productId === p.id && (pr as any).active === true);
+            const basePrice = Number(p.price);
+            const discounted = promo
+              ? (promo.type === 'percentage'
+                  ? Math.max(0, basePrice * (1 - Number(promo.discount || 0) / 100))
+                  : Math.max(0, basePrice - Number(promo.discount || 0)))
+              : undefined;
+            return (
             <Card key={p.id} style={styles.card}>
               <TouchableOpacity
                 activeOpacity={0.85}
@@ -362,15 +370,20 @@ function Recommendations({
                       {p.name}
                     </Text>
                     {p.price != null && (
-                      <Text style={styles.price}>
-                        ₱{Number(p.price).toFixed(2)}
-                      </Text>
+                      discounted !== undefined ? (
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                          <Text style={{ paddingHorizontal: 10, color: '#9CA3AF', textDecorationLine: 'line-through' }}>₱{basePrice.toFixed(2)}</Text>
+                          <Text style={styles.price}>₱{discounted.toFixed(2)}</Text>
+                        </View>
+                      ) : (
+                        <Text style={styles.price}>₱{basePrice.toFixed(2)}</Text>
+                      )
                     )}
                   </View>
                 </View>
               </TouchableOpacity>
             </Card>
-          ))}
+          );})}
         </ScrollView>
       )}
 

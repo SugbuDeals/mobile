@@ -272,8 +272,24 @@ function ProductCard({
   imageUrl?: string;
   description?: string;
 }) {
+  const { state: { activePromotions } } = useStore();
+  const params = useLocalSearchParams() as Record<string, string | undefined>;
+  const productId = params.productId ? Number(params.productId) : undefined;
   const [showDescription, setShowDescription] = useState(false);
   const hasDescription = description && description.trim().length > 0;
+
+  const computedDiscountedPrice = React.useMemo(() => {
+    if (!productId) return undefined;
+    const promo = (activePromotions || []).find((p: any) => p.productId === productId && p.active === true);
+    if (!promo) return undefined;
+    const p = Number(price);
+    if (!isFinite(p)) return undefined;
+    const type = String(promo.type || '').toLowerCase();
+    const value = Number(promo.discount || 0);
+    if (type === 'percentage') return Math.max(0, p * (1 - value / 100));
+    if (type === 'fixed') return Math.max(0, p - value);
+    return undefined;
+  }, [activePromotions, productId, price]);
 
   return (
     <>
@@ -339,7 +355,14 @@ function ProductCard({
           </View>
         </View>
         <View style={prodStyles.priceContainer}>
-          <Text style={prodStyles.priceText}>$ {price}</Text>
+          {computedDiscountedPrice !== undefined ? (
+            <>
+              <Text style={prodStyles.priceOld}>₱ {Number(price).toFixed(2)}</Text>
+              <Text style={prodStyles.priceNew}>₱ {computedDiscountedPrice.toFixed(2)}</Text>
+            </>
+          ) : (
+            <Text style={prodStyles.priceText}>₱ {Number(price).toFixed(2)}</Text>
+          )}
         </View>
       </View>
 
@@ -469,6 +492,8 @@ const prodStyles = StyleSheet.create({
     borderRadius: 8,
   },
   priceText: { fontSize: 18, fontWeight: "900", color: "#1B6F5D" },
+  priceOld: { fontSize: 16, color: "#9CA3AF", textDecorationLine: 'line-through', marginRight: 8 },
+  priceNew: { fontSize: 18, fontWeight: '900', color: '#1B6F5D', marginLeft: 8 },
   // Modal styles
   modalOverlay: {
     flex: 1,
