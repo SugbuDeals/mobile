@@ -5,19 +5,19 @@ import DateTimePicker from '@react-native-community/datetimepicker';
 import { LinearGradient } from "expo-linear-gradient";
 import React, { useEffect, useState } from "react";
 import {
-    Platform,
-    ScrollView,
-    StatusBar,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View
+  Platform,
+  ScrollView,
+  StatusBar,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View
 } from "react-native";
 
 export default function Promotions() {
   const { state: { user } } = useLogin();
-  const { action: { findProducts, createPromotion, findActivePromotions }, state: { products, activePromotions, loading: productsLoading, error } } = useStore();
+  const { action: { findProducts, createPromotion, findActivePromotions, updatePromotion }, state: { products, activePromotions, loading: productsLoading, error } } = useStore();
   const [promotionTitle, setPromotionTitle] = useState("");
   const [startDate, setStartDate] = useState(new Date());
   const [endDate, setEndDate] = useState(new Date());
@@ -26,6 +26,10 @@ export default function Promotions() {
   const [isCreating, setIsCreating] = useState(false);
   const [showStartDatePicker, setShowStartDatePicker] = useState(false);
   const [showEndDatePicker, setShowEndDatePicker] = useState(false);
+  const [editingKey, setEditingKey] = useState<string | null>(null);
+  const [editForm, setEditForm] = useState<{ title: string; description: string; startsAt: Date | null; endsAt: Date | null; active: boolean }>({ title: "", description: "", startsAt: null, endsAt: null, active: true });
+  const [showEditStartPicker, setShowEditStartPicker] = useState(false);
+  const [showEditEndPicker, setShowEditEndPicker] = useState(false);
 
   useEffect(() => {
     // Check if store setup is completed when component mounts
@@ -108,6 +112,77 @@ export default function Promotions() {
     setShowEndDatePicker(false);
     if (selectedDate) {
       setEndDate(selectedDate);
+    }
+  };
+
+  const makeGroupKey = (p: any) => `${p.title || ''}|${p.startsAt || ''}|${p.endsAt || ''}`;
+
+  const beginEdit = (groupSample: any) => {
+    const key = makeGroupKey(groupSample);
+    setEditingKey(key);
+    setEditForm({
+      title: groupSample.title || "",
+      description: groupSample.description || "",
+      startsAt: groupSample.startsAt ? new Date(groupSample.startsAt) : null,
+      endsAt: groupSample.endsAt ? new Date(groupSample.endsAt) : null,
+      active: !!groupSample.active,
+    });
+  };
+
+  const cancelEdit = () => {
+    setEditingKey(null);
+  };
+
+  const handleEditStartChange = (event: any, selectedDate?: Date) => {
+    setShowEditStartPicker(false);
+    if (selectedDate) setEditForm(prev => ({ ...prev, startsAt: selectedDate }));
+  };
+
+  const handleEditEndChange = (event: any, selectedDate?: Date) => {
+    setShowEditEndPicker(false);
+    if (selectedDate) setEditForm(prev => ({ ...prev, endsAt: selectedDate }));
+  };
+
+  const saveEdit = async () => {
+    if (!editingKey) return;
+
+    if (!editForm.title.trim()) {
+      alert("Please enter a promotion title");
+      return;
+    }
+    if (!editForm.startsAt || !editForm.endsAt) {
+      alert("Please select start and end dates");
+      return;
+    }
+    const start = new Date(editForm.startsAt);
+    const end = new Date(editForm.endsAt);
+    if (end <= start) {
+      alert("End date must be after start date");
+      return;
+    }
+    try {
+      // Update all promotions in the same group (same title/period)
+      const groupPromos = activePromotions.filter((p: any) => makeGroupKey(p) === editingKey);
+      await Promise.all(
+        groupPromos.map((p: any) =>
+          updatePromotion({
+            id: p.id,
+            title: editForm.title,
+            description: editForm.description,
+            startsAt: start.toISOString(),
+            endsAt: end.toISOString(),
+            active: editForm.active,
+          })
+        )
+      );
+      // Optionally refresh active list for safety
+      if (user && (user as any).id) {
+        findActivePromotions(Number((user as any).id));
+      }
+      setEditingKey(null);
+      alert("Promotion updated successfully!");
+    } catch (e) {
+      alert("Failed to update promotion. Please try again.");
     }
   };
 
@@ -476,6 +551,146 @@ export default function Promotions() {
               {isCreating ? "Creating..." : "Create Promotion"}
             </Text>
           </TouchableOpacity>
+        
+          {/* Active Promotions - Edit Section */}
+          {activePromotions?.length > 0 && (
+            <View style={{ marginTop: 28 }}>
+              <Text style={styles.sectionSubtitle}>Active Promotions</Text>
+              {(() => {
+                // Group promotions by title + dates
+                const groups: { [key: string]: { promos: any[]; sample: any } } = {};
+                for (const promo of activePromotions as any[]) {
+                  const key = makeGroupKey(promo);
+                  if (!groups[key]) groups[key] = { promos: [], sample: promo };
+                  groups[key].promos.push(promo);
+                }
+                const entries = Object.entries(groups);
+                return entries.map(([key, group]) => {
+                  const isEditing = editingKey === key;
+                  return (
+                    <View key={key} style={styles.productCard}>
+                      {!isEditing ? (
+                        <View>
+                          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <Text style={styles.productName}>{group.sample.title}</Text>
+                            <TouchableOpacity onPress={() => beginEdit(group.sample)}>
+                              <Ionicons name="create-outline" size={20} color="#277874" />
+                            </TouchableOpacity>
+                          </View>
+                          {group.sample.startsAt && group.sample.endsAt && (
+                            <Text style={styles.productPrice}>Period: {formatDate(new Date(group.sample.startsAt))} - {formatDate(new Date(group.sample.endsAt))}</Text>
+                          )}
+                          <Text style={[styles.productPrice, { color: group.sample.active ? '#059669' : '#EF4444' }]}>Status: {group.sample.active ? 'Active' : 'Inactive'}</Text>
+                          <View style={{ marginTop: 8 }}>
+                            {group.promos.map((p) => {
+                              const product = products.find(pr => pr.id === p.productId);
+                              return (
+                                <Text key={p.id} style={styles.productPrice}>
+                                  • {product ? product.name : `Product ${p.productId}`} — {p.type === 'percentage' ? `${p.discount}%` : `$${p.discount}`} off
+                                </Text>
+                              );
+                            })}
+                          </View>
+                        </View>
+                      ) : (
+                        <View>
+                          <View style={styles.inputGroup}>
+                            <Text style={styles.label}>Title</Text>
+                            <View style={styles.inputContainer}>
+                              <Ionicons name="create" size={20} color="#9CA3AF" style={styles.inputIcon} />
+                              <TextInput
+                                style={styles.textInput}
+                                value={editForm.title}
+                                onChangeText={(t) => setEditForm(prev => ({ ...prev, title: t }))}
+                                placeholder="Promotion title"
+                                placeholderTextColor="#9CA3AF"
+                              />
+                            </View>
+                          </View>
+
+                          <View style={styles.inputGroup}>
+                            <Text style={styles.label}>Description</Text>
+                            <View style={styles.inputContainer}>
+                              <Ionicons name="document-text" size={20} color="#9CA3AF" style={styles.inputIcon} />
+                              <TextInput
+                                style={styles.textInput}
+                                value={editForm.description}
+                                onChangeText={(t) => setEditForm(prev => ({ ...prev, description: t }))}
+                                placeholder="Description"
+                                placeholderTextColor="#9CA3AF"
+                                multiline
+                              />
+                            </View>
+                          </View>
+
+                          <View style={styles.inputGroup}>
+                            <Text style={styles.label}>Promotion Period</Text>
+                            <View style={styles.dateRow}>
+                              <View style={styles.dateColumn}>
+                                <Text style={styles.dateLabel}>Start Date</Text>
+                                <TouchableOpacity 
+                                  style={[styles.inputContainer, styles.dateInput]}
+                                  onPress={() => setShowEditStartPicker(true)}
+                                >
+                                  <Ionicons name="calendar" size={20} color="#9CA3AF" style={styles.inputIcon} />
+                                  <Text style={styles.dateText}>{editForm.startsAt ? formatDate(editForm.startsAt) : 'Select'}</Text>
+                                </TouchableOpacity>
+                              </View>
+                              <View style={styles.dateColumn}>
+                                <Text style={styles.dateLabel}>End Date</Text>
+                                <TouchableOpacity 
+                                  style={[styles.inputContainer, styles.dateInput]}
+                                  onPress={() => setShowEditEndPicker(true)}
+                                >
+                                  <Ionicons name="calendar" size={20} color="#9CA3AF" style={styles.inputIcon} />
+                                  <Text style={styles.dateText}>{editForm.endsAt ? formatDate(editForm.endsAt) : 'Select'}</Text>
+                                </TouchableOpacity>
+                              </View>
+                            </View>
+                          </View>
+
+                          <View style={[styles.inputGroup, { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }]}>
+                            <Text style={styles.label}>Active</Text>
+                            <TouchableOpacity onPress={() => setEditForm(prev => ({ ...prev, active: !prev.active }))}>
+                              <Ionicons name={editForm.active ? 'toggle' : 'toggle-outline'} size={36} color={editForm.active ? '#10B981' : '#9CA3AF'} />
+                            </TouchableOpacity>
+                          </View>
+
+                          <View style={{ flexDirection: 'row', gap: 10, marginTop: 8 }}>
+                            <TouchableOpacity style={[styles.createButton, { flex: 1 }]} onPress={saveEdit}>
+                              <Text style={styles.createButtonText}>Save</Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity style={[styles.createButton, styles.createButtonDisabled, { flex: 1 }]} onPress={cancelEdit}>
+                              <Text style={styles.createButtonText}>Cancel</Text>
+                            </TouchableOpacity>
+                          </View>
+
+                          {showEditStartPicker && (
+                            <DateTimePicker
+                              value={editForm.startsAt || new Date()}
+                              mode="date"
+                              display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                              onChange={handleEditStartChange}
+                              minimumDate={new Date()}
+                            />
+                          )}
+                          {showEditEndPicker && (
+                            <DateTimePicker
+                              value={editForm.endsAt || (editForm.startsAt || new Date())}
+                              mode="date"
+                              display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                              onChange={handleEditEndChange}
+                              minimumDate={editForm.startsAt || new Date()}
+                            />
+                          )}
+                        </View>
+                      )}
+                    </View>
+                  );
+                });
+              })()}
+            </View>
+          )}
         </View>
       </ScrollView>
 

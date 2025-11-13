@@ -1,5 +1,7 @@
+import env from "@/config/env";
 import { useBookmarks } from "@/features/bookmarks";
 import { useCatalog } from "@/features/catalog";
+import { useStore } from "@/features/store";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import React from "react";
@@ -99,9 +101,19 @@ function DealsGrid({
   category?: string;
 }) {
   const router = useRouter();
-  const {
-    state: { products },
-  } = useCatalog();
+  const { state: { products } } = useCatalog();
+  const { state: { activePromotions } } = useStore();
+  const getDiscounted = React.useCallback((p: any) => {
+    const promo = (activePromotions as any[])?.find?.((ap: any) => ap.productId === p.id && ap.active === true);
+    if (!promo) return undefined;
+    const base = Number(p.price);
+    if (!isFinite(base)) return undefined;
+    const type = String(promo.type || '').toLowerCase();
+    const value = Number(promo.discount || 0);
+    if (type === 'percentage') return Math.max(0, base * (1 - value / 100));
+    if (type === 'fixed') return Math.max(0, base - value);
+    return undefined;
+  }, [activePromotions]);
   const filtered = React.useMemo(() => {
     const q = query.trim().toLowerCase();
     const source = (products || []).filter((p: any) =>
@@ -139,17 +151,27 @@ function DealsGrid({
           onPress={() => handleProductPress(p)}
           activeOpacity={0.8}
         >
-          <Image
-            source={require("../../assets/images/partial-react-logo.png")}
-            style={gridStyles.image}
-          />
+          {typeof p.imageUrl === 'string' && p.imageUrl.length > 0 ? (
+            <Image source={{ uri: p.imageUrl }} style={gridStyles.image} />
+          ) : (
+            <Image
+              source={require("../../assets/images/partial-react-logo.png")}
+              style={gridStyles.image}
+            />
+          )}
           <View style={gridStyles.textArea}>
             <Text style={gridStyles.productName}>{p.name}</Text>
-            {p.price != null && (
-              <Text style={gridStyles.price}>
-                ₱{Number(p.price).toFixed(2)}
-              </Text>
-            )}
+          {p.price != null && (() => {
+            const dp = getDiscounted(p);
+            return dp !== undefined ? (
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                <Text style={gridStyles.priceOld}>₱{Number(p.price).toFixed(2)}</Text>
+                <Text style={gridStyles.price}>₱{dp.toFixed(2)}</Text>
+              </View>
+            ) : (
+              <Text style={gridStyles.price}>₱{Number(p.price).toFixed(2)}</Text>
+            );
+          })()}
           </View>
         </TouchableOpacity>
       ))}
@@ -162,6 +184,19 @@ function StoreHero({ storeName }: { storeName: string }) {
   const params = useLocalSearchParams() as Record<string, string | undefined>;
   const storeId = params.storeId ? Number(params.storeId) : undefined;
   const { helpers, action } = useBookmarks();
+  const { state: { selectedStore, stores }, action: { findStoreById } } = useStore();
+  React.useEffect(() => {
+    if (storeId) findStoreById(storeId);
+  }, [storeId]);
+  const storeFromList = stores?.find((s: any) => s.id === storeId);
+  const rawLogo = ((selectedStore && selectedStore.id === storeId) ? (selectedStore as any).imageUrl : undefined) || (storeFromList as any)?.imageUrl;
+  const logoUrl = (() => {
+    if (!rawLogo) return undefined;
+    if (/^https?:\/\//i.test(rawLogo)) return rawLogo;
+    if (rawLogo.startsWith('/')) return `${env.API_BASE_URL}${rawLogo}`;
+    return `${env.API_BASE_URL}/files/${rawLogo}`;
+  })();
+  const description = (selectedStore && selectedStore.id === storeId ? (selectedStore as any)?.description : undefined) || (storeFromList as any)?.description || "";
   const isSaved = helpers.isStoreBookmarked(storeId);
   const toggle = () => {
     if (storeId == null) return;
@@ -188,9 +223,15 @@ function StoreHero({ storeName }: { storeName: string }) {
       </View>
       <View style={heroStyles.identityBlock}>
         <View style={heroStyles.logoWrapper}>
-          <View style={heroStyles.logoBox} />
+          {logoUrl ? (
+            <Image source={{ uri: logoUrl }} style={{ width: 84, height: 84, borderRadius: 20 }} />
+          ) : (
+            <View style={heroStyles.logoBox} />
+          )}
           <Text style={heroStyles.name}>{storeName}</Text>
-          <Text style={heroStyles.desc}>Stationary, Groceries, Home</Text>
+          {description ? (
+            <Text style={heroStyles.desc} numberOfLines={3}>{description}</Text>
+          ) : null}
           <View style={heroStyles.chipsRow}>
             <View style={[heroStyles.chip, heroStyles.chipPrimary]}>
               <Text style={heroStyles.chipPrimaryText}>Open Now</Text>
@@ -277,6 +318,7 @@ const gridStyles = StyleSheet.create({
   textArea: { paddingHorizontal: 12, paddingTop: 8, paddingBottom: 10 },
   productName: { fontWeight: "700" },
   price: { color: "#1B6F5D", fontWeight: "900", marginTop: 6 },
+  priceOld: { color: "#9CA3AF", textDecorationLine: 'line-through', marginTop: 6 },
 });
 
 const heroStyles = StyleSheet.create({

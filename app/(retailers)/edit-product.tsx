@@ -1,11 +1,14 @@
 import { useLogin } from "@/features/auth";
 import { useStore } from "@/features/store";
+import { uploadFile } from "@/utils/fileUpload";
 import Ionicons from "@expo/vector-icons/Ionicons";
+import * as ImagePicker from "expo-image-picker";
 import { LinearGradient } from "expo-linear-gradient";
 import { router, useLocalSearchParams } from "expo-router";
 import React, { useEffect, useState } from "react";
 import {
     Alert,
+    Image,
     Platform,
     ScrollView,
     StatusBar,
@@ -19,7 +22,7 @@ import {
 
 export default function EditProduct() {
   const { productId } = useLocalSearchParams();
-  const { state: { user } } = useLogin();
+  const { state: { user, accessToken } } = useLogin();
   const { action: { updateProduct, findProducts }, state: { loading, error, products, userStore } } = useStore();
   
   // Initialize state with empty values
@@ -30,6 +33,21 @@ export default function EditProduct() {
   const [isActive, setIsActive] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [currentProduct, setCurrentProduct] = useState<any>(null);
+  const [imageUri, setImageUri] = useState<string | null>(null);
+  const [imageUrl, setImageUrl] = useState<string | null>(null);
+  const [uploadingImage, setUploadingImage] = useState(false);
+
+  // Request image picker permissions
+  useEffect(() => {
+    (async () => {
+      if (Platform.OS !== 'web') {
+        const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+        if (status !== 'granted') {
+          Alert.alert('Permission required', 'Sorry, we need camera roll permissions to upload images!');
+        }
+      }
+    })();
+  }, []);
 
   // Fetch product data when component mounts
   useEffect(() => {
@@ -56,6 +74,10 @@ export default function EditProduct() {
           setPrice(productToEdit.price?.toString() || "");
           setStock(productToEdit.stock?.toString() || "");
           setIsActive(productToEdit.isActive !== false);
+          // Set existing image URL if available
+          if (productToEdit.imageUrl) {
+            setImageUrl(productToEdit.imageUrl);
+          }
         } else if (products.length > 0) {
           // Only show error if we have products but the specific one wasn't found
           Alert.alert("Error", "Product not found");
@@ -80,7 +102,8 @@ export default function EditProduct() {
           updatedProduct.description !== description ||
           updatedProduct.price?.toString() !== price ||
           updatedProduct.stock?.toString() !== stock ||
-          updatedProduct.isActive !== isActive;
+          updatedProduct.isActive !== isActive ||
+          updatedProduct.imageUrl !== imageUrl;
         
         if (hasChanged) {
           setCurrentProduct(updatedProduct);
@@ -89,10 +112,61 @@ export default function EditProduct() {
           setPrice(updatedProduct.price?.toString() || "");
           setStock(updatedProduct.stock?.toString() || "");
           setIsActive(updatedProduct.isActive !== false);
+          if (updatedProduct.imageUrl) {
+            setImageUrl(updatedProduct.imageUrl);
+          }
         }
       }
     }
   }, [products]); // This effect only runs when products array changes
+
+  const pickImage = async () => {
+    try {
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [4, 3],
+        quality: 0.8,
+      });
+
+      if (!result.canceled && result.assets[0]) {
+        const uri = result.assets[0].uri;
+        setImageUri(uri);
+        // Keep existing imageUrl if available until new one is uploaded
+        
+        // Upload image immediately
+        await handleImageUpload(uri);
+      }
+    } catch (error) {
+      console.error("Error picking image:", error);
+      Alert.alert("Error", "Failed to pick image. Please try again.");
+    }
+  };
+
+  const handleImageUpload = async (uri: string) => {
+    if (!accessToken) {
+      Alert.alert("Error", "Please log in to upload images.");
+      return;
+    }
+
+    setUploadingImage(true);
+    try {
+      const result = await uploadFile(uri, accessToken);
+      setImageUrl(result.url || result.filename);
+      Alert.alert("Success", "Image uploaded successfully!");
+    } catch (error) {
+      console.error("Image upload error:", error);
+      Alert.alert("Upload Error", error instanceof Error ? error.message : "Failed to upload image. Please try again.");
+      setImageUri(null);
+    } finally {
+      setUploadingImage(false);
+    }
+  };
+
+  const removeImage = () => {
+    setImageUri(null);
+    setImageUrl(null);
+  };
 
   const handleSaveProduct = async () => {
     if (!productId || !currentProduct) {
@@ -121,6 +195,20 @@ export default function EditProduct() {
     setIsSubmitting(true);
     
     try {
+      // If there's a new image but it hasn't been uploaded yet, upload it first
+      if (imageUri && !imageUrl && accessToken) {
+        setUploadingImage(true);
+        try {
+          const result = await uploadFile(imageUri, accessToken);
+          setImageUrl(result.url || result.filename);
+        } catch (error) {
+          console.error("Image upload error:", error);
+          Alert.alert("Upload Error", "Failed to upload image. Updating product without new image.");
+        } finally {
+          setUploadingImage(false);
+        }
+      }
+
       const updateData = {
         id: Number(productId),
         name: productName.trim(),
@@ -128,6 +216,7 @@ export default function EditProduct() {
         price: Number(price),
         stock: Number(stock),
         isActive,
+        ...(imageUrl && { imageUrl }), // Include imageUrl if available
       };
 
       console.log("Updating product with data:", updateData);
@@ -253,26 +342,59 @@ export default function EditProduct() {
           {/* Product Image */}
           <View style={styles.inputGroup}>
             <Text style={styles.label}>Product Image</Text>
-            <View style={styles.comingSoonArea}>
-              <Ionicons name="image-outline" size={40} color="#9CA3AF" />
-              <Text style={styles.comingSoonText}>Image Upload</Text>
-              <Text style={styles.comingSoonSubtext}>Coming Soon</Text>
-              <View style={styles.comingSoonBadge}>
-                <Text style={styles.comingSoonBadgeText}>Feature in Development</Text>
+            {imageUri || imageUrl ? (
+              <View style={styles.imagePreview}>
+                <Image 
+                  source={{ uri: imageUri || imageUrl || undefined }} 
+                  style={styles.previewImage}
+                  resizeMode="cover"
+                />
+                <TouchableOpacity 
+                  style={styles.editImageButton}
+                  onPress={pickImage}
+                  disabled={uploadingImage}
+                >
+                  <Ionicons name="camera" size={18} color="#ffffff" />
+                </TouchableOpacity>
+                <TouchableOpacity 
+                  style={styles.removeImageButton}
+                  onPress={removeImage}
+                  disabled={uploadingImage}
+                >
+                  <Ionicons name="trash" size={18} color="#ffffff" />
+                </TouchableOpacity>
+                {uploadingImage && (
+                  <View style={styles.uploadingOverlay}>
+                    <Text style={styles.uploadingText}>Uploading...</Text>
               </View>
+                )}
             </View>
+            ) : (
+              <TouchableOpacity 
+                style={styles.uploadArea}
+                onPress={pickImage}
+                disabled={uploadingImage}
+              >
+                <Ionicons name="image-outline" size={40} color="#FFBE5D" />
+                <Text style={styles.uploadText}>Tap to upload image</Text>
+                <Text style={styles.uploadSubtext}>PNG, JPG or WEBP (Max 2MB)</Text>
+                {uploadingImage && (
+                  <Text style={styles.uploadingText}>Uploading...</Text>
+                )}
+              </TouchableOpacity>
+            )}
           </View>
 
 
           {/* Action Buttons */}
           <View style={styles.actionButtons}>
             <TouchableOpacity 
-              style={[styles.saveButton, isSubmitting && styles.saveButtonDisabled]} 
+              style={[styles.saveButton, (isSubmitting || uploadingImage) && styles.saveButtonDisabled]} 
               onPress={handleSaveProduct}
-              disabled={isSubmitting}
+              disabled={isSubmitting || uploadingImage}
             >
               <Text style={styles.saveButtonText}>
-                {isSubmitting ? "SAVING..." : "SAVE"}
+                {isSubmitting ? "SAVING..." : uploadingImage ? "UPLOADING..." : "SAVE"}
               </Text>
             </TouchableOpacity>
             
@@ -410,7 +532,7 @@ const styles = StyleSheet.create({
   uploadArea: {
     backgroundColor: "#F9FAFB",
     borderWidth: 2,
-    borderColor: "#D1D5DB",
+    borderColor: "#FFBE5D",
     borderStyle: "dashed",
     borderRadius: 12,
     padding: 24,
@@ -419,25 +541,17 @@ const styles = StyleSheet.create({
   },
   uploadText: {
     fontSize: 16,
-    color: "#6B7280",
-    marginVertical: 12,
-    textAlign: "center",
-  },
-  chooseFileButton: {
-    backgroundColor: "#ffffff",
-    borderWidth: 1,
-    borderColor: "#FFBE5D",
-    borderRadius: 8,
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-  },
-  chooseFileText: {
-    fontSize: 14,
     fontWeight: "600",
     color: "#FFBE5D",
+    marginTop: 12,
+    marginBottom: 4,
+  },
+  uploadSubtext: {
+    fontSize: 12,
+    color: "#6B7280",
   },
   imagePreview: {
-    marginTop: 16,
+    marginTop: 8,
     position: "relative",
   },
   previewImage: {
@@ -449,13 +563,40 @@ const styles = StyleSheet.create({
   editImageButton: {
     position: "absolute",
     top: 8,
-    right: 8,
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: "rgba(0, 0, 0, 0.5)",
+    right: 48,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: "rgba(0, 0, 0, 0.6)",
     justifyContent: "center",
     alignItems: "center",
+  },
+  removeImageButton: {
+    position: "absolute",
+    top: 8,
+    right: 8,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: "rgba(239, 68, 68, 0.8)",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  uploadingOverlay: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
+    borderRadius: 12,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  uploadingText: {
+    color: "#ffffff",
+    fontSize: 14,
+    fontWeight: "600",
   },
   actionButtons: {
     marginTop: 5,

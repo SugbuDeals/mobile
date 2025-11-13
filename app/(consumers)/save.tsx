@@ -1,14 +1,8 @@
+import env from "@/config/env";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { useRouter } from "expo-router";
 import React, { useEffect, useMemo, useState } from "react";
-import {
-    ScrollView,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
-} from "react-native";
+import { Image, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 
 import { useBookmarks } from "@/features/bookmarks";
 import { useCatalog } from "@/features/catalog";
@@ -20,6 +14,9 @@ type SavedItem = {
   category: string;
   type: "product" | "store";
   image?: string;
+  price?: number;
+  storeName?: string;
+  description?: string;
 };
 
 export default function Save() {
@@ -40,20 +37,37 @@ export default function Save() {
     if (!storeState.stores?.length) {
       storeAction.findStores();
     }
+    storeAction.findActivePromotions();
   }, []);
 
   const savedProducts: SavedItem[] = useMemo(() => {
     const products = catalogState.products || [];
     return (bookmarkState.products || []).map((bp) => {
       const match = products.find((p: any) => p.id === bp.productId);
+      const activePromo = (storeState.activePromotions || []).find((ap: any) => ap.productId === bp.productId && ap.active === true);
+      const basePrice = typeof (match as any)?.price === 'string' ? Number((match as any)?.price) : (match as any)?.price;
+      const discounted = (() => {
+        if (!activePromo || !isFinite(Number(basePrice))) return undefined;
+        const type = String(activePromo.type || '').toLowerCase();
+        const value = Number(activePromo.discount || 0);
+        if (type === 'percentage') return Math.max(0, Number(basePrice) * (1 - value / 100));
+        if (type === 'fixed') return Math.max(0, Number(basePrice) - value);
+        return undefined;
+      })();
       return {
         id: String(bp.productId),
         name: match?.name || `Product #${bp.productId}`,
         category: (match as any)?.category || "all",
         type: "product",
+        image: (match as any)?.imageUrl,
+        price: discounted ?? basePrice,
+        storeName: (() => {
+          const store = storeState.stores?.find((s: any) => s.id === (match as any)?.storeId);
+          return store?.name;
+        })(),
       } as SavedItem;
     });
-  }, [bookmarkState.products, catalogState.products]);
+  }, [bookmarkState.products, catalogState.products, storeState.activePromotions, storeState.stores]);
 
   const savedStores: SavedItem[] = useMemo(() => {
     const stores = storeState.stores || [];
@@ -64,6 +78,8 @@ export default function Save() {
         name: match?.name || `Store #${bs.storeId}`,
         category: "all",
         type: "store",
+        image: (match as any)?.imageUrl,
+        description: (match as any)?.description,
       } as SavedItem;
     });
   }, [bookmarkState.stores, storeState.stores]);
@@ -158,6 +174,14 @@ export default function Save() {
       }
     };
 
+    const normalizedImage = (() => {
+      const raw = item.image;
+      if (!raw) return undefined;
+      if (/^https?:\/\//i.test(raw)) return raw;
+      if (raw.startsWith('/')) return `${env.API_BASE_URL}${raw}`;
+      return `${env.API_BASE_URL}/files/${raw}`;
+    })();
+
     return (
       <TouchableOpacity
         key={item.id}
@@ -167,20 +191,31 @@ export default function Save() {
       >
         <View style={styles.cardTopRow}>
           <View style={styles.storeRow}>
-            <View style={styles.storeLogo}>
-              <Ionicons
-                name={
-                  item.type === "product" ? "bag-outline" : "storefront-outline"
-                }
-                size={22}
-                color="#277874"
-              />
-            </View>
-            <View>
+            {normalizedImage ? (
+              <Image source={{ uri: normalizedImage }} style={styles.thumbnail} />
+            ) : (
+              <View style={styles.storeLogo}>
+                <Ionicons
+                  name={item.type === "product" ? "bag-outline" : "storefront-outline"}
+                  size={22}
+                  color="#277874"
+                />
+              </View>
+            )}
+            <View style={{ maxWidth: 220 }}>
               <Text style={styles.storeName} numberOfLines={1}>
                 {item.name}
               </Text>
-              <Text style={styles.storeLocation}>{item.category}</Text>
+              {item.type === 'product' ? (
+                <Text style={styles.storeLocation} numberOfLines={1}>
+                  {item.storeName ? `from ${item.storeName}` : "Product"}
+                  {typeof item.price === 'number' ? ` • ₱${item.price.toFixed(2)}` : ""}
+                </Text>
+              ) : (
+                <Text style={styles.storeLocation} numberOfLines={2}>
+                  {item.description || "Store"}
+                </Text>
+              )}
             </View>
           </View>
           <Ionicons name="bookmark" size={20} color="#F59E0B" />
@@ -371,6 +406,12 @@ const styles = StyleSheet.create({
   itemsContainer: {
     paddingHorizontal: 20,
     paddingBottom: 20,
+  },
+  thumbnail: {
+    width: 42,
+    height: 42,
+    borderRadius: 8,
+    backgroundColor: "#F1F5F9",
   },
   // Card styles (aligned with provided design)
   card: {

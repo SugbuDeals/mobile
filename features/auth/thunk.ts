@@ -92,7 +92,7 @@ export const fetchUserById = createAsyncThunk<
  */
 export const updateUser = createAsyncThunk<
   any,
-  { id: number; data: { name?: string; email?: string } },
+  { id: number; data: { name?: string; email?: string; imageUrl?: string } },
   { rejectValue: LoginError; state: RootState }
 >("auth/updateUser", async ({ id, data }, { getState, rejectWithValue }) => {
   try {

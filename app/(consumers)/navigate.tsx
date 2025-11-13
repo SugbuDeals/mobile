@@ -1,17 +1,18 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
+import * as Location from "expo-location";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import React from "react";
 import {
-  Dimensions,
-  Image,
-  Linking,
-  SafeAreaView,
-  StatusBar,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
+    Dimensions,
+    Linking,
+    SafeAreaView,
+    StatusBar,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View
 } from "react-native";
+import MapView, { Marker } from "react-native-maps";
 
 const screen = Dimensions.get("window");
 
@@ -20,11 +21,31 @@ export default function NavigateStore() {
   const params = useLocalSearchParams() as Record<string, string | undefined>;
 
   const storeName = (params.storeName as string) || "QuickMart";
-  const storeId = params.storeId;
-  const address = (params.address as string) || "123 Market Street";
+  const address = (params.address as string) || "";
+  const latParam = params.latitude ? Number(params.latitude) : undefined;
+  const lngParam = params.longitude ? Number(params.longitude) : undefined;
+
+  const [region, setRegion] = React.useState<any | null>(null);
+  React.useEffect(() => {
+    (async () => {
+      try {
+        const { status } = await Location.requestForegroundPermissionsAsync();
+        if (status === "granted") {
+          const pos = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+          const lat = latParam ?? pos.coords.latitude;
+          const lng = lngParam ?? pos.coords.longitude;
+          setRegion({ latitude: lat, longitude: lng, latitudeDelta: 0.03, longitudeDelta: 0.03 });
+        } else if (latParam && lngParam) {
+          setRegion({ latitude: latParam, longitude: lngParam, latitudeDelta: 0.03, longitudeDelta: 0.03 });
+        }
+      } catch {}
+    })();
+  }, [latParam, lngParam]);
 
   const handleOpenInMaps = () => {
-    const url = `https://maps.google.com/maps?q=${encodeURIComponent(address)}`;
+    const url = latParam && lngParam
+      ? `https://www.google.com/maps/dir/?api=1&destination=${latParam},${lngParam}`
+      : `https://maps.google.com/maps?q=${encodeURIComponent(address || storeName)}`;
     Linking.openURL(url);
   };
 
@@ -43,52 +64,11 @@ export default function NavigateStore() {
 
       {/* Map Container */}
       <View style={styles.mapContainer}>
-        <Image
-          source={require("../../assets/images/partial-react-logo.png")}
-          style={styles.mapImage}
-        />
-
-        {/* Route highlighting overlay */}
-        <View style={styles.routeOverlay}>
-          <View
-            style={[
-              styles.routeLine,
-              {
-                top: "20%",
-                left: "10%",
-                width: "60%",
-                transform: [{ rotate: "45deg" }],
-              },
-            ]}
-          />
-          <View
-            style={[
-              styles.routeLine,
-              {
-                top: "40%",
-                left: "30%",
-                width: "40%",
-                transform: [{ rotate: "-30deg" }],
-              },
-            ]}
-          />
-          <View
-            style={[
-              styles.routeLine,
-              {
-                top: "60%",
-                left: "20%",
-                width: "50%",
-                transform: [{ rotate: "15deg" }],
-              },
-            ]}
-          />
-        </View>
-
-        {/* Store pin */}
-        <View style={[styles.storePin, { top: "65%", left: "45%" }]}>
-          <Ionicons name="location" size={24} color="#DC2626" />
-        </View>
+        <MapView style={styles.mapImage} initialRegion={region || { latitude: 10.3157, longitude: 123.8854, latitudeDelta: 0.05, longitudeDelta: 0.05 }}>
+          {latParam && lngParam && (
+            <Marker coordinate={{ latitude: latParam, longitude: lngParam }} title={storeName} description={address || "Destination"} />
+          )}
+        </MapView>
 
         {/* Store Information Card */}
         <View style={styles.storeCard}>

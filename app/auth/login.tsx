@@ -11,14 +11,14 @@ import { Link, router } from "expo-router";
 import { useEffect, useState } from "react";
 import { Controller, useForm } from "react-hook-form";
 import {
-  Dimensions,
-  KeyboardAvoidingView,
-  Platform,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
+    Dimensions,
+    KeyboardAvoidingView,
+    Platform,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View,
 } from "react-native";
 import * as yup from "yup";
 
@@ -136,7 +136,8 @@ export default function Login() {
           console.log("✅ REDIRECTING TO ADMIN DASHBOARD");
           router.replace("/(admin)");
         } else if (isRetailer) {
-          console.log("✅ REDIRECTING TO RETAILER DASHBOARD");
+          // Always send retailers to their dashboard on login; setup is handled only after registration
+          console.log("➡️ RETAILER LOGIN → DASHBOARD");
           router.replace("/(retailers)");
         } else {
           console.log("⚠️ DEFAULTING TO CONSUMER DASHBOARD (user may not have a valid role)");

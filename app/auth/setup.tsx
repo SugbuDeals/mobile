@@ -3,13 +3,15 @@ import TextField from "@/components/TextField";
 import { useLogin } from "@/features/auth";
 import { completeRetailerSetup } from "@/features/auth/slice";
 import { useStore, useStoreManagement } from "@/features/store";
+import { uploadFile } from "@/utils/fileUpload";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { yupResolver } from "@hookform/resolvers/yup";
+import * as ImagePicker from "expo-image-picker";
 import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
 import React from "react";
 import { Controller, useForm } from "react-hook-form";
-import { Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { Alert, Image, Platform, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { useDispatch } from "react-redux";
 import * as yup from "yup";
 
@@ -21,11 +23,14 @@ const schema = yup.object().shape({
 export default function RetailerSetup() {
   const dispatch = useDispatch();
   const { action: { updateStore, createStore }, state: { loading } } = useStore();
-  const { state: { user, loading: authLoading } } = useLogin();
+  const { state: { user, loading: authLoading, accessToken } } = useLogin();
   // Use the store management hook to get the user's store
   const { userStore, storeLoading, refreshStore } = useStoreManagement();
   const [submitting, setSubmitting] = React.useState(false);
   const [hasCheckedAuth, setHasCheckedAuth] = React.useState(false);
+  const [imageUri, setImageUri] = React.useState<string | null>(null);
+  const [imageUrl, setImageUrl] = React.useState<string | null>(null);
+  const [uploadingImage, setUploadingImage] = React.useState(false);
   
   const {
     control,
@@ -90,12 +95,27 @@ export default function RetailerSetup() {
     }
   }, [user, authLoading, hasCheckedAuth]);
 
+  // Request image picker permissions
+  React.useEffect(() => {
+    (async () => {
+      if (Platform.OS !== 'web') {
+        const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+        if (status !== 'granted') {
+          Alert.alert('Permission required', 'Sorry, we need camera roll permissions to upload images!');
+        }
+      }
+    })();
+  }, []);
+
   // Populate form with existing store data
   React.useEffect(() => {
     console.log("Store data updated:", userStore);
     if (userStore) {
       setValue("storeName", userStore.name || "");
       setValue("storeDescription", userStore.description || "");
+      if (userStore.imageUrl) {
+        setImageUrl(userStore.imageUrl);
+      }
     }
   }, [userStore, setValue]);
 
@@ -103,6 +123,56 @@ export default function RetailerSetup() {
   React.useEffect(() => {
     console.log("userStore state changed:", userStore);
   }, [userStore]);
+
+  const pickImage = async () => {
+    try {
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.8,
+      });
+
+      if (!result.canceled && result.assets[0]) {
+        const uri = result.assets[0].uri;
+        setImageUri(uri);
+        setImageUrl(null); // Clear previous upload URL
+        
+        // Upload image immediately
+        if (accessToken) {
+          await handleImageUpload(uri);
+        }
+      }
+    } catch (error) {
+      console.error("Error picking image:", error);
+      Alert.alert("Error", "Failed to pick image. Please try again.");
+    }
+  };
+
+  const handleImageUpload = async (uri: string) => {
+    if (!accessToken) {
+      Alert.alert("Error", "Please log in to upload images.");
+      return;
+    }
+
+    setUploadingImage(true);
+    try {
+      const result = await uploadFile(uri, accessToken);
+      setImageUrl(result.url || result.filename);
+      Alert.alert("Success", "Logo uploaded successfully!");
+    } catch (error) {
+      console.error("Image upload error:", error);
+      Alert.alert("Upload Error", error instanceof Error ? error.message : "Failed to upload image. Please try again.");
+      setImageUri(null);
+    } finally {
+      setUploadingImage(false);
+    }
+  };
+
+  const removeImage = () => {
+    setImageUri(null);
+    setImageUrl(null);
+  };
 
   const onConfirm = async (formData: yup.InferType<typeof schema>) => {
     try {
@@ -120,6 +190,20 @@ export default function RetailerSetup() {
         return;
       }
 
+      // If there's a new image but it hasn't been uploaded yet, upload it first
+      if (imageUri && !imageUrl && accessToken) {
+        setUploadingImage(true);
+        try {
+          const result = await uploadFile(imageUri, accessToken);
+          setImageUrl(result.url || result.filename);
+        } catch (error) {
+          console.error("Image upload error:", error);
+          Alert.alert("Upload Error", "Failed to upload image. Creating store without logo.");
+        } finally {
+          setUploadingImage(false);
+        }
+      }
+
       if (!userStore?.id) {
         // Create a new store if one doesn't exist
         try {
@@ -127,6 +211,7 @@ export default function RetailerSetup() {
             name: formData.storeName,
             description: formData.storeDescription,
             ownerId: Number(user.id),
+            ...(imageUrl && { imageUrl }),
           }).unwrap();
           
           console.log("Store created successfully:", newStore);
@@ -146,6 +231,7 @@ export default function RetailerSetup() {
             name: formData.storeName,
             description: formData.storeDescription,
             userId: Number(user.id),
+            ...(imageUrl && { imageUrl }),
           }).unwrap();
         } catch (updateError: any) {
           Alert.alert("Error", updateError?.message || "Failed to update store. Please try again.");
@@ -232,11 +318,47 @@ export default function RetailerSetup() {
         </LinearGradient>
         {/* Logo Upload */}
         <View style={styles.logoSection}>
-          <TouchableOpacity style={styles.logoContainer}>
-            <Ionicons name="image" size={40} color="#FFBE5D" />
-          </TouchableOpacity>
+          {imageUri || imageUrl ? (
+            <View style={styles.logoPreview}>
+              <Image 
+                source={{ uri: imageUri || imageUrl || undefined }} 
+                style={styles.logoImage}
+                resizeMode="cover"
+              />
+              <TouchableOpacity 
+                style={styles.logoEditButton}
+                onPress={pickImage}
+                disabled={uploadingImage}
+              >
+                <Ionicons name="camera" size={20} color="#ffffff" />
+              </TouchableOpacity>
+              <TouchableOpacity 
+                style={styles.logoRemoveButton}
+                onPress={removeImage}
+                disabled={uploadingImage}
+              >
+                <Ionicons name="trash" size={18} color="#ffffff" />
+              </TouchableOpacity>
+              {uploadingImage && (
+                <View style={styles.uploadingOverlay}>
+                  <Text style={styles.uploadingText}>Uploading...</Text>
+                </View>
+              )}
+            </View>
+          ) : (
+            <TouchableOpacity 
+              style={styles.logoContainer}
+              onPress={pickImage}
+              disabled={uploadingImage}
+            >
+              <Ionicons name="image" size={40} color="#FFBE5D" />
+              {uploadingImage && (
+                <Text style={styles.uploadingTextSmall}>Uploading...</Text>
+              )}
+            </TouchableOpacity>
+          )}
           <Text style={styles.uploadText}>Upload Logo</Text>
-          <Text style={styles.fileInfo}>PNG, JPG or SVG (Max 2MB)</Text>
+          <Text style={styles.fileInfo}>PNG, JPG or WEBP (Max 2MB)</Text>
         </View>
 
         {/* Store Details Form */}
@@ -311,9 +433,9 @@ export default function RetailerSetup() {
           <TouchableOpacity style={styles.laterButton} onPress={onLater}>
             <Text style={styles.laterButtonText}>Later</Text>
           </TouchableOpacity>
-          <Button onPress={handleSubmit(onConfirm)} style={styles.confirmButton} disabled={submitting || loading}>
+          <Button onPress={handleSubmit(onConfirm)} style={styles.confirmButton} disabled={submitting || loading || uploadingImage}>
             <Text style={styles.confirmButtonText}>
-              {submitting ? "Updating..." : loading ? "Loading..." : "Confirm"}
+              {submitting ? "Updating..." : uploadingImage ? "Uploading..." : loading ? "Loading..." : "Confirm"}
             </Text>
           </Button>
         </View>
@@ -378,6 +500,63 @@ const styles = StyleSheet.create({
     alignItems: "center",
     backgroundColor: "#f9f9f9",
     marginBottom: 12,
+  },
+  logoPreview: {
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    marginBottom: 12,
+    position: "relative",
+    overflow: "hidden",
+  },
+  logoImage: {
+    width: "100%",
+    height: "100%",
+    borderRadius: 60,
+  },
+  logoEditButton: {
+    position: "absolute",
+    top: 4,
+    right: 44,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: "rgba(0, 0, 0, 0.6)",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  logoRemoveButton: {
+    position: "absolute",
+    top: 4,
+    right: 4,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: "rgba(239, 68, 68, 0.8)",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  uploadingOverlay: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
+    borderRadius: 60,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  uploadingText: {
+    color: "#ffffff",
+    fontSize: 12,
+    fontWeight: "600",
+  },
+  uploadingTextSmall: {
+    color: "#FFBE5D",
+    fontSize: 10,
+    fontWeight: "600",
+    marginTop: 4,
   },
   uploadText: {
     fontSize: 16,

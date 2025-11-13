@@ -5,6 +5,7 @@ import type { Category, Product } from "@/features/catalog/types";
 import { useStore } from "@/features/store";
 import type { Promotion } from "@/features/store/types";
 import { LinearGradient } from "expo-linear-gradient";
+import * as Location from "expo-location";
 import { useRouter } from "expo-router";
 import { useEffect, useMemo, useState } from "react";
 import {
@@ -32,8 +33,8 @@ export default function Home() {
     state: { user },
   } = useLogin();
   const {
-    state: { stores, loading, activePromotions },
-    action: { findStores, findActivePromotions },
+    state: { nearbyStores, loading, activePromotions },
+    action: { findStores, findNearbyStores, findActivePromotions },
   } = useStore();
   const {
     state: { categories, products },
@@ -46,14 +47,24 @@ export default function Home() {
   } | null>(null);
 
   useEffect(() => {
-    findStores();
-    loadCategories();
-    loadProducts();
-    findActivePromotions(); // Get all active promotions (no storeId filter for consumers)
-  }, [findStores, loadCategories, loadProducts, findActivePromotions]);
+    (async () => {
+      loadCategories();
+      loadProducts();
+      findActivePromotions();
+      try {
+        const { status } = await Location.requestForegroundPermissionsAsync();
+        if (status === "granted") {
+          const pos = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+          await (findNearbyStores({ latitude: pos.coords.latitude, longitude: pos.coords.longitude, radiusKm: 10 }) as any);
+        } else {
+          // fallback: no nearby if no permission
+        }
+      } catch {}
+    })();
+  }, [findNearbyStores, loadCategories, loadProducts, findActivePromotions]);
 
   const displayName =
-    user?.name || (user as any)?.fullname || user?.email || "there";
+    (user as any)?.name || (user as any)?.fullname || (user as any)?.email || "there";
   const displayCategories =
     categories?.length > 0 ? categories : STATIC_CATEGORIES;
 
@@ -70,7 +81,7 @@ export default function Home() {
       }
           router={router} 
         />
-        <NearbyStores stores={stores || []} loading={loading} router={router} />
+        <NearbyStores stores={nearbyStores || []} loading={loading} router={router} />
       </ScrollView>
       
       {/* Promotion Products Overlay */}
@@ -146,6 +157,7 @@ function PromotionModal({
         price: item.product.price,
         description: item.product.description,
         productId: item.product.id,
+        imageUrl: item.product.imageUrl || "",
         promotionId: item.promotion.id,
       },
     });
@@ -197,7 +209,11 @@ function PromotionModal({
                   activeOpacity={0.8}
                 >
                   <Image
-                    source={require("../../assets/images/react-logo.png")}
+                    source={
+                      product.imageUrl
+                        ? { uri: product.imageUrl }
+                        : require("../../assets/images/react-logo.png")
+                    }
                     style={styles.modalProductImage}
                   />
                   <View style={styles.modalProductInfo}>
@@ -276,16 +292,17 @@ function Recommendations({
 
   const handleProductPress = (p: Product) => {
     router.push({
-      pathname: "/(consumers)/product",
-      params: {
-        name: p.name,
-        storeId: p.storeId,
-        price: p.price,
-        description: p.description,
-        productId: p.id,
-      },
-    });
-  };
+                  pathname: "/(consumers)/product",
+                  params: {
+                    name: p.name,
+                    storeId: p.storeId,
+                    price: p.price,
+                    description: p.description,
+                    productId: p.id,
+                    imageUrl: p.imageUrl || "",
+                  },
+                });
+              };
 
   return (
     <View style={styles.section}>
@@ -322,7 +339,15 @@ function Recommendations({
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={styles.row}
         >
-          {products.map((p) => (
+          {products.map((p) => {
+            const promo = promotions.find(pr => pr.productId === p.id && (pr as any).active === true);
+            const basePrice = Number(p.price);
+            const discounted = promo
+              ? (promo.type === 'percentage'
+                  ? Math.max(0, basePrice * (1 - Number(promo.discount || 0) / 100))
+                  : Math.max(0, basePrice - Number(promo.discount || 0)))
+              : undefined;
+            return (
             <Card key={p.id} style={styles.card}>
               <TouchableOpacity
                 activeOpacity={0.85}
@@ -330,7 +355,11 @@ function Recommendations({
               >
                 <View style={styles.imageWrap}>
                   <Image
-                    source={require("../../assets/images/react-logo.png")}
+                    source={
+                      p.imageUrl
+                        ? { uri: p.imageUrl }
+                        : require("../../assets/images/react-logo.png")
+                    }
                     style={styles.image}
                   />
                   <Text style={styles.badge}>New</Text>
@@ -341,15 +370,20 @@ function Recommendations({
                       {p.name}
                     </Text>
                     {p.price != null && (
-                      <Text style={styles.price}>
-                        ₱{Number(p.price).toFixed(2)}
-                      </Text>
+                      discounted !== undefined ? (
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                          <Text style={{ paddingHorizontal: 10, color: '#9CA3AF', textDecorationLine: 'line-through' }}>₱{basePrice.toFixed(2)}</Text>
+                          <Text style={styles.price}>₱{discounted.toFixed(2)}</Text>
+                        </View>
+                      ) : (
+                        <Text style={styles.price}>₱{basePrice.toFixed(2)}</Text>
+                      )
                     )}
                   </View>
                 </View>
               </TouchableOpacity>
             </Card>
-          ))}
+          );})}
         </ScrollView>
       )}
 
@@ -374,10 +408,17 @@ function Recommendations({
                 <View style={styles.promotionCard}>
                   {/* Left side - Image */}
                   <View style={styles.promotionCardLeft}>
-                    <Image
-                      source={require("../../assets/images/react-logo.png")}
-                      style={styles.promotionCardImage}
-                    />
+                    {group.products[0]?.product?.imageUrl ? (
+                      <Image
+                        source={{ uri: group.products[0].product.imageUrl }}
+                        style={styles.promotionCardImage}
+                      />
+                    ) : (
+                      <Image
+                        source={require("../../assets/images/react-logo.png")}
+                        style={styles.promotionCardImage}
+                      />
+                    )}
                   </View>
                   {/* Right side - Color with text */}
                   <View style={styles.promotionCardRight}>
@@ -447,14 +488,26 @@ function NearbyStores({
           onPress={() => handleStorePress(s)}
         >
           <Image
-            source={require("../../assets/images/partial-react-logo.png")}
+            source={typeof s.imageUrl === 'string' && s.imageUrl.length > 0 ? { uri: s.imageUrl } : require("../../assets/images/partial-react-logo.png")}
             style={styles.storeIcon}
           />
           <View style={styles.info}>
             <Text style={[styles.text, styles.bold]} numberOfLines={1}>
               {s.name}
             </Text>
-            <Text style={styles.text}>{s.distance ?? "~1.2 km"}</Text>
+            {!!s.description && (
+              <Text style={[styles.text]} numberOfLines={2}>
+                {s.description}
+              </Text>
+            )}
+            <Text style={styles.text}>
+              {(() => {
+                const d = (s as any)?.distance;
+                if (typeof d === 'number' && isFinite(d)) return `${d.toFixed(2)} km`;
+                if (typeof d === 'string' && d.trim().length > 0 && !isNaN(Number(d))) return `${Number(d).toFixed(2)} km`;
+                return "~1.20 km";
+              })()}
+            </Text>
             <Text style={styles.text}>{s.rating ?? "4.5 ★"}</Text>
           </View>
         </TouchableOpacity>

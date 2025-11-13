@@ -99,15 +99,19 @@ export default function AllRecommendations() {
                       price: product.price,
                       description: product.description,
                       productId: product.id,
+                      imageUrl: product.imageUrl || "",
                       ...(isPromoted && promotion ? { promotionId: promotion.id } : {}),
                     },
                   })
                 }
               >
                 <View style={styles.imageWrap}>
-                  {/* Placeholder image since products may not have images */}
                   <Image
-                    source={require("../../assets/images/react-logo.png")}
+                    source={
+                      product.imageUrl
+                        ? { uri: product.imageUrl }
+                        : require("../../assets/images/react-logo.png")
+                    }
                     style={styles.image}
                   />
                   {isPromoted && promotion ? (

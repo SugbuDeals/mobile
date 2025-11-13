@@ -2,10 +2,19 @@ export type Store = {
   id: number;
   name: string;
   description: string;
+  imageUrl?: string;
   createdAt: Date;
   verificationStatus: "UNVERIFIED" | "VERIFIED";
   ownerId?: number;
   userId?: number;
+  latitude?: number;
+  longitude?: number;
+  address?: string;
+  city?: string;
+  state?: string;
+  country?: string;
+  postalCode?: string;
+  distance?: number;
 };
 
 export type Product = {
@@ -16,6 +25,7 @@ export type Product = {
   stock: number;
   isActive: boolean;
   storeId: number;
+  imageUrl?: string;
   createdAt?: Date | string;
   updatedAt?: Date | string;
   categoryId?: number | null;
@@ -28,6 +38,7 @@ export type CreateProductDTO = {
   stock: number;
   isActive?: boolean;
   storeId: number;
+  imageUrl?: string;
 };
 
 export type UpdateProductDTO = {
@@ -36,19 +47,36 @@ export type UpdateProductDTO = {
   price?: number;
   stock?: number;
   isActive?: boolean;
+  imageUrl?: string;
 };
 
 export type CreateStoreDTO = {
   name: string;
   description: string;
   ownerId: number;
+  imageUrl?: string;
+  latitude?: number;
+  longitude?: number;
+  address?: string;
+  city?: string;
+  state?: string;
+  country?: string;
+  postalCode?: string;
 };
 
 export type UpdateStoreDTO = {
   name?: string;
   description?: string;
+  imageUrl?: string;
   verificationStatus?: "UNVERIFIED" | "VERIFIED";
-  userId: number; // Required by API
+  ownerId?: number;
+  latitude?: number;
+  longitude?: number;
+  address?: string;
+  city?: string;
+  state?: string;
+  country?: string;
+  postalCode?: string;
 };
 
 export type Promotion = {

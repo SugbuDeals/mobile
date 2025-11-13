@@ -35,6 +35,37 @@ export const findStores = createAsyncThunk<
   }
 });
 
+export const findNearbyStores = createAsyncThunk<
+  Store[],
+  { latitude: number; longitude: number; radiusKm?: number },
+  { rejectValue: { message: string }; state: RootState }
+>("store/findNearbyStores", async ({ latitude, longitude, radiusKm }, { rejectWithValue, getState }) => {
+  try {
+    const { accessToken } = getState().auth;
+    const params = new URLSearchParams();
+    params.append("latitude", String(latitude));
+    params.append("longitude", String(longitude));
+    if (radiusKm) params.append("radius", String(radiusKm));
+
+    const response = await fetch(`${env.API_BASE_URL}/store/nearby?${params.toString()}` , {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+        ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+      },
+    });
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({}));
+      return rejectWithValue({ message: error.message || "Find nearby stores failed" });
+    }
+
+    return response.json();
+  } catch (error) {
+    return rejectWithValue({ message: error instanceof Error ? error.message : "An unknown error occured" });
+  }
+});
+
 export const findUserStore = createAsyncThunk<
   Store | null,
   number,
@@ -483,18 +514,11 @@ export const updateStore = createAsyncThunk<
   { rejectValue: { message: string }; state: RootState }
 >("store/updateStore", async ({ id, ...updateData }, { rejectWithValue, getState }) => {
   try {
-    const { accessToken, user } = getState().auth;
+    const { accessToken } = getState().auth;
 
-    if (!accessToken || !user?.id) {
+    if (!accessToken) {
       return rejectWithValue({
         message: "Authentication required. Please log in again.",
-      });
-    }
-
-    // Validate that userId is provided in updateData
-    if (!updateData.userId) {
-      return rejectWithValue({
-        message: "User ID is required for store update.",
       });
     }
 

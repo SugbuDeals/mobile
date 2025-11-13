@@ -2,16 +2,17 @@ import { useLogin } from "@/features/auth";
 import { logout } from "@/features/auth/slice";
 import { fetchUserById } from "@/features/auth/thunk";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
+import { getFileUrl, uploadFile } from "@/utils/fileUpload";
 import Ionicons from "@expo/vector-icons/Ionicons";
+import * as ImagePicker from "expo-image-picker";
 import { router } from "expo-router";
 import React, { useEffect, useMemo, useState } from "react";
 import {
-    Alert,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View,
+  Alert, Image, ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View
 } from "react-native";
 import Button from "../../components/Button";
 import TextField from "../../components/TextField";
@@ -35,6 +36,13 @@ export default function Profile() {
   const [name, setName] = useState(defaultName);
   const [email, setEmail] = useState(defaultEmail);
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
+  const [uploadingImage, setUploadingImage] = useState(false);
+  const currentImageUrl = (user as any)?.imageUrl as string | undefined;
+  const normalizedInitialUrl =
+    typeof currentImageUrl === "string" && currentImageUrl.length
+      ? (currentImageUrl.startsWith("http") ? currentImageUrl : getFileUrl(currentImageUrl))
+      : undefined;
+  const [imageUrl, setImageUrl] = useState<string | undefined>(normalizedInitialUrl);
   const [isEditing, setIsEditing] = useState(false);
 
   useEffect(() => {
@@ -50,13 +58,47 @@ export default function Profile() {
       await dispatch(
         require("@/features/auth/thunk").updateUser({
           id,
-          data: { name, email },
+          data: { name, email, ...(typeof imageUrl === "string" && imageUrl.length ? { imageUrl } : {}) },
         }) as any
       );
       Alert.alert("Success", "Profile updated successfully!");
       setIsEditing(false);
     } catch (e) {
       Alert.alert("Error", "Failed to update profile");
+    }
+  };
+
+  const pickProfileImage = async () => {
+    try {
+      const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (permission.status !== 'granted') {
+        Alert.alert('Permission required', 'Please allow access to your photos.');
+        return;
+      }
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [1,1],
+        quality: 0.8,
+      });
+      if (result.canceled || !result.assets?.[0]?.uri) return;
+      // Immediately show local preview
+      setImageUrl(result.assets[0].uri);
+      if (!accessToken) {
+        Alert.alert('Error', 'You must be logged in to upload an image.');
+        return;
+      }
+      setUploadingImage(true);
+      const upload = await uploadFile(result.assets[0].uri, accessToken);
+      const uploadedUrl = upload.url || (upload.filename ? getFileUrl(upload.filename) : undefined);
+      if (uploadedUrl) {
+        setImageUrl(uploadedUrl);
+      }
+      Alert.alert('Success', 'Profile photo uploaded. Remember to Save Changes.');
+    } catch (err: any) {
+      Alert.alert('Upload Error', err?.message || 'Failed to upload image');
+    } finally {
+      setUploadingImage(false);
     }
   };
 
@@ -130,13 +172,27 @@ export default function Profile() {
         {/* Profile Picture Section */}
         <View style={styles.profilePictureContainer}>
           <View style={styles.profilePicture}>
-            <Ionicons name="person" size={80} color="#277874" />
+            {imageUrl ? (
+              <Image source={{ uri: imageUrl }} style={{ width: 114, height: 114, borderRadius: 57 }} />
+            ) : (
+              <Ionicons name="person" size={80} color="#277874" />
+            )}
           </View>
           <TouchableOpacity
-            style={styles.editPhotoButton}
-            onPress={handleEditProfile}
+            style={[
+              styles.editPhotoButton,
+              !isEditing ? { opacity: 0.5 } : null,
+            ]}
+            onPress={() => {
+              if (!isEditing) {
+                Alert.alert('Edit required', 'Tap Edit Profile first to change your photo.');
+                return;
+              }
+              pickProfileImage();
+            }}
+            disabled={uploadingImage || !isEditing}
           >
-            <Ionicons name="add" size={16} color="#ffffff" />
+            <Ionicons name={uploadingImage ? "time" : "add"} size={16} color="#ffffff" />
           </TouchableOpacity>
         </View>
 
