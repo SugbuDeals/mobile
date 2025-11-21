@@ -124,16 +124,28 @@ export type UpdatePromotionDTO = {
 
 export type Subscription = {
   id: number;
-  userId: number;
-  plan: "FREE" | "BASIC" | "PREMIUM";
-  status: "ACTIVE" | "CANCELLED" | "EXPIRED" | "PENDING";
-  billingCycle: "MONTHLY" | "YEARLY";
-  price: string;
-  startsAt: string;
-  endsAt: string;
+  /**
+   * For retailer/user-specific subscriptions returned by
+   * `/subscription/user/{userId}/active`, join/update/cancel endpoints.
+   */
+  userId?: number;
+  status?: "ACTIVE" | "CANCELLED" | "EXPIRED" | "PENDING";
+  billingCycle?: "MONTHLY" | "YEARLY";
+  price?: string;
+  startsAt?: string;
+  endsAt?: string;
+  cancelledAt?: string;
   cancelledAt?: string;
   createdAt?: string;
   updatedAt?: string;
+  /**
+   * For admin-managed subscription plans returned by `/subscription` endpoints.
+   */
+  name?: string;
+  description?: string;
+  plan?: "FREE" | "BASIC" | "PREMIUM";
+  benefits?: string;
+  isActive?: boolean;
 };
 
 export type JoinSubscriptionDTO = {
@@ -141,16 +153,43 @@ export type JoinSubscriptionDTO = {
 };
 
 export type CreateSubscriptionDTO = {
-  userId: number;
+  /**
+   * Display name of the subscription plan
+   */
+  name: string;
+  /**
+   * Short description of the subscription
+   */
+  description?: string;
   plan?: "FREE" | "BASIC" | "PREMIUM";
-  status?: "ACTIVE" | "CANCELLED" | "EXPIRED" | "PENDING";
   billingCycle?: "MONTHLY" | "YEARLY";
+  /**
+   * Subscription price (string in API spec)
+   */
   price?: string;
+  /**
+   * Additional benefits or perks description
+   */
+  benefits?: string;
+  /**
+   * Whether this subscription is currently available for retailers
+   */
+  isActive?: boolean;
+  /**
+   * Subscription availability window (optional)
+   */
   startsAt?: string;
   endsAt?: string;
 };
 
 export type UpdateSubscriptionDTO = {
+  name?: string;
+  description?: string;
+  plan?: "FREE" | "BASIC" | "PREMIUM";
+  billingCycle?: "MONTHLY" | "YEARLY";
+  price?: string;
+  benefits?: string;
+  isActive?: boolean;
   plan?: "FREE" | "BASIC" | "PREMIUM";
   status?: "ACTIVE" | "CANCELLED" | "EXPIRED" | "PENDING";
   billingCycle?: "MONTHLY" | "YEARLY";

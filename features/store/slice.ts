@@ -384,7 +384,8 @@ const storeSlice = createSlice({
       .addCase(cancelRetailerSubscription.fulfilled, (state, action) => {
         state.loading = false;
         state.error = null;
-        state.activeSubscription = action.payload;
+        // Backend returns the cancelled subscription record, but retailers should now be unsubscribed
+        state.activeSubscription = null;
       })
       .addCase(cancelRetailerSubscription.rejected, (state, action) => {
         state.loading = false;

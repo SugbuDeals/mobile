@@ -38,13 +38,15 @@ export default function AdminSubscriptions() {
   const [showStartDatePicker, setShowStartDatePicker] = useState(false);
   const [showEndDatePicker, setShowEndDatePicker] = useState(false);
 
-  // Form state
+  // Form state for managing subscription plans (admin)
   const [formData, setFormData] = useState({
-    userId: "",
+    name: "",
+    description: "",
     plan: "FREE" as "FREE" | "BASIC" | "PREMIUM",
-    status: "ACTIVE" as "ACTIVE" | "CANCELLED" | "EXPIRED" | "PENDING",
     billingCycle: "MONTHLY" as "MONTHLY" | "YEARLY",
     price: "",
+    benefits: "",
+    isActive: true,
     startsAt: "",
     endsAt: "",
   });
@@ -58,19 +60,21 @@ export default function AdminSubscriptions() {
   );
 
   const handleCreate = async () => {
-    if (!formData.userId || !formData.price) {
-      Alert.alert("Error", "Please fill in all required fields.");
+    if (!formData.name.trim()) {
+      Alert.alert("Error", "Please enter a subscription name.");
       return;
     }
 
     try {
       setIsProcessing(true);
       await createSubscription({
-        userId: Number(formData.userId),
+        name: formData.name.trim(),
+        description: formData.description.trim() || undefined,
         plan: formData.plan,
-        status: formData.status,
         billingCycle: formData.billingCycle,
-        price: formData.price,
+        price: formData.price || undefined,
+        benefits: formData.benefits.trim() || undefined,
+        isActive: formData.isActive,
         startsAt: formData.startsAt || undefined,
         endsAt: formData.endsAt || undefined,
       }).unwrap();
@@ -94,10 +98,13 @@ export default function AdminSubscriptions() {
       setIsProcessing(true);
       await updateSubscription({
         id: selectedSubscription.id,
+        name: formData.name.trim() || undefined,
+        description: formData.description.trim() || undefined,
         plan: formData.plan,
-        status: formData.status,
         billingCycle: formData.billingCycle,
         price: formData.price || undefined,
+        benefits: formData.benefits.trim() || undefined,
+        isActive: formData.isActive,
         startsAt: formData.startsAt || undefined,
         endsAt: formData.endsAt || undefined,
       }).unwrap();
@@ -145,11 +152,13 @@ export default function AdminSubscriptions() {
   const openEditModal = (subscription: any) => {
     setSelectedSubscription(subscription);
     setFormData({
-      userId: subscription.userId.toString(),
-      plan: subscription.plan,
-      status: subscription.status,
-      billingCycle: subscription.billingCycle,
-      price: subscription.price,
+      name: subscription.name || "",
+      description: subscription.description || "",
+      plan: subscription.plan || "FREE",
+      billingCycle: subscription.billingCycle || "MONTHLY",
+      price: subscription.price || "",
+      benefits: subscription.benefits || "",
+      isActive: typeof subscription.isActive === "boolean" ? subscription.isActive : true,
       startsAt: subscription.startsAt ? new Date(subscription.startsAt).toISOString().split("T")[0] : "",
       endsAt: subscription.endsAt ? new Date(subscription.endsAt).toISOString().split("T")[0] : "",
     });
@@ -158,11 +167,13 @@ export default function AdminSubscriptions() {
 
   const resetForm = () => {
     setFormData({
-      userId: "",
+      name: "",
+      description: "",
       plan: "FREE",
-      status: "ACTIVE",
       billingCycle: "MONTHLY",
       price: "",
+      benefits: "",
+      isActive: true,
       startsAt: "",
       endsAt: "",
     });
@@ -210,24 +221,8 @@ export default function AdminSubscriptions() {
     return Number.isNaN(parsed.getTime()) ? new Date() : parsed;
   };
 
-  const getUserName = (userId: number) => {
-    const user = allUsers.find((u: any) => (u as any).id === userId);
-    return user ? ((user as any).name || (user as any).fullname || `User ${userId}`) : `User ${userId}`;
-  };
-
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case "ACTIVE":
-        return "#10B981";
-      case "CANCELLED":
-        return "#EF4444";
-      case "EXPIRED":
-        return "#F59E0B";
-      case "PENDING":
-        return "#6B7280";
-      default:
-        return "#6B7280";
-    }
+  const getStatusColor = (isActive: boolean) => {
+    return isActive ? "#10B981" : "#6B7280";
   };
 
   const getPlanColor = (plan: string) => {
@@ -316,10 +311,10 @@ export default function AdminSubscriptions() {
           </View>
         )}
 
-        {/* Subscriptions List */}
+        {/* Subscription Plans List */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>
-            All Subscriptions ({subscriptions.length})
+            Subscription Plans ({subscriptions.length})
           </Text>
 
           {loading && subscriptions.length === 0 ? (
@@ -334,18 +329,22 @@ export default function AdminSubscriptions() {
                     <View
                       style={[
                         styles.planBadge,
-                        { backgroundColor: getPlanColor(subscription.plan) },
+                        { backgroundColor: getPlanColor(subscription.plan || "FREE") },
                       ]}
                     >
-                      <Text style={styles.planBadgeText}>{subscription.plan}</Text>
+                      <Text style={styles.planBadgeText}>
+                        {subscription.plan || "FREE"}
+                      </Text>
                     </View>
                     <View
                       style={[
                         styles.statusBadge,
-                        { backgroundColor: getStatusColor(subscription.status) },
+                        { backgroundColor: getStatusColor(subscription.isActive !== false) },
                       ]}
                     >
-                      <Text style={styles.statusBadgeText}>{subscription.status}</Text>
+                      <Text style={styles.statusBadgeText}>
+                        {subscription.isActive !== false ? "ACTIVE" : "INACTIVE"}
+                      </Text>
                     </View>
                   </View>
                   <View style={styles.cardActions}>
@@ -368,20 +367,38 @@ export default function AdminSubscriptions() {
 
                 <View style={styles.cardContent}>
                   <Text style={styles.userName}>
-                    {getUserName(subscription.userId)}
+                    {subscription.name || "Untitled Plan"}
                   </Text>
+                  {subscription.description ? (
+                    <Text style={styles.planDescription}>
+                      {subscription.description}
+                    </Text>
+                  ) : null}
                   <View style={styles.detailsRow}>
                     <Ionicons name="cash-outline" size={16} color="#6B7280" />
-                    <Text style={styles.detailText}>${subscription.price}</Text>
+                    <Text style={styles.detailText}>
+                      {subscription.price ? `₱${subscription.price}` : "Free"}
+                    </Text>
                     <Text style={styles.detailText}> • </Text>
-                    <Text style={styles.detailText}>{subscription.billingCycle}</Text>
+                    <Text style={styles.detailText}>
+                      {subscription.billingCycle || "MONTHLY"}
+                    </Text>
                   </View>
                   <View style={styles.detailsRow}>
                     <Ionicons name="calendar-outline" size={16} color="#6B7280" />
                     <Text style={styles.detailText}>
-                      {formatDate(subscription.startsAt)} - {formatDate(subscription.endsAt)}
+                      {formatDate(subscription.startsAt || "")} -{" "}
+                      {formatDate(subscription.endsAt || "")}
                     </Text>
                   </View>
+                  {subscription.benefits ? (
+                    <View style={styles.detailsRow}>
+                      <Ionicons name="list-circle-outline" size={16} color="#6B7280" />
+                      <Text style={styles.detailText} numberOfLines={2}>
+                        {subscription.benefits}
+                      </Text>
+                    </View>
+                  ) : null}
                 </View>
               </View>
             ))
@@ -404,7 +421,7 @@ export default function AdminSubscriptions() {
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Create Subscription</Text>
+              <Text style={styles.modalTitle}>Create Subscription Plan</Text>
               <TouchableOpacity onPress={() => setShowCreateModal(false)}>
                 <Ionicons name="close" size={24} color="#374151" />
               </TouchableOpacity>
@@ -412,13 +429,24 @@ export default function AdminSubscriptions() {
 
             <ScrollView style={styles.modalBody}>
               <View style={styles.inputGroup}>
-                <Text style={styles.label}>User ID *</Text>
+                <Text style={styles.label}>Name *</Text>
                 <TextInput
                   style={styles.input}
-                  value={formData.userId}
-                  onChangeText={(text) => setFormData({ ...formData, userId: text })}
-                  placeholder="Enter user ID"
-                  keyboardType="numeric"
+                  value={formData.name}
+                  onChangeText={(text) => setFormData({ ...formData, name: text })}
+                  placeholder="e.g. Premium Retailer"
+                />
+              </View>
+
+              <View style={styles.inputGroup}>
+                <Text style={styles.label}>Description</Text>
+                <TextInput
+                  style={[styles.input, styles.multilineInput]}
+                  value={formData.description}
+                  onChangeText={(text) => setFormData({ ...formData, description: text })}
+                  placeholder="Short description of the subscription plan"
+                  multiline
+                  numberOfLines={3}
                 />
               </View>
 
@@ -441,31 +469,6 @@ export default function AdminSubscriptions() {
                         ]}
                       >
                         {plan}
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
-                </View>
-              </View>
-
-              <View style={styles.inputGroup}>
-                <Text style={styles.label}>Status</Text>
-                <View style={styles.radioGroup}>
-                  {(["ACTIVE", "CANCELLED", "EXPIRED", "PENDING"] as const).map((status) => (
-                    <TouchableOpacity
-                      key={status}
-                      style={[
-                        styles.radioOption,
-                        formData.status === status && styles.radioOptionSelected,
-                      ]}
-                      onPress={() => setFormData({ ...formData, status })}
-                    >
-                      <Text
-                        style={[
-                          styles.radioText,
-                          formData.status === status && styles.radioTextSelected,
-                        ]}
-                      >
-                        {status}
                       </Text>
                     </TouchableOpacity>
                   ))}
@@ -498,7 +501,7 @@ export default function AdminSubscriptions() {
               </View>
 
               <View style={styles.inputGroup}>
-                <Text style={styles.label}>Price *</Text>
+                <Text style={styles.label}>Price</Text>
                 <TextInput
                   style={styles.input}
                   value={formData.price}
@@ -506,6 +509,46 @@ export default function AdminSubscriptions() {
                   placeholder="0.00"
                   keyboardType="decimal-pad"
                 />
+              </View>
+
+              <View style={styles.inputGroup}>
+                <Text style={styles.label}>Benefits</Text>
+                <TextInput
+                  style={[styles.input, styles.multilineInput]}
+                  value={formData.benefits}
+                  onChangeText={(text) => setFormData({ ...formData, benefits: text })}
+                  placeholder={"• Unlimited listings\n• Featured placement\n• Priority support"}
+                  multiline
+                  numberOfLines={3}
+                />
+              </View>
+
+              <View style={styles.inputGroup}>
+                <Text style={styles.label}>Availability</Text>
+                <View style={styles.radioGroup}>
+                  {[
+                    { label: "Active", value: true },
+                    { label: "Inactive", value: false },
+                  ].map((option) => (
+                    <TouchableOpacity
+                      key={option.label}
+                      style={[
+                        styles.radioOption,
+                        formData.isActive === option.value && styles.radioOptionSelected,
+                      ]}
+                      onPress={() => setFormData({ ...formData, isActive: option.value })}
+                    >
+                      <Text
+                        style={[
+                          styles.radioText,
+                          formData.isActive === option.value && styles.radioTextSelected,
+                        ]}
+                      >
+                        {option.label}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
               </View>
 
               <View style={styles.inputGroup}>
@@ -586,13 +629,35 @@ export default function AdminSubscriptions() {
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Edit Subscription</Text>
+              <Text style={styles.modalTitle}>Edit Subscription Plan</Text>
               <TouchableOpacity onPress={() => setShowEditModal(false)}>
                 <Ionicons name="close" size={24} color="#374151" />
               </TouchableOpacity>
             </View>
 
             <ScrollView style={styles.modalBody}>
+              <View style={styles.inputGroup}>
+                <Text style={styles.label}>Name</Text>
+                <TextInput
+                  style={styles.input}
+                  value={formData.name}
+                  onChangeText={(text) => setFormData({ ...formData, name: text })}
+                  placeholder="e.g. Premium Retailer"
+                />
+              </View>
+
+              <View style={styles.inputGroup}>
+                <Text style={styles.label}>Description</Text>
+                <TextInput
+                  style={[styles.input, styles.multilineInput]}
+                  value={formData.description}
+                  onChangeText={(text) => setFormData({ ...formData, description: text })}
+                  placeholder="Short description of the subscription plan"
+                  multiline
+                  numberOfLines={3}
+                />
+              </View>
+
               <View style={styles.inputGroup}>
                 <Text style={styles.label}>Plan</Text>
                 <View style={styles.radioGroup}>
@@ -612,31 +677,6 @@ export default function AdminSubscriptions() {
                         ]}
                       >
                         {plan}
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
-                </View>
-              </View>
-
-              <View style={styles.inputGroup}>
-                <Text style={styles.label}>Status</Text>
-                <View style={styles.radioGroup}>
-                  {(["ACTIVE", "CANCELLED", "EXPIRED", "PENDING"] as const).map((status) => (
-                    <TouchableOpacity
-                      key={status}
-                      style={[
-                        styles.radioOption,
-                        formData.status === status && styles.radioOptionSelected,
-                      ]}
-                      onPress={() => setFormData({ ...formData, status })}
-                    >
-                      <Text
-                        style={[
-                          styles.radioText,
-                          formData.status === status && styles.radioTextSelected,
-                        ]}
-                      >
-                        {status}
                       </Text>
                     </TouchableOpacity>
                   ))}
@@ -677,6 +717,46 @@ export default function AdminSubscriptions() {
                   placeholder="0.00"
                   keyboardType="decimal-pad"
                 />
+              </View>
+
+              <View style={styles.inputGroup}>
+                <Text style={styles.label}>Benefits</Text>
+                <TextInput
+                  style={[styles.input, styles.multilineInput]}
+                  value={formData.benefits}
+                  onChangeText={(text) => setFormData({ ...formData, benefits: text })}
+                  placeholder={"• Unlimited listings\n• Featured placement\n• Priority support"}
+                  multiline
+                  numberOfLines={3}
+                />
+              </View>
+
+              <View style={styles.inputGroup}>
+                <Text style={styles.label}>Availability</Text>
+                <View style={styles.radioGroup}>
+                  {[
+                    { label: "Active", value: true },
+                    { label: "Inactive", value: false },
+                  ].map((option) => (
+                    <TouchableOpacity
+                      key={option.label}
+                      style={[
+                        styles.radioOption,
+                        formData.isActive === option.value && styles.radioOptionSelected,
+                      ]}
+                      onPress={() => setFormData({ ...formData, isActive: option.value })}
+                    >
+                      <Text
+                        style={[
+                          styles.radioText,
+                          formData.isActive === option.value && styles.radioTextSelected,
+                        ]}
+                      >
+                        {option.label}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
               </View>
 
               <View style={styles.inputGroup}>
@@ -915,6 +995,11 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     color: "#374151",
   },
+  planDescription: {
+    fontSize: 13,
+    color: "#6B7280",
+    marginTop: 4,
+  },
   detailsRow: {
     flexDirection: "row",
     alignItems: "center",
@@ -992,6 +1077,9 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     fontSize: 16,
     color: "#374151",
+  },
+  multilineInput: {
+    textAlignVertical: "top",
   },
   radioGroup: {
     flexDirection: "row",

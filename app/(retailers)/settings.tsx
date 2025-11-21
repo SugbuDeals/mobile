@@ -979,11 +979,13 @@ const styles = StyleSheet.create({
   },
 
   logoutButton: {
-    backgroundColor: "#EF4444",
+    backgroundColor: "#F97316",
     borderRadius: 12,
     paddingVertical: 12,
     alignItems: "center",
     marginTop: 8,
+    borderWidth: 1.5,
+    borderColor: "#EA580C",
   },
   logoutButtonText: {
     fontSize: 16,
@@ -991,13 +993,13 @@ const styles = StyleSheet.create({
     color: "#ffffff",
   },
   deleteButton: {
-    backgroundColor: "#DC2626",
+    backgroundColor: "#991B1B",
     borderRadius: 12,
     paddingVertical: 12,
     alignItems: "center",
     marginTop: 8,
     borderWidth: 2,
-    borderColor: "#B91C1C",
+    borderColor: "#7F1D1D",
   },
   deleteButtonText: {
     fontSize: 16,

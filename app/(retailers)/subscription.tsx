@@ -5,14 +5,14 @@ import { LinearGradient } from "expo-linear-gradient";
 import { useFocusEffect } from "expo-router";
 import React, { useCallback, useState } from "react";
 import {
-    Alert,
-    Platform,
-    ScrollView,
-    StatusBar,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View,
+  Alert,
+  Platform,
+  ScrollView,
+  StatusBar,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from "react-native";
 
 export default function Subscription() {
@@ -35,7 +35,8 @@ export default function Subscription() {
     useCallback(() => {
       if (user && (user as any).id) {
         getActiveSubscription(Number((user as any).id));
-        findSubscriptions({ status: "ACTIVE" }); // Fetch available active subscriptions
+        // Fetch available active subscription plans defined by admin
+        findSubscriptions({ isActive: true });
       }
     }, [user, getActiveSubscription, findSubscriptions])
   );
@@ -122,18 +123,6 @@ export default function Subscription() {
     }
   };
 
-  const getPlanFeatures = (plan: string) => {
-    switch (plan) {
-      case "PREMIUM":
-        return ["999 Products", "Unlimited Promotions", "Priority Support", "Advanced Analytics"];
-      case "BASIC":
-        return ["50 Products", "10 Promotions", "Email Support", "Basic Analytics"];
-      case "FREE":
-      default:
-        return ["10 Products", "3 Promotions", "Community Support"];
-    }
-  };
-
   const formatDate = (dateString: string) => {
     if (!dateString) return "N/A";
     const date = new Date(dateString);
@@ -169,17 +158,39 @@ export default function Subscription() {
       </LinearGradient>
 
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-        {/* Current Subscription */}
+        {/* Current Subscription (retailer-specific, joined plan) */}
         {activeSubscription ? (
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Current Subscription</Text>
-            <View style={[styles.subscriptionCard, { borderColor: getPlanColor(activeSubscription.plan) }]}>
+            <View
+              style={[
+                styles.subscriptionCard,
+                { borderColor: getPlanColor(activeSubscription.plan || "FREE") },
+              ]}
+            >
               <View style={styles.subscriptionHeader}>
-                <View style={[styles.planBadge, { backgroundColor: getPlanColor(activeSubscription.plan) }]}>
-                  <Text style={styles.planBadgeText}>{activeSubscription.plan}</Text>
+                <View
+                  style={[
+                    styles.planBadge,
+                    { backgroundColor: getPlanColor(activeSubscription.plan || "FREE") },
+                  ]}
+                >
+                  <Text style={styles.planBadgeText}>
+                    {activeSubscription.plan || "FREE"}
+                  </Text>
                 </View>
-                <View style={[styles.statusBadge, { backgroundColor: activeSubscription.status === "ACTIVE" ? "#10B981" : "#F59E0B" }]}>
-                  <Text style={styles.statusBadgeText}>{activeSubscription.status}</Text>
+                <View
+                  style={[
+                    styles.statusBadge,
+                    {
+                      backgroundColor:
+                        activeSubscription.status === "ACTIVE" ? "#10B981" : "#F59E0B",
+                    },
+                  ]}
+                >
+                  <Text style={styles.statusBadgeText}>
+                    {activeSubscription.status || "ACTIVE"}
+                  </Text>
                 </View>
               </View>
 
@@ -187,25 +198,26 @@ export default function Subscription() {
                 <View style={styles.detailRow}>
                   <Ionicons name="calendar-outline" size={20} color="#6B7280" />
                   <Text style={styles.detailText}>
-                    Started: {formatDate(activeSubscription.startsAt)}
+                    Started: {formatDate(activeSubscription.startsAt || "")}
                   </Text>
                 </View>
                 <View style={styles.detailRow}>
                   <Ionicons name="calendar-outline" size={20} color="#6B7280" />
                   <Text style={styles.detailText}>
-                    Expires: {formatDate(activeSubscription.endsAt)}
+                    Expires: {formatDate(activeSubscription.endsAt || "")}
                   </Text>
                 </View>
                 <View style={styles.detailRow}>
                   <Ionicons name="repeat-outline" size={20} color="#6B7280" />
                   <Text style={styles.detailText}>
-                    Billing: {activeSubscription.billingCycle}
+                    Billing: {activeSubscription.billingCycle || "MONTHLY"}
                   </Text>
                 </View>
                 <View style={styles.detailRow}>
                   <Ionicons name="cash-outline" size={20} color="#6B7280" />
                   <Text style={styles.detailText}>
-                    Price: ${activeSubscription.price}
+                    Price:{" "}
+                    {activeSubscription.price ? `₱${activeSubscription.price}` : "Free"}
                   </Text>
                 </View>
               </View>
@@ -245,9 +257,20 @@ export default function Subscription() {
           ) : subscriptions.length > 0 ? (
             subscriptions.map((subscription) => {
               const isCurrentPlan = activeSubscription?.id === subscription.id;
-              const isUpgrade = !activeSubscription || 
-                (subscription.plan === "PREMIUM" && activeSubscription.plan !== "PREMIUM") ||
-                (subscription.plan === "BASIC" && activeSubscription.plan === "FREE");
+              const planKey = subscription.plan || "FREE";
+              const displayName = subscription.name || `${planKey} Plan`;
+
+              // Prepare benefits list from admin-defined benefits string
+              const benefitLines =
+                subscription.benefits
+                  ?.split("\n")
+                  .map((line: string) => line.replace(/^•\s*/, "").trim())
+                  .filter((line: string) => line.length > 0) || [];
+
+              const featuresToShow =
+                benefitLines.length > 0
+                  ? benefitLines
+                  : ["Standard listing visibility", "Access to promotions", "Basic support"];
               
               return (
                 <View
@@ -255,13 +278,19 @@ export default function Subscription() {
                   style={[
                     styles.planCard,
                     isCurrentPlan && styles.currentPlanCard,
-                    { borderColor: getPlanColor(subscription.plan) },
+                    { borderColor: getPlanColor(planKey) },
                   ]}
                 >
                   <View style={styles.planHeader}>
-                    <View style={[styles.planBadge, { backgroundColor: getPlanColor(subscription.plan) }]}>
-                      <Text style={styles.planBadgeText}>{subscription.plan}</Text>
+                    <View
+                      style={[
+                        styles.planBadge,
+                        { backgroundColor: getPlanColor(planKey) },
+                      ]}
+                    >
+                      <Text style={styles.planBadgeText}>{planKey}</Text>
                     </View>
+                    <Text style={styles.planNameText}>{displayName}</Text>
                     {isCurrentPlan && (
                       <View style={styles.currentBadge}>
                         <Text style={styles.currentBadgeText}>Current</Text>
@@ -270,12 +299,17 @@ export default function Subscription() {
                   </View>
 
                   <View style={styles.priceContainer}>
-                    <Text style={styles.price}>${subscription.price}</Text>
-                    <Text style={styles.billingCycle}>/{subscription.billingCycle.toLowerCase()}</Text>
+                    <Text style={styles.price}>
+                      {subscription.price ? `₱${subscription.price}` : "Free"}
+                    </Text>
+                    <Text style={styles.billingCycle}>
+                      /
+                      {(subscription.billingCycle || "MONTHLY").toLowerCase()}
+                    </Text>
                   </View>
 
                   <View style={styles.featuresContainer}>
-                    {getPlanFeatures(subscription.plan).map((feature, index) => (
+                    {featuresToShow.map((feature: string, index: number) => (
                       <View key={index} style={styles.featureRow}>
                         <Ionicons name="checkmark-circle" size={20} color="#10B981" />
                         <Text style={styles.featureText}>{feature}</Text>
@@ -287,7 +321,7 @@ export default function Subscription() {
                     <TouchableOpacity
                       style={[
                         styles.actionButton,
-                        { backgroundColor: getPlanColor(subscription.plan) },
+                        { backgroundColor: getPlanColor(planKey) },
                         isProcessing && styles.actionButtonDisabled,
                       ]}
                       onPress={() => {
@@ -498,6 +532,13 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: "600",
     color: "#ffffff",
+  },
+  planNameText: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#374151",
+    marginLeft: 12,
+    flex: 1,
   },
   priceContainer: {
     flexDirection: "row",

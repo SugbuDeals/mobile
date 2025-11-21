@@ -36,8 +36,13 @@ export const useStore = () => {
     dispatch(thunk.getActiveSubscription(userId));
   const joinSubscription = (data: JoinSubscriptionDTO) => 
     dispatch(thunk.joinSubscription(data));
-  const findSubscriptions = (filters?: { status?: "ACTIVE" | "CANCELLED" | "EXPIRED" | "PENDING" }) => 
-    dispatch(thunk.findSubscriptions(filters || {}));
+  const findSubscriptions = (filters?: {
+    plan?: "FREE" | "BASIC" | "PREMIUM";
+    isActive?: boolean;
+    search?: string;
+    skip?: number;
+    take?: number;
+  }) => dispatch(thunk.findSubscriptions(filters || {}));
   const cancelRetailerSubscription = () => 
     dispatch(thunk.cancelRetailerSubscription());
   const updateRetailerSubscription = (data: JoinSubscriptionDTO) => 

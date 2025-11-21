@@ -823,9 +823,15 @@ export const joinSubscription = createAsyncThunk<
 
 export const findSubscriptions = createAsyncThunk<
   Subscription[],
-  { status?: "ACTIVE" | "CANCELLED" | "EXPIRED" | "PENDING" },
+  {
+    plan?: "FREE" | "BASIC" | "PREMIUM";
+    isActive?: boolean;
+    search?: string;
+    skip?: number;
+    take?: number;
+  },
   { rejectValue: { message: string }; state: RootState }
->("store/findSubscriptions", async ({ status }, { rejectWithValue, getState }) => {
+>("store/findSubscriptions", async ({ plan, isActive, search, skip, take }, { rejectWithValue, getState }) => {
   try {
     const { accessToken } = getState().auth;
 
@@ -836,9 +842,15 @@ export const findSubscriptions = createAsyncThunk<
     }
 
     const params = new URLSearchParams();
-    if (status) params.append("status", status);
+    if (plan) params.append("plan", plan);
+    if (typeof isActive === "boolean") params.append("isActive", String(isActive));
+    if (search) params.append("search", search);
+    if (typeof skip === "number") params.append("skip", String(skip));
+    if (typeof take === "number") params.append("take", String(take));
 
-    const response = await fetch(`${env.API_BASE_URL}/subscription?${params.toString()}`, {
+    const queryString = params.toString();
+
+    const response = await fetch(`${env.API_BASE_URL}/subscription${queryString ? `?${queryString}` : ""}`, {
       method: "GET",
       headers: {
         "Content-Type": "application/json",
