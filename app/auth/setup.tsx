@@ -8,10 +8,11 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import { yupResolver } from "@hookform/resolvers/yup";
 import * as ImagePicker from "expo-image-picker";
 import { LinearGradient } from "expo-linear-gradient";
+import * as Location from "expo-location";
 import { router } from "expo-router";
 import React from "react";
 import { Controller, useForm } from "react-hook-form";
-import { Alert, Image, Platform, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { Alert, Image, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { useDispatch } from "react-redux";
 import * as yup from "yup";
 
@@ -31,6 +32,10 @@ export default function RetailerSetup() {
   const [imageUri, setImageUri] = React.useState<string | null>(null);
   const [imageUrl, setImageUrl] = React.useState<string | null>(null);
   const [uploadingImage, setUploadingImage] = React.useState(false);
+  const [address, setAddress] = React.useState("");
+  const [latitude, setLatitude] = React.useState<number | undefined>(undefined);
+  const [longitude, setLongitude] = React.useState<number | undefined>(undefined);
+  const [isGettingLocation, setIsGettingLocation] = React.useState(false);
   
   const {
     control,
@@ -68,8 +73,9 @@ export default function RetailerSetup() {
       // Store is loaded via useStoreManagement hook
       console.log("Store loaded via store management hook");
 
-      // Check if setup is already completed
-      if (user?.retailer_setup_completed) {
+      // Check if setup is already completed AND user has a store
+      // Only redirect if both conditions are met - if no store exists, allow setup
+      if (user?.retailer_setup_completed && userStore?.id) {
         Alert.alert(
           "Setup Already Completed",
           "You have already completed your store setup. You can update your store details in Settings.",
@@ -116,6 +122,9 @@ export default function RetailerSetup() {
       if (userStore.imageUrl) {
         setImageUrl(userStore.imageUrl);
       }
+      setAddress(userStore.address || "");
+      setLatitude(userStore.latitude);
+      setLongitude(userStore.longitude);
     }
   }, [userStore, setValue]);
 
@@ -174,6 +183,34 @@ export default function RetailerSetup() {
     setImageUrl(null);
   };
 
+  const handleGetCurrentLocation = async () => {
+    try {
+      setIsGettingLocation(true);
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== "granted") {
+        Alert.alert("Permission required", "Location permission is needed to set your store location.");
+        return;
+      }
+      const pos = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+      setLatitude(pos.coords.latitude);
+      setLongitude(pos.coords.longitude);
+
+      const places = await Location.reverseGeocodeAsync({ latitude: pos.coords.latitude, longitude: pos.coords.longitude });
+      if (places && places.length > 0) {
+        const p = places[0];
+        const line = [p.name, p.street, p.subregion, p.city || p.region, p.postalCode, p.country]
+          .filter(Boolean)
+          .join(", ");
+        setAddress(line);
+      }
+      Alert.alert("Location captured", "Coordinates and address have been filled.");
+    } catch (e: any) {
+      Alert.alert("Location Error", e?.message || "Failed to get current location");
+    } finally {
+      setIsGettingLocation(false);
+    }
+  };
+
   const onConfirm = async (formData: yup.InferType<typeof schema>) => {
     try {
       setSubmitting(true);
@@ -212,6 +249,9 @@ export default function RetailerSetup() {
             description: formData.storeDescription,
             ownerId: Number(user.id),
             ...(imageUrl && { imageUrl }),
+            ...(address && { address }),
+            ...(latitude !== undefined && { latitude }),
+            ...(longitude !== undefined && { longitude }),
           }).unwrap();
           
           console.log("Store created successfully:", newStore);
@@ -232,6 +272,9 @@ export default function RetailerSetup() {
             description: formData.storeDescription,
             userId: Number(user.id),
             ...(imageUrl && { imageUrl }),
+            ...(address && { address }),
+            ...(latitude !== undefined && { latitude }),
+            ...(longitude !== undefined && { longitude }),
           }).unwrap();
         } catch (updateError: any) {
           Alert.alert("Error", updateError?.message || "Failed to update store. Please try again.");
@@ -405,26 +448,43 @@ export default function RetailerSetup() {
             <Text style={styles.helperText}>This feature will be available in future updates.</Text>
           </View>
 
-          {/* Contact Email and Store Address Row */}
-          <View style={styles.rowContainer}>
-            <View style={styles.halfWidth}>
-              <View style={styles.fieldContainer}>
-                <Text style={styles.label}>Contact Email</Text>
-                <View style={[styles.textInput, styles.disabledInput]}>
-                  <Text style={styles.disabledText}>Coming Soon</Text>
-                </View>
-                <Text style={styles.helperText}>This feature will be available in future updates.</Text>
-              </View>
+          {/* Store Address */}
+          <View style={styles.fieldContainer}>
+            <View style={styles.labelContainer}>
+              <Text style={styles.label}>Store Address</Text>
+              <TouchableOpacity style={styles.mapButton} onPress={handleGetCurrentLocation} disabled={isGettingLocation}>
+                <Text style={[styles.mapButtonText, isGettingLocation && { color: '#9CA3AF' }]}>
+                  {isGettingLocation ? "Getting..." : "Get Current Location"}
+                </Text>
+                <Ionicons name="location" size={18} color={isGettingLocation ? "#9CA3AF" : "#FFBE5D"} />
+              </TouchableOpacity>
             </View>
-            <View style={styles.halfWidth}>
-              <View style={styles.fieldContainer}>
-                <Text style={styles.slabel}>Store Address</Text>
-                <View style={[styles.addressInputContainer, styles.disabledInput]}>
-                  <Text style={styles.disabledText}>Coming Soon</Text>
-                </View>
-                <Text style={styles.helperText}>This feature will be available in future updates.</Text>
-              </View>
+            <TextInput
+              style={styles.textInput}
+              placeholder="Store address"
+              value={address}
+              onChangeText={setAddress}
+              placeholderTextColor="#9CA3AF"
+            />
+            <View style={{ flexDirection: 'row', gap: 12, marginTop: 12 }}>
+              <TextInput
+                style={[styles.textInput, { flex: 1 }]}
+                placeholder="Latitude"
+                value={latitude !== undefined ? String(latitude) : ""}
+                onChangeText={(t) => setLatitude(t ? Number(t) : undefined)}
+                placeholderTextColor="#9CA3AF"
+                keyboardType="decimal-pad"
+              />
+              <TextInput
+                style={[styles.textInput, { flex: 1 }]}
+                placeholder="Longitude"
+                value={longitude !== undefined ? String(longitude) : ""}
+                onChangeText={(t) => setLongitude(t ? Number(t) : undefined)}
+                placeholderTextColor="#9CA3AF"
+                keyboardType="decimal-pad"
+              />
             </View>
+            <Text style={styles.helperText}>Tap the button to auto-fill your current location.</Text>
           </View>
         </View>
 
@@ -582,6 +642,12 @@ const styles = StyleSheet.create({
     color: "#374151",
     marginBottom: 8,
   },
+  labelContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 8,
+  },
   textInput: {
     backgroundColor: "#F9FAFB",
     borderWidth: 1,
@@ -631,10 +697,6 @@ const styles = StyleSheet.create({
     paddingRight: 100, // Make space for the button inside
   },
   mapButton: {
-    position: "absolute",
-    right: 8,
-    top: "50%",
-    transform: [{ translateY: -12 }], // Center vertically
     flexDirection: "row",
     alignItems: "center",
     paddingHorizontal: 8,

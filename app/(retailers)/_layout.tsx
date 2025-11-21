@@ -1,6 +1,6 @@
 import { logout } from "@/features/auth/slice";
 import { useStoreManagement } from "@/features/store";
-import { useAppDispatch } from "@/store/hooks";
+import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { LinearGradient } from "expo-linear-gradient";
 import { Tabs, router } from "expo-router";
@@ -62,7 +62,34 @@ const RetailerHeader = () => {
 
 export default function RetailersLayout() {
   // Load user's store data for all retailer pages
-  useStoreManagement();
+  const { userStore, storeLoading } = useStoreManagement();
+  const { user, loading: authLoading } = useAppSelector((state) => state.auth);
+
+  // Check if retailer needs to complete setup (no store created yet)
+  React.useEffect(() => {
+    // Wait for auth and store loading to complete
+    if (authLoading || storeLoading) {
+      return;
+    }
+
+    // Only check if user is a retailer
+    if (user) {
+      const normalizedRole = String((user as any).user_type ?? (user as any).role ?? "").toLowerCase();
+      
+      if (normalizedRole === "retailer") {
+        // If retailer doesn't have a store, redirect to setup
+        // Give a small delay to ensure store loading has truly completed
+        const timeoutId = setTimeout(() => {
+          if (!userStore) {
+            console.log("Retailer has no store, redirecting to setup page");
+            router.replace("/auth/setup");
+          }
+        }, 500); // Small delay to ensure store loading is complete
+
+        return () => clearTimeout(timeoutId);
+      }
+    }
+  }, [user, userStore, storeLoading, authLoading]);
 
   return (
     <Tabs
@@ -115,6 +142,16 @@ export default function RetailersLayout() {
         options={{
           title: "Categories",
           href: null,
+        }}
+      />
+      <Tabs.Screen
+        name="subscription"
+        options={{
+          title: "Subscription",
+          headerShown: false,
+          tabBarIcon: ({ color, size = 24 }) => (
+            <Ionicons name="card" color={color} size={size} />
+          ),
         }}
       />
       <Tabs.Screen

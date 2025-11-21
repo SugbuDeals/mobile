@@ -8,11 +8,11 @@ import * as ImagePicker from "expo-image-picker";
 import { router } from "expo-router";
 import React, { useEffect, useMemo, useState } from "react";
 import {
-  Alert, Image, ScrollView,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View
+    Alert, Image, ScrollView,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View
 } from "react-native";
 import Button from "../../components/Button";
 import TextField from "../../components/TextField";
@@ -357,18 +357,20 @@ const styles = StyleSheet.create({
     gap: 16,
   },
   logoutButton: {
-    backgroundColor: "#ef4444",
+    backgroundColor: "#f97316",
     borderRadius: 12,
     paddingVertical: 16,
     marginTop: 8,
+    borderWidth: 1.5,
+    borderColor: "#ea580c",
   },
   deleteButton: {
-    backgroundColor: "#dc2626",
+    backgroundColor: "#991b1b",
     borderRadius: 12,
     paddingVertical: 16,
     marginTop: 8,
     borderWidth: 2,
-    borderColor: "#b91c1c",
+    borderColor: "#7f1d1d",
   },
   editButtonsContainer: {
     flexDirection: "row",
