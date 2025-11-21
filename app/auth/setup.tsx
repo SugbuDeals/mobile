@@ -68,8 +68,9 @@ export default function RetailerSetup() {
       // Store is loaded via useStoreManagement hook
       console.log("Store loaded via store management hook");
 
-      // Check if setup is already completed
-      if (user?.retailer_setup_completed) {
+      // Check if setup is already completed AND user has a store
+      // Only redirect if both conditions are met - if no store exists, allow setup
+      if (user?.retailer_setup_completed && userStore?.id) {
         Alert.alert(
           "Setup Already Completed",
           "You have already completed your store setup. You can update your store details in Settings.",

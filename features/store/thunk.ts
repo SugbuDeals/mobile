@@ -1,7 +1,7 @@
 import env from "@/config/env";
 import { RootState } from "@/store/types";
 import { createAsyncThunk } from "@reduxjs/toolkit";
-import { CreateProductDTO, CreatePromotionDTO, CreateStoreDTO, Product, Promotion, Store, UpdateProductDTO, UpdatePromotionDTO, UpdateStoreDTO } from "./types";
+import { CreateProductDTO, CreatePromotionDTO, CreateStoreDTO, JoinSubscriptionDTO, Product, Promotion, Store, Subscription, UpdateProductDTO, UpdatePromotionDTO, UpdateStoreDTO } from "./types";
 
 export const findStores = createAsyncThunk<
   Store[],
@@ -732,6 +732,88 @@ export const deletePromotion = createAsyncThunk<
     return result;
   } catch (error) {
     console.log("Promotion deletion catch error:", error);
+    return rejectWithValue({
+      message:
+        error instanceof Error ? error.message : "An unknown error occured",
+    });
+  }
+});
+
+// Subscription thunks
+export const getActiveSubscription = createAsyncThunk<
+  Subscription | null,
+  number,
+  { rejectValue: { message: string }; state: RootState }
+>("store/getActiveSubscription", async (userId, { rejectWithValue, getState }) => {
+  try {
+    const { accessToken } = getState().auth;
+
+    if (!accessToken) {
+      return rejectWithValue({
+        message: "Authentication required. Please log in again.",
+      });
+    }
+
+    const response = await fetch(`${env.API_BASE_URL}/subscription/user/${userId}/active`, {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${accessToken}`,
+      },
+    });
+
+    if (!response.ok) {
+      // If 404, user has no active subscription (return null, not an error)
+      if (response.status === 404) {
+        return null;
+      }
+      const error = await response.json().catch(() => ({}));
+      return rejectWithValue({
+        message: error.message || "Get active subscription failed",
+      });
+    }
+
+    return response.json();
+  } catch (error) {
+    return rejectWithValue({
+      message:
+        error instanceof Error ? error.message : "An unknown error occured",
+    });
+  }
+});
+
+export const joinSubscription = createAsyncThunk<
+  Subscription,
+  JoinSubscriptionDTO,
+  { rejectValue: { message: string }; state: RootState }
+>("store/joinSubscription", async (data, { rejectWithValue, getState }) => {
+  try {
+    const { accessToken } = getState().auth;
+
+    if (!accessToken) {
+      return rejectWithValue({
+        message: "Authentication required. Please log in again.",
+      });
+    }
+
+    const response = await fetch(`${env.API_BASE_URL}/subscription/retailer/join`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${accessToken}`,
+      },
+      body: JSON.stringify(data),
+    });
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({}));
+      return rejectWithValue({
+        message: error.message || "Join subscription failed",
+      });
+    }
+
+    return response.json();
+  } catch (error) {
     return rejectWithValue({
       message:
         error instanceof Error ? error.message : "An unknown error occured",

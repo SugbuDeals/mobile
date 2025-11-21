@@ -113,3 +113,21 @@ export type UpdatePromotionDTO = {
   productId?: number;
   active?: boolean;
 };
+
+export type Subscription = {
+  id: number;
+  userId: number;
+  plan: "FREE" | "BASIC" | "PREMIUM";
+  status: "ACTIVE" | "CANCELLED" | "EXPIRED" | "PENDING";
+  billingCycle: "MONTHLY" | "YEARLY";
+  price: string;
+  startsAt: string;
+  endsAt: string;
+  cancelledAt?: string;
+  createdAt?: string;
+  updatedAt?: string;
+};
+
+export type JoinSubscriptionDTO = {
+  subscriptionId: number;
+};

@@ -1286,6 +1286,379 @@
           "Files"
         ]
       }
+    },
+    "/subscription": {
+      "get": {
+        "operationId": "SubscriptionController_findManySubscriptions",
+        "parameters": [
+          {
+            "name": "userId",
+            "required": false,
+            "in": "query",
+            "description": "Filter by user ID",
+            "schema": {
+              "type": "number"
+            }
+          },
+          {
+            "name": "status",
+            "required": false,
+            "in": "query",
+            "description": "Filter by subscription status",
+            "schema": {
+              "enum": [
+                "ACTIVE",
+                "CANCELLED",
+                "EXPIRED",
+                "PENDING"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "name": "skip",
+            "required": false,
+            "in": "query",
+            "description": "Number of records to skip",
+            "schema": {
+              "type": "number"
+            }
+          },
+          {
+            "name": "take",
+            "required": false,
+            "in": "query",
+            "description": "Number of records to take",
+            "schema": {
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Returns list of subscriptions"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "List subscriptions",
+        "tags": [
+          "Subscriptions"
+        ]
+      },
+      "post": {
+        "operationId": "SubscriptionController_createSubscription",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateSubscriptionDTO"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Subscription created successfully"
+          },
+          "400": {
+            "description": "Invalid input"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Create a subscription",
+        "tags": [
+          "Subscriptions"
+        ]
+      }
+    },
+    "/subscription/user/{userId}/active": {
+      "get": {
+        "operationId": "SubscriptionController_getActiveSubscription",
+        "parameters": [
+          {
+            "name": "userId",
+            "required": true,
+            "in": "path",
+            "description": "User ID",
+            "schema": {
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Returns the active subscription"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Get active subscription for a user",
+        "tags": [
+          "Subscriptions"
+        ]
+      }
+    },
+    "/subscription/{id}": {
+      "get": {
+        "operationId": "SubscriptionController_findUniqueSubscription",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "Subscription ID",
+            "schema": {
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Returns a subscription"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Get subscription by id",
+        "tags": [
+          "Subscriptions"
+        ]
+      },
+      "patch": {
+        "operationId": "SubscriptionController_updateSubscription",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "Subscription ID",
+            "schema": {
+              "type": "number"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateSubscriptionDTO"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Subscription updated successfully"
+          },
+          "400": {
+            "description": "Invalid input"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Update a subscription",
+        "tags": [
+          "Subscriptions"
+        ]
+      },
+      "delete": {
+        "operationId": "SubscriptionController_deleteSubscription",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "Subscription ID",
+            "schema": {
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Subscription deleted successfully"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Delete a subscription",
+        "tags": [
+          "Subscriptions"
+        ]
+      }
+    },
+    "/subscription/retailer/join": {
+      "post": {
+        "description": "Retailers can join a subscription by ID. If they already have an active subscription, it will be cancelled first.",
+        "operationId": "SubscriptionController_joinSubscription",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/JoinSubscriptionDTO"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Subscription joined successfully"
+          },
+          "400": {
+            "description": "Invalid input or subscription not found"
+          },
+          "401": {
+            "description": "Unauthorized or not a retailer"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Join a subscription (Retailer only)",
+        "tags": [
+          "Subscriptions"
+        ]
+      }
+    },
+    "/subscription/retailer/update": {
+      "patch": {
+        "description": "Retailers can update their active subscription to a different subscription plan by ID.",
+        "operationId": "SubscriptionController_updateRetailerSubscription",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateRetailerSubscriptionDTO"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Subscription updated successfully"
+          },
+          "400": {
+            "description": "No active subscription found or subscription not found"
+          },
+          "401": {
+            "description": "Unauthorized or not a retailer"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Update current subscription (Retailer only)",
+        "tags": [
+          "Subscriptions"
+        ]
+      }
+    },
+    "/subscription/retailer/cancel": {
+      "post": {
+        "description": "Retailers can cancel their active subscription. The subscription status will be set to CANCELLED.",
+        "operationId": "SubscriptionController_cancelRetailerSubscription",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Subscription cancelled successfully"
+          },
+          "400": {
+            "description": "No active subscription found"
+          },
+          "401": {
+            "description": "Unauthorized or not a retailer"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Cancel current subscription (Retailer only)",
+        "tags": [
+          "Subscriptions"
+        ]
+      }
+    },
+    "/subscription/admin/analytics": {
+      "get": {
+        "description": "Returns comprehensive subscription analytics including counts by status, plan, billing cycle, revenue metrics, and trends.",
+        "operationId": "SubscriptionController_getAnalytics",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Returns subscription analytics",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SubscriptionAnalyticsDTO"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized or not an admin"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Get subscription analytics (Admin only)",
+        "tags": [
+          "Subscriptions"
+        ]
+      }
     }
   },
   "info": {
@@ -1471,6 +1844,16 @@
             "type": "number",
             "example": 42,
             "description": "The unique identifier of the store owner"
+          },
+          "imageUrl": {
+            "type": "string",
+            "example": "http://localhost:3000/files/file-1762098832774-779762879.webp",
+            "description": "The url of the store image"
+          },
+          "bannerUrl": {
+            "type": "string",
+            "example": "http://localhost:3000/files/file-1762098832774-779762879.webp",
+            "description": "The url of the banner image"
           }
         },
         "required": [
@@ -1544,6 +1927,16 @@
             "type": "number",
             "example": 42,
             "description": "The unique identifier of the updated store owner"
+          },
+          "imageUrl": {
+            "type": "string",
+            "example": "http://localhost:3000/files/file-1762098832774-779762879.webp",
+            "description": "The url of the store profile image"
+          },
+          "bannerUrl": {
+            "type": "string",
+            "example": "http://localhost:3000/files/file-1762098832774-779762879.webp",
+            "description": "The url of the banner image"
           }
         }
       },
@@ -1838,6 +2231,293 @@
         },
         "required": [
           "query"
+        ]
+      },
+      "CreateSubscriptionDTO": {
+        "type": "object",
+        "properties": {
+          "userId": {
+            "type": "number",
+            "description": "User ID to create subscription for",
+            "example": 1
+          },
+          "plan": {
+            "type": "string",
+            "enum": [
+              "FREE",
+              "BASIC",
+              "PREMIUM"
+            ],
+            "default": "FREE",
+            "description": "Subscription plan type"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "ACTIVE",
+              "CANCELLED",
+              "EXPIRED",
+              "PENDING"
+            ],
+            "default": "ACTIVE",
+            "description": "Subscription status"
+          },
+          "billingCycle": {
+            "type": "string",
+            "enum": [
+              "MONTHLY",
+              "YEARLY"
+            ],
+            "default": "MONTHLY",
+            "description": "Billing cycle"
+          },
+          "price": {
+            "type": "string",
+            "description": "Subscription price",
+            "example": "9.99"
+          },
+          "startsAt": {
+            "type": "string",
+            "description": "Subscription start date",
+            "example": "2024-01-01T00:00:00Z"
+          },
+          "endsAt": {
+            "type": "string",
+            "description": "Subscription end date",
+            "example": "2024-12-31T23:59:59Z"
+          }
+        },
+        "required": [
+          "userId"
+        ]
+      },
+      "UpdateSubscriptionDTO": {
+        "type": "object",
+        "properties": {
+          "plan": {
+            "type": "string",
+            "enum": [
+              "FREE",
+              "BASIC",
+              "PREMIUM"
+            ],
+            "description": "Subscription plan type"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "ACTIVE",
+              "CANCELLED",
+              "EXPIRED",
+              "PENDING"
+            ],
+            "description": "Subscription status"
+          },
+          "billingCycle": {
+            "type": "string",
+            "enum": [
+              "MONTHLY",
+              "YEARLY"
+            ],
+            "description": "Billing cycle"
+          },
+          "price": {
+            "type": "string",
+            "description": "Subscription price",
+            "example": "9.99"
+          },
+          "startsAt": {
+            "type": "string",
+            "description": "Subscription start date",
+            "example": "2024-01-01T00:00:00Z"
+          },
+          "endsAt": {
+            "type": "string",
+            "description": "Subscription end date",
+            "example": "2024-12-31T23:59:59Z"
+          },
+          "cancelledAt": {
+            "type": "string",
+            "description": "Subscription cancellation date",
+            "example": "2024-06-01T00:00:00Z"
+          }
+        }
+      },
+      "JoinSubscriptionDTO": {
+        "type": "object",
+        "properties": {
+          "subscriptionId": {
+            "type": "number",
+            "description": "Subscription ID to join",
+            "example": 1
+          }
+        },
+        "required": [
+          "subscriptionId"
+        ]
+      },
+      "UpdateRetailerSubscriptionDTO": {
+        "type": "object",
+        "properties": {
+          "subscriptionId": {
+            "type": "number",
+            "description": "Subscription ID to update to",
+            "example": 1
+          }
+        },
+        "required": [
+          "subscriptionId"
+        ]
+      },
+      "SubscriptionCountByPlan": {
+        "type": "object",
+        "properties": {
+          "plan": {
+            "type": "string",
+            "enum": [
+              "FREE",
+              "BASIC",
+              "PREMIUM"
+            ]
+          },
+          "count": {
+            "type": "number",
+            "description": "Number of subscriptions with this plan",
+            "example": 10
+          }
+        },
+        "required": [
+          "plan",
+          "count"
+        ]
+      },
+      "SubscriptionCountByStatus": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "ACTIVE",
+              "CANCELLED",
+              "EXPIRED",
+              "PENDING"
+            ]
+          },
+          "count": {
+            "type": "number",
+            "description": "Number of subscriptions with this status",
+            "example": 25
+          }
+        },
+        "required": [
+          "status",
+          "count"
+        ]
+      },
+      "SubscriptionCountByBillingCycle": {
+        "type": "object",
+        "properties": {
+          "billingCycle": {
+            "type": "string",
+            "enum": [
+              "MONTHLY",
+              "YEARLY"
+            ]
+          },
+          "count": {
+            "type": "number",
+            "description": "Number of subscriptions with this billing cycle",
+            "example": 15
+          }
+        },
+        "required": [
+          "billingCycle",
+          "count"
+        ]
+      },
+      "SubscriptionAnalyticsDTO": {
+        "type": "object",
+        "properties": {
+          "total": {
+            "type": "number",
+            "description": "Total number of subscriptions",
+            "example": 100
+          },
+          "active": {
+            "type": "number",
+            "description": "Number of active subscriptions",
+            "example": 45
+          },
+          "cancelled": {
+            "type": "number",
+            "description": "Number of cancelled subscriptions",
+            "example": 30
+          },
+          "expired": {
+            "type": "number",
+            "description": "Number of expired subscriptions",
+            "example": 20
+          },
+          "pending": {
+            "type": "number",
+            "description": "Number of pending subscriptions",
+            "example": 5
+          },
+          "byPlan": {
+            "description": "Subscriptions grouped by plan",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SubscriptionCountByPlan"
+            }
+          },
+          "byStatus": {
+            "description": "Subscriptions grouped by status",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SubscriptionCountByStatus"
+            }
+          },
+          "byBillingCycle": {
+            "description": "Subscriptions grouped by billing cycle",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SubscriptionCountByBillingCycle"
+            }
+          },
+          "totalRevenue": {
+            "type": "string",
+            "description": "Total revenue from active subscriptions",
+            "example": "1250.50"
+          },
+          "averagePrice": {
+            "type": "string",
+            "description": "Average subscription price",
+            "example": "25.50"
+          },
+          "recentSubscriptions": {
+            "type": "number",
+            "description": "Number of subscriptions created in the last 30 days",
+            "example": 12
+          },
+          "subscriptionsThisMonth": {
+            "type": "number",
+            "description": "Number of subscriptions created this month",
+            "example": 8
+          }
+        },
+        "required": [
+          "total",
+          "active",
+          "cancelled",
+          "expired",
+          "pending",
+          "byPlan",
+          "byStatus",
+          "byBillingCycle",
+          "totalRevenue",
+          "averagePrice",
+          "recentSubscriptions",
+          "subscriptionsThisMonth"
         ]
       }
     }

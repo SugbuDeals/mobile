@@ -1,6 +1,6 @@
 import { createSlice } from "@reduxjs/toolkit";
-import { createProduct, createPromotion, createStore, deleteProduct, deletePromotion, findActivePromotions, findNearbyStores, findProductById, findProducts, findPromotions, findStoreById, findStores, findUserStore, updateProduct, updatePromotion, updateStore } from "./thunk";
-import { Store } from "./types";
+import { createProduct, createPromotion, createStore, deleteProduct, deletePromotion, findActivePromotions, findNearbyStores, findProductById, findProducts, findPromotions, findStoreById, findStores, findUserStore, getActiveSubscription, joinSubscription, updateProduct, updatePromotion, updateStore } from "./thunk";
+import { Store, Subscription } from "./types";
 
 const initialState: {
   stores: Store[];
@@ -10,6 +10,7 @@ const initialState: {
   products: any[];
   promotions: any[];
   activePromotions: any[];
+  activeSubscription: Subscription | null;
   loading: boolean;
   error: string | null;
 } = {
@@ -20,6 +21,7 @@ const initialState: {
   products: [],
   promotions: [],
   activePromotions: [],
+  activeSubscription: null,
   loading: false,
   error: null,
 };
@@ -327,6 +329,34 @@ const storeSlice = createSlice({
       .addCase(deletePromotion.rejected, (state, action) => {
         state.loading = false;
         state.error = action.payload?.message || "Delete promotion failed";
+      })
+      // Get Active Subscription
+      .addCase(getActiveSubscription.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(getActiveSubscription.fulfilled, (state, action) => {
+        state.loading = false;
+        state.error = null;
+        state.activeSubscription = action.payload;
+      })
+      .addCase(getActiveSubscription.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload?.message || "Get active subscription failed";
+      })
+      // Join Subscription
+      .addCase(joinSubscription.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(joinSubscription.fulfilled, (state, action) => {
+        state.loading = false;
+        state.error = null;
+        state.activeSubscription = action.payload;
+      })
+      .addCase(joinSubscription.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload?.message || "Join subscription failed";
       });
   },
 });

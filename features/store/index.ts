@@ -1,11 +1,11 @@
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import * as thunk from "./thunk";
-import { CreateProductDTO, CreatePromotionDTO, CreateStoreDTO, UpdateProductDTO, UpdatePromotionDTO, UpdateStoreDTO } from "./types";
+import { CreateProductDTO, CreatePromotionDTO, CreateStoreDTO, JoinSubscriptionDTO, UpdateProductDTO, UpdatePromotionDTO, UpdateStoreDTO } from "./types";
 export { useStoreManagement } from "./hooks";
 
 export const useStore = () => {
   const dispatch = useAppDispatch();
-  const { stores, userStore, nearbyStores, products, promotions, activePromotions, loading, error } = useAppSelector((state) => state.store);
+  const { stores, userStore, nearbyStores, products, promotions, activePromotions, activeSubscription, loading, error } = useAppSelector((state) => state.store);
 
   const findStores = () => dispatch(thunk.findStores());
   const findUserStore = (userId: number) => dispatch(thunk.findUserStore(userId));
@@ -32,6 +32,10 @@ export const useStore = () => {
     dispatch(thunk.updateStore(storeData));
   const findStoreById = (storeId: number) => 
     dispatch(thunk.findStoreById(storeId));
+  const getActiveSubscription = (userId: number) => 
+    dispatch(thunk.getActiveSubscription(userId));
+  const joinSubscription = (data: JoinSubscriptionDTO) => 
+    dispatch(thunk.joinSubscription(data));
 
   return {
     action: {
@@ -51,6 +55,8 @@ export const useStore = () => {
       createStore,
       updateStore,
       findStoreById,
+      getActiveSubscription,
+      joinSubscription,
     },
     state: {
       stores,
@@ -59,6 +65,7 @@ export const useStore = () => {
       products,
       promotions,
       activePromotions,
+      activeSubscription,
       loading,
       error,
     },
