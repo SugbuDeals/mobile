@@ -1,6 +1,7 @@
 import { useLogin } from "@/features/auth";
 import { useStore } from "@/features/store";
 import Ionicons from "@expo/vector-icons/Ionicons";
+import DateTimePicker from "@react-native-community/datetimepicker";
 import { useFocusEffect } from "expo-router";
 import React, { useCallback, useState } from "react";
 import {
@@ -34,6 +35,8 @@ export default function AdminSubscriptions() {
   const [selectedSubscription, setSelectedSubscription] = useState<any>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [showAnalytics, setShowAnalytics] = useState(false);
+  const [showStartDatePicker, setShowStartDatePicker] = useState(false);
+  const [showEndDatePicker, setShowEndDatePicker] = useState(false);
 
   // Form state
   const [formData, setFormData] = useState({
@@ -172,6 +175,39 @@ export default function AdminSubscriptions() {
       month: "short",
       day: "numeric",
     });
+  };
+
+  const handleStartDateChange = (_event: any, selectedDate?: Date) => {
+    setShowStartDatePicker(false);
+    if (selectedDate) {
+      const isoDate = selectedDate.toISOString().split("T")[0];
+      setFormData((prev) => {
+        const updated = { ...prev, startsAt: isoDate };
+        if (prev.endsAt) {
+          const prevEnd = new Date(prev.endsAt);
+          if (selectedDate > prevEnd) {
+            updated.endsAt = isoDate;
+          }
+        }
+        return updated;
+      });
+    }
+  };
+
+  const handleEndDateChange = (_event: any, selectedDate?: Date) => {
+    setShowEndDatePicker(false);
+    if (selectedDate) {
+      setFormData((prev) => ({
+        ...prev,
+        endsAt: selectedDate.toISOString().split("T")[0],
+      }));
+    }
+  };
+
+  const getDateValue = (value: string) => {
+    if (!value) return new Date();
+    const parsed = new Date(value);
+    return Number.isNaN(parsed.getTime()) ? new Date() : parsed;
   };
 
   const getUserName = (userId: number) => {
@@ -474,22 +510,48 @@ export default function AdminSubscriptions() {
 
               <View style={styles.inputGroup}>
                 <Text style={styles.label}>Start Date</Text>
-                <TextInput
-                  style={styles.input}
-                  value={formData.startsAt}
-                  onChangeText={(text) => setFormData({ ...formData, startsAt: text })}
-                  placeholder="YYYY-MM-DD"
-                />
+                <TouchableOpacity
+                  style={[styles.input, styles.dateInput]}
+                  onPress={() => setShowStartDatePicker(true)}
+                >
+                  <Ionicons
+                    name="calendar-outline"
+                    size={18}
+                    color="#6B7280"
+                    style={styles.dateIcon}
+                  />
+                  <Text
+                    style={[
+                      styles.dateTextInput,
+                      !formData.startsAt && styles.datePlaceholder,
+                    ]}
+                  >
+                    {formData.startsAt ? formatDate(formData.startsAt) : "Select start date"}
+                  </Text>
+                </TouchableOpacity>
               </View>
 
               <View style={styles.inputGroup}>
                 <Text style={styles.label}>End Date</Text>
-                <TextInput
-                  style={styles.input}
-                  value={formData.endsAt}
-                  onChangeText={(text) => setFormData({ ...formData, endsAt: text })}
-                  placeholder="YYYY-MM-DD"
-                />
+                <TouchableOpacity
+                  style={[styles.input, styles.dateInput]}
+                  onPress={() => setShowEndDatePicker(true)}
+                >
+                  <Ionicons
+                    name="calendar-outline"
+                    size={18}
+                    color="#6B7280"
+                    style={styles.dateIcon}
+                  />
+                  <Text
+                    style={[
+                      styles.dateTextInput,
+                      !formData.endsAt && styles.datePlaceholder,
+                    ]}
+                  >
+                    {formData.endsAt ? formatDate(formData.endsAt) : "Select end date"}
+                  </Text>
+                </TouchableOpacity>
               </View>
             </ScrollView>
 
@@ -619,22 +681,48 @@ export default function AdminSubscriptions() {
 
               <View style={styles.inputGroup}>
                 <Text style={styles.label}>Start Date</Text>
-                <TextInput
-                  style={styles.input}
-                  value={formData.startsAt}
-                  onChangeText={(text) => setFormData({ ...formData, startsAt: text })}
-                  placeholder="YYYY-MM-DD"
-                />
+                <TouchableOpacity
+                  style={[styles.input, styles.dateInput]}
+                  onPress={() => setShowStartDatePicker(true)}
+                >
+                  <Ionicons
+                    name="calendar-outline"
+                    size={18}
+                    color="#6B7280"
+                    style={styles.dateIcon}
+                  />
+                  <Text
+                    style={[
+                      styles.dateTextInput,
+                      !formData.startsAt && styles.datePlaceholder,
+                    ]}
+                  >
+                    {formData.startsAt ? formatDate(formData.startsAt) : "Select start date"}
+                  </Text>
+                </TouchableOpacity>
               </View>
 
               <View style={styles.inputGroup}>
                 <Text style={styles.label}>End Date</Text>
-                <TextInput
-                  style={styles.input}
-                  value={formData.endsAt}
-                  onChangeText={(text) => setFormData({ ...formData, endsAt: text })}
-                  placeholder="YYYY-MM-DD"
-                />
+                <TouchableOpacity
+                  style={[styles.input, styles.dateInput]}
+                  onPress={() => setShowEndDatePicker(true)}
+                >
+                  <Ionicons
+                    name="calendar-outline"
+                    size={18}
+                    color="#6B7280"
+                    style={styles.dateIcon}
+                  />
+                  <Text
+                    style={[
+                      styles.dateTextInput,
+                      !formData.endsAt && styles.datePlaceholder,
+                    ]}
+                  >
+                    {formData.endsAt ? formatDate(formData.endsAt) : "Select end date"}
+                  </Text>
+                </TouchableOpacity>
               </View>
             </ScrollView>
 
@@ -658,6 +746,25 @@ export default function AdminSubscriptions() {
           </View>
         </View>
       </Modal>
+
+      {showStartDatePicker && (
+        <DateTimePicker
+          value={getDateValue(formData.startsAt)}
+          mode="date"
+          display={Platform.OS === "ios" ? "spinner" : "default"}
+          onChange={handleStartDateChange}
+        />
+      )}
+
+      {showEndDatePicker && (
+        <DateTimePicker
+          value={getDateValue(formData.endsAt || formData.startsAt)}
+          mode="date"
+          display={Platform.OS === "ios" ? "spinner" : "default"}
+          minimumDate={formData.startsAt ? getDateValue(formData.startsAt) : undefined}
+          onChange={handleEndDateChange}
+        />
+      )}
     </View>
   );
 }
@@ -910,6 +1017,21 @@ const styles = StyleSheet.create({
   radioTextSelected: {
     color: "#ffffff",
     fontWeight: "600",
+  },
+  dateInput: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  dateIcon: {
+    marginRight: 4,
+  },
+  dateTextInput: {
+    fontSize: 16,
+    color: "#374151",
+  },
+  datePlaceholder: {
+    color: "#9CA3AF",
   },
   modalFooter: {
     flexDirection: "row",

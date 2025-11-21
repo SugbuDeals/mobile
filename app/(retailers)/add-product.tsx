@@ -44,6 +44,19 @@ export default function AddProduct() {
   const [showSubscriptionOverlay, setShowSubscriptionOverlay] = useState(false);
   const [isUpgrading, setIsUpgrading] = useState(false);
 
+  const resetForm = () => {
+    setProductName("");
+    setDescription("");
+    setPrice("");
+    setStock("");
+    setIsActive(true);
+    setValidationErrors({});
+    setImageUri(null);
+    setImageUrl(null);
+    setSelectedCategoryId(null);
+    setShowCategoryList(false);
+  };
+
   // Get product limit based on subscription
   const getMaxProducts = () => {
     if (!activeSubscription) return MAX_PRODUCTS_FREE;
@@ -201,6 +214,7 @@ export default function AddProduct() {
         isActive,
         storeId: userStore.id, // Use user's store ID
         ...(typeof imageUrl === "string" && imageUrl.length > 0 ? { imageUrl } : {}), // Include imageUrl if available and valid
+        ...(selectedCategoryId ? { categoryId: selectedCategoryId } : {}),
       };
 
       console.log("Creating product with data:", productData);
@@ -215,8 +229,16 @@ export default function AddProduct() {
         "Success!", 
         "Product has been added to your inventory successfully.", 
         [
+          {
+            text: "Add Another",
+            style: "default",
+            onPress: () => {
+              resetForm();
+            },
+          },
           { 
             text: "View Inventory", 
+            style: "cancel",
             onPress: () => router.push("/(retailers)/products") 
           }
         ]

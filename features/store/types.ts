@@ -3,6 +3,10 @@ export type Store = {
   name: string;
   description: string;
   imageUrl?: string;
+  /**
+   * Optional store banner image (wide hero image shown on consumer store page)
+   */
+  bannerUrl?: string;
   createdAt: Date;
   verificationStatus: "UNVERIFIED" | "VERIFIED";
   ownerId?: number;
@@ -39,6 +43,7 @@ export type CreateProductDTO = {
   isActive?: boolean;
   storeId: number;
   imageUrl?: string;
+  categoryId?: number | null;
 };
 
 export type UpdateProductDTO = {
@@ -48,6 +53,7 @@ export type UpdateProductDTO = {
   stock?: number;
   isActive?: boolean;
   imageUrl?: string;
+  categoryId?: number | null;
 };
 
 export type CreateStoreDTO = {
@@ -55,6 +61,7 @@ export type CreateStoreDTO = {
   description: string;
   ownerId: number;
   imageUrl?: string;
+  bannerUrl?: string;
   latitude?: number;
   longitude?: number;
   address?: string;
@@ -68,6 +75,7 @@ export type UpdateStoreDTO = {
   name?: string;
   description?: string;
   imageUrl?: string;
+  bannerUrl?: string;
   verificationStatus?: "UNVERIFIED" | "VERIFIED";
   ownerId?: number;
   latitude?: number;

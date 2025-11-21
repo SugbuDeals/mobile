@@ -45,7 +45,9 @@ export default function Settings() {
   const [isSavingStore, setIsSavingStore] = useState(false);
   const [isSavingUser, setIsSavingUser] = useState(false);
   const [uploadingLogo, setUploadingLogo] = useState(false);
+  const [uploadingBanner, setUploadingBanner] = useState(false);
   const [storeLogoUrl, setStoreLogoUrl] = useState<string | undefined>(undefined);
+  const [storeBannerUrl, setStoreBannerUrl] = useState<string | undefined>(undefined);
   const [address, setAddress] = useState("");
   const [latitude, setLatitude] = useState<number | undefined>(undefined);
   const [longitude, setLongitude] = useState<number | undefined>(undefined);
@@ -61,6 +63,9 @@ export default function Settings() {
       setStoreName(userStore.name || "");
       setStoreDescription(userStore.description || "");
       setStoreLogoUrl(userStore.imageUrl || undefined);
+      // Banner is optional and may not exist on older stores
+      // @ts-ignore - backend may or may not already expose this field
+      setStoreBannerUrl((userStore as any).bannerUrl || undefined);
       setAddress(userStore.address || "");
       setLatitude(userStore.latitude);
       setLongitude(userStore.longitude);
@@ -80,6 +85,9 @@ export default function Settings() {
     if (userStore) {
       setStoreName(userStore.name || "");
       setStoreDescription(userStore.description || "");
+      setStoreLogoUrl(userStore.imageUrl || undefined);
+      // @ts-ignore
+      setStoreBannerUrl((userStore as any).bannerUrl || undefined);
     }
     setIsEditingStore(false);
   };
@@ -134,6 +142,12 @@ export default function Settings() {
       if (typeof storeLogoUrl === 'string' && storeLogoUrl.length > 0 && storeLogoUrl !== (userStore.imageUrl || undefined)) {
         storeUpdateData.imageUrl = storeLogoUrl;
       }
+      // Only send bannerUrl if it has changed
+      // @ts-ignore - allow reading potential bannerUrl field even if not on typings yet on backend
+      const currentBanner = (userStore as any).bannerUrl || undefined;
+      if (typeof storeBannerUrl === 'string' && storeBannerUrl.length > 0 && storeBannerUrl !== currentBanner) {
+        storeUpdateData.bannerUrl = storeBannerUrl;
+      }
       if ((address || "") !== (userStore.address || "")) {
         storeUpdateData.address = address;
       }
@@ -149,6 +163,7 @@ export default function Settings() {
         storeUpdateData.name !== undefined ||
         storeUpdateData.description !== undefined ||
         storeUpdateData.imageUrl !== undefined ||
+        storeUpdateData.bannerUrl !== undefined ||
         storeUpdateData.address !== undefined ||
         storeUpdateData.latitude !== undefined ||
         storeUpdateData.longitude !== undefined
@@ -242,6 +257,33 @@ export default function Settings() {
       Alert.alert('Upload Error', e?.message || 'Failed to upload logo');
     } finally {
       setUploadingLogo(false);
+    }
+  };
+
+  const pickStoreBanner = async () => {
+    try {
+      const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (permission.status !== 'granted') {
+        Alert.alert('Permission required', 'Please allow access to your photos.');
+        return;
+      }
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        // Wide aspect ratio for hero banner
+        aspect: [3, 1],
+        quality: 0.8,
+      });
+      if (result.canceled || !result.assets?.[0]?.uri) return;
+      if (!accessToken) { Alert.alert('Error', 'You must be logged in.'); return; }
+      setUploadingBanner(true);
+      const uploaded = await uploadFile(result.assets[0].uri, accessToken);
+      setStoreBannerUrl(uploaded.url || uploaded.filename);
+      Alert.alert('Success', 'Banner uploaded. Save Store to apply.');
+    } catch (e: any) {
+      Alert.alert('Upload Error', e?.message || 'Failed to upload banner');
+    } finally {
+      setUploadingBanner(false);
     }
   };
 
@@ -476,6 +518,31 @@ export default function Settings() {
               </View>
               {!isEditingStore && (
                 <Text style={[styles.helperText, { marginTop: 8 }]}>Tap "Edit Store Details" to change your logo.</Text>
+              )}
+            </View>
+          </View>
+
+          <View style={styles.inputGroup}>
+            <View style={styles.labelContainer}>
+              <Text style={styles.label}>Store Banner</Text>
+            </View>
+            <View style={[styles.uploadArea, (!isEditingStore) && styles.disabledUploadArea]}>
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
+                {storeBannerUrl ? (
+                  <Image source={{ uri: storeBannerUrl }} style={{ width: 120, height: 40, borderRadius: 8 }} />
+                ) : (
+                  <View style={[styles.uploadIcon, { width: 60, height: 40, borderRadius: 8 }]}>
+                    <Ionicons name="image-outline" size={20} color="#D1D5DB" />
+                  </View>
+                )}
+                <TouchableOpacity onPress={pickStoreBanner} disabled={!isEditingStore || uploadingBanner}>
+                  <Text style={{ color: (!isEditingStore || uploadingBanner) ? "#9CA3AF" : "#277874", fontWeight: "600" }}>
+                    {uploadingBanner ? "Uploading..." : storeBannerUrl ? "Change Banner" : "Upload Banner"}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+              {!isEditingStore && (
+                <Text style={[styles.helperText, { marginTop: 8 }]}>Tap "Edit Store Details" to change your banner.</Text>
               )}
             </View>
           </View>

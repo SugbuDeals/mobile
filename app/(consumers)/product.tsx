@@ -71,6 +71,17 @@ export default function ProductDetailScreen() {
     if (rawLogo.startsWith('/')) return `${env.API_BASE_URL}${rawLogo}`;
     return `${env.API_BASE_URL}/files/${rawLogo}`;
   })();
+
+  // Compute store banner for this product's store (used in header)
+  const bannerFromList = (stores.find((s: any) => s.id === productStoreId) as any)?.bannerUrl as string | undefined;
+  const bannerFromSelected = (selectedStore && selectedStore.id === productStoreId) ? (selectedStore as any).bannerUrl : undefined;
+  const rawBanner = bannerFromSelected || bannerFromList;
+  const bannerUrl = (() => {
+    if (!rawBanner) return undefined;
+    if (/^https?:\/\//i.test(rawBanner)) return rawBanner;
+    if (rawBanner.startsWith('/')) return `${env.API_BASE_URL}${rawBanner}`;
+    return `${env.API_BASE_URL}/files/${rawBanner}`;
+  })();
   return (
     <SafeAreaView style={styles.safeArea}>
       <StatusBar barStyle="dark-content" backgroundColor="#fff" />
@@ -82,6 +93,7 @@ export default function ProductDetailScreen() {
           storeName={productStore}
           storeId={productStoreId}
           logoUrl={logoUrl}
+          bannerUrl={bannerUrl}
           onOpenStore={() =>
             router.push({
               pathname: "/(consumers)/storedetails",
@@ -556,11 +568,13 @@ function StoreHeader({
   storeName,
   storeId,
   logoUrl,
+  bannerUrl,
   onOpenStore,
 }: {
   storeName: string;
   storeId?: number;
   logoUrl?: string;
+  bannerUrl?: string;
   onOpenStore?: () => void;
 }) {
   const params = useLocalSearchParams() as Record<string, string | undefined>;
@@ -578,10 +592,17 @@ function StoreHeader({
   const description = (store as any)?.description || "";
   return (
     <View style={hdrStyles.container}>
-      <Image
-        source={require("../../assets/images/partial-react-logo.png")}
-        style={hdrStyles.bannerImage}
-      />
+      {bannerUrl ? (
+        <Image
+          source={{ uri: bannerUrl }}
+          style={hdrStyles.bannerImage}
+        />
+      ) : (
+        <Image
+          source={require("../../assets/images/partial-react-logo.png")}
+          style={hdrStyles.bannerImage}
+        />
+      )}
       <View style={hdrStyles.storeInfoContainer}>
         <View style={hdrStyles.logoAndName}>
           <Image
@@ -632,9 +653,9 @@ const hdrStyles = StyleSheet.create({
     borderBottomColor: "#f0f0f0",
   },
   bannerImage: {
-    width: screen.width - 40,
     height: 200,
-    borderRadius: 12,
+    marginLeft: -20,
+    marginRight: -20,
     marginBottom: 0,
   },
   storeInfoContainer: {

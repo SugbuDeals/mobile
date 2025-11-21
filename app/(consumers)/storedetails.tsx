@@ -6,15 +6,15 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import React from "react";
 import {
-    Image,
-    SafeAreaView,
-    ScrollView,
-    StatusBar,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
+  Image,
+  SafeAreaView,
+  ScrollView,
+  StatusBar,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from "react-native";
 
 export default function StoreDetailsScreen() {
@@ -190,11 +190,18 @@ function StoreHero({ storeName }: { storeName: string }) {
   }, [storeId]);
   const storeFromList = stores?.find((s: any) => s.id === storeId);
   const rawLogo = ((selectedStore && selectedStore.id === storeId) ? (selectedStore as any).imageUrl : undefined) || (storeFromList as any)?.imageUrl;
+  const rawBanner = ((selectedStore && selectedStore.id === storeId) ? (selectedStore as any).bannerUrl : undefined) || (storeFromList as any)?.bannerUrl;
   const logoUrl = (() => {
     if (!rawLogo) return undefined;
     if (/^https?:\/\//i.test(rawLogo)) return rawLogo;
     if (rawLogo.startsWith('/')) return `${env.API_BASE_URL}${rawLogo}`;
     return `${env.API_BASE_URL}/files/${rawLogo}`;
+  })();
+  const bannerUrl = (() => {
+    if (!rawBanner) return undefined;
+    if (/^https?:\/\//i.test(rawBanner)) return rawBanner;
+    if (rawBanner.startsWith('/')) return `${env.API_BASE_URL}${rawBanner}`;
+    return `${env.API_BASE_URL}/files/${rawBanner}`;
   })();
   const description = (selectedStore && selectedStore.id === storeId ? (selectedStore as any)?.description : undefined) || (storeFromList as any)?.description || "";
   const isSaved = helpers.isStoreBookmarked(storeId);
@@ -206,11 +213,19 @@ function StoreHero({ storeName }: { storeName: string }) {
   return (
     <View style={heroStyles.container}>
       <View style={heroStyles.bannerWrapper}>
-        <Image
-          source={require("../../assets/images/partial-react-logo.png")}
-          resizeMode="cover"
-          style={heroStyles.banner}
-        />
+        {bannerUrl ? (
+          <Image
+            source={{ uri: bannerUrl }}
+            resizeMode="cover"
+            style={heroStyles.banner}
+          />
+        ) : (
+          <Image
+            source={require("../../assets/images/partial-react-logo.png")}
+            resizeMode="cover"
+            style={heroStyles.banner}
+          />
+        )}
       </View>
       <View style={heroStyles.topRightRow}>
         <TouchableOpacity onPress={toggle} activeOpacity={0.8}>
@@ -328,7 +343,7 @@ const heroStyles = StyleSheet.create({
     marginRight: -20,
     backgroundColor: "#d1d1d1",
   },
-  banner: { width: "100%", height: 200, borderRadius: 12 },
+  banner: { width: "100%", height: 200, marginTop: -10 },
   topRightRow: {
     flexDirection: "row",
     justifyContent: "flex-end",
