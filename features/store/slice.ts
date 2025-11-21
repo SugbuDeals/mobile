@@ -1,6 +1,6 @@
 import { createSlice } from "@reduxjs/toolkit";
-import { createProduct, createPromotion, createStore, deleteProduct, deletePromotion, findActivePromotions, findNearbyStores, findProductById, findProducts, findPromotions, findStoreById, findStores, findUserStore, getActiveSubscription, joinSubscription, updateProduct, updatePromotion, updateStore } from "./thunk";
-import { Store, Subscription } from "./types";
+import { cancelRetailerSubscription, createProduct, createPromotion, createStore, createSubscription, deleteProduct, deletePromotion, deleteSubscription, findActivePromotions, findNearbyStores, findProductById, findProducts, findPromotions, findStoreById, findStores, findSubscriptions, findUserStore, getActiveSubscription, getSubscriptionAnalytics, joinSubscription, updateProduct, updatePromotion, updateRetailerSubscription, updateStore, updateSubscription } from "./thunk";
+import { Store, Subscription, SubscriptionAnalytics } from "./types";
 
 const initialState: {
   stores: Store[];
@@ -11,6 +11,8 @@ const initialState: {
   promotions: any[];
   activePromotions: any[];
   activeSubscription: Subscription | null;
+  subscriptions: Subscription[];
+  subscriptionAnalytics: SubscriptionAnalytics | null;
   loading: boolean;
   error: string | null;
 } = {
@@ -22,6 +24,8 @@ const initialState: {
   promotions: [],
   activePromotions: [],
   activeSubscription: null,
+  subscriptions: [],
+  subscriptionAnalytics: null,
   loading: false,
   error: null,
 };
@@ -357,6 +361,107 @@ const storeSlice = createSlice({
       .addCase(joinSubscription.rejected, (state, action) => {
         state.loading = false;
         state.error = action.payload?.message || "Join subscription failed";
+      })
+      // Find Subscriptions
+      .addCase(findSubscriptions.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(findSubscriptions.fulfilled, (state, action) => {
+        state.loading = false;
+        state.error = null;
+        state.subscriptions = action.payload;
+      })
+      .addCase(findSubscriptions.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload?.message || "Find subscriptions failed";
+      })
+      // Cancel Retailer Subscription
+      .addCase(cancelRetailerSubscription.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(cancelRetailerSubscription.fulfilled, (state, action) => {
+        state.loading = false;
+        state.error = null;
+        state.activeSubscription = action.payload;
+      })
+      .addCase(cancelRetailerSubscription.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload?.message || "Cancel subscription failed";
+      })
+      // Update Retailer Subscription
+      .addCase(updateRetailerSubscription.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(updateRetailerSubscription.fulfilled, (state, action) => {
+        state.loading = false;
+        state.error = null;
+        state.activeSubscription = action.payload;
+      })
+      .addCase(updateRetailerSubscription.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload?.message || "Update subscription failed";
+      })
+      // Create Subscription (Admin)
+      .addCase(createSubscription.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(createSubscription.fulfilled, (state, action) => {
+        state.loading = false;
+        state.error = null;
+        state.subscriptions.push(action.payload);
+      })
+      .addCase(createSubscription.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload?.message || "Create subscription failed";
+      })
+      // Update Subscription (Admin)
+      .addCase(updateSubscription.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(updateSubscription.fulfilled, (state, action) => {
+        state.loading = false;
+        state.error = null;
+        const index = state.subscriptions.findIndex(s => s.id === action.payload.id);
+        if (index !== -1) {
+          state.subscriptions[index] = action.payload;
+        }
+      })
+      .addCase(updateSubscription.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload?.message || "Update subscription failed";
+      })
+      // Delete Subscription (Admin)
+      .addCase(deleteSubscription.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(deleteSubscription.fulfilled, (state, action) => {
+        state.loading = false;
+        state.error = null;
+        state.subscriptions = state.subscriptions.filter(s => s.id !== action.payload.id);
+      })
+      .addCase(deleteSubscription.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload?.message || "Delete subscription failed";
+      })
+      // Get Subscription Analytics (Admin)
+      .addCase(getSubscriptionAnalytics.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(getSubscriptionAnalytics.fulfilled, (state, action) => {
+        state.loading = false;
+        state.error = null;
+        state.subscriptionAnalytics = action.payload;
+      })
+      .addCase(getSubscriptionAnalytics.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload?.message || "Get subscription analytics failed";
       });
   },
 });

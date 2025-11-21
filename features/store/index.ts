@@ -1,11 +1,11 @@
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import * as thunk from "./thunk";
-import { CreateProductDTO, CreatePromotionDTO, CreateStoreDTO, JoinSubscriptionDTO, UpdateProductDTO, UpdatePromotionDTO, UpdateStoreDTO } from "./types";
+import { CreateProductDTO, CreatePromotionDTO, CreateStoreDTO, CreateSubscriptionDTO, JoinSubscriptionDTO, UpdateProductDTO, UpdatePromotionDTO, UpdateStoreDTO, UpdateSubscriptionDTO } from "./types";
 export { useStoreManagement } from "./hooks";
 
 export const useStore = () => {
   const dispatch = useAppDispatch();
-  const { stores, userStore, nearbyStores, products, promotions, activePromotions, activeSubscription, loading, error } = useAppSelector((state) => state.store);
+  const { stores, userStore, nearbyStores, products, promotions, activePromotions, activeSubscription, subscriptions, subscriptionAnalytics, loading, error } = useAppSelector((state) => state.store);
 
   const findStores = () => dispatch(thunk.findStores());
   const findUserStore = (userId: number) => dispatch(thunk.findUserStore(userId));
@@ -36,6 +36,20 @@ export const useStore = () => {
     dispatch(thunk.getActiveSubscription(userId));
   const joinSubscription = (data: JoinSubscriptionDTO) => 
     dispatch(thunk.joinSubscription(data));
+  const findSubscriptions = (filters?: { status?: "ACTIVE" | "CANCELLED" | "EXPIRED" | "PENDING" }) => 
+    dispatch(thunk.findSubscriptions(filters || {}));
+  const cancelRetailerSubscription = () => 
+    dispatch(thunk.cancelRetailerSubscription());
+  const updateRetailerSubscription = (data: JoinSubscriptionDTO) => 
+    dispatch(thunk.updateRetailerSubscription(data));
+  const createSubscription = (data: CreateSubscriptionDTO) => 
+    dispatch(thunk.createSubscription(data));
+  const updateSubscription = (data: { id: number } & UpdateSubscriptionDTO) => 
+    dispatch(thunk.updateSubscription(data));
+  const deleteSubscription = (id: number) => 
+    dispatch(thunk.deleteSubscription(id));
+  const getSubscriptionAnalytics = () => 
+    dispatch(thunk.getSubscriptionAnalytics());
 
   return {
     action: {
@@ -57,6 +71,13 @@ export const useStore = () => {
       findStoreById,
       getActiveSubscription,
       joinSubscription,
+      findSubscriptions,
+      cancelRetailerSubscription,
+      updateRetailerSubscription,
+      createSubscription,
+      updateSubscription,
+      deleteSubscription,
+      getSubscriptionAnalytics,
     },
     state: {
       stores,
@@ -66,6 +87,8 @@ export const useStore = () => {
       promotions,
       activePromotions,
       activeSubscription,
+      subscriptions,
+      subscriptionAnalytics,
       loading,
       error,
     },

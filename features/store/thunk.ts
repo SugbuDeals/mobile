@@ -1,7 +1,7 @@
 import env from "@/config/env";
 import { RootState } from "@/store/types";
 import { createAsyncThunk } from "@reduxjs/toolkit";
-import { CreateProductDTO, CreatePromotionDTO, CreateStoreDTO, JoinSubscriptionDTO, Product, Promotion, Store, Subscription, UpdateProductDTO, UpdatePromotionDTO, UpdateStoreDTO } from "./types";
+import { CreateProductDTO, CreatePromotionDTO, CreateStoreDTO, CreateSubscriptionDTO, JoinSubscriptionDTO, Product, Promotion, Store, Subscription, SubscriptionAnalytics, UpdateProductDTO, UpdatePromotionDTO, UpdateStoreDTO, UpdateSubscriptionDTO } from "./types";
 
 export const findStores = createAsyncThunk<
   Store[],
@@ -809,6 +809,279 @@ export const joinSubscription = createAsyncThunk<
       const error = await response.json().catch(() => ({}));
       return rejectWithValue({
         message: error.message || "Join subscription failed",
+      });
+    }
+
+    return response.json();
+  } catch (error) {
+    return rejectWithValue({
+      message:
+        error instanceof Error ? error.message : "An unknown error occured",
+    });
+  }
+});
+
+export const findSubscriptions = createAsyncThunk<
+  Subscription[],
+  { status?: "ACTIVE" | "CANCELLED" | "EXPIRED" | "PENDING" },
+  { rejectValue: { message: string }; state: RootState }
+>("store/findSubscriptions", async ({ status }, { rejectWithValue, getState }) => {
+  try {
+    const { accessToken } = getState().auth;
+
+    if (!accessToken) {
+      return rejectWithValue({
+        message: "Authentication required. Please log in again.",
+      });
+    }
+
+    const params = new URLSearchParams();
+    if (status) params.append("status", status);
+
+    const response = await fetch(`${env.API_BASE_URL}/subscription?${params.toString()}`, {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${accessToken}`,
+      },
+    });
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({}));
+      return rejectWithValue({
+        message: error.message || "Find subscriptions failed",
+      });
+    }
+
+    return response.json();
+  } catch (error) {
+    return rejectWithValue({
+      message:
+        error instanceof Error ? error.message : "An unknown error occured",
+    });
+  }
+});
+
+export const cancelRetailerSubscription = createAsyncThunk<
+  Subscription,
+  void,
+  { rejectValue: { message: string }; state: RootState }
+>("store/cancelRetailerSubscription", async (_, { rejectWithValue, getState }) => {
+  try {
+    const { accessToken } = getState().auth;
+
+    if (!accessToken) {
+      return rejectWithValue({
+        message: "Authentication required. Please log in again.",
+      });
+    }
+
+    const response = await fetch(`${env.API_BASE_URL}/subscription/retailer/cancel`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${accessToken}`,
+      },
+    });
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({}));
+      return rejectWithValue({
+        message: error.message || "Cancel subscription failed",
+      });
+    }
+
+    return response.json();
+  } catch (error) {
+    return rejectWithValue({
+      message:
+        error instanceof Error ? error.message : "An unknown error occured",
+    });
+  }
+});
+
+export const updateRetailerSubscription = createAsyncThunk<
+  Subscription,
+  JoinSubscriptionDTO,
+  { rejectValue: { message: string }; state: RootState }
+>("store/updateRetailerSubscription", async (data, { rejectWithValue, getState }) => {
+  try {
+    const { accessToken } = getState().auth;
+
+    if (!accessToken) {
+      return rejectWithValue({
+        message: "Authentication required. Please log in again.",
+      });
+    }
+
+    const response = await fetch(`${env.API_BASE_URL}/subscription/retailer/update`, {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${accessToken}`,
+      },
+      body: JSON.stringify(data),
+    });
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({}));
+      return rejectWithValue({
+        message: error.message || "Update subscription failed",
+      });
+    }
+
+    return response.json();
+  } catch (error) {
+    return rejectWithValue({
+      message:
+        error instanceof Error ? error.message : "An unknown error occured",
+    });
+  }
+});
+
+// Admin Subscription thunks
+export const createSubscription = createAsyncThunk<
+  Subscription,
+  CreateSubscriptionDTO,
+  { rejectValue: { message: string }; state: RootState }
+>("store/createSubscription", async (data, { rejectWithValue, getState }) => {
+  try {
+    const { accessToken } = getState().auth;
+
+    if (!accessToken) {
+      return rejectWithValue({
+        message: "Authentication required. Please log in again.",
+      });
+    }
+
+    const response = await fetch(`${env.API_BASE_URL}/subscription`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${accessToken}`,
+      },
+      body: JSON.stringify(data),
+    });
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({}));
+      return rejectWithValue({
+        message: error.message || "Create subscription failed",
+      });
+    }
+
+    return response.json();
+  } catch (error) {
+    return rejectWithValue({
+      message:
+        error instanceof Error ? error.message : "An unknown error occured",
+    });
+  }
+});
+
+export const updateSubscription = createAsyncThunk<
+  Subscription,
+  { id: number } & UpdateSubscriptionDTO,
+  { rejectValue: { message: string }; state: RootState }
+>("store/updateSubscription", async ({ id, ...data }, { rejectWithValue, getState }) => {
+  try {
+    const { accessToken } = getState().auth;
+
+    if (!accessToken) {
+      return rejectWithValue({
+        message: "Authentication required. Please log in again.",
+      });
+    }
+
+    const response = await fetch(`${env.API_BASE_URL}/subscription/${id}`, {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${accessToken}`,
+      },
+      body: JSON.stringify(data),
+    });
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({}));
+      return rejectWithValue({
+        message: error.message || "Update subscription failed",
+      });
+    }
+
+    return response.json();
+  } catch (error) {
+    return rejectWithValue({
+      message:
+        error instanceof Error ? error.message : "An unknown error occured",
+    });
+  }
+});
+
+export const deleteSubscription = createAsyncThunk<
+  { id: number },
+  number,
+  { rejectValue: { message: string }; state: RootState }
+>("store/deleteSubscription", async (id, { rejectWithValue, getState }) => {
+  try {
+    const { accessToken } = getState().auth;
+
+    if (!accessToken) {
+      return rejectWithValue({
+        message: "Authentication required. Please log in again.",
+      });
+    }
+
+    const response = await fetch(`${env.API_BASE_URL}/subscription/${id}`, {
+      method: "DELETE",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${accessToken}`,
+      },
+    });
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({}));
+      return rejectWithValue({
+        message: error.message || "Delete subscription failed",
+      });
+    }
+
+    return { id };
+  } catch (error) {
+    return rejectWithValue({
+      message:
+        error instanceof Error ? error.message : "An unknown error occured",
+    });
+  }
+});
+
+export const getSubscriptionAnalytics = createAsyncThunk<
+  SubscriptionAnalytics,
+  void,
+  { rejectValue: { message: string }; state: RootState }
+>("store/getSubscriptionAnalytics", async (_, { rejectWithValue, getState }) => {
+  try {
+    const { accessToken } = getState().auth;
+
+    if (!accessToken) {
+      return rejectWithValue({
+        message: "Authentication required. Please log in again.",
+      });
+    }
+
+    const response = await fetch(`${env.API_BASE_URL}/subscription/admin/analytics`, {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${accessToken}`,
+      },
+    });
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({}));
+      return rejectWithValue({
+        message: error.message || "Get subscription analytics failed",
       });
     }
 

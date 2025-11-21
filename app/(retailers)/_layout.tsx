@@ -6,12 +6,12 @@ import { LinearGradient } from "expo-linear-gradient";
 import { Tabs, router } from "expo-router";
 import React from "react";
 import {
-    Platform,
-    StatusBar,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View,
+  Platform,
+  StatusBar,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from "react-native";
 
 const RetailerHeader = () => {
@@ -142,6 +142,16 @@ export default function RetailersLayout() {
         options={{
           title: "Categories",
           href: null,
+        }}
+      />
+      <Tabs.Screen
+        name="subscription"
+        options={{
+          title: "Subscription",
+          headerShown: false,
+          tabBarIcon: ({ color, size = 24 }) => (
+            <Ionicons name="card" color={color} size={size} />
+          ),
         }}
       />
       <Tabs.Screen

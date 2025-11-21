@@ -131,3 +131,38 @@ export type Subscription = {
 export type JoinSubscriptionDTO = {
   subscriptionId: number;
 };
+
+export type CreateSubscriptionDTO = {
+  userId: number;
+  plan?: "FREE" | "BASIC" | "PREMIUM";
+  status?: "ACTIVE" | "CANCELLED" | "EXPIRED" | "PENDING";
+  billingCycle?: "MONTHLY" | "YEARLY";
+  price?: string;
+  startsAt?: string;
+  endsAt?: string;
+};
+
+export type UpdateSubscriptionDTO = {
+  plan?: "FREE" | "BASIC" | "PREMIUM";
+  status?: "ACTIVE" | "CANCELLED" | "EXPIRED" | "PENDING";
+  billingCycle?: "MONTHLY" | "YEARLY";
+  price?: string;
+  startsAt?: string;
+  endsAt?: string;
+  cancelledAt?: string;
+};
+
+export type SubscriptionAnalytics = {
+  total: number;
+  active: number;
+  cancelled: number;
+  expired: number;
+  pending: number;
+  byPlan: Array<{ plan: string; count: number }>;
+  byStatus: Array<{ status: string; count: number }>;
+  byBillingCycle: Array<{ billingCycle: string; count: number }>;
+  totalRevenue: string;
+  averagePrice: string;
+  recentSubscriptions: number;
+  subscriptionsThisMonth: number;
+};

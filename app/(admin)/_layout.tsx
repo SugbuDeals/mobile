@@ -126,6 +126,20 @@ export default function AdminLayout() {
           }}
         />
         <Tabs.Screen
+          name="subscriptions"
+          options={{
+            title: "Subscriptions",
+            header: () => <AdminHeader title="Subscription Management" subtitle="Configure subscription plans" />,
+            tabBarIcon: ({ color, size, focused }) => (
+              <Ionicons 
+                name={focused ? "card" : "card-outline"} 
+                size={size} 
+                color={color} 
+              />
+            ),
+          }}
+        />
+        <Tabs.Screen
           name="notifications"
           options={{
             title: "Notifications",
