@@ -1,5 +1,5 @@
 import { createSlice } from "@reduxjs/toolkit";
-import { cancelRetailerSubscription, createProduct, createPromotion, createStore, createSubscription, deleteProduct, deletePromotion, deleteSubscription, findActivePromotions, findNearbyStores, findProductById, findProducts, findPromotions, findStoreById, findStores, findSubscriptions, findUserStore, getActiveSubscription, getSubscriptionAnalytics, joinSubscription, updateProduct, updatePromotion, updateRetailerSubscription, updateStore, updateSubscription } from "./thunk";
+import { cancelRetailerSubscription, createProduct, createPromotion, createStore, createSubscription, deleteProduct, deletePromotion, deleteSubscription, findActivePromotions, findNearbyStores, findProductById, findProducts, findPromotions, findStoreById, findStores, findSubscriptions, findUserStore, getActiveSubscription, getSubscriptionAnalytics, joinSubscription, updateProduct, updateProductAdminStatus, updatePromotion, updateRetailerSubscription, updateStore, updateStoreAdminStatus, updateSubscription } from "./thunk";
 import { Store, Subscription, SubscriptionAnalytics } from "./types";
 
 const initialState: {
@@ -206,6 +206,29 @@ const storeSlice = createSlice({
         state.loading = false;
         state.error = action.payload?.message || "Update store failed";
       })
+      // Update Store Admin Status
+      .addCase(updateStoreAdminStatus.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(updateStoreAdminStatus.fulfilled, (state, action) => {
+        state.loading = false;
+        state.error = null;
+        const storeIndex = state.stores.findIndex(store => store.id === action.payload.id);
+        if (storeIndex !== -1) {
+          state.stores[storeIndex] = action.payload;
+        }
+        if (state.userStore?.id === action.payload.id) {
+          state.userStore = action.payload;
+        }
+        if (state.selectedStore?.id === action.payload.id) {
+          state.selectedStore = action.payload;
+        }
+      })
+      .addCase(updateStoreAdminStatus.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload?.message || "Update store status failed";
+      })
       // Find Store By ID
       .addCase(findStoreById.pending, (state) => {
         state.loading = true;
@@ -251,6 +274,23 @@ const storeSlice = createSlice({
       .addCase(updateProduct.rejected, (state, action) => {
         state.loading = false;
         state.error = action.payload?.message || "Update product failed";
+      })
+      // Update Product Admin Status
+      .addCase(updateProductAdminStatus.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(updateProductAdminStatus.fulfilled, (state, action) => {
+        state.loading = false;
+        state.error = null;
+        const index = state.products.findIndex(product => product.id === action.payload.id);
+        if (index !== -1) {
+          state.products[index] = action.payload;
+        }
+      })
+      .addCase(updateProductAdminStatus.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload?.message || "Update product status failed";
       })
       // Delete Product
       .addCase(deleteProduct.pending, (state) => {

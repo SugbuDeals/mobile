@@ -23,6 +23,8 @@ export const useLogin = () => {
 
   const deleteUserByAdmin = (id: number) =>
     dispatch(thunk.deleteUserByAdmin(id));
+  const approveRetailer = (id: number) =>
+    dispatch(thunk.approveRetailer(id));
 
   return {
     action: {
@@ -32,6 +34,7 @@ export const useLogin = () => {
       deleteUser,
       fetchAllUsers,
       deleteUserByAdmin,
+      approveRetailer,
     },
     state,
   };

@@ -1,12 +1,13 @@
 import { useLogin } from "@/features/auth";
 import { useStore } from "@/features/store";
 import { Ionicons } from "@expo/vector-icons";
-import React, { useEffect } from "react";
-import { ActivityIndicator, Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import React, { useEffect, useState } from "react";
+import { ActivityIndicator, Alert, Image, ScrollView, StyleSheet, Switch, Text, TouchableOpacity, View } from "react-native";
 
 export default function AdminViewStores() {
   const { state: storeState, action: storeActions } = useStore();
   const { state: authState, action: authActions } = useLogin();
+  const [storeActionLoading, setStoreActionLoading] = useState<Record<number, boolean>>({});
 
   useEffect(() => {
     storeActions.findStores();
@@ -14,6 +15,35 @@ export default function AdminViewStores() {
       authActions.fetchAllUsers();
     }
   }, []);
+
+  const toggleStoreLoading = (id: number, loading: boolean) => {
+    setStoreActionLoading((prev) => ({ ...prev, [id]: loading }));
+  };
+
+  const handleToggleStoreActive = async (storeId: number, nextValue: boolean) => {
+    toggleStoreLoading(storeId, true);
+    try {
+      await storeActions.updateStoreAdminStatus({ id: storeId, isActive: nextValue }).unwrap();
+      Alert.alert("Success", `Store has been ${nextValue ? "enabled" : "disabled"}.`);
+    } catch (error: any) {
+      Alert.alert("Error", error?.message || "Failed to update store status.");
+    } finally {
+      toggleStoreLoading(storeId, false);
+    }
+  };
+
+  const handleToggleVerification = async (storeId: number, currentStatus: "UNVERIFIED" | "VERIFIED") => {
+    const nextStatus = currentStatus === "VERIFIED" ? "UNVERIFIED" : "VERIFIED";
+    toggleStoreLoading(storeId, true);
+    try {
+      await storeActions.updateStoreAdminStatus({ id: storeId, verificationStatus: nextStatus }).unwrap();
+      Alert.alert("Success", `Store has been marked as ${nextStatus === "VERIFIED" ? "verified" : "unverified"}.`);
+    } catch (error: any) {
+      Alert.alert("Error", error?.message || "Failed to update verification status.");
+    } finally {
+      toggleStoreLoading(storeId, false);
+    }
+  };
 
   if (storeState.loading && storeState.stores.length === 0) {
     return (
@@ -59,12 +89,54 @@ export default function AdminViewStores() {
                         {store.verificationStatus === "VERIFIED" ? "Verified" : "Unverified"}
                       </Text>
                     </View>
+                    <View style={[styles.metaPill, { backgroundColor: store.isActive === false ? "#FEE2E2" : "#E0F2F1" }]}>
+                      <Ionicons name={store.isActive === false ? "power" : "flash"} size={14} color={store.isActive === false ? "#B91C1C" : "#047857"} />
+                      <Text style={[styles.metaText, { color: store.isActive === false ? "#991B1B" : "#065F46" }]}>
+                        {store.isActive === false ? "Disabled" : "Active"}
+                      </Text>
+                    </View>
                     {store.ownerId && authState.allUsers.length > 0 && !authState.allUsers.some((u) => u.id === store.ownerId) && (
                       <View style={[styles.metaPill, styles.deletePill]}>
                         <Ionicons name="alert-circle" size={14} color="#991B1B" />
                         <Text style={[styles.metaText, { color: "#991B1B" }]}>Recommended to delete</Text>
                       </View>
                     )}
+                  </View>
+                  <View style={styles.statusControls}>
+                    <TouchableOpacity
+                      style={[
+                        styles.actionButton,
+                        store.verificationStatus === "VERIFIED" ? styles.unverifyButton : styles.verifyButton,
+                        storeActionLoading[store.id] && styles.actionButtonDisabled,
+                      ]}
+                      onPress={() => handleToggleVerification(store.id, store.verificationStatus)}
+                      disabled={!!storeActionLoading[store.id]}
+                    >
+                      {storeActionLoading[store.id] ? (
+                        <ActivityIndicator size="small" color="#FFFFFF" />
+                      ) : (
+                        <>
+                          <Ionicons
+                            name={store.verificationStatus === "VERIFIED" ? "shield-outline" : "shield-checkmark"}
+                            size={16}
+                            color="#FFFFFF"
+                          />
+                          <Text style={styles.actionButtonText}>
+                            {store.verificationStatus === "VERIFIED" ? "Unverify" : "Verify"}
+                          </Text>
+                        </>
+                      )}
+                    </TouchableOpacity>
+                    <View style={styles.switchRow}>
+                      <Text style={styles.switchLabel}>{store.isActive === false ? "Disabled" : "Active"}</Text>
+                      <Switch
+                        value={store.isActive !== false}
+                        onValueChange={(value) => handleToggleStoreActive(store.id, value)}
+                        thumbColor="#ffffff"
+                        trackColor={{ false: "#FECACA", true: "#A7F3D0" }}
+                        disabled={!!storeActionLoading[store.id]}
+                      />
+                    </View>
                   </View>
                 </View>
                 <TouchableOpacity style={styles.chevron}>
@@ -168,6 +240,45 @@ const styles = StyleSheet.create({
   metaText: {
     fontSize: 12,
     fontWeight: "700",
+  },
+  statusControls: {
+    marginTop: 12,
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    gap: 12,
+  },
+  actionButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 8,
+    backgroundColor: "#065F46",
+  },
+  verifyButton: {
+    backgroundColor: "#059669",
+  },
+  unverifyButton: {
+    backgroundColor: "#DC2626",
+  },
+  actionButtonDisabled: {
+    opacity: 0.6,
+  },
+  actionButtonText: {
+    color: "#FFFFFF",
+    fontWeight: "600",
+  },
+  switchRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  switchLabel: {
+    fontSize: 13,
+    color: "#374151",
+    fontWeight: "600",
   },
   chevron: {
     padding: 6,

@@ -1,20 +1,53 @@
+import { useCatalog } from "@/features/catalog";
 import { useStore } from "@/features/store";
 import { Ionicons } from "@expo/vector-icons";
-import React, { useEffect, useState } from "react";
-import { ActivityIndicator, Image, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
+import React, { useEffect, useMemo, useState } from "react";
+import { ActivityIndicator, Alert, Image, ScrollView, StyleSheet, Switch, Text, TextInput, TouchableOpacity, View } from "react-native";
 
 export default function AdminViewProducts() {
   const { state: storeState, action: storeActions } = useStore();
+  const { state: catalogState, action: catalogActions } = useCatalog();
   const [query, setQuery] = useState("");
+  const [productStatusLoading, setProductStatusLoading] = useState<Record<number, boolean>>({});
 
   useEffect(() => {
     storeActions.findProducts();
     storeActions.findStores();
+    catalogActions.loadCategories();
   }, []);
+
+  const categoryMap = useMemo(() => {
+    const map: Record<number, string> = {};
+    (catalogState.categories || []).forEach((category) => {
+      if (category?.id) {
+        map[category.id] = category.name;
+      }
+    });
+    return map;
+  }, [catalogState.categories]);
 
   const products = storeState.products.filter((p) =>
     (p.name || "").toLowerCase().includes(query.toLowerCase())
   );
+
+  const handleToggleProductActive = async (productId: number, nextValue: boolean) => {
+    setProductStatusLoading((prev) => ({ ...prev, [productId]: true }));
+    try {
+      await storeActions.updateProductAdminStatus({ id: productId, isActive: nextValue }).unwrap();
+      Alert.alert("Success", `Product has been ${nextValue ? "enabled" : "disabled"}.`);
+    } catch (error: any) {
+      Alert.alert("Error", error?.message || "Failed to update product visibility.");
+    } finally {
+      setProductStatusLoading((prev) => ({ ...prev, [productId]: false }));
+    }
+  };
+
+  const getCategoryLabel = (product: any) => {
+    if (!product.categoryId) {
+      return "Uncategorized";
+    }
+    return categoryMap[product.categoryId] || `Category #${product.categoryId}`;
+  };
 
   if (storeState.loading && storeState.products.length === 0) {
     return (
@@ -83,11 +116,38 @@ export default function AdminViewProducts() {
                         {product.isActive ? "Active" : "Inactive"}
                       </Text>
                     </View>
+                    <View style={[styles.metaPill, { backgroundColor: "#E0E7FF" }]}>
+                      <Ionicons name="albums" size={14} color="#4338CA" />
+                      <Text style={[styles.metaText, { color: "#312E81" }]} numberOfLines={1}>
+                        {getCategoryLabel(product)}
+                      </Text>
+                    </View>
+                    {product.categoryId && (
+                      <View style={[styles.metaPill, { backgroundColor: "#F3F4F6" }]}>
+                        <Ionicons name="pricetags" size={14} color="#4B5563" />
+                        <Text style={[styles.metaText, { color: "#374151" }]}>ID: {product.categoryId}</Text>
+                      </View>
+                    )}
                     {isOrphanProduct(product.storeId) && (
                       <View style={[styles.metaPill, styles.deletePill]}>
                         <Ionicons name="alert-circle" size={14} color="#991B1B" />
                         <Text style={[styles.metaText, { color: "#991B1B" }]}>Recommended to delete</Text>
                       </View>
+                    )}
+                  </View>
+                  <View style={styles.productActions}>
+                    <View style={styles.switchRow}>
+                      <Text style={styles.switchLabel}>{product.isActive ? "Active" : "Disabled"}</Text>
+                      <Switch
+                        value={!!product.isActive}
+                        onValueChange={(value) => handleToggleProductActive(product.id, value)}
+                        trackColor={{ false: "#FECACA", true: "#A7F3D0" }}
+                        thumbColor="#FFFFFF"
+                        disabled={!!productStatusLoading[product.id]}
+                      />
+                    </View>
+                    {productStatusLoading[product.id] && (
+                      <ActivityIndicator size="small" color="#277874" />
                     )}
                   </View>
                 </View>
@@ -208,6 +268,22 @@ const styles = StyleSheet.create({
   metaText: {
     fontSize: 12,
     fontWeight: "700",
+  },
+  productActions: {
+    marginTop: 10,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  switchRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  switchLabel: {
+    fontSize: 13,
+    color: "#374151",
+    fontWeight: "600",
   },
   chevron: {
     padding: 6,

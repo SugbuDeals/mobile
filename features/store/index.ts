@@ -1,6 +1,6 @@
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import * as thunk from "./thunk";
-import { CreateProductDTO, CreatePromotionDTO, CreateStoreDTO, CreateSubscriptionDTO, JoinSubscriptionDTO, UpdateProductDTO, UpdatePromotionDTO, UpdateStoreDTO, UpdateSubscriptionDTO } from "./types";
+import { CreateProductDTO, CreatePromotionDTO, CreateStoreDTO, CreateSubscriptionDTO, JoinSubscriptionDTO, ManageStoreStatusDTO, UpdateProductDTO, UpdateProductStatusDTO, UpdatePromotionDTO, UpdateStoreDTO, UpdateSubscriptionDTO } from "./types";
 export { useStoreManagement } from "./hooks";
 
 export const useStore = () => {
@@ -17,6 +17,8 @@ export const useStore = () => {
     dispatch(thunk.createProduct(productData));
   const updateProduct = (productData: { id: number } & UpdateProductDTO) => 
     dispatch(thunk.updateProduct(productData));
+  const updateProductAdminStatus = (payload: { id: number } & UpdateProductStatusDTO) =>
+    dispatch(thunk.updateProductAdminStatus(payload));
   const deleteProduct = (productId: number) => dispatch(thunk.deleteProduct(productId));
   const findPromotions = () => dispatch(thunk.findPromotions());
   const findActivePromotions = (storeId?: number) => dispatch(thunk.findActivePromotions({ storeId }));
@@ -30,6 +32,8 @@ export const useStore = () => {
     dispatch(thunk.createStore(storeData));
   const updateStore = (storeData: { id: number } & UpdateStoreDTO) => 
     dispatch(thunk.updateStore(storeData));
+  const updateStoreAdminStatus = (payload: { id: number } & ManageStoreStatusDTO) =>
+    dispatch(thunk.updateStoreAdminStatus(payload));
   const findStoreById = (storeId: number) => 
     dispatch(thunk.findStoreById(storeId));
   const getActiveSubscription = (userId: number) => 
@@ -65,6 +69,7 @@ export const useStore = () => {
       findProductById,
       createProduct,
       updateProduct,
+      updateProductAdminStatus,
       deleteProduct,
       findPromotions,
       findActivePromotions,
@@ -73,6 +78,7 @@ export const useStore = () => {
       deletePromotion,
       createStore,
       updateStore,
+      updateStoreAdminStatus,
       findStoreById,
       getActiveSubscription,
       joinSubscription,

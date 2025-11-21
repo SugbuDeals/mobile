@@ -211,6 +211,39 @@
         ]
       }
     },
+    "/user/{id}/approve": {
+      "patch": {
+        "operationId": "UserController_approveRetailer",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "User id",
+            "schema": {
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Retailer approved successfully"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Admin: approve retailer account",
+        "tags": [
+          "Users"
+        ]
+      }
+    },
     "/store": {
       "get": {
         "operationId": "StoreController_findManyStores",
@@ -432,6 +465,45 @@
         ]
       }
     },
+    "/store/{id}/admin-status": {
+      "patch": {
+        "operationId": "StoreController_updateStoreAdminStatus",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "number"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ManageStoreStatusDTO"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Store status updated"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Admin: manage store verification / active status",
+        "tags": [
+          "Stores"
+        ]
+      }
+    },
     "/product": {
       "get": {
         "operationId": "ProductController_findManyProducts",
@@ -585,6 +657,45 @@
           }
         ],
         "summary": "Delete a product",
+        "tags": [
+          "Products"
+        ]
+      }
+    },
+    "/product/{id}/admin-status": {
+      "patch": {
+        "operationId": "ProductController_updateProductAdminStatus",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "number"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateProductStatusDTO"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Product status updated"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Admin: enable or disable a product",
         "tags": [
           "Products"
         ]
@@ -1862,6 +1973,11 @@
             "type": "string",
             "example": "http://localhost:3000/files/file-1762098832774-779762879.webp",
             "description": "The url of the banner image"
+          },
+          "isActive": {
+            "type": "boolean",
+            "description": "Whether the store is active and visible",
+            "example": true
           }
         },
         "required": [
@@ -1945,6 +2061,29 @@
             "type": "string",
             "example": "http://localhost:3000/files/file-1762098832774-779762879.webp",
             "description": "The url of the banner image"
+          },
+          "isActive": {
+            "type": "boolean",
+            "description": "Whether the store is active and visible",
+            "example": true
+          }
+        }
+      },
+      "ManageStoreStatusDTO": {
+        "type": "object",
+        "properties": {
+          "verificationStatus": {
+            "type": "string",
+            "enum": [
+              "UNVERIFIED",
+              "VERIFIED"
+            ],
+            "description": "Verification status to assign to the store"
+          },
+          "isActive": {
+            "type": "boolean",
+            "description": "Whether the store is active and visible to users",
+            "example": true
           }
         }
       },
@@ -2038,6 +2177,19 @@
             "example": 5
           }
         }
+      },
+      "UpdateProductStatusDTO": {
+        "type": "object",
+        "properties": {
+          "isActive": {
+            "type": "boolean",
+            "description": "Flag indicating whether the product is active",
+            "example": false
+          }
+        },
+        "required": [
+          "isActive"
+        ]
       },
       "CreatePromotionDto": {
         "type": "object",

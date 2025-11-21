@@ -1,7 +1,7 @@
 import env from "@/config/env";
 import { RootState } from "@/store/types";
 import { createAsyncThunk } from "@reduxjs/toolkit";
-import { CreateProductDTO, CreatePromotionDTO, CreateStoreDTO, CreateSubscriptionDTO, JoinSubscriptionDTO, Product, Promotion, Store, Subscription, SubscriptionAnalytics, UpdateProductDTO, UpdatePromotionDTO, UpdateStoreDTO, UpdateSubscriptionDTO } from "./types";
+import { CreateProductDTO, CreatePromotionDTO, CreateStoreDTO, CreateSubscriptionDTO, JoinSubscriptionDTO, ManageStoreStatusDTO, Product, Promotion, Store, Subscription, SubscriptionAnalytics, UpdateProductDTO, UpdateProductStatusDTO, UpdatePromotionDTO, UpdateStoreDTO, UpdateSubscriptionDTO } from "./types";
 
 export const findStores = createAsyncThunk<
   Store[],
@@ -321,6 +321,50 @@ export const updateProduct = createAsyncThunk<
   }
 });
 
+export const updateProductAdminStatus = createAsyncThunk<
+  Product,
+  { id: number } & UpdateProductStatusDTO,
+  { rejectValue: { message: string }; state: RootState }
+>("store/updateProductAdminStatus", async ({ id, ...payload }, { rejectWithValue, getState }) => {
+  try {
+    const { accessToken } = getState().auth;
+
+    if (!accessToken) {
+      return rejectWithValue({
+        message: "Authentication required. Please log in again.",
+      });
+    }
+
+    const response = await fetch(`${env.API_BASE_URL}/product/${id}/admin-status`, {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${accessToken}`,
+      },
+      body: JSON.stringify(payload),
+    });
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({}));
+      return rejectWithValue({
+        message: error.message || "Update product status failed",
+      });
+    }
+
+    const result = await response.json();
+    return {
+      ...result,
+      price: typeof result.price === "string" ? parseFloat(result.price) : result.price,
+      stock: typeof result.stock === "string" ? parseInt(result.stock, 10) : result.stock,
+    };
+  } catch (error) {
+    return rejectWithValue({
+      message:
+        error instanceof Error ? error.message : "An unknown error occured",
+    });
+  }
+});
+
 export const deleteProduct = createAsyncThunk<
   { id: number },
   number,
@@ -549,6 +593,45 @@ export const updateStore = createAsyncThunk<
     return result;
   } catch (error) {
     console.log("Update store catch error:", error);
+    return rejectWithValue({
+      message:
+        error instanceof Error ? error.message : "An unknown error occured",
+    });
+  }
+});
+
+export const updateStoreAdminStatus = createAsyncThunk<
+  Store,
+  { id: number } & ManageStoreStatusDTO,
+  { rejectValue: { message: string }; state: RootState }
+>("store/updateStoreAdminStatus", async ({ id, ...payload }, { rejectWithValue, getState }) => {
+  try {
+    const { accessToken } = getState().auth;
+
+    if (!accessToken) {
+      return rejectWithValue({
+        message: "Authentication required. Please log in again.",
+      });
+    }
+
+    const response = await fetch(`${env.API_BASE_URL}/store/${id}/admin-status`, {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${accessToken}`,
+      },
+      body: JSON.stringify(payload),
+    });
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({}));
+      return rejectWithValue({
+        message: error.message || "Update store status failed",
+      });
+    }
+
+    return response.json();
+  } catch (error) {
     return rejectWithValue({
       message:
         error instanceof Error ? error.message : "An unknown error occured",

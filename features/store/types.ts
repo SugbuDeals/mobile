@@ -9,6 +9,7 @@ export type Store = {
   bannerUrl?: string;
   createdAt: Date;
   verificationStatus: "UNVERIFIED" | "VERIFIED";
+  isActive?: boolean;
   ownerId?: number;
   userId?: number;
   latitude?: number;
@@ -54,6 +55,15 @@ export type UpdateProductDTO = {
   isActive?: boolean;
   imageUrl?: string;
   categoryId?: number | null;
+};
+
+export type ManageStoreStatusDTO = {
+  verificationStatus?: "UNVERIFIED" | "VERIFIED";
+  isActive?: boolean;
+};
+
+export type UpdateProductStatusDTO = {
+  isActive: boolean;
 };
 
 export type CreateStoreDTO = {
