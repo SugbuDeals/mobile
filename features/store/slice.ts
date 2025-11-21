@@ -1,11 +1,12 @@
 import { createSlice } from "@reduxjs/toolkit";
-import { createProduct, createPromotion, createStore, deleteProduct, deletePromotion, findActivePromotions, findProductById, findProducts, findPromotions, findStoreById, findStores, findUserStore, updateProduct, updatePromotion, updateStore } from "./thunk";
+import { createProduct, createPromotion, createStore, deleteProduct, deletePromotion, findActivePromotions, findNearbyStores, findProductById, findProducts, findPromotions, findStoreById, findStores, findUserStore, updateProduct, updatePromotion, updateStore } from "./thunk";
 import { Store } from "./types";
 
 const initialState: {
   stores: Store[];
   selectedStore: Store | null;
   userStore: Store | null;
+  nearbyStores: Store[];
   products: any[];
   promotions: any[];
   activePromotions: any[];
@@ -15,6 +16,7 @@ const initialState: {
   stores: [],
   selectedStore: null,
   userStore: null,
+  nearbyStores: [],
   products: [],
   promotions: [],
   activePromotions: [],
@@ -57,6 +59,20 @@ const storeSlice = createSlice({
       .addCase(findStores.rejected, (state, action) => {
         state.loading = false;
         state.error = action.payload?.message || "Find stores failed";
+      })
+      // Find Nearby Stores
+      .addCase(findNearbyStores.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(findNearbyStores.fulfilled, (state, action) => {
+        state.loading = false;
+        state.error = null;
+        state.nearbyStores = action.payload;
+      })
+      .addCase(findNearbyStores.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload?.message || "Find nearby stores failed";
       })
       // Find User Store
       .addCase(findUserStore.pending, (state) => {

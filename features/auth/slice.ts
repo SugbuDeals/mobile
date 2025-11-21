@@ -66,10 +66,18 @@ const authSlice = createSlice({
       })
       .addCase(updateUser.fulfilled, (state, action) => {
         state.loading = false;
-        state.user = {
+        const merged: any = {
           ...(state.user || {} as any),
           ...action.payload,
-        } as any;
+        };
+        // Ensure imageUrl is retained if server omits it but client updated it
+        try {
+          const requestedImageUrl = (action as any)?.meta?.arg?.data?.imageUrl;
+          if (requestedImageUrl && typeof merged.imageUrl !== 'string') {
+            merged.imageUrl = requestedImageUrl;
+          }
+        } catch {}
+        state.user = merged as any;
       })
       .addCase(updateUser.rejected, (state, action) => {
         state.loading = false;

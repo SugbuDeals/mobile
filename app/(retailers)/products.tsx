@@ -6,6 +6,7 @@ import { router, useFocusEffect } from "expo-router";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
     Dimensions,
+    Image,
     Platform,
     ScrollView,
     StatusBar,
@@ -254,9 +255,16 @@ export default function Products() {
                 </View>
               ) : (
                 <>
-                  <View style={styles.productImagePlaceholder}>
-                    <Ionicons name="cube-outline" size={32} color="#9CA3AF" />
-                  </View>
+                  {product.imageUrl ? (
+                    <Image
+                      source={{ uri: product.imageUrl }}
+                      style={styles.productImage}
+                    />
+                  ) : (
+                    <View style={styles.productImagePlaceholder}>
+                      <Ionicons name="cube-outline" size={32} color="#9CA3AF" />
+                    </View>
+                  )}
                   
                   <View style={styles.productInfo}>
                     <View style={styles.productHeader}>

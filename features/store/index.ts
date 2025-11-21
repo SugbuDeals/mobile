@@ -5,7 +5,7 @@ export { useStoreManagement } from "./hooks";
 
 export const useStore = () => {
   const dispatch = useAppDispatch();
-  const { stores, userStore, products, promotions, activePromotions, loading, error } = useAppSelector((state) => state.store);
+  const { stores, userStore, nearbyStores, products, promotions, activePromotions, loading, error } = useAppSelector((state) => state.store);
 
   const findStores = () => dispatch(thunk.findStores());
   const findUserStore = (userId: number) => dispatch(thunk.findUserStore(userId));
@@ -20,6 +20,7 @@ export const useStore = () => {
   const deleteProduct = (productId: number) => dispatch(thunk.deleteProduct(productId));
   const findPromotions = () => dispatch(thunk.findPromotions());
   const findActivePromotions = (storeId?: number) => dispatch(thunk.findActivePromotions({ storeId }));
+  const findNearbyStores = (params: { latitude: number; longitude: number; radiusKm?: number }) => dispatch(thunk.findNearbyStores(params));
   const createPromotion = (promotionData: CreatePromotionDTO) => 
     dispatch(thunk.createPromotion(promotionData));
   const updatePromotion = (promotionData: { id: number } & UpdatePromotionDTO) => 
@@ -36,6 +37,7 @@ export const useStore = () => {
     action: {
       findStores,
       findUserStore,
+      findNearbyStores,
       findProducts,
       findProductById,
       createProduct,
@@ -53,6 +55,7 @@ export const useStore = () => {
     state: {
       stores,
       userStore,
+      nearbyStores,
       products,
       promotions,
       activePromotions,

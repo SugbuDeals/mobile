@@ -1,28 +1,20 @@
+import env from "@/config/env";
 import { useBookmarks } from "@/features/bookmarks";
 import { useCatalog } from "@/features/catalog";
 import { useStore } from "@/features/store";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
+import * as Location from "expo-location";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import React, { useMemo, useState } from "react";
-import {
-  Dimensions,
-  Image,
-  Modal,
-  Platform,
-  SafeAreaView,
-  ScrollView,
-  StatusBar,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
-} from "react-native";
+import { Dimensions, Image, Linking, Modal, Platform, SafeAreaView, ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import MapView, { Marker } from "react-native-maps";
 
 export default function ProductDetailScreen() {
   const params = useLocalSearchParams() as Record<string, string | undefined>;
   const {
-    state: { stores },
+    state: { stores, selectedStore },
+    action: { findProductById, findStoreById },
   } = useStore();
   const {
     state: { products },
@@ -39,8 +31,22 @@ export default function ProductDetailScreen() {
     return null;
   }, [productId, products]);
 
+  // Ensure we fetch product details if missing or lacking storeId
+  React.useEffect(() => {
+    if (productId && (!actualProduct || !(actualProduct as any)?.storeId)) {
+      findProductById(productId);
+    }
+  }, [productId, actualProduct, findProductById]);
+
   const productName = (params.name as string) || actualProduct?.name || "Product";
-  const productStoreId = params.storeId ? Number(params.storeId) : undefined;
+  const productStoreId = params.storeId ? Number(params.storeId) : (actualProduct as any)?.storeId;
+
+  // Ensure we fetch store info if missing in list
+  React.useEffect(() => {
+    if (productStoreId) {
+      findStoreById(productStoreId);
+    }
+  }, [productStoreId, findStoreById]);
   const productStore =
     (params.store as string) ||
     (stores.find((s: any) => s.id === productStoreId)?.name ?? "Store");
@@ -53,9 +59,18 @@ export default function ProductDetailScreen() {
       ? (params.distance as unknown as number)
       : Number(params.distance || 0);
   const productDiscount = (params.discount as string) || "";
-  const productImageUrl = (params.imageUrl as string) || "";
+  const productImageUrl = (params.imageUrl as string) || actualProduct?.imageUrl || "";
   const productDescription = actualProduct?.description || "";
 
+  const logoFromList = stores.find((s: any) => s.id === productStoreId)?.imageUrl as string | undefined;
+  const logoFromSelected = (selectedStore && selectedStore.id === productStoreId) ? (selectedStore as any).imageUrl : undefined;
+  const rawLogo = logoFromSelected || logoFromList;
+  const logoUrl = (() => {
+    if (!rawLogo) return undefined;
+    if (/^https?:\/\//i.test(rawLogo)) return rawLogo;
+    if (rawLogo.startsWith('/')) return `${env.API_BASE_URL}${rawLogo}`;
+    return `${env.API_BASE_URL}/files/${rawLogo}`;
+  })();
   return (
     <SafeAreaView style={styles.safeArea}>
       <StatusBar barStyle="dark-content" backgroundColor="#fff" />
@@ -66,6 +81,7 @@ export default function ProductDetailScreen() {
         <StoreHeader
           storeName={productStore}
           storeId={productStoreId}
+          logoUrl={logoUrl}
           onOpenStore={() =>
             router.push({
               pathname: "/(consumers)/storedetails",
@@ -125,32 +141,65 @@ function LocationCard({
   storeId?: number;
   onNavigate: () => void;
 }) {
+  const {
+    state: { stores, selectedStore },
+  } = useStore();
+  const store = stores.find((s: any) => s.id === storeId) || (selectedStore && selectedStore.id === storeId ? selectedStore : undefined);
+  const latitude = (store as any)?.latitude;
+  const longitude = (store as any)?.longitude;
+  const address = (store as any)?.address || "";
+  const [region, setRegion] = React.useState<any | null>(null);
+
+  React.useEffect(() => {
+    (async () => {
+      try {
+        const { status } = await Location.requestForegroundPermissionsAsync();
+        if (status === "granted" && typeof latitude === 'number' && typeof longitude === 'number') {
+          const pos = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+          setRegion({
+            latitude: latitude,
+            longitude: longitude,
+            latitudeDelta: Math.abs(latitude - pos.coords.latitude) + 0.02,
+            longitudeDelta: Math.abs(longitude - pos.coords.longitude) + 0.02,
+          });
+        } else if (typeof latitude === 'number' && typeof longitude === 'number') {
+          setRegion({ latitude, longitude, latitudeDelta: 0.02, longitudeDelta: 0.02 });
+        }
+      } catch {}
+    })();
+  }, [latitude, longitude]);
+
+  const openExternalDirections = () => {
+    if (typeof latitude === 'number' && typeof longitude === 'number') {
+      Linking.openURL(`https://www.google.com/maps/dir/?api=1&destination=${latitude},${longitude}`);
+    } else if (address) {
+      Linking.openURL(`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(address)}`);
+    } else {
+      onNavigate();
+    }
+  };
+
   return (
     <View style={locStyles.container}>
       <Text style={locStyles.sectionTitle}>Location</Text>
       <View style={locStyles.card}>
-        <Image
-          source={require("../../assets/images/partial-react-logo.png")}
-          style={locStyles.mapImage}
-        />
+        {region ? (
+          <MapView style={locStyles.mapImage} initialRegion={region}>
+            {typeof latitude === 'number' && typeof longitude === 'number' && (
+              <Marker coordinate={{ latitude, longitude }} title={storeName} description={address} />
+            )}
+          </MapView>
+        ) : (
+          <Image source={require("../../assets/images/partial-react-logo.png")} style={locStyles.mapImage} />
+        )}
         <View style={locStyles.detailsRow}>
           <View style={locStyles.locationDetails}>
-            <Text style={locStyles.address}>123 Market Street</Text>
-            <Text style={locStyles.distance}>1.2 miles away • 8 min drive</Text>
+            <Text style={locStyles.address}>{address || "Store location"}</Text>
+            <Text style={locStyles.distance}>Navigate to destination</Text>
           </View>
           <View style={locStyles.buttonContainer}>
-            <TouchableOpacity
-              style={locStyles.navigateButton}
-              activeOpacity={0.85}
-              onPress={onNavigate}
-            >
-              <View
-                style={{
-                  flexDirection: "row",
-                  alignItems: "center",
-                  justifyContent: "center",
-                }}
-              >
+            <TouchableOpacity style={locStyles.navigateButton} activeOpacity={0.85} onPress={openExternalDirections}>
+              <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "center" }}>
                 <Ionicons name="navigate" size={16} color="#ffffff" />
                 <Text style={locStyles.buttonTitle}> Navigate</Text>
               </View>
@@ -223,8 +272,24 @@ function ProductCard({
   imageUrl?: string;
   description?: string;
 }) {
+  const { state: { activePromotions } } = useStore();
+  const params = useLocalSearchParams() as Record<string, string | undefined>;
+  const productId = params.productId ? Number(params.productId) : undefined;
   const [showDescription, setShowDescription] = useState(false);
   const hasDescription = description && description.trim().length > 0;
+
+  const computedDiscountedPrice = React.useMemo(() => {
+    if (!productId) return undefined;
+    const promo = (activePromotions || []).find((p: any) => p.productId === productId && p.active === true);
+    if (!promo) return undefined;
+    const p = Number(price);
+    if (!isFinite(p)) return undefined;
+    const type = String(promo.type || '').toLowerCase();
+    const value = Number(promo.discount || 0);
+    if (type === 'percentage') return Math.max(0, p * (1 - value / 100));
+    if (type === 'fixed') return Math.max(0, p - value);
+    return undefined;
+  }, [activePromotions, productId, price]);
 
   return (
     <>
@@ -290,7 +355,14 @@ function ProductCard({
           </View>
         </View>
         <View style={prodStyles.priceContainer}>
-          <Text style={prodStyles.priceText}>$ {price}</Text>
+          {computedDiscountedPrice !== undefined ? (
+            <>
+              <Text style={prodStyles.priceOld}>₱ {Number(price).toFixed(2)}</Text>
+              <Text style={prodStyles.priceNew}>₱ {computedDiscountedPrice.toFixed(2)}</Text>
+            </>
+          ) : (
+            <Text style={prodStyles.priceText}>₱ {Number(price).toFixed(2)}</Text>
+          )}
         </View>
       </View>
 
@@ -420,6 +492,8 @@ const prodStyles = StyleSheet.create({
     borderRadius: 8,
   },
   priceText: { fontSize: 18, fontWeight: "900", color: "#1B6F5D" },
+  priceOld: { fontSize: 16, color: "#9CA3AF", textDecorationLine: 'line-through', marginRight: 8 },
+  priceNew: { fontSize: 18, fontWeight: '900', color: '#1B6F5D', marginLeft: 8 },
   // Modal styles
   modalOverlay: {
     flex: 1,
@@ -481,10 +555,12 @@ const prodStyles = StyleSheet.create({
 function StoreHeader({
   storeName,
   storeId,
+  logoUrl,
   onOpenStore,
 }: {
   storeName: string;
   storeId?: number;
+  logoUrl?: string;
   onOpenStore?: () => void;
 }) {
   const params = useLocalSearchParams() as Record<string, string | undefined>;
@@ -497,6 +573,9 @@ function StoreHeader({
       action.removeProductBookmark(productId);
     else action.addProductBookmark(productId);
   };
+  const { state: { stores, selectedStore } } = useStore();
+  const store = stores.find((s: any) => s.id === storeId) || (selectedStore && selectedStore.id === storeId ? selectedStore : undefined);
+  const description = (store as any)?.description || "";
   return (
     <View style={hdrStyles.container}>
       <Image
@@ -505,15 +584,17 @@ function StoreHeader({
       />
       <View style={hdrStyles.storeInfoContainer}>
         <View style={hdrStyles.logoAndName}>
-          <View style={hdrStyles.quickMartLogo}>
-            <Ionicons name="flash" color="#fff" size={20} />
-            <Text style={hdrStyles.logoText}>quickmart</Text>
-          </View>
+          <Image
+            source={typeof logoUrl === 'string' && logoUrl.length > 0 ? { uri: logoUrl } : require("../../assets/images/partial-react-logo.png")}
+            style={{ width: 64, height: 64, borderRadius: 12, backgroundColor: '#fff', marginTop: 15 }}
+          />
           <View style={hdrStyles.storeDetails}>
             <Text style={hdrStyles.storeName}>{storeName}</Text>
-            <Text style={hdrStyles.storeDescription}>
-              Stationary, Groceries, Home
-            </Text>
+            {description ? (
+              <Text style={hdrStyles.storeDescription} numberOfLines={2}>
+                {description}
+              </Text>
+            ) : null}
           </View>
         </View>
         <View style={hdrStyles.bookmarkIcon} />

@@ -18,5 +18,6 @@ export type Product = {
   price?: number;
   storeId?: number;
   isActive?: boolean;
+  imageUrl?: string;
 };
 

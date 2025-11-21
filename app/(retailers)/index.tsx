@@ -5,14 +5,14 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import { router, useFocusEffect } from "expo-router";
 import React, { useCallback, useEffect, useState } from "react";
 import {
-    Alert,
-    Dimensions,
-    ImageBackground,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View
+  Alert,
+  Dimensions,
+  ImageBackground,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View
 } from "react-native";
 
 const { width } = Dimensions.get("window");
@@ -431,10 +431,30 @@ export default function RetailerDashboard() {
         >
           <View style={styles.logoOverlay}>
             <View style={styles.storeLogo}>
-              <View style={styles.logoIcon}>
-                <Text style={styles.logoText}>{getStoreInitial(getStoreName())}</Text>
-              </View>
-              <Text style={styles.logoLabel}>{getStoreName().toLowerCase()}</Text>
+              {typeof userStore?.imageUrl === 'string' && userStore.imageUrl.length > 0 ? (
+                <View style={{ alignItems: 'center' }}>
+                  <View style={{ width: 76, height: 76, borderRadius: 8, overflow: 'hidden', backgroundColor: '#fff' }}>
+                    <ImageBackground
+                      source={require("../../assets/images/partial-react-logo.png")}
+                      style={{ width: '100%', height: '100%' }}
+                    >
+                      <ImageBackground
+                        source={{ uri: userStore.imageUrl }}
+                        style={{ width: '100%', height: '100%' }}
+                        imageStyle={{ resizeMode: 'cover' }}
+                      />
+                    </ImageBackground>
+                  </View>
+            
+                </View>
+              ) : (
+                <>
+                  <View style={styles.logoIcon}>
+                    <Text style={styles.logoText}>{getStoreInitial(getStoreName())}</Text>
+                  </View>
+                  <Text style={styles.logoLabel}>{getStoreName().toLowerCase()}</Text>
+                </>
+              )}
             </View>
           </View>
         </ImageBackground>
@@ -538,9 +558,9 @@ const styles = StyleSheet.create({
     zIndex: 10,
   },
   storeLogo: {
-    backgroundColor: "#277874",
+    backgroundColor: "#ffffff",
+    padding: 3,
     borderRadius: 12,
-    padding: 12,
     alignItems: "center",
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 4 },
@@ -549,8 +569,8 @@ const styles = StyleSheet.create({
     elevation: 8,
   },
   logoIcon: {
-    width: 40,
-    height: 40,
+    width: 60,
+    height: 60,
     backgroundColor: "#ffffff",
     borderRadius: 8,
     justifyContent: "center",
