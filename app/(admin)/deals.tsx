@@ -33,7 +33,7 @@ const SimpleChart = ({ categories }: { categories: Array<{ name: string; percent
   const innerRadius = 30;
   const outerRadius = 60;
   
-  let cumulativePercentage = 0;
+  let cumulativeFraction = 0;
   
   const createArcPath = (startAngle: number, endAngle: number, innerR: number, outerR: number) => {
     const startAngleRad = (startAngle * Math.PI) / 180;
@@ -64,11 +64,12 @@ const SimpleChart = ({ categories }: { categories: Array<{ name: string; percent
     <View style={styles.chartVisual}>
       <Svg width={size} height={size}>
         {categories.map((category, index) => {
-          const startAngle = (cumulativePercentage * 360) - 90;
-          const endAngle = ((cumulativePercentage + category.percentage) * 360) - 90;
+          const segmentFraction = Math.max(0, Math.min(1, category.percentage / 100));
+          const startAngle = (cumulativeFraction * 360) - 90;
+          const endAngle = ((cumulativeFraction + segmentFraction) * 360) - 90;
           
           const pathData = createArcPath(startAngle, endAngle, innerRadius, outerRadius);
-          cumulativePercentage += category.percentage;
+          cumulativeFraction += segmentFraction;
           
           return (
             <Path
@@ -143,45 +144,41 @@ export default function DealsAnalytics() {
 
   // Calculate category distribution from real data
   const calculateCategoryDistribution = () => {
-    if (!storeState.promotions.length || !storeState.products.length || !catalogState.categories.length) {
+    if (!storeState.products.length || !catalogState.categories.length) {
       return [];
     }
 
-    // Create a map of productId to categoryId
-    const productCategoryMap = new Map<number, number>();
-    storeState.products.forEach(product => {
-      if (product.categoryId) {
-        productCategoryMap.set(product.id, product.categoryId);
-      }
-    });
-
-    // Count promotions by category
+    // Count products by category
     const categoryCounts = new Map<number, number>();
-    storeState.promotions.forEach(promotion => {
-      const categoryId = productCategoryMap.get(promotion.productId);
-      if (categoryId) {
-        categoryCounts.set(categoryId, (categoryCounts.get(categoryId) || 0) + 1);
+    storeState.products.forEach((product) => {
+      const rawCategoryId = (product as any)?.categoryId ?? (product as any)?.category?.id;
+      if (rawCategoryId === null || rawCategoryId === undefined) {
+        return;
       }
+
+      const categoryId = Number(rawCategoryId);
+      categoryCounts.set(categoryId, (categoryCounts.get(categoryId) || 0) + 1);
     });
 
-    // Convert to percentage and format for chart
-    const totalPromotionsWithCategories = Array.from(categoryCounts.values()).reduce((sum, count) => sum + count, 0);
-    
-    if (totalPromotionsWithCategories === 0) {
+    const totalProductsWithCategories = Array.from(categoryCounts.values()).reduce((sum, count) => sum + count, 0);
+
+    if (totalProductsWithCategories === 0) {
       return [];
     }
 
-    return Array.from(categoryCounts.entries()).map(([categoryId, count], index) => {
-      const category = catalogState.categories.find(cat => cat.id === categoryId);
-      const percentage = (count / totalPromotionsWithCategories) * 100;
-      
-      return {
-        name: category?.name || `Category ${categoryId}`,
-        percentage: Math.round(percentage * 10) / 10, // Round to 1 decimal
-        color: categoryColors[index % categoryColors.length],
-        count: count
-      };
-    }).sort((a, b) => b.percentage - a.percentage); // Sort by percentage descending
+    return Array.from(categoryCounts.entries())
+      .map(([categoryId, count], index) => {
+        const category = catalogState.categories.find((cat) => String(cat.id) === String(categoryId));
+        const percentage = (count / totalProductsWithCategories) * 100;
+
+        return {
+          name: category?.name || `Category ${categoryId}`,
+          percentage: Math.round(percentage * 10) / 10,
+          color: categoryColors[index % categoryColors.length],
+          count,
+        };
+      })
+      .sort((a, b) => b.percentage - a.percentage);
   };
 
   const categoryDistribution = calculateCategoryDistribution();

@@ -2,7 +2,7 @@ import { useCatalog } from "@/features/catalog";
 import { useStore } from "@/features/store";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { useRouter } from "expo-router";
-import React, { useEffect } from "react";
+import React, { useEffect, useMemo } from "react";
 import {
     Image,
     SafeAreaView,
@@ -34,146 +34,51 @@ export default function CategoriesPage() {
     if (!stores || stores.length === 0) findStores();
   }, [categories, products, stores, loadCategories, loadProducts, findStores]);
 
-  // Frontend-only dynamic category derivation from product names
-  const deriveCategory = (name: string): string => {
-    const n = String(name || "").toLowerCase();
-    // Phones / Mobile
-    if (
-      /(iphone|samsung|pixel|one\s?plus|xiaomi|oppo|vivo|huawei|cell\s?phone|smart\s?phone|phone)/.test(
-        n
-      )
-    )
-      return "Phones";
-    // Laptops / Computers
-    if (
-      /(laptop|notebook|macbook|ultrabook|asus|acer|lenovo|dell|msi|thinkpad)/.test(
-        n
-      )
-    )
-      return "Laptops";
-    if (/(desktop|pc\b|gaming\s?pc|i\d-\d{3,}|ryzen)/.test(n))
-      return "Desktops";
-    if (/(tablet|ipad|galaxy\s?tab|surface)/.test(n)) return "Tablets";
-    // Audio
-    if (
-      /(headphone|headset|earbud|ear\s?phone|tws|speaker|soundbar|audio)/.test(
-        n
-      )
-    )
-      return "Audio";
-    // Wearables
-    if (/(watch|smart\s?watch|fitbit|band)/.test(n)) return "Wearables";
-    // Gaming
-    if (
-      /(ps5|playstation|xbox|nintendo|switch|gaming|controller|vr\b|oculus|meta\s?quest)/.test(
-        n
-      )
-    )
-      return "Gaming";
-    // Cameras / Imaging
-    if (
-      /(camera|dslr|mirrorless|canon|nikon|sony\s?a\d|gopro|instax|webcam|lens)/.test(
-        n
-      )
-    )
-      return "Cameras";
-    // Displays / TV / Monitor
-    if (/(tv\b|uhd|oled|qled|android\s?tv|roku|fire\s?tv)/.test(n))
-      return "TVs";
-    if (/(monitor|144hz|240hz|ultrawide)/.test(n)) return "Monitors";
-    // Networking / Smart Home
-    if (/(router|wi-?fi|mesh|modem|ethernet|switch\b)/.test(n))
-      return "Networking";
-    if (/(smart\s?home|bulb|plug|alexa|google\s?home|homekit)/.test(n))
-      return "Smart Home";
-    // Appliances / Home
-    if (
-      /(aircon|air\s?conditioner|fan|refrigerator|fridge|washer|washing\s?machine|dryer|microwave|oven|rice\s?cooker|blender|kettle)/.test(
-        n
-      )
-    )
-      return "Appliances";
-    if (/(sofa|table|chair|desk|cabinet|drawer|shelf|mattress|bed)/.test(n))
-      return "Furniture";
-    // Fashion / Beauty / Health
-    if (
-      /(shirt|t-?shirt|jeans|dress|skirt|jacket|hoodie|shorts|fashion|clothing|apparel)/.test(
-        n
-      )
-    )
-      return "Fashion";
-    if (/(sneaker|shoe|rubber\s?shoes|footwear|sandals|heels|boots)/.test(n))
-      return "Footwear";
-    if (
-      /(cosmetic|makeup|lipstick|foundation|skincare|serum|moisturizer|beauty)/.test(
-        n
-      )
-    )
-      return "Beauty";
-    if (
-      /(vitamin|supplement|medicine|paracetamol|ibuprofen|mask|sanitizer|health)/.test(
-        n
-      )
-    )
-      return "Health";
-    // Grocery / Pets / Baby
-    if (
-      /(grocery|snack|chips|noodles|rice|coffee|tea|milk|egg|bread|canned|beverage|drink)/.test(
-        n
-      )
-    )
-      return "Groceries";
-    if (/(dog|cat|pet\s?food|litter|leash|aquarium)/.test(n))
-      return "Pet Supplies";
-    if (/(diaper|stroller|bottle|formula|baby\s?wipes|crib)/.test(n))
-      return "Baby";
-    // Sports / Outdoors
-    if (
-      /(sport|basketball|soccer|football|tennis|yoga|gym|fitness|dumbbell|treadmill|bike|bicycle|helmet)/.test(
-        n
-      )
-    )
-      return "Sports & Outdoors";
-    // Office / School
-    if (
-      /(notebook\b|paper|pen|ballpen|pencil|stapler|printer|ink|toner|office\s?supplies)/.test(
-        n
-      )
-    )
-      return "Office & School";
-    // Auto / Tools
-    if (/(car\b|motorcycle|helmet|engine\s?oil|wiper|floor\s?mat)/.test(n))
-      return "Automotive";
-    if (/(tool|drill|screwdriver|wrench|hammer|saw)/.test(n)) return "Tools";
-    // Media / Toys
-    if (/(book|novel|manga|comic|textbook)/.test(n)) return "Books";
-    if (/(toy|lego|figure|rc\b|puzzle|board\s?game)/.test(n)) return "Toys";
-    // Bags & Accessories (fallbacks)
-    if (/(bag|backpack|luggage)/.test(n)) return "Bags";
-    if (
-      /(mouse|keyboard|accessor(y|ies)|case|cover|cable|charger|power\s?bank|adapter|hub|dock)/.test(
-        n
-      )
-    )
-      return "Accessories";
-    return "Other";
+  const getProductCategoryName = (product: any): string => {
+    const directCategory =
+      (product as any)?.category?.name ||
+      (product as any)?.categoryName ||
+      (product as any)?.category;
+    if (directCategory) return String(directCategory);
+    const categoryId =
+      (product as any)?.category?.id || (product as any)?.categoryId;
+    const match = (categories || []).find(
+      (cat: any) => String(cat.id) === String(categoryId)
+    );
+    return match?.name ? String(match.name) : "";
   };
 
-  const serverCategoryNames = (categories || [])
-    .map((c: any) => c.name)
-    .filter(Boolean) as string[];
-  const dynamicCategories = Array.from(
-    new Set(
-      (
-        (products || []).map((p: any) => deriveCategory(p?.name)) as string[]
-      ).filter(Boolean)
-    )
+  const availableCategories = useMemo(() => {
+    const productCategories = new Set<string>();
+    (products || []).forEach((product: any) => {
+      const categoryName = getProductCategoryName(product);
+      if (categoryName) productCategories.add(categoryName);
+    });
+
+    const names: string[] = [];
+    (categories || []).forEach((category: any) => {
+      const name = String(category?.name || "");
+      if (!name) return;
+      if (productCategories.has(name) && !names.includes(name)) {
+        names.push(name);
+      }
+    });
+    return names;
+  }, [categories, products]);
+
+  const categoryNames = useMemo(
+    () => ["All Items", ...availableCategories],
+    [availableCategories]
   );
-  const categoryNames = [
-    "All Items",
-    ...serverCategoryNames,
-    ...dynamicCategories.filter((d) => !serverCategoryNames.includes(d)),
-  ];
+
+  useEffect(() => {
+    if (
+      selectedCategory !== "All Items" &&
+      !availableCategories.includes(selectedCategory)
+    ) {
+      setSelectedCategory("All Items");
+    }
+  }, [availableCategories, selectedCategory]);
 
   const filteredStores = (stores || [])
     .map((store: any) => {
@@ -187,13 +92,7 @@ export default function CategoriesPage() {
             String(p.name)
               .toLowerCase()
               .includes(searchQuery.trim().toLowerCase());
-          const productDerivedCategory = deriveCategory(p?.name);
-          const productCategoryName = String(
-            (p as any).category?.name ||
-              (p as any).categoryName ||
-              productDerivedCategory ||
-              ""
-          );
+          const productCategoryName = getProductCategoryName(p);
           const matchesCategory =
             selectedCategory === "All Items" ||
             productCategoryName === selectedCategory;

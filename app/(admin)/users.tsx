@@ -37,12 +37,10 @@ const MetricsCard = ({ label, value, icon, color, bgColor }: {
 );
 
 // User Card Component
-const UserCard = ({ user, onDelete, onEdit, onApprove, approving }: { 
+const UserCard = ({ user, onDelete, onEdit }: { 
   user: any; 
   onDelete: (id: number) => void;
   onEdit: (user: any) => void;
-  onApprove?: (user: any) => void;
-  approving?: boolean;
 }) => {
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -56,19 +54,6 @@ const UserCard = ({ user, onDelete, onEdit, onApprove, approving }: {
   // Determine role from user data
   const userRole = user.role || user.user_type || "Unknown";
   const displayRole = userRole.replace("_", " ").replace(/^\w/, (c: string) => c.toUpperCase());
-  const normalizedRole = (userRole || "").toString().toLowerCase();
-  const isRetailer = normalizedRole === "retailer";
-  const retailerApproved = Boolean(
-    user.retailerApproved ||
-    user.retailer_approved ||
-    user.retailerApprovedAt ||
-    user.approvedAt ||
-    user.isApproved ||
-    user.is_retailer_approved ||
-    (user.retailer_status && user.retailer_status.toUpperCase?.() === "APPROVED")
-  );
-  const showApproveButton = isRetailer && !retailerApproved && typeof onApprove === "function";
-  
   // Determine status (you can map this based on your business logic)
   const status = "Active"; // You can add a status field to your user model
   const statusColors = getStatusColor(status);
@@ -83,29 +68,6 @@ const UserCard = ({ user, onDelete, onEdit, onApprove, approving }: {
         <Text style={styles.userName}>{user.name || user.fullname || user.email}</Text>
         <Text style={styles.userEmail}>{user.email}</Text>
         <Text style={styles.userRole}>{displayRole}</Text>
-        {isRetailer && (
-          <View style={styles.retailerMetaRow}>
-            <View style={[styles.statusBadge, retailerApproved ? styles.approvedBadge : styles.pendingBadge]}>
-              <Ionicons name={retailerApproved ? "shield-checkmark" : "hourglass"} size={12} color={retailerApproved ? "#065F46" : "#92400E"} />
-              <Text style={[styles.statusText, retailerApproved ? styles.approvedText : styles.pendingText]}>
-                {retailerApproved ? "Approved" : "Pending"}
-              </Text>
-            </View>
-            {showApproveButton && (
-              <TouchableOpacity
-                style={[styles.approvePill, approving && styles.disabledButton]}
-                onPress={() => onApprove(user)}
-                disabled={approving}
-              >
-                {approving ? (
-                  <ActivityIndicator size="small" color="#FFFFFF" />
-                ) : (
-                  <Text style={styles.approvePillText}>Approve</Text>
-                )}
-              </TouchableOpacity>
-            )}
-          </View>
-        )}
       </View>
       <View style={styles.userActions}>
         <View style={[styles.statusBadge, { backgroundColor: statusColors.bg }]}>
@@ -169,7 +131,6 @@ export default function Users() {
   const [addPassword, setAddPassword] = useState("");
   const [addRole, setAddRole] = useState("CONSUMER");
   const [isAdding, setIsAdding] = useState(false);
-  const [approvingUserId, setApprovingUserId] = useState<number | null>(null);
   
   // Get current logged-in user ID
   const currentUserId = state.user?.id;
@@ -262,20 +223,6 @@ export default function Users() {
       } catch (error) {
         Alert.alert("Error", "Failed to delete user");
       }
-    }
-  };
-
-  const handleApproveRetailer = async (user: any) => {
-    if (!user?.id) return;
-    setApprovingUserId(user.id);
-    try {
-      await action.approveRetailer(user.id).unwrap();
-      await action.fetchAllUsers();
-      Alert.alert("Success", `${user.name || "Retailer"} has been approved.`);
-    } catch (error: any) {
-      Alert.alert("Error", error?.message || "Failed to approve retailer");
-    } finally {
-      setApprovingUserId(null);
     }
   };
 
@@ -420,8 +367,6 @@ export default function Users() {
                     user={user}
                     onDelete={handleDeleteUser}
                     onEdit={handleEditUser}
-                    onApprove={handleApproveRetailer}
-                    approving={approvingUserId === user.id}
                   />
               ))}
             </View>
@@ -875,42 +820,10 @@ const styles = StyleSheet.create({
     fontWeight: "500",
     color: "#277874",
   },
-  approvedBadge: {
-    backgroundColor: "#D1FAE5",
-  },
-  pendingBadge: {
-    backgroundColor: "#FEF3C7",
-  },
-  approvedText: {
-    color: "#065F46",
-  },
-  pendingText: {
-    color: "#92400E",
-  },
   menuButton: {
     padding: 8,
     borderRadius: 6,
     backgroundColor: "#f0f9f8",
-  },
-  disabledButton: {
-    opacity: 0.5,
-  },
-  retailerMetaRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-    marginTop: 6,
-  },
-  approvePill: {
-    backgroundColor: "#059669",
-    borderRadius: 999,
-    paddingHorizontal: 12,
-    paddingVertical: 4,
-  },
-  approvePillText: {
-    color: "#ffffff",
-    fontSize: 12,
-    fontWeight: "600",
   },
 
   // ===== LOADING & ERROR STATES =====

@@ -289,8 +289,14 @@ export default function AITesting() {
           </View>
           
           {chatResponse && (
-          <View style={styles.responseArea}>
-              <Text style={styles.responseText}>{chatResponse}</Text>
+            <View style={styles.responseArea}>
+              <ScrollView 
+                style={styles.responseScroll} 
+                nestedScrollEnabled 
+                showsVerticalScrollIndicator
+              >
+                <Text style={styles.responseText}>{chatResponse}</Text>
+              </ScrollView>
             </View>
           )}
         </View>
@@ -349,7 +355,13 @@ export default function AITesting() {
           
           {generateResponse && (
             <View style={styles.responseArea}>
-              <Text style={styles.responseText}>{generateResponse}</Text>
+              <ScrollView 
+                style={styles.responseScroll} 
+                nestedScrollEnabled 
+                showsVerticalScrollIndicator
+              >
+                <Text style={styles.responseText}>{generateResponse}</Text>
+              </ScrollView>
             </View>
           )}
                 </View>
@@ -420,7 +432,13 @@ export default function AITesting() {
           
           {recommendationResponse && (
             <View style={styles.responseArea}>
-              <Text style={styles.responseText}>{recommendationResponse}</Text>
+              <ScrollView 
+                style={styles.responseScroll} 
+                nestedScrollEnabled 
+                showsVerticalScrollIndicator
+              >
+                <Text style={styles.responseText}>{recommendationResponse}</Text>
+              </ScrollView>
             </View>
           )}
                   </View>
@@ -623,7 +641,9 @@ const styles = StyleSheet.create({
     marginTop: 16,
     borderWidth: 1,
     borderColor: "#E5E7EB",
-    maxHeight: 300,
+  },
+  responseScroll: {
+    maxHeight: 260,
   },
   responseText: {
     fontSize: 14,
