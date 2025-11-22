@@ -5,19 +5,22 @@ import DateTimePicker from '@react-native-community/datetimepicker';
 import { LinearGradient } from "expo-linear-gradient";
 import React, { useEffect, useState } from "react";
 import {
-  Platform,
-  ScrollView,
-  StatusBar,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View
+    Platform,
+    ScrollView,
+    StatusBar,
+    StyleSheet,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View
 } from "react-native";
 
 export default function Promotions() {
   const { state: { user } } = useLogin();
-  const { action: { findProducts, createPromotion, findActivePromotions, updatePromotion }, state: { products, activePromotions, loading: productsLoading, error } } = useStore();
+  const {
+    action: { findProducts, createPromotion, findActivePromotions, updatePromotion, findUserStore },
+    state: { products, activePromotions, userStore, loading: productsLoading, error },
+  } = useStore();
   const [promotionTitle, setPromotionTitle] = useState("");
   const [startDate, setStartDate] = useState(new Date());
   const [endDate, setEndDate] = useState(new Date());
@@ -32,15 +35,31 @@ export default function Promotions() {
   const [showEditEndPicker, setShowEditEndPicker] = useState(false);
 
   useEffect(() => {
-    // Check if store setup is completed when component mounts
-   
-
-    // Fetch products and active promotions for the current user's store
-    if (user && (user as any).id) {
-      findProducts({ storeId: Number((user as any).id) });
-      findActivePromotions(Number((user as any).id)); // Fetch active promotions only for this store
+    if (user?.id && !userStore) {
+      findUserStore(Number(user.id));
     }
-  }, [user]);
+  }, [user, userStore, findUserStore]);
+
+  const storeId = userStore?.id;
+
+  useEffect(() => {
+    if (!storeId) return;
+    findProducts({ storeId });
+    findActivePromotions(storeId);
+  }, [storeId, findProducts, findActivePromotions]);
+
+  const retailerProducts = React.useMemo(() => {
+    if (!storeId) return [];
+    return (products || []).filter((product) => product.storeId === storeId);
+  }, [products, storeId]);
+
+  const storeActivePromotions = React.useMemo(() => {
+    if (!storeId) return [];
+    const storeProductIds = new Set(retailerProducts.map((product) => product.id));
+    return (activePromotions || []).filter((promotion) =>
+      storeProductIds.has(promotion.productId)
+    );
+  }, [activePromotions, retailerProducts, storeId]);
 
   const toggleProductSelection = (productId: string) => {
     setSelectedProducts(prev => {
@@ -82,13 +101,13 @@ export default function Promotions() {
 
   // Get products that are not already in active promotions
   const getAvailableProducts = () => {
-    const promotedProductIds = activePromotions.map(promotion => promotion.productId);
-    return products.filter(product => !promotedProductIds.includes(product.id));
+    const promotedProductIds = storeActivePromotions.map(promotion => promotion.productId);
+    return retailerProducts.filter(product => !promotedProductIds.includes(product.id));
   };
 
   // Check if a product is already in an active promotion
   const isProductInActivePromotion = (productId: number) => {
-    return activePromotions.some(promotion => promotion.productId === productId);
+    return storeActivePromotions.some(promotion => promotion.productId === productId);
   };
 
   const availableProducts = getAvailableProducts();
@@ -176,8 +195,8 @@ export default function Promotions() {
         )
       );
       // Optionally refresh active list for safety
-      if (user && (user as any).id) {
-        findActivePromotions(Number((user as any).id));
+      if (storeId) {
+        findActivePromotions(storeId);
       }
       setEditingKey(null);
       alert("Promotion updated successfully!");
@@ -259,8 +278,8 @@ export default function Promotions() {
       await Promise.all(promises);
       
       // Refresh active promotions to show the new promotion in dashboard
-      if (user && (user as any).id) {
-        findActivePromotions(Number((user as any).id));
+      if (storeId) {
+        findActivePromotions(storeId);
       }
       
       // Reset form
@@ -372,7 +391,7 @@ export default function Promotions() {
               <View style={styles.loadingContainer}>
                 <Text style={styles.loadingText}>Loading products...</Text>
               </View>
-            ) : products.length > 0 ? (
+            ) : retailerProducts.length > 0 ? (
               <View>
                 {/* Available Products */}
                 {availableProducts.length > 0 && (
@@ -460,10 +479,10 @@ export default function Promotions() {
                 )}
 
                 {/* Unavailable Products (Already in Promotions) */}
-                {products.filter(product => isProductInActivePromotion(product.id)).length > 0 && (
+                {retailerProducts.filter(product => isProductInActivePromotion(product.id)).length > 0 && (
                   <View style={styles.unavailableSection}>
                     <Text style={styles.sectionSubtitle}>Currently in Active Promotions</Text>
-                    {products.filter(product => isProductInActivePromotion(product.id)).map((product) => (
+                    {retailerProducts.filter(product => isProductInActivePromotion(product.id)).map((product) => (
                       <View key={product.id} style={[styles.productCard, styles.unavailableProductCard]}>
                         <View style={styles.productContent}>
                           <View style={styles.checkboxContainer}>
@@ -514,7 +533,7 @@ export default function Promotions() {
               <View style={styles.discountPreview}>
                 <Text style={styles.discountPreviewTitle}>Discount Preview:</Text>
                 {Object.entries(selectedProducts).map(([productId, productData]) => {
-                  const product = products.find(p => p.id.toString() === productId);
+                  const product = retailerProducts.find(p => p.id.toString() === productId);
                   if (!product || !productData.discount) return null;
                   
                   const discount = parseFloat(productData.discount);
@@ -583,7 +602,7 @@ export default function Promotions() {
                           <Text style={[styles.productPrice, { color: group.sample.active ? '#059669' : '#EF4444' }]}>Status: {group.sample.active ? 'Active' : 'Inactive'}</Text>
                           <View style={{ marginTop: 8 }}>
                             {group.promos.map((p) => {
-                              const product = products.find(pr => pr.id === p.productId);
+                              const product = retailerProducts.find(pr => pr.id === p.productId);
                               return (
                                 <Text key={p.id} style={styles.productPrice}>
                                   • {product ? product.name : `Product ${p.productId}`} — {p.type === 'percentage' ? `${p.discount}%` : `$${p.discount}`} off

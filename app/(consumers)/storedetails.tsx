@@ -6,29 +6,74 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import React from "react";
 import {
-  Image,
-  SafeAreaView,
-  ScrollView,
-  StatusBar,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
+    Image,
+    SafeAreaView,
+    ScrollView,
+    StatusBar,
+    StyleSheet,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View,
 } from "react-native";
 
 export default function StoreDetailsScreen() {
   const params = useLocalSearchParams() as Record<string, string | undefined>;
   const storeName = (params.store as string) || "Store";
   const storeId = params.storeId ? Number(params.storeId) : undefined;
-  // keep hook initialized for products used inside DealsGrid
-  useCatalog();
+  const {
+    state: { categories: catalogCategories, products },
+    action: { loadCategories, loadProducts },
+  } = useCatalog();
   // keep bookmarks store ready for hero toggle
   useBookmarks();
   const [activeCategory, setActiveCategory] = React.useState("All");
   const [query, setQuery] = React.useState("");
 
-  const categories = ["All", "Office Supplies", "Electronics", "Accessories"];
+  React.useEffect(() => {
+    if (!products || products.length === 0) loadProducts();
+    if (!catalogCategories || catalogCategories.length === 0) loadCategories();
+  }, [products, catalogCategories, loadProducts, loadCategories]);
+
+  const getProductCategoryName = React.useCallback(
+    (product: any): string => {
+      const directCategory =
+        (product as any)?.category?.name ||
+        (product as any)?.categoryName ||
+        (product as any)?.category;
+      if (directCategory) return String(directCategory);
+      const categoryId =
+        (product as any)?.category?.id ?? (product as any)?.categoryId;
+      const match = (catalogCategories || []).find(
+        (cat: any) => String(cat.id) === String(categoryId)
+      );
+      return match?.name ? String(match.name) : "";
+    },
+    [catalogCategories]
+  );
+
+  const storeCategories = React.useMemo(() => {
+    const source = (products || []).filter((p: any) =>
+      storeId == null ? true : p.storeId === storeId
+    );
+    const unique = new Set<string>();
+    source.forEach((p: any) => {
+      const categoryName = getProductCategoryName(p);
+      if (categoryName) unique.add(categoryName);
+    });
+    return Array.from(unique).sort((a, b) => a.localeCompare(b));
+  }, [products, storeId, getProductCategoryName]);
+
+  const categories = React.useMemo(
+    () => ["All", ...storeCategories],
+    [storeCategories]
+  );
+
+  React.useEffect(() => {
+    if (activeCategory !== "All" && !storeCategories.includes(activeCategory)) {
+      setActiveCategory("All");
+    }
+  }, [storeCategories, activeCategory]);
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -44,7 +89,13 @@ export default function StoreDetailsScreen() {
           onChange={setActiveCategory}
         />
         <StoreSearch value={query} onChange={setQuery} />
-        <DealsGrid storeId={storeId} category={activeCategory} query={query} />
+        <DealsGrid
+          storeId={storeId}
+          category={activeCategory}
+          query={query}
+          products={products}
+          getProductCategoryName={getProductCategoryName}
+        />
         <View style={{ height: 40 }} />
       </ScrollView>
     </SafeAreaView>
@@ -95,13 +146,16 @@ function DealsGrid({
   storeId,
   query = "",
   category = "All",
+  products = [],
+  getProductCategoryName,
 }: {
   storeId?: number;
   query?: string;
   category?: string;
+  products?: any[];
+  getProductCategoryName: (product: any) => string;
 }) {
   const router = useRouter();
-  const { state: { products } } = useCatalog();
   const { state: { activePromotions } } = useStore();
   const getDiscounted = React.useCallback((p: any) => {
     const promo = (activePromotions as any[])?.find?.((ap: any) => ap.productId === p.id && ap.active === true);
@@ -122,12 +176,13 @@ function DealsGrid({
     return source.filter((p: any) => {
       const matchesQuery =
         q.length === 0 || String(p.name).toLowerCase().includes(q);
+      const productCategoryName = getProductCategoryName(p);
       const matchesCategory =
         category === "All" ||
-        String(p.category || "").toLowerCase() === category.toLowerCase();
+        productCategoryName.toLowerCase() === category.toLowerCase();
       return matchesQuery && matchesCategory;
     });
-  }, [products, storeId, query, category]);
+  }, [products, storeId, query, category, getProductCategoryName]);
 
   const handleProductPress = (p: any) => {
     router.push({
