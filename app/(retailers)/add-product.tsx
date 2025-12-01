@@ -33,7 +33,6 @@ export default function AddProduct() {
   const [description, setDescription] = useState("");
   const [price, setPrice] = useState("");
   const [stock, setStock] = useState("");
-  const [isActive, setIsActive] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [validationErrors, setValidationErrors] = useState<{[key: string]: boolean}>({});
   const [imageUri, setImageUri] = useState<string | null>(null);
@@ -49,7 +48,6 @@ export default function AddProduct() {
     setDescription("");
     setPrice("");
     setStock("");
-    setIsActive(true);
     setValidationErrors({});
     setImageUri(null);
     setImageUrl(null);
@@ -206,12 +204,11 @@ export default function AddProduct() {
         }
       }
 
-      const productData = {
+      const productData: any = {
         name: productName.trim(),
         description: description.trim(),
         price: Number(price),
         stock: Number(stock),
-        isActive,
         storeId: userStore.id, // Use user's store ID
         ...(typeof imageUrl === "string" && imageUrl.length > 0 ? { imageUrl } : {}), // Include imageUrl if available and valid
         ...(selectedCategoryId ? { categoryId: selectedCategoryId } : {}),
@@ -439,20 +436,19 @@ export default function AddProduct() {
         )}
       </View>
 
-          {/* Active Status */}
+          {/* Product Status (read-only - managed by administrators) */}
           <View style={styles.inputGroup}>
             <Text style={styles.label}>Product Status</Text>
             <View style={styles.toggleContainer}>
-              <Text style={styles.toggleLabel}>
-                {isActive ? "Active" : "Inactive"}
-              </Text>
-              <TouchableOpacity
-                style={[styles.toggle, isActive && styles.toggleActive]}
-                onPress={() => setIsActive(!isActive)}
-              >
-                <View style={[styles.toggleThumb, isActive && styles.toggleThumbActive]} />
-              </TouchableOpacity>
+              <Text style={styles.toggleLabel}>Active</Text>
+              <View style={[styles.toggle, styles.toggleActive]}>
+                <View style={[styles.toggleThumb, styles.toggleThumbActive]} />
+              </View>
             </View>
+            <Text style={styles.helperText}>
+              Visibility for this product is managed by the administrators. If an issue is
+              found later, they may temporarily disable it and notify you.
+            </Text>
           </View>
 
           {/* Product Image */}
@@ -819,6 +815,11 @@ const styles = StyleSheet.create({
   },
   toggleThumbActive: {
     transform: [{ translateX: 22 }],
+  },
+  helperText: {
+    fontSize: 12,
+    color: "#6B7280",
+    marginTop: 4,
   },
   addButtonDisabled: {
     opacity: 0.6,

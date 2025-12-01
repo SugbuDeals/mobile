@@ -319,6 +319,11 @@ function Recommendations({
 }) {
   const [activeTab, setActiveTab] = useState<"products" | "deals">("products");
 
+  const visibleProducts = useMemo(
+    () => (products || []).filter((p: any) => (p as any)?.isActive !== false),
+    [products]
+  );
+
   // Group promotions by title
   const groupedPromotions = useMemo(() => {
     const groups: { [key: string]: { 
@@ -327,7 +332,7 @@ function Recommendations({
     } } = {};
     
     promotions.forEach(promotion => {
-      const product = products.find(p => p.id === promotion.productId);
+      const product = visibleProducts.find(p => p.id === promotion.productId);
       const key = promotion.title;
       
       if (!groups[key]) {
@@ -341,7 +346,7 @@ function Recommendations({
     });
     
     return Object.values(groups);
-  }, [promotions, products]);
+  }, [promotions, visibleProducts]);
 
   const handleProductPress = (p: Product) => {
     router.push({
@@ -392,7 +397,7 @@ function Recommendations({
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={styles.row}
         >
-          {products.map((p) => {
+          {visibleProducts.map((p) => {
             const promo = promotions.find(pr => pr.productId === p.id && (pr as any).active === true);
             const basePrice = Number(p.price);
             const discounted = promo

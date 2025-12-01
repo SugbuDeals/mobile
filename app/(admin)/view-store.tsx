@@ -1,13 +1,25 @@
 import { useLogin } from "@/features/auth";
 import { useStore } from "@/features/store";
 import { Ionicons } from "@expo/vector-icons";
+import { useRouter } from "expo-router";
 import React, { useEffect, useState } from "react";
-import { ActivityIndicator, Alert, Image, ScrollView, StyleSheet, Switch, Text, TouchableOpacity, View } from "react-native";
+import {
+  ActivityIndicator,
+  Alert,
+  Image,
+  ScrollView,
+  StyleSheet,
+  Switch,
+  Text,
+  TouchableOpacity,
+  View,
+} from "react-native";
 
 export default function AdminViewStores() {
   const { state: storeState, action: storeActions } = useStore();
   const { state: authState, action: authActions } = useLogin();
   const [storeActionLoading, setStoreActionLoading] = useState<Record<number, boolean>>({});
+  const router = useRouter();
 
   useEffect(() => {
     storeActions.findStores();
@@ -15,6 +27,16 @@ export default function AdminViewStores() {
       authActions.fetchAllUsers();
     }
   }, []);
+
+  const handleOpenStoreDetails = (storeId: number, storeName?: string | null) => {
+    router.push({
+      pathname: "/(admin)/store-details",
+      params: {
+        storeId: String(storeId),
+        storeName: storeName ?? undefined,
+      },
+    });
+  };
 
   const toggleStoreLoading = (id: number, loading: boolean) => {
     setStoreActionLoading((prev) => ({ ...prev, [id]: loading }));
@@ -74,7 +96,12 @@ export default function AdminViewStores() {
         ) : (
           <View style={styles.list}>
             {storeState.stores.map((store) => (
-              <View key={store.id} style={styles.card}>
+              <TouchableOpacity
+                key={store.id}
+                style={styles.card}
+                activeOpacity={0.9}
+                onPress={() => handleOpenStoreDetails(store.id, store.name)}
+              >
                 <Image
                   source={{ uri: store.imageUrl || "https://via.placeholder.com/64x64.png?text=S" }}
                   style={styles.thumbnail}
@@ -139,10 +166,10 @@ export default function AdminViewStores() {
                     </View>
                   </View>
                 </View>
-                <TouchableOpacity style={styles.chevron}>
+                <View style={styles.chevron}>
                   <Ionicons name="chevron-forward" size={20} color="#9CA3AF" />
-                </TouchableOpacity>
-              </View>
+                </View>
+              </TouchableOpacity>
             ))}
           </View>
         )}

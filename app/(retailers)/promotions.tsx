@@ -190,7 +190,6 @@ export default function Promotions() {
             description: editForm.description,
             startsAt: start.toISOString(),
             endsAt: end.toISOString(),
-            active: editForm.active,
           })
         )
       );
@@ -668,11 +667,18 @@ export default function Promotions() {
                             </View>
                           </View>
 
-                          <View style={[styles.inputGroup, { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }]}>
-                            <Text style={styles.label}>Active</Text>
-                            <TouchableOpacity onPress={() => setEditForm(prev => ({ ...prev, active: !prev.active }))}>
-                              <Ionicons name={editForm.active ? 'toggle' : 'toggle-outline'} size={36} color={editForm.active ? '#10B981' : '#9CA3AF'} />
-                            </TouchableOpacity>
+                          <View style={[styles.inputGroup, { marginTop: 4 }]}>
+                            <Text style={styles.label}>Status</Text>
+                            <Text style={{ fontSize: 14, color: editForm.active ? '#065F46' : '#B91C1C', fontWeight: "600" }}>
+                              {editForm.active ? "Active (managed by administrators)" : "Disabled by administrators"}
+                            </Text>
+                            {!editForm.active && (
+                              <Text style={{ fontSize: 12, color: "#B91C1C", marginTop: 4 }}>
+                                This promotion was disabled by the administrators because something
+                                was wrong with it. While disabled, customers cannot see this
+                                promotion.
+                              </Text>
+                            )}
                           </View>
 
                           <View style={{ flexDirection: 'row', gap: 10, marginTop: 8 }}>

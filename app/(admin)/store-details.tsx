@@ -1,0 +1,704 @@
+import { useLogin } from "@/features/auth";
+import { useStore } from "@/features/store";
+import { Ionicons } from "@expo/vector-icons";
+import { useLocalSearchParams, useRouter } from "expo-router";
+import React, { useEffect, useMemo } from "react";
+import {
+    ActivityIndicator,
+    Image,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View,
+} from "react-native";
+
+export default function AdminStoreDetails() {
+  const params = useLocalSearchParams() as Record<string, string | string[] | undefined>;
+  const router = useRouter();
+  const { state: authState, action: authActions } = useLogin();
+  const {
+    state: storeState,
+    action: storeActions,
+  } = useStore();
+
+  const storeId = useMemo(() => {
+    const raw = Array.isArray(params.storeId) ? params.storeId[0] : params.storeId;
+    const n = raw ? Number(raw) : NaN;
+    return Number.isFinite(n) ? n : undefined;
+  }, [params.storeId]);
+
+  const storeNameFromParams = useMemo(() => {
+    const raw = Array.isArray(params.storeName) ? params.storeName[0] : params.storeName;
+    return raw || undefined;
+  }, [params.storeName]);
+
+  useEffect(() => {
+    if (!storeState.stores.length) {
+      storeActions.findStores();
+    }
+    if (!storeState.products.length) {
+      storeActions.findProducts();
+    }
+    if (!storeState.promotions.length) {
+      storeActions.findPromotions();
+    }
+    if (!authState.allUsers.length) {
+      authActions.fetchAllUsers();
+    }
+  }, []);
+
+  const store = useMemo(
+    () => (storeId != null ? storeState.stores.find((s) => s.id === storeId) : undefined),
+    [storeId, storeState.stores]
+  );
+
+  const storeOwner = useMemo(() => {
+    if (!store?.ownerId || !authState.allUsers.length) return undefined;
+    return authState.allUsers.find((u) => u.id === store.ownerId);
+  }, [store, authState.allUsers]);
+
+  const productsForStore = useMemo(
+    () =>
+      storeId != null
+        ? storeState.products.filter((p) => p.storeId === storeId)
+        : [],
+    [storeId, storeState.products]
+  );
+
+  const promotionsForStore = useMemo(() => {
+    if (!storeId || !storeState.promotions.length || !storeState.products.length) return [];
+    const productById = new Map<number, { name: string }>();
+    storeState.products.forEach((p: any) => {
+      if (p && typeof p.id === "number") {
+        productById.set(p.id, { name: p.name });
+      }
+    });
+
+    return storeState.promotions
+      .map((promo) => {
+        const product = storeState.products.find((p) => p.id === promo.productId);
+        if (!product || product.storeId !== storeId) return null;
+        return { promo, productName: product.name };
+      })
+      .filter(Boolean) as Array<{ promo: any; productName: string }>;
+  }, [storeId, storeState.promotions, storeState.products]);
+
+  if (!storeId) {
+    return (
+      <View style={styles.loadingContainer}>
+        <Text style={styles.loadingText}>Missing store information.</Text>
+        <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
+          <Ionicons name="arrow-back" size={18} color="#FFFFFF" />
+          <Text style={styles.backButtonText}>Go Back</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
+
+  if (storeState.loading && !store) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color="#277874" />
+        <Text style={styles.loadingText}>Loading store details...</Text>
+      </View>
+    );
+  }
+
+  const displayName = store?.name || storeNameFromParams || "Store";
+
+  return (
+    <View style={styles.container}>
+      <ScrollView
+        style={styles.content}
+        contentContainerStyle={styles.contentContainer}
+        showsVerticalScrollIndicator={false}
+      >
+        <View style={styles.headerRow}>
+          <TouchableOpacity style={styles.backIconButton} onPress={() => router.back()}>
+            <Ionicons name="arrow-back" size={18} color="#1F2937" />
+          </TouchableOpacity>
+          <Text style={styles.title} numberOfLines={1}>
+            {displayName}
+          </Text>
+        </View>
+
+        <View style={styles.storeCard}>
+          <View style={styles.storeHeaderRow}>
+            <Image
+              source={{
+                uri:
+                  store?.imageUrl ||
+                  "https://via.placeholder.com/64x64.png?text=S",
+              }}
+              style={styles.storeThumbnail}
+            />
+            <View style={styles.storeInfo}>
+              <Text style={styles.storeName}>{displayName}</Text>
+              {store?.description ? (
+                <Text style={styles.storeDescription} numberOfLines={2}>
+                  {store.description}
+                </Text>
+              ) : null}
+            </View>
+          </View>
+
+          <View style={styles.storeMetaRow}>
+            <View
+              style={[
+                styles.metaPill,
+                {
+                  backgroundColor:
+                    store?.verificationStatus === "VERIFIED" ? "#D1FAE5" : "#F3F4F6",
+                },
+              ]}
+            >
+              <Ionicons
+                name={
+                  store?.verificationStatus === "VERIFIED"
+                    ? "shield-checkmark"
+                    : "shield-outline"
+                }
+                size={14}
+                color={
+                  store?.verificationStatus === "VERIFIED" ? "#10B981" : "#6B7280"
+                }
+              />
+              <Text
+                style={[
+                  styles.metaText,
+                  {
+                    color:
+                      store?.verificationStatus === "VERIFIED"
+                        ? "#065F46"
+                        : "#374151",
+                  },
+                ]}
+              >
+                {store?.verificationStatus === "VERIFIED"
+                  ? "Verified"
+                  : "Unverified"}
+              </Text>
+            </View>
+
+            <View
+              style={[
+                styles.metaPill,
+                {
+                  backgroundColor:
+                    store?.isActive === false ? "#FEE2E2" : "#E0F2F1",
+                },
+              ]}
+            >
+              <Ionicons
+                name={store?.isActive === false ? "power" : "flash"}
+                size={14}
+                color={store?.isActive === false ? "#B91C1C" : "#047857"}
+              />
+              <Text
+                style={[
+                  styles.metaText,
+                  {
+                    color:
+                      store?.isActive === false ? "#991B1B" : "#065F46",
+                  },
+                ]}
+              >
+                {store?.isActive === false ? "Disabled" : "Active"}
+              </Text>
+            </View>
+
+            {storeOwner && (
+              <View style={[styles.metaPill, { backgroundColor: "#EFF6FF" }]}>
+                <Ionicons name="person" size={14} color="#1D4ED8" />
+                <Text style={[styles.metaText, { color: "#1D4ED8" }]}>
+                  {storeOwner.name || storeOwner.fullname || storeOwner.email}
+                </Text>
+              </View>
+            )}
+          </View>
+        </View>
+
+        <View style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>Products</Text>
+            <View style={styles.sectionCountBadge}>
+              <Ionicons name="cube-outline" size={14} color="#277874" />
+              <Text style={styles.sectionCountText}>
+                {productsForStore.length}
+              </Text>
+            </View>
+          </View>
+
+          {productsForStore.length === 0 ? (
+            <View style={styles.emptyState}>
+              <Ionicons name="cube-outline" size={40} color="#9CA3AF" />
+              <Text style={styles.emptyTitle}>No products for this store</Text>
+              <Text style={styles.emptySub}>
+                Products created under this store will appear here.
+              </Text>
+            </View>
+          ) : (
+            <View style={styles.list}>
+              {productsForStore.map((product: any) => (
+                <View key={product.id} style={styles.productCard}>
+                  <Image
+                    source={{
+                      uri:
+                        product.imageUrl ||
+                        "https://via.placeholder.com/64x64.png?text=P",
+                    }}
+                    style={styles.productThumbnail}
+                  />
+                  <View style={styles.productBody}>
+                    <Text style={styles.productTitle}>{product.name}</Text>
+                    {product.description ? (
+                      <Text
+                        style={styles.productSub}
+                        numberOfLines={2}
+                      >
+                        {product.description}
+                      </Text>
+                    ) : null}
+                    <View style={styles.productMetaRow}>
+                      <View
+                        style={[
+                          styles.metaPill,
+                          { backgroundColor: "#E0F2F1" },
+                        ]}
+                      >
+                        <Ionicons
+                          name="pricetag"
+                          size={14}
+                          color="#277874"
+                        />
+                        <Text
+                          style={[
+                            styles.metaText,
+                            { color: "#277874" },
+                          ]}
+                        >
+                          ₱{Number(product.price).toLocaleString()}
+                        </Text>
+                      </View>
+                      <View
+                        style={[
+                          styles.metaPill,
+                          { backgroundColor: "#FEF3C7" },
+                        ]}
+                      >
+                        <Ionicons
+                          name="cube"
+                          size={14}
+                          color="#B45309"
+                        />
+                        <Text
+                          style={[
+                            styles.metaText,
+                            { color: "#92400E" },
+                          ]}
+                        >
+                          Stock: {product.stock}
+                        </Text>
+                      </View>
+                      <View
+                        style={[
+                          styles.metaPill,
+                          {
+                            backgroundColor: product.isActive
+                              ? "#D1FAE5"
+                              : "#F3F4F6",
+                          },
+                        ]}
+                      >
+                        <Ionicons
+                          name={
+                            product.isActive
+                              ? "checkmark-circle"
+                              : "pause-circle"
+                          }
+                          size={14}
+                          color={
+                            product.isActive ? "#10B981" : "#6B7280"
+                          }
+                        />
+                        <Text
+                          style={[
+                            styles.metaText,
+                            {
+                              color: product.isActive
+                                ? "#065F46"
+                                : "#374151",
+                            },
+                          ]}
+                        >
+                          {product.isActive ? "Active" : "Inactive"}
+                        </Text>
+                      </View>
+                    </View>
+                  </View>
+                </View>
+              ))}
+            </View>
+          )}
+        </View>
+
+        <View style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>Promotions</Text>
+            <View style={styles.sectionCountBadge}>
+              <Ionicons name="pricetag" size={14} color="#277874" />
+              <Text style={styles.sectionCountText}>
+                {promotionsForStore.length}
+              </Text>
+            </View>
+          </View>
+
+          {promotionsForStore.length === 0 ? (
+            <View style={styles.emptyState}>
+              <Ionicons name="pricetag-outline" size={40} color="#9CA3AF" />
+              <Text style={styles.emptyTitle}>
+                No promotions for this store
+              </Text>
+              <Text style={styles.emptySub}>
+                Promotions tied to this store&apos;s products will appear
+                here.
+              </Text>
+            </View>
+          ) : (
+            <View style={styles.list}>
+              {promotionsForStore.map(({ promo, productName }) => (
+                <View key={promo.id} style={styles.promoCard}>
+                  <View style={styles.promoIconBadge}>
+                    <Ionicons name="flame" size={18} color="#FFFFFF" />
+                  </View>
+                  <View style={styles.promoBody}>
+                    <Text style={styles.promoTitle}>{promo.title}</Text>
+                    {promo.description ? (
+                      <Text
+                        style={styles.promoSub}
+                        numberOfLines={2}
+                      >
+                        {promo.description}
+                      </Text>
+                    ) : null}
+                    <View style={styles.productMetaRow}>
+                      <View
+                        style={[
+                          styles.metaPill,
+                          { backgroundColor: "#E0F2F1" },
+                        ]}
+                      >
+                        <Ionicons
+                          name="pricetag"
+                          size={14}
+                          color="#277874"
+                        />
+                        <Text
+                          style={[
+                            styles.metaText,
+                            { color: "#277874" },
+                          ]}
+                        >
+                          {promo.type === "percentage"
+                            ? `${promo.discount}%`
+                            : `₱${promo.discount}`}
+                        </Text>
+                      </View>
+                      <View
+                        style={[
+                          styles.metaPill,
+                          { backgroundColor: "#F3F4F6" },
+                        ]}
+                      >
+                        <Ionicons
+                          name="cube"
+                          size={14}
+                          color="#6B7280"
+                        />
+                        <Text
+                          style={[
+                            styles.metaText,
+                            { color: "#374151" },
+                          ]}
+                          numberOfLines={1}
+                        >
+                          {productName}
+                        </Text>
+                      </View>
+                      <View
+                        style={[
+                          styles.metaPill,
+                          {
+                            backgroundColor: promo.active
+                              ? "#D1FAE5"
+                              : "#F3F4F6",
+                          },
+                        ]}
+                      >
+                        <Ionicons
+                          name={
+                            promo.active
+                              ? "checkmark-circle"
+                              : "pause-circle"
+                          }
+                          size={14}
+                          color={
+                            promo.active ? "#10B981" : "#6B7280"
+                          }
+                        />
+                        <Text
+                          style={[
+                            styles.metaText,
+                            {
+                              color: promo.active
+                                ? "#065F46"
+                                : "#374151",
+                            },
+                          ]}
+                        >
+                          {promo.active ? "Active" : "Inactive"}
+                        </Text>
+                      </View>
+                    </View>
+                  </View>
+                </View>
+              ))}
+            </View>
+          )}
+        </View>
+      </ScrollView>
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: "#f8fafc",
+  },
+  content: {
+    flex: 1,
+    paddingHorizontal: 20,
+    paddingTop: 20,
+  },
+  contentContainer: {
+    paddingBottom: 32,
+  },
+  headerRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 16,
+    gap: 12,
+  },
+  backIconButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: "#E5E7EB",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  title: {
+    flex: 1,
+    fontSize: 20,
+    fontWeight: "bold",
+    color: "#111827",
+  },
+  storeCard: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 12,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: "#E5E7EB",
+    marginBottom: 20,
+  },
+  storeHeaderRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 12,
+  },
+  storeThumbnail: {
+    width: 56,
+    height: 56,
+    borderRadius: 8,
+    backgroundColor: "#F3F4F6",
+    marginRight: 12,
+  },
+  storeInfo: {
+    flex: 1,
+  },
+  storeName: {
+    fontSize: 18,
+    fontWeight: "700",
+    color: "#111827",
+    marginBottom: 2,
+  },
+  storeDescription: {
+    fontSize: 13,
+    color: "#6B7280",
+  },
+  storeMetaRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+    marginTop: 4,
+  },
+  metaPill: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 999,
+  },
+  metaText: {
+    fontSize: 12,
+    fontWeight: "700",
+  },
+  section: {
+    marginBottom: 20,
+  },
+  sectionHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 10,
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: "bold",
+    color: "#277874",
+  },
+  sectionCountBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    backgroundColor: "#f0f9f8",
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 999,
+  },
+  sectionCountText: {
+    color: "#277874",
+    fontWeight: "700",
+    fontSize: 12,
+  },
+  list: {
+    gap: 10,
+  },
+  productCard: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 12,
+    padding: 12,
+    flexDirection: "row",
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: "#E5E7EB",
+  },
+  productThumbnail: {
+    width: 56,
+    height: 56,
+    borderRadius: 8,
+    backgroundColor: "#F3F4F6",
+    marginRight: 12,
+  },
+  productBody: {
+    flex: 1,
+  },
+  productTitle: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: "#1F2937",
+    marginBottom: 2,
+  },
+  productSub: {
+    fontSize: 13,
+    color: "#6B7280",
+    marginBottom: 6,
+  },
+  productMetaRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+  },
+  promoCard: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 12,
+    padding: 12,
+    flexDirection: "row",
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: "#E5E7EB",
+  },
+  promoIconBadge: {
+    width: 40,
+    height: 40,
+    borderRadius: 8,
+    backgroundColor: "#277874",
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: 12,
+  },
+  promoBody: {
+    flex: 1,
+  },
+  promoTitle: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: "#1F2937",
+    marginBottom: 2,
+  },
+  promoSub: {
+    fontSize: 13,
+    color: "#6B7280",
+    marginBottom: 6,
+  },
+  emptyState: {
+    alignItems: "center",
+    paddingVertical: 20,
+    paddingHorizontal: 10,
+  },
+  emptyTitle: {
+    marginTop: 8,
+    fontSize: 15,
+    fontWeight: "700",
+    color: "#6B7280",
+  },
+  emptySub: {
+    marginTop: 4,
+    fontSize: 13,
+    color: "#9CA3AF",
+    textAlign: "center",
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "#f8fafc",
+    paddingHorizontal: 20,
+  },
+  loadingText: {
+    marginTop: 12,
+    fontSize: 16,
+    color: "#277874",
+    textAlign: "center",
+  },
+  backButton: {
+    marginTop: 16,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    backgroundColor: "#277874",
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 999,
+  },
+  backButtonText: {
+    color: "#FFFFFF",
+    fontSize: 14,
+    fontWeight: "600",
+  },
+});
+
+

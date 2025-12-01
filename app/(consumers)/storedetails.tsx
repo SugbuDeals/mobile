@@ -136,7 +136,7 @@ export default function StoreDetailsScreen() {
       (acc, promo: any) => {
         if (!promo?.active) return acc;
         const product = (products || []).find((p: any) => p.id === promo.productId);
-        if (!product) return acc;
+        if (!product || product.isActive === false) return acc;
         if (product.storeId !== storeId) return acc;
         acc.push({ promotion: promo, product });
         return acc;

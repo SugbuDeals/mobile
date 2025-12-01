@@ -81,6 +81,23 @@ export default function ProductDetailScreen() {
     if (rawBanner.startsWith('/')) return `${env.API_BASE_URL}${rawBanner}`;
     return `${env.API_BASE_URL}/files/${rawBanner}`;
   })();
+  // If this product exists but was disabled by administrators, hide details from consumers
+  if (actualProduct && (actualProduct as any)?.isActive === false) {
+    return (
+      <SafeAreaView style={styles.safeArea}>
+        <StatusBar barStyle="dark-content" backgroundColor="#fff" />
+        <View style={[styles.scrollViewContent, { alignItems: "center", justifyContent: "center" }]}>
+          <Text style={{ fontSize: 18, fontWeight: "700", color: "#B91C1C", marginBottom: 8 }}>
+            This product is not available
+          </Text>
+          <Text style={{ fontSize: 14, color: "#6B7280", textAlign: "center" }}>
+            This item has been disabled by the store administrators and is currently hidden from shoppers.
+          </Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
   return (
     <SafeAreaView style={styles.safeArea}>
       <StatusBar barStyle="dark-content" backgroundColor="#fff" />

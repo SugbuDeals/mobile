@@ -221,13 +221,12 @@ export default function EditProduct() {
         }
       }
 
-      const updateData = {
+      const updateData: any = {
         id: Number(productId),
         name: productName.trim(),
         description: description.trim(),
         price: Number(price),
         stock: Number(stock),
-        isActive,
         ...(imageUrl && { imageUrl }), // Include imageUrl if available
         categoryId: selectedCategoryId ?? null,
       };
@@ -384,20 +383,24 @@ export default function EditProduct() {
             )}
           </View>
 
-          {/* Active Status */}
+          {/* Active Status (read-only - managed by administrators) */}
           <View style={styles.inputGroup}>
             <Text style={styles.label}>Product Status</Text>
             <View style={styles.toggleContainer}>
               <Text style={styles.toggleLabel}>
-                {isActive ? "Active" : "Inactive"}
+                {isActive ? "Active" : "Disabled by administrator"}
               </Text>
-              <TouchableOpacity
-                style={[styles.toggle, isActive && styles.toggleActive]}
-                onPress={() => setIsActive(!isActive)}
-              >
+              <View style={[styles.toggle, isActive && styles.toggleActive]}>
                 <View style={[styles.toggleThumb, isActive && styles.toggleThumbActive]} />
-              </TouchableOpacity>
+              </View>
             </View>
+            {!isActive && (
+              <Text style={styles.helperText}>
+                This product has been disabled by the administrators because there is a problem
+                with it. While disabled, customers cannot see or purchase this product. Please
+                review the product details or contact support to resolve the issue.
+              </Text>
+            )}
           </View>
 
           {/* Product Image */}
@@ -736,6 +739,11 @@ const styles = StyleSheet.create({
   },
   toggleThumbActive: {
     transform: [{ translateX: 22 }],
+  },
+  helperText: {
+    fontSize: 12,
+    color: "#B91C1C",
+    marginTop: 4,
   },
   saveButtonDisabled: {
     opacity: 0.6,

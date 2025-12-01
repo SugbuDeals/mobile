@@ -83,29 +83,10 @@ const PromotionCard = ({ promotion, activePromotions }: { promotion: any; active
   };
 
   const handleToggleActive = async () => {
-    setIsUpdating(true);
-    try {
-      // Update all related promotions
-      const productIds: number[] = promotion.productIds || [promotion.productId];
-      const promises = productIds.map((productId: number) => {
-        // Find the original promotion for this product
-        const originalPromotion = activePromotions.find(p => p.productId === productId);
-        if (originalPromotion) {
-          return updatePromotion({
-            id: originalPromotion.id,
-            active: !originalPromotion.active
-          });
-        }
-        return Promise.resolve();
-      });
-      
-      await Promise.all(promises);
-    } catch (error) {
-      console.error("Error updating promotion:", error);
-      Alert.alert("Error", "Failed to update promotion");
-    } finally {
-      setIsUpdating(false);
-    }
+    Alert.alert(
+      "Status managed by administrators",
+      "Only administrators can activate or pause promotions. If your promotion was disabled, it is because something was wrong with it. While disabled, customers cannot see this promotion."
+    );
   };
 
   const handleDelete = async () => {
@@ -174,12 +155,12 @@ const PromotionCard = ({ promotion, activePromotions }: { promotion: any; active
         </View>
         
         <View style={styles.promotionFooter}>
-          <View style={styles.statusContainer}>
-            <View style={[styles.statusDot, { backgroundColor: promotion.active ? '#10B981' : '#EF4444' }]} />
-            <Text style={styles.statusText}>
-              {promotion.active ? 'Active' : 'Inactive'}
-            </Text>
-          </View>
+            <View style={styles.statusContainer}>
+              <View style={[styles.statusDot, { backgroundColor: promotion.active ? '#10B981' : '#EF4444' }]} />
+              <Text style={styles.statusText}>
+                {promotion.active ? 'Active' : 'Disabled by administrator'}
+              </Text>
+            </View>
           {daysLeft > 0 && (
             <Text style={styles.daysLeft}>
               {daysLeft} days left
@@ -245,22 +226,21 @@ const PromotionCard = ({ promotion, activePromotions }: { promotion: any; active
         )}
 
         {/* Action Buttons */}
-        <View style={styles.promotionActions}>
+          <View style={styles.promotionActions}>
           <TouchableOpacity 
             style={[styles.actionButton, styles.toggleButton]}
             onPress={handleToggleActive}
-            disabled={isUpdating}
           >
             <Ionicons 
-              name={promotion.active ? "pause" : "play"} 
+              name="alert-circle" 
               size={16} 
               color="#ffffff" 
             />
             <Text style={styles.actionButtonText}>
-              {isUpdating ? "Updating..." : (promotion.active ? "Pause" : "Activate")}
+              Status Managed by Admin
             </Text>
           </TouchableOpacity>
-          
+
           <TouchableOpacity 
             style={[styles.actionButton, styles.deleteButton]}
             onPress={handleDelete}
