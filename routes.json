@@ -504,6 +504,215 @@
         ]
       }
     },
+    "/notifications": {
+      "get": {
+        "operationId": "NotificationController_getNotifications",
+        "parameters": [
+          {
+            "name": "skip",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "number"
+            }
+          },
+          {
+            "name": "take",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "number"
+            }
+          },
+          {
+            "name": "read",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Returns list of notifications",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/NotificationResponseDto"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Get user notifications",
+        "tags": [
+          "Notifications"
+        ]
+      },
+      "post": {
+        "operationId": "NotificationController_createNotification",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateNotificationDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Notification created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotificationResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Create a notification (admin only)",
+        "tags": [
+          "Notifications"
+        ]
+      }
+    },
+    "/notifications/unread-count": {
+      "get": {
+        "operationId": "NotificationController_getUnreadCount",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Returns unread count",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "number"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Get unread notification count",
+        "tags": [
+          "Notifications"
+        ]
+      }
+    },
+    "/notifications/{id}/read": {
+      "patch": {
+        "operationId": "NotificationController_markAsRead",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Notification marked as read",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotificationResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Mark notification as read",
+        "tags": [
+          "Notifications"
+        ]
+      }
+    },
+    "/notifications/mark-all-read": {
+      "patch": {
+        "operationId": "NotificationController_markAllAsRead",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "All notifications marked as read"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Mark all notifications as read",
+        "tags": [
+          "Notifications"
+        ]
+      }
+    },
+    "/notifications/{id}": {
+      "delete": {
+        "operationId": "NotificationController_deleteNotification",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Notification deleted",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotificationResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Delete a notification",
+        "tags": [
+          "Notifications"
+        ]
+      }
+    },
     "/product": {
       "get": {
         "operationId": "ProductController_findManyProducts",
@@ -2086,6 +2295,131 @@
             "example": true
           }
         }
+      },
+      "NotificationResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "number"
+          },
+          "userId": {
+            "type": "number"
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "PRODUCT_CREATED",
+              "PRODUCT_PRICE_CHANGED",
+              "PRODUCT_STOCK_CHANGED",
+              "PRODUCT_STATUS_CHANGED",
+              "PROMOTION_CREATED",
+              "PROMOTION_STARTED",
+              "PROMOTION_ENDING_SOON",
+              "STORE_VERIFIED",
+              "STORE_CREATED",
+              "SUBSCRIPTION_JOINED",
+              "SUBSCRIPTION_CANCELLED",
+              "SUBSCRIPTION_EXPIRED",
+              "SUBSCRIPTION_RENEWED"
+            ]
+          },
+          "title": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          },
+          "read": {
+            "type": "boolean"
+          },
+          "createdAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "readAt": {
+            "type": "object",
+            "nullable": true
+          },
+          "productId": {
+            "type": "object",
+            "nullable": true
+          },
+          "storeId": {
+            "type": "object",
+            "nullable": true
+          },
+          "promotionId": {
+            "type": "object",
+            "nullable": true
+          }
+        },
+        "required": [
+          "id",
+          "userId",
+          "type",
+          "title",
+          "message",
+          "read",
+          "createdAt",
+          "readAt",
+          "productId",
+          "storeId",
+          "promotionId"
+        ]
+      },
+      "CreateNotificationDto": {
+        "type": "object",
+        "properties": {
+          "userId": {
+            "type": "number",
+            "description": "User ID to notify"
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "PRODUCT_CREATED",
+              "PRODUCT_PRICE_CHANGED",
+              "PRODUCT_STOCK_CHANGED",
+              "PRODUCT_STATUS_CHANGED",
+              "PROMOTION_CREATED",
+              "PROMOTION_STARTED",
+              "PROMOTION_ENDING_SOON",
+              "STORE_VERIFIED",
+              "STORE_CREATED",
+              "SUBSCRIPTION_JOINED",
+              "SUBSCRIPTION_CANCELLED",
+              "SUBSCRIPTION_EXPIRED",
+              "SUBSCRIPTION_RENEWED"
+            ],
+            "description": "Type of notification"
+          },
+          "title": {
+            "type": "string",
+            "description": "Notification title"
+          },
+          "message": {
+            "type": "string",
+            "description": "Notification message"
+          },
+          "productId": {
+            "type": "number",
+            "description": "Related product ID"
+          },
+          "storeId": {
+            "type": "number",
+            "description": "Related store ID"
+          },
+          "promotionId": {
+            "type": "number",
+            "description": "Related promotion ID"
+          }
+        },
+        "required": [
+          "userId",
+          "type",
+          "title",
+          "message"
+        ]
       },
       "CreateProductDTO": {
         "type": "object",

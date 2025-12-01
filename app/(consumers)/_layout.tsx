@@ -1,12 +1,20 @@
 import ConditionalNavigation from "@/components/ConditionalNavigation";
+import { useNotifications } from "@/features/notifications";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { LinearGradient } from "expo-linear-gradient";
 import { Tabs, useRouter } from "expo-router";
-import React from "react";
-import { Platform, StatusBar, StyleSheet, Text, View } from "react-native";
+import React, { useEffect } from "react";
+import { Platform, StatusBar, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
 const ConsumerHeader = () => {
   const router = useRouter();
+  const { action, state } = useNotifications();
+
+  useEffect(() => {
+    // Fetch unread count when header mounts
+    action.getUnreadCount();
+  }, []);
+
   return (
     <View style={styles.headerShadowContainer}>
       <LinearGradient
@@ -33,24 +41,31 @@ const ConsumerHeader = () => {
           </View>
 
           {/* Notification Bell */}
-          <View style={styles.notificationContainer}>
-            <Ionicons
-              name="notifications"
-              size={20}
-              color="#ffffff"
-              onPress={() => router.push("/(consumers)/notifications")}
+          <TouchableOpacity
+            style={styles.notificationContainer}
+            onPress={() => router.push("/(consumers)/notifications")}
+          >
+            <Ionicons 
+              name={state.unreadCount > 0 ? "notifications" : "notifications-outline"} 
+              size={20} 
+              color="#ffffff" 
             />
-          </View>
+            {state.unreadCount > 0 && (
+              <View style={styles.badge}>
+                <Text style={styles.badgeText}>
+                  {state.unreadCount > 99 ? "99+" : state.unreadCount}
+                </Text>
+              </View>
+            )}
+          </TouchableOpacity>
 
           {/* Profile Picture */}
-          <View style={styles.profileContainer}>
-            <Ionicons
-              name="person"
-              size={20}
-              color="#ffffff"
-              onPress={() => router.push("/(consumers)/profile")}
-            />
-          </View>
+          <TouchableOpacity
+            style={styles.profileContainer}
+            onPress={() => router.push("/(consumers)/profile")}
+          >
+            <Ionicons name="person" size={20} color="#ffffff" />
+          </TouchableOpacity>
         </View>
       </LinearGradient>
     </View>
@@ -108,6 +123,7 @@ export default function ConsumersLayout() {
           name="notifications"
           options={{
             href: null,
+            headerShown: false,
           }}
         />
         <Tabs.Screen
@@ -208,6 +224,26 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(255, 255, 255, 0.3)",
     justifyContent: "center",
     alignItems: "center",
+    position: "relative",
+  },
+  badge: {
+    position: "absolute",
+    top: 4,
+    right: 4,
+    backgroundColor: "#EF4444",
+    borderRadius: 10,
+    minWidth: 18,
+    height: 18,
+    paddingHorizontal: 4,
+    justifyContent: "center",
+    alignItems: "center",
+    borderWidth: 2,
+    borderColor: "#277874",
+  },
+  badgeText: {
+    color: "#ffffff",
+    fontSize: 10,
+    fontWeight: "700",
   },
   profileContainer: {
     width: 40,

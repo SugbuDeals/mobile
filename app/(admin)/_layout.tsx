@@ -1,11 +1,18 @@
+import { useNotifications } from "@/features/notifications";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { Tabs, useRouter } from "expo-router";
-import React from "react";
+import React, { useEffect } from "react";
 import { Platform, StatusBar, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
 const AdminHeader = ({ title = "Dashboard", subtitle = "Welcome back, Admin!" }: { title?: string; subtitle?: string }) => {
   const router = useRouter();
+  const { action, state } = useNotifications();
+
+  useEffect(() => {
+    // Fetch unread count when header mounts
+    action.getUnreadCount();
+  }, []);
   
   return (
     <View style={styles.headerShadowContainer}>
@@ -34,7 +41,18 @@ const AdminHeader = ({ title = "Dashboard", subtitle = "Welcome back, Admin!" }:
               style={styles.notificationContainer}
               onPress={() => router.push("/(admin)/notifications")}
             >
-              <Ionicons name="notifications" size={20} color="#ffffff" />
+              <Ionicons 
+                name={state.unreadCount > 0 ? "notifications" : "notifications-outline"} 
+                size={20} 
+                color="#ffffff" 
+              />
+              {state.unreadCount > 0 && (
+                <View style={styles.badge}>
+                  <Text style={styles.badgeText}>
+                    {state.unreadCount > 99 ? "99+" : state.unreadCount}
+                  </Text>
+                </View>
+              )}
             </TouchableOpacity>
           </View>
         </View>
@@ -143,7 +161,7 @@ export default function AdminLayout() {
           name="notifications"
           options={{
             title: "Notifications",
-            header: () => <AdminHeader title="Notifications" subtitle="System alerts and updates" />,
+            headerShown: false,
             href: null, // Hide from tab bar
           }}
         />
@@ -255,5 +273,25 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(255, 255, 255, 0.3)",
     justifyContent: "center",
     alignItems: "center",
+    position: "relative",
+  },
+  badge: {
+    position: "absolute",
+    top: 4,
+    right: 4,
+    backgroundColor: "#EF4444",
+    borderRadius: 10,
+    minWidth: 18,
+    height: 18,
+    paddingHorizontal: 4,
+    justifyContent: "center",
+    alignItems: "center",
+    borderWidth: 2,
+    borderColor: "#277874",
+  },
+  badgeText: {
+    color: "#ffffff",
+    fontSize: 10,
+    fontWeight: "700",
   },
 });

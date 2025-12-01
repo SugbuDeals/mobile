@@ -1,10 +1,11 @@
 import { logout } from "@/features/auth/slice";
+import { useNotifications } from "@/features/notifications";
 import { useStoreManagement } from "@/features/store";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { LinearGradient } from "expo-linear-gradient";
 import { Tabs, router } from "expo-router";
-import React from "react";
+import React, { useEffect } from "react";
 import {
   Platform,
   StatusBar,
@@ -16,6 +17,12 @@ import {
 
 const RetailerHeader = () => {
   const dispatch = useAppDispatch();
+  const { action, state } = useNotifications();
+
+  useEffect(() => {
+    // Fetch unread count when header mounts
+    action.getUnreadCount();
+  }, []);
 
   const handleLogout = () => {
     dispatch(logout());
@@ -49,7 +56,18 @@ const RetailerHeader = () => {
               style={styles.notificationContainer}
               onPress={() => router.push("/(retailers)/notifications")}
             >
-              <Ionicons name="notifications" size={20} color="#ffffff" />
+              <Ionicons 
+                name={state.unreadCount > 0 ? "notifications" : "notifications-outline"} 
+                size={20} 
+                color="#ffffff" 
+              />
+              {state.unreadCount > 0 && (
+                <View style={styles.badge}>
+                  <Text style={styles.badgeText}>
+                    {state.unreadCount > 99 ? "99+" : state.unreadCount}
+                  </Text>
+                </View>
+              )}
             </TouchableOpacity>
 
             
@@ -247,6 +265,26 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(255, 255, 255, 0.3)",
     justifyContent: "center",
     alignItems: "center",
+    position: "relative",
+  },
+  badge: {
+    position: "absolute",
+    top: 4,
+    right: 4,
+    backgroundColor: "#EF4444",
+    borderRadius: 10,
+    minWidth: 18,
+    height: 18,
+    paddingHorizontal: 4,
+    justifyContent: "center",
+    alignItems: "center",
+    borderWidth: 2,
+    borderColor: "#277874",
+  },
+  badgeText: {
+    color: "#ffffff",
+    fontSize: 10,
+    fontWeight: "700",
   },
   logoutContainer: {
     width: 30,
