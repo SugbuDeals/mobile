@@ -47,9 +47,12 @@ export default function ProductDetailScreen() {
       findStoreById(productStoreId);
     }
   }, [productStoreId, findStoreById]);
+  const storeFromList = stores.find((s: any) => s.id === productStoreId);
+  const storeFromSelected =
+    selectedStore && selectedStore.id === productStoreId ? selectedStore : undefined;
+  const resolvedStore = storeFromSelected || storeFromList;
   const productStore =
-    (params.store as string) ||
-    (stores.find((s: any) => s.id === productStoreId)?.name ?? "Store");
+    (params.store as string) || ((resolvedStore as any)?.name ?? "Store");
   const productPrice =
     typeof params.price === "number"
       ? (params.price as unknown as number)
@@ -62,9 +65,7 @@ export default function ProductDetailScreen() {
   const productImageUrl = (params.imageUrl as string) || actualProduct?.imageUrl || "";
   const productDescription = actualProduct?.description || "";
 
-  const logoFromList = stores.find((s: any) => s.id === productStoreId)?.imageUrl as string | undefined;
-  const logoFromSelected = (selectedStore && selectedStore.id === productStoreId) ? (selectedStore as any).imageUrl : undefined;
-  const rawLogo = logoFromSelected || logoFromList;
+  const rawLogo = (resolvedStore as any)?.imageUrl as string | undefined;
   const logoUrl = (() => {
     if (!rawLogo) return undefined;
     if (/^https?:\/\//i.test(rawLogo)) return rawLogo;
@@ -73,9 +74,7 @@ export default function ProductDetailScreen() {
   })();
 
   // Compute store banner for this product's store (used in header)
-  const bannerFromList = (stores.find((s: any) => s.id === productStoreId) as any)?.bannerUrl as string | undefined;
-  const bannerFromSelected = (selectedStore && selectedStore.id === productStoreId) ? (selectedStore as any).bannerUrl : undefined;
-  const rawBanner = bannerFromSelected || bannerFromList;
+  const rawBanner = (resolvedStore as any)?.bannerUrl as string | undefined;
   const bannerUrl = (() => {
     if (!rawBanner) return undefined;
     if (/^https?:\/\//i.test(rawBanner)) return rawBanner;

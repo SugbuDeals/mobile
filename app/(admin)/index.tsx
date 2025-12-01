@@ -18,6 +18,22 @@ import {
 
 const { width } = Dimensions.get("window");
 
+type AiRecommendationProduct = {
+  id?: number;
+  productId?: number;
+  name?: string;
+  title?: string;
+  storeName?: string;
+  storeId?: number;
+  store?: { id?: number; name?: string };
+  price?: number;
+  discount?: number;
+  imageUrl?: string;
+  image?: string;
+  description?: string;
+  distance?: number;
+};
+
 export default function AdminDashboard() {
   const { state: authState, action: authActions } = useLogin();
   const { action: storeActions, state: { promotions, loading: storeLoading } } = useStore();
@@ -27,6 +43,7 @@ export default function AdminDashboard() {
   const [aiQuery, setAiQuery] = useState("");
   const [aiResponse, setAiResponse] = useState("");
   const [isLoadingAI, setIsLoadingAI] = useState(false);
+  const [aiProducts, setAiProducts] = useState<AiRecommendationProduct[]>([]);
 
   useEffect(() => {
     // Fetch all users
@@ -99,6 +116,7 @@ export default function AdminDashboard() {
     
     setIsLoadingAI(true);
     setAiResponse("Processing...");
+    setAiProducts([]);
     
     try {
       const response = await fetch(`${env.API_BASE_URL}/ai/recommendations`, {
@@ -127,10 +145,18 @@ export default function AdminDashboard() {
         jsonData?.summary ||
         jsonData?.message ||
         "AI response received";
+
+      const items =
+        (Array.isArray(jsonData?.products) && jsonData.products) ||
+        (Array.isArray(jsonData?.recommendations) && jsonData.recommendations) ||
+        (Array.isArray(jsonData?.items) && jsonData.items) ||
+        [];
       
       setAiResponse(aiText);
+      setAiProducts((items as AiRecommendationProduct[]).filter(Boolean));
     } catch (error) {
       setAiResponse("Error: Could not fetch AI recommendations. Please try again.");
+      setAiProducts([]);
       console.error("AI error:", error);
     } finally {
       setIsLoadingAI(false);
@@ -265,6 +291,7 @@ export default function AdminDashboard() {
                 onPress={() => {
                   setAiQuery("");
                   setAiResponse("");
+                  setAiProducts([]);
                 }}
               >
                 <Ionicons name="refresh" size={20} color="#6B7280" />
@@ -274,6 +301,61 @@ export default function AdminDashboard() {
             {aiResponse && (
               <View style={styles.aiResponseContainer}>
                 <Text style={styles.aiResponseText}>{aiResponse}</Text>
+                {!!aiProducts.length && (
+                  <View style={styles.aiProductsList}>
+                    {aiProducts.map((item, idx) => {
+                      const displayName = item.name || item.title || `Product ${idx + 1}`;
+                      const displayStore = item.storeName || item.store?.name || "Store";
+                      const price =
+                        typeof item.price === "number"
+                          ? item.price
+                          : item.price != null
+                            ? Number(item.price)
+                            : undefined;
+                      const discount =
+                        typeof item.discount === "number"
+                          ? item.discount
+                          : item.discount != null
+                            ? Number(item.discount)
+                            : undefined;
+                      const distance =
+                        typeof item.distance === "number"
+                          ? item.distance
+                          : item.distance != null
+                            ? Number(item.distance)
+                            : undefined;
+                      const imageUrl = (() => {
+                        const url = item.imageUrl || item.image;
+                        if (!url) return null;
+                        if (/^https?:\/\//i.test(url)) return url;
+                        if (url.startsWith("/")) return `${env.API_BASE_URL}${url}`;
+                        return `${env.API_BASE_URL}/files/${url}`;
+                      })();
+                      return (
+                        <View key={item.id ?? item.productId ?? idx} style={styles.aiProductCard}>
+                          {imageUrl ? (
+                            <Image source={{ uri: imageUrl }} style={styles.aiProductImage} />
+                          ) : (
+                            <View style={styles.aiProductPlaceholder} />
+                          )}
+                          <View style={styles.aiProductInfo}>
+                            <Text style={styles.aiProductName} numberOfLines={2}>{displayName}</Text>
+                            <Text style={styles.aiProductStore}>{displayStore}</Text>
+                            {distance !== undefined && (
+                              <Text style={styles.aiProductMeta}>{distance.toFixed(1)} km away</Text>
+                            )}
+                            {price !== undefined && (
+                              <Text style={styles.aiProductPrice}>₱ {price.toFixed(2)}</Text>
+                            )}
+                            {discount !== undefined && (
+                              <Text style={styles.aiProductDiscount}>{discount}% OFF</Text>
+                            )}
+                          </View>
+                        </View>
+                      );
+                    })}
+                  </View>
+                )}
               </View>
             )}
           </View>
@@ -500,6 +582,62 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: "#1f2937",
     lineHeight: 20,
+  },
+  aiProductsList: {
+    marginTop: 12,
+  },
+  aiProductCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: "#e5e7eb",
+    borderRadius: 10,
+    padding: 10,
+    marginTop: 10,
+    backgroundColor: "#ffffff",
+  },
+  aiProductImage: {
+    width: 62,
+    height: 62,
+    borderRadius: 10,
+    backgroundColor: "#f3f4f6",
+    marginRight: 12,
+  },
+  aiProductPlaceholder: {
+    width: 62,
+    height: 62,
+    borderRadius: 10,
+    backgroundColor: "#f3f4f6",
+    marginRight: 12,
+  },
+  aiProductInfo: {
+    flex: 1,
+  },
+  aiProductName: {
+    fontSize: 15,
+    fontWeight: "700",
+    color: "#0f172a",
+  },
+  aiProductStore: {
+    fontSize: 13,
+    color: "#475569",
+    marginTop: 2,
+  },
+  aiProductMeta: {
+    fontSize: 12,
+    color: "#94a3b8",
+    marginTop: 2,
+  },
+  aiProductPrice: {
+    fontSize: 16,
+    fontWeight: "800",
+    color: "#047857",
+    marginTop: 4,
+  },
+  aiProductDiscount: {
+    fontSize: 12,
+    color: "#b45309",
+    fontWeight: "700",
   },
   usersSection: {
     marginBottom: 24,

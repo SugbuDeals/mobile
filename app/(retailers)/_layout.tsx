@@ -18,6 +18,7 @@ import {
 const RetailerHeader = () => {
   const dispatch = useAppDispatch();
   const { action, state } = useNotifications();
+  const { userStore } = useStoreManagement();
 
   useEffect(() => {
     // Fetch unread count when header mounts
@@ -56,10 +57,14 @@ const RetailerHeader = () => {
               style={styles.notificationContainer}
               onPress={() => router.push("/(retailers)/notifications")}
             >
-              <Ionicons 
-                name={state.unreadCount > 0 ? "notifications" : "notifications-outline"} 
-                size={20} 
-                color="#ffffff" 
+              <Ionicons
+                name={
+                  state.unreadCount > 0
+                    ? "notifications"
+                    : "notifications-outline"
+                }
+                size={20}
+                color="#ffffff"
               />
               {state.unreadCount > 0 && (
                 <View style={styles.badge}>
@@ -69,10 +74,32 @@ const RetailerHeader = () => {
                 </View>
               )}
             </TouchableOpacity>
-
-            
           </View>
         </View>
+
+        {/* Unverified store reminder */}
+        {userStore &&
+          userStore.verificationStatus &&
+          userStore.verificationStatus !== "VERIFIED" && (
+            <View style={styles.unverifiedBanner}>
+              <Ionicons
+                name="shield-outline"
+                size={16}
+                color="#B45309"
+                style={{ marginRight: 6 }}
+              />
+              <View style={{ flex: 1 }}>
+                <Text style={styles.unverifiedTitle}>
+                  Your store is currently unverified
+                </Text>
+                <Text style={styles.unverifiedText}>
+                  Customers cannot see your store, products, or promotions yet.
+                  You can still add and manage them while waiting for
+                  verification.
+                </Text>
+              </View>
+            </View>
+          )}
       </LinearGradient>
     </View>
   );
@@ -152,6 +179,7 @@ export default function RetailersLayout() {
         name="notifications"
         options={{
           title: "Notifications",
+          headerShown: false,
           href: null,
         }}
       />
@@ -285,6 +313,26 @@ const styles = StyleSheet.create({
     color: "#ffffff",
     fontSize: 10,
     fontWeight: "700",
+  },
+  unverifiedBanner: {
+    marginTop: 12,
+    marginHorizontal: 2,
+    flexDirection: "row",
+    alignItems: "flex-start",
+    paddingVertical: 8,
+    paddingHorizontal: 10,
+    borderRadius: 10,
+    backgroundColor: "rgba(254, 243, 199, 0.95)",
+  },
+  unverifiedTitle: {
+    color: "#92400E",
+    fontSize: 13,
+    fontWeight: "700",
+    marginBottom: 2,
+  },
+  unverifiedText: {
+    color: "#92400E",
+    fontSize: 11,
   },
   logoutContainer: {
     width: 30,

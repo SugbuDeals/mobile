@@ -74,7 +74,11 @@ const storeSlice = createSlice({
       .addCase(findNearbyStores.fulfilled, (state, action) => {
         state.loading = false;
         state.error = null;
-        state.nearbyStores = action.payload;
+        // Only expose VERIFIED & active stores to consumers
+        state.nearbyStores = (action.payload || []).filter(
+          (store: Store) =>
+            store.verificationStatus === "VERIFIED" && store.isActive !== false
+        );
       })
       .addCase(findNearbyStores.rejected, (state, action) => {
         state.loading = false;

@@ -5,7 +5,7 @@ export { useStoreManagement } from "./hooks";
 
 export const useStore = () => {
   const dispatch = useAppDispatch();
-  const { stores, userStore, nearbyStores, products, promotions, activePromotions, activeSubscription, subscriptions, subscriptionAnalytics, loading, error } = useAppSelector((state) => state.store);
+  const storeState = useAppSelector((state) => state.store);
 
   const findStores = () => dispatch(thunk.findStores());
   const findUserStore = (userId: number) => dispatch(thunk.findUserStore(userId));
@@ -90,18 +90,6 @@ export const useStore = () => {
       deleteSubscription,
       getSubscriptionAnalytics,
     },
-    state: {
-      stores,
-      userStore,
-      nearbyStores,
-      products,
-      promotions,
-      activePromotions,
-      activeSubscription,
-      subscriptions,
-      subscriptionAnalytics,
-      loading,
-      error,
-    },
+    state: storeState,
   };
 };

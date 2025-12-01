@@ -4,6 +4,7 @@ import { Ionicons } from "@expo/vector-icons";
 import React, { useState } from "react";
 import {
     ActivityIndicator,
+    Image,
     ScrollView,
     StyleSheet,
     Text,
@@ -21,6 +22,22 @@ interface QueryHistory {
   timestamp: Date;
 }
 
+type RecommendationProduct = {
+  id?: number;
+  productId?: number;
+  name?: string;
+  title?: string;
+  storeName?: string;
+  storeId?: number;
+  store?: { id?: number; name?: string };
+  price?: number;
+  discount?: number;
+  imageUrl?: string;
+  image?: string;
+  description?: string;
+  distance?: number;
+};
+
 export default function AITesting() {
   const { state: authState } = useLogin();
   
@@ -37,6 +54,7 @@ export default function AITesting() {
   const [recommendationCount, setRecommendationCount] = useState("10");
   const [recommendationResponse, setRecommendationResponse] = useState("");
   const [recommendationLoading, setRecommendationLoading] = useState(false);
+  const [recommendationProducts, setRecommendationProducts] = useState<RecommendationProduct[]>([]);
   
   // History state
   const [queryHistory, setQueryHistory] = useState<QueryHistory[]>([]);
@@ -173,6 +191,7 @@ export default function AITesting() {
     
     setRecommendationLoading(true);
     setRecommendationResponse("Processing...");
+    setRecommendationProducts([]);
     
     try {
       const response = await fetch(`${env.API_BASE_URL}/ai/recommendations`, {
@@ -203,8 +222,17 @@ export default function AITesting() {
         jsonData?.response ||
         rawText ||
         "No response received";
+
+      const items =
+        (Array.isArray(jsonData?.products) && jsonData.products) ||
+        (Array.isArray(jsonData?.recommendations) && jsonData.recommendations) ||
+        (Array.isArray(jsonData?.items) && jsonData.items) ||
+        [];
       
       setRecommendationResponse(responseText);
+      setRecommendationProducts(
+        (items as RecommendationProduct[]).filter(Boolean)
+      );
       
       // Add to history
       setQueryHistory(prev => [{
@@ -218,6 +246,7 @@ export default function AITesting() {
     } catch (error) {
       const errorText = `Error: ${error}`;
       setRecommendationResponse(errorText);
+      setRecommendationProducts([]);
       
       // Add error to history
       setQueryHistory(prev => [{
@@ -439,6 +468,61 @@ export default function AITesting() {
               >
                 <Text style={styles.responseText}>{recommendationResponse}</Text>
               </ScrollView>
+              {!!recommendationProducts.length && (
+                <View style={styles.productList}>
+                  {recommendationProducts.map((item, idx) => {
+                    const displayName = item.name || item.title || `Product ${idx + 1}`;
+                    const displayStore = item.storeName || item.store?.name || "Store";
+                    const price =
+                      typeof item.price === "number"
+                        ? item.price
+                        : item.price != null
+                          ? Number(item.price)
+                          : undefined;
+                    const discount =
+                      typeof item.discount === "number"
+                        ? item.discount
+                        : item.discount != null
+                          ? Number(item.discount)
+                          : undefined;
+                    const distance =
+                      typeof item.distance === "number"
+                        ? item.distance
+                        : item.distance != null
+                          ? Number(item.distance)
+                          : undefined;
+                    const imageUrl = (() => {
+                      const url = item.imageUrl || item.image;
+                      if (!url) return null;
+                      if (/^https?:\/\//i.test(url)) return url;
+                      if (url.startsWith("/")) return `${env.API_BASE_URL}${url}`;
+                      return `${env.API_BASE_URL}/files/${url}`;
+                    })();
+                    return (
+                      <View key={item.id ?? item.productId ?? idx} style={styles.productCard}>
+                        {imageUrl ? (
+                          <Image source={{ uri: imageUrl }} style={styles.productImage} />
+                        ) : (
+                          <View style={styles.productPlaceholder} />
+                        )}
+                        <View style={styles.productInfo}>
+                          <Text style={styles.productName} numberOfLines={2}>{displayName}</Text>
+                          <Text style={styles.productStore}>{displayStore}</Text>
+                          {distance !== undefined && (
+                            <Text style={styles.productMeta}>{distance.toFixed(1)} km away</Text>
+                          )}
+                          {price !== undefined && (
+                            <Text style={styles.productPrice}>₱ {price.toFixed(2)}</Text>
+                          )}
+                          {discount !== undefined && (
+                            <Text style={styles.productDiscount}>{discount}% OFF</Text>
+                          )}
+                        </View>
+                      </View>
+                    );
+                  })}
+                </View>
+              )}
             </View>
           )}
                   </View>
@@ -649,6 +733,61 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: "#1F2937",
     lineHeight: 20,
+  },
+  productList: {
+    marginTop: 16,
+    gap: 12,
+  },
+  productCard: {
+    flexDirection: "row",
+    gap: 12,
+    borderWidth: 1,
+    borderColor: "#E5E7EB",
+    borderRadius: 12,
+    padding: 12,
+    backgroundColor: "#FFFFFF",
+  },
+  productImage: {
+    width: 72,
+    height: 72,
+    borderRadius: 12,
+    backgroundColor: "#F3F4F6",
+  },
+  productPlaceholder: {
+    width: 72,
+    height: 72,
+    borderRadius: 12,
+    backgroundColor: "#F3F4F6",
+  },
+  productInfo: {
+    flex: 1,
+    justifyContent: "center",
+  },
+  productName: {
+    fontSize: 15,
+    fontWeight: "700",
+    color: "#0F172A",
+  },
+  productStore: {
+    fontSize: 13,
+    color: "#475569",
+    marginTop: 2,
+  },
+  productMeta: {
+    fontSize: 12,
+    color: "#94A3B8",
+    marginTop: 2,
+  },
+  productPrice: {
+    fontSize: 16,
+    fontWeight: "800",
+    color: "#047857",
+    marginTop: 6,
+  },
+  productDiscount: {
+    fontSize: 12,
+    color: "#B45309",
+    fontWeight: "700",
   },
   
   // ===== HISTORY SECTION =====

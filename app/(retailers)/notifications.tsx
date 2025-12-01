@@ -1,4 +1,9 @@
 import { useNotifications } from "@/features/notifications";
+import { useAppDispatch } from "@/store/hooks";
+import {
+  formatNotificationTime,
+  getNotificationColor,
+} from "@/utils/notifications";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { LinearGradient } from "expo-linear-gradient";
 import { router, useRouter } from "expo-router";
@@ -6,18 +11,13 @@ import React, { useEffect } from "react";
 import {
   ActivityIndicator,
   Platform,
-  SafeAreaView,
   ScrollView,
   StatusBar,
   StyleSheet,
   Text,
   TouchableOpacity,
-  View,
+  View
 } from "react-native";
-import {
-  formatNotificationTime,
-  getNotificationColor,
-} from "@/utils/notifications";
 
 const RetailerHeader = () => {
   const dispatch = useAppDispatch();
@@ -214,7 +214,7 @@ export default function Notifications() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#fff" },
-  content: { paddingHorizontal: 20, paddingBottom: 180 },
+  content: { paddingHorizontal: 20, paddingBottom: 50 },
   loadingContainer: {
     flex: 1,
     justifyContent: "center",
@@ -229,7 +229,7 @@ const styles = StyleSheet.create({
     position: "absolute",
     left: 20,
     right: 20,
-    bottom: 90,
+    bottom: 10,
     backgroundColor: "#F3F4F6",
     borderRadius: 12,
     paddingVertical: 14,
@@ -238,7 +238,7 @@ const styles = StyleSheet.create({
   clearText: { color: "#6B7280", fontWeight: "700" },
   errorContainer: {
     position: "absolute",
-    bottom: 20,
+    bottom: 30,
     left: 20,
     right: 20,
     backgroundColor: "#FEE2E2",
@@ -277,14 +277,13 @@ const styles = StyleSheet.create({
   dot: { width: 12, height: 12, borderRadius: 999 },
   body: { flex: 1 },
   rowTop: {
-    flexDirection: "row",
+    flexDirection: "column",
     justifyContent: "space-between",
-    alignItems: "center",
     marginBottom: 4,
   },
   cardTitle: { fontWeight: "600", fontSize: 15 },
   unreadTitle: { fontWeight: "700" },
-  time: { color: "#9CA3AF", fontSize: 12 },
+  time: { color: "#9CA3AF", fontSize: 13 },
   desc: { color: "#6B7280", fontSize: 14 },
   unreadIndicator: {
     width: 8,
