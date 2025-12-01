@@ -1,76 +1,181 @@
+import { useNotifications } from "@/features/notifications";
 import { Ionicons } from "@expo/vector-icons";
+import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
-import React from "react";
-import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import React, { useEffect } from "react";
+import {
+  ActivityIndicator,
+  Platform,
+  ScrollView,
+  StatusBar,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from "react-native";
+import {
+  formatNotificationTime,
+  getNotificationColor,
+} from "@/utils/notifications";
+
+const AdminHeader = ({ title = "Dashboard", subtitle = "Welcome back, Admin!" }: { title?: string; subtitle?: string }) => {
+  const router = useRouter();
+  const { action, state } = useNotifications();
+
+  useEffect(() => {
+    // Fetch unread count when header mounts
+    action.getUnreadCount();
+  }, []);
+  
+  return (
+    <View style={headerStyles.headerShadowContainer}>
+      <LinearGradient
+        colors={["#FFBE5D", "#277874"]}
+        style={headerStyles.headerContainer}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 0 }}
+      >
+        <StatusBar barStyle="light-content" backgroundColor="transparent" />
+        <View style={headerStyles.headerContent}>
+          <View style={headerStyles.headerLeft}>
+            <View style={headerStyles.headerIcon}>
+              <Ionicons name="cart" size={24} color="#ffffff" />
+            </View>
+            <View style={headerStyles.headerText}>
+              <Text style={headerStyles.headerTitle}>{title}</Text>
+              <Text style={headerStyles.headerSubtitle}>{subtitle}</Text>
+            </View>
+          </View>
+          
+          {/* Right side buttons */}
+          <View style={headerStyles.rightButtonsContainer}>
+            {/* Notification Bell */}
+            <TouchableOpacity 
+              style={headerStyles.notificationContainer}
+              onPress={() => router.push("/(admin)/notifications")}
+            >
+              <Ionicons 
+                name={state.unreadCount > 0 ? "notifications" : "notifications-outline"} 
+                size={20} 
+                color="#ffffff" 
+              />
+              {state.unreadCount > 0 && (
+                <View style={headerStyles.badge}>
+                  <Text style={headerStyles.badgeText}>
+                    {state.unreadCount > 99 ? "99+" : state.unreadCount}
+                  </Text>
+                </View>
+              )}
+            </TouchableOpacity>
+          </View>
+        </View>
+      </LinearGradient>
+    </View>
+  );
+};
 
 // ===== MAIN COMPONENT =====
 export default function AdminNotifications() {
   const router = useRouter();
-  const [items, setItems] = React.useState(ADMIN_NOTIFICATIONS);
+  const { action, state } = useNotifications();
+
+  useEffect(() => {
+    // Fetch notifications when component mounts
+    action.getNotifications({ skip: 0, take: 50 });
+    action.getUnreadCount();
+  }, []);
+
+  const handleMarkAsRead = async (id: number) => {
+    await action.markAsRead(id);
+    // Refresh unread count
+    action.getUnreadCount();
+  };
+
+  const handleMarkAllAsRead = async () => {
+    await action.markAllAsRead();
+    // Refresh notifications and unread count
+    action.getNotifications({ skip: 0, take: 50 });
+    action.getUnreadCount();
+  };
+
+  const handleNotificationPress = (notification: any) => {
+    // Mark as read when pressed
+    if (!notification.read) {
+      handleMarkAsRead(notification.id);
+    }
+    
+    // Navigate based on notification type
+    if (notification.productId) {
+      // Navigate to product page if needed
+      // router.push(`/product/${notification.productId}`);
+    } else if (notification.storeId) {
+      // Navigate to store page if needed
+      // router.push(`/store/${notification.storeId}`);
+    } else if (notification.promotionId) {
+      // Navigate to promotion page if needed
+      // router.push(`/promotion/${notification.promotionId}`);
+    }
+  };
 
   return (
     <View style={styles.container}>
-      {/* Custom Header with Back Arrow */}
-      <NotificationHeader />
+      <AdminHeader title="Notifications" subtitle="View your notifications" />
       
-      <ScrollView 
-        style={styles.scrollView} 
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-      >
-        {/* Notification List */}
-        <NotificationList 
-          items={items}
-          onClearAll={() => setItems([])}
-        />
-        
-        {/* Clear All Button - Inside ScrollView */}
-        <ClearAllButton 
-          onClearAll={() => setItems([])}
-          hasItems={items.length > 0}
-        />
-      </ScrollView>
+      {state.loading && state.notifications.length === 0 ? (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#3B82F6" />
+          <Text style={styles.loadingText}>Loading notifications...</Text>
+        </View>
+      ) : (
+        <ScrollView 
+          style={styles.scrollView} 
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+        >
+          {/* Notification List */}
+          <NotificationList 
+            notifications={state.notifications}
+            onNotificationPress={handleNotificationPress}
+          />
+          
+          {/* Clear All Button - Inside ScrollView */}
+          {state.notifications.length > 0 && (
+            <ClearAllButton 
+              onClearAll={handleMarkAllAsRead}
+              loading={state.loading}
+            />
+          )}
+        </ScrollView>
+      )}
+
+      {state.error && (
+        <View style={styles.errorContainer}>
+          <Text style={styles.errorText}>{state.error}</Text>
+        </View>
+      )}
     </View>
   );
 }
 
 // ===== SUB-COMPONENTS =====
 
-// Notification Header Component
-const NotificationHeader = () => {
-  const router = useRouter();
-  
-  return (
-    <View style={styles.header}>
-      <TouchableOpacity 
-        onPress={() => router.back()} 
-        style={styles.backButton}
-        accessibilityRole="button"
-      >
-        <Ionicons name="arrow-back" size={22} color="#0f172a" />
-      </TouchableOpacity>
-      <Text style={styles.headerTitle}>Notifications</Text>
-      <View style={styles.headerSpacer} />
-    </View>
-  );
-};
-
 // Notification List Component
 const NotificationList = ({ 
-  items, 
-  onClearAll 
+  notifications,
+  onNotificationPress,
 }: {
-  items: NotificationItem[];
-  onClearAll: () => void;
+  notifications: any[];
+  onNotificationPress: (notification: any) => void;
 }) => (
   <>
-    {items.map((notification) => (
+    {notifications.map((notification) => (
       <NotificationCard 
         key={notification.id} 
-        notification={notification} 
+        notification={notification}
+        onPress={() => onNotificationPress(notification)}
       />
     ))}
-    {items.length === 0 && (
+    {notifications.length === 0 && (
       <EmptyState />
     )}
   </>
@@ -78,231 +183,312 @@ const NotificationList = ({
 
 // Individual Notification Card Component
 const NotificationCard = ({ 
-  notification 
+  notification,
+  onPress,
 }: {
-  notification: NotificationItem;
-}) => (
-  <View style={styles.card}>
-    <View style={[styles.iconWrap, { 
-      backgroundColor: `${notification.color}22`, 
-      borderColor: notification.color 
-    }]}> 
-      <View style={[styles.dot, { backgroundColor: notification.color }]} />
-    </View>
-    <View style={styles.body}>
-      <View style={styles.rowTop}>
-        <Text style={styles.cardTitle}>{notification.title}</Text>
-        <Text style={styles.time}>{notification.time}</Text>
+  notification: any;
+  onPress: () => void;
+}) => {
+  const color = getNotificationColor(notification.type);
+  const time = formatNotificationTime(notification.createdAt);
+  
+  return (
+    <TouchableOpacity
+      style={[
+        styles.card,
+        !notification.read && styles.unreadCard,
+      ]}
+      onPress={onPress}
+    >
+      <View style={[styles.iconWrap, { 
+        backgroundColor: `${color}22`, 
+        borderColor: color 
+      }]}> 
+        <View style={[styles.dot, { backgroundColor: color }]} />
       </View>
-      <Text style={styles.desc}>{notification.desc}</Text>
-    </View>
-  </View>
-);
+      <View style={styles.body}>
+        <View style={styles.rowTop}>
+          <Text style={[
+            styles.cardTitle,
+            !notification.read && styles.unreadTitle,
+          ]}>
+            {notification.title}
+          </Text>
+          <Text style={styles.time}>{time}</Text>
+        </View>
+        <Text style={styles.desc}>{notification.message}</Text>
+      </View>
+      {!notification.read && (
+        <View style={styles.unreadIndicator} />
+      )}
+    </TouchableOpacity>
+  );
+};
 
 // Empty State Component
 const EmptyState = () => (
   <View style={styles.emptyState}>
+    <Ionicons name="notifications-outline" size={64} color="#D1D5DB" />
     <Text style={styles.emptyText}>You're all caught up!</Text>
+    <Text style={styles.emptySubtext}>
+      No notifications at the moment
+    </Text>
   </View>
 );
 
 // Clear All Button Component
 const ClearAllButton = ({ 
-  onClearAll, 
-  hasItems 
+  onClearAll,
+  loading,
 }: {
   onClearAll: () => void;
-  hasItems: boolean;
+  loading: boolean;
 }) => (
-  hasItems && (
-    <TouchableOpacity style={styles.clearButton} onPress={onClearAll}>
-      <Text style={styles.clearText}>Clear All Notifications</Text>
-    </TouchableOpacity>
-  )
+  <TouchableOpacity 
+    style={styles.clearButton} 
+    onPress={onClearAll}
+    disabled={loading}
+  >
+    {loading ? (
+      <ActivityIndicator size="small" color="#6B7280" />
+    ) : (
+      <Text style={styles.clearText}>Mark All as Read</Text>
+    )}
+  </TouchableOpacity>
 );
-
-// ===== DATA TYPES =====
-interface NotificationItem {
-  id: string;
-  title: string;
-  time: string;
-  desc: string;
-  color: string;
-}
-
-// ===== MOCK DATA =====
-const ADMIN_NOTIFICATIONS: NotificationItem[] = [
-  { 
-    id: "n1", 
-    title: "New User Registration", 
-    time: "9:30 AM", 
-    desc: "5 new users registered in the last hour", 
-    color: "#3B82F6" 
-  },
-  { 
-    id: "n2", 
-    title: "System Alert", 
-    time: "8:45 AM", 
-    desc: "High server load detected on main database", 
-    color: "#F59E0B" 
-  },
-  { 
-    id: "n3", 
-    title: "Deal Approval Required", 
-    time: "Yesterday", 
-    desc: "3 new deals pending admin approval", 
-    color: "#A78BFA" 
-  },
-  { 
-    id: "n4", 
-    title: "Security Update", 
-    time: "Yesterday", 
-    desc: "System security patch has been applied successfully", 
-    color: "#10B981" 
-  },
-  { 
-    id: "n5", 
-    title: "User Report", 
-    time: "2 days ago", 
-    desc: "User 'john_doe' has been reported for suspicious activity", 
-    color: "#F87171" 
-  },
-  { 
-    id: "n6", 
-    title: "Backup Complete", 
-    time: "3 days ago", 
-    desc: "Daily database backup completed successfully", 
-    color: "#3B82F6" 
-  },
-];
 
 // ===== STYLES =====
 const styles = StyleSheet.create({
   // ===== MAIN LAYOUT STYLES =====
-  // Used by: Main AdminNotifications component
   container: {
     flex: 1,
-    backgroundColor: "#f8fafc", // Light gray background
+    backgroundColor: "#f8fafc",
   },
   scrollView: {
-    flex: 1, // Take full height
+    flex: 1,
   },
   scrollContent: {
-    paddingHorizontal: 20, // Side padding for content
-    paddingTop: 20, // Top padding
-    paddingBottom: 20, // Bottom padding
+    paddingHorizontal: 20,
+    paddingTop: 20,
+    paddingBottom: 20,
   },
-  
-  // ===== HEADER STYLES =====
-  // Used by: NotificationHeader component
-  header: {
-    flexDirection: "row", // Horizontal layout
-    alignItems: "center", // Center vertically
-    justifyContent: "space-between", // Space between elements
-    paddingHorizontal: 20, // Side padding
-    paddingTop: 14, // Top padding
-    paddingBottom: 12, // Bottom padding
-    backgroundColor: "#ffffff", // White background
-    borderBottomWidth: 1, // Bottom border
-    borderBottomColor: "#E5E7EB", // Light gray border
+  loadingContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
   },
-  backButton: {
-    padding: 4, // Touch area padding
-    borderRadius: 999, // Circular touch area
-  },
-  headerTitle: {
-    fontSize: 18, // Header font size
-    fontWeight: "700", // Bold text
-    color: "#1F2937", // Dark text
-  },
-  headerSpacer: {
-    width: 30, // Space to balance the layout
+  loadingText: {
+    marginTop: 12,
+    color: "#6B7280",
+    fontSize: 14,
   },
   
   // ===== NOTIFICATION CARD STYLES =====
-  // Used by: NotificationCard component
   card: {
-    flexDirection: "row", // Horizontal layout
-    alignItems: "center", // Center vertically
-    backgroundColor: "#ffffff", // White card background
-    padding: 16, // Internal padding
-    borderRadius: 12, // Rounded corners
-    marginBottom: 12, // Space between cards
-    shadowColor: "#000", // Shadow for depth
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#ffffff",
+    padding: 16,
+    borderRadius: 12,
+    marginBottom: 12,
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
-    elevation: 3, // Android shadow
+    elevation: 3,
+    position: "relative",
+  },
+  unreadCard: {
+    backgroundColor: "#EFF6FF",
+    borderLeftWidth: 3,
+    borderLeftColor: "#3B82F6",
   },
   iconWrap: {
-    width: 44, // Icon container width
-    height: 44, // Icon container height
-    borderRadius: 22, // Circular container
-    alignItems: "center", // Center icon
-    justifyContent: "center", // Center icon
-    marginRight: 12, // Space before content
-    borderWidth: 1, // Border for icon container
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: 12,
+    borderWidth: 1,
   },
   dot: {
-    width: 12, // Dot size
-    height: 12, // Dot size
-    borderRadius: 999, // Circular dot
+    width: 12,
+    height: 12,
+    borderRadius: 999,
   },
   body: {
-    flex: 1, // Take remaining space
+    flex: 1,
   },
   rowTop: {
-    flexDirection: "row", // Horizontal layout for title and time
-    justifyContent: "space-between", // Space between title and time
-    alignItems: "center", // Center vertically
-    marginBottom: 4, // Space before description
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 4,
   },
   cardTitle: {
-    fontWeight: "700", // Bold title
-    fontSize: 16, // Title font size
-    color: "#1F2937", // Dark text
-    flex: 1, // Take available space
+    fontWeight: "600",
+    fontSize: 16,
+    color: "#1F2937",
+    flex: 1,
+  },
+  unreadTitle: {
+    fontWeight: "700",
   },
   time: {
-    color: "#9CA3AF", // Light gray time
-    fontSize: 12, // Small time font
-    marginLeft: 8, // Space after title
+    color: "#9CA3AF",
+    fontSize: 12,
+    marginLeft: 8,
   },
   desc: {
-    color: "#6B7280", // Medium gray description
-    fontSize: 14, // Description font size
-    lineHeight: 20, // Line height for readability
+    color: "#6B7280",
+    fontSize: 14,
+    lineHeight: 20,
+  },
+  unreadIndicator: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: "#3B82F6",
+    marginLeft: 8,
   },
   
   // ===== EMPTY STATE STYLES =====
-  // Used by: EmptyState component
   emptyState: {
-    alignItems: "center", // Center content
-    paddingTop: 60, // Top padding
+    alignItems: "center",
+    paddingTop: 60,
+    paddingBottom: 40,
   },
   emptyText: {
-    color: "#6B7280", // Gray text
-    fontSize: 16, // Empty state font size
-    fontWeight: "500", // Medium weight
+    color: "#6B7280",
+    fontSize: 16,
+    fontWeight: "600",
+    marginTop: 16,
+  },
+  emptySubtext: {
+    color: "#9CA3AF",
+    fontSize: 14,
+    marginTop: 4,
   },
   
   // ===== CLEAR ALL BUTTON STYLES =====
-  // Used by: ClearAllButton component
   clearButton: {
-    backgroundColor: "#F3F4F6", // Light gray background
-    borderRadius: 12, // Rounded corners
-    paddingVertical: 16, // Vertical padding
-    alignItems: "center", // Center content
-    marginTop: 20, // Top margin
-    shadowColor: "#000", // Shadow for depth
+    backgroundColor: "#F3F4F6",
+    borderRadius: 12,
+    paddingVertical: 16,
+    alignItems: "center",
+    marginTop: 20,
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
-    elevation: 3, // Android shadow
+    elevation: 3,
   },
   clearText: {
-    color: "#6B7280", // Gray text
-    fontWeight: "700", // Bold text
-    fontSize: 16, // Button font size
+    color: "#6B7280",
+    fontWeight: "700",
+    fontSize: 16,
+  },
+  
+  // ===== ERROR STYLES =====
+  errorContainer: {
+    position: "absolute",
+    bottom: 20,
+    left: 20,
+    right: 20,
+    backgroundColor: "#FEE2E2",
+    padding: 12,
+    borderRadius: 8,
+  },
+  errorText: {
+    color: "#DC2626",
+    fontSize: 14,
+    textAlign: "center",
+  },
+});
+
+const headerStyles = StyleSheet.create({
+  headerShadowContainer: {
+    elevation: 8,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 12,
+    backgroundColor: "transparent",
+    overflow: "hidden"
+  },
+  headerContainer: {
+    paddingTop: Platform.OS === "ios" ? 50 : (StatusBar.currentHeight || 0),
+    paddingBottom: 20,
+    paddingHorizontal: 20,
+    overflow: "hidden",
+  },
+  headerContent: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginTop: 4,
+    justifyContent: "space-between",
+    backgroundColor: "transparent"
+  },
+  headerLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+    flex: 1,
+  },
+  headerIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 8,
+    backgroundColor: "#277874",
+    justifyContent: "center",
+    alignItems: "center",
+    marginRight: 12,
+  },
+  headerText: {
+    flex: 1,
+  },
+  headerTitle: {
+    fontSize: 24,
+    fontWeight: "bold",
+    color: "#ffffff",
+    marginBottom: 2,
+  },
+  headerSubtitle: {
+    fontSize: 14,
+    color: "#ffffff",
+    opacity: 0.9,
+  },
+  rightButtonsContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  notificationContainer: {
+    width: 30,
+    height: 40,
+    borderRadius: 10,
+    backgroundColor: "rgba(255, 255, 255, 0.3)",
+    justifyContent: "center",
+    alignItems: "center",
+    position: "relative",
+  },
+  badge: {
+    position: "absolute",
+    top: 4,
+    right: 4,
+    backgroundColor: "#EF4444",
+    borderRadius: 10,
+    minWidth: 18,
+    height: 18,
+    paddingHorizontal: 4,
+    justifyContent: "center",
+    alignItems: "center",
+    borderWidth: 2,
+    borderColor: "#277874",
+  },
+  badgeText: {
+    color: "#ffffff",
+    fontSize: 10,
+    fontWeight: "700",
   },
 });

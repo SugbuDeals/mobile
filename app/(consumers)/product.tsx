@@ -47,9 +47,12 @@ export default function ProductDetailScreen() {
       findStoreById(productStoreId);
     }
   }, [productStoreId, findStoreById]);
+  const storeFromList = stores.find((s: any) => s.id === productStoreId);
+  const storeFromSelected =
+    selectedStore && selectedStore.id === productStoreId ? selectedStore : undefined;
+  const resolvedStore = storeFromSelected || storeFromList;
   const productStore =
-    (params.store as string) ||
-    (stores.find((s: any) => s.id === productStoreId)?.name ?? "Store");
+    (params.store as string) || ((resolvedStore as any)?.name ?? "Store");
   const productPrice =
     typeof params.price === "number"
       ? (params.price as unknown as number)
@@ -62,15 +65,39 @@ export default function ProductDetailScreen() {
   const productImageUrl = (params.imageUrl as string) || actualProduct?.imageUrl || "";
   const productDescription = actualProduct?.description || "";
 
-  const logoFromList = stores.find((s: any) => s.id === productStoreId)?.imageUrl as string | undefined;
-  const logoFromSelected = (selectedStore && selectedStore.id === productStoreId) ? (selectedStore as any).imageUrl : undefined;
-  const rawLogo = logoFromSelected || logoFromList;
+  const rawLogo = (resolvedStore as any)?.imageUrl as string | undefined;
   const logoUrl = (() => {
     if (!rawLogo) return undefined;
     if (/^https?:\/\//i.test(rawLogo)) return rawLogo;
     if (rawLogo.startsWith('/')) return `${env.API_BASE_URL}${rawLogo}`;
     return `${env.API_BASE_URL}/files/${rawLogo}`;
   })();
+
+  // Compute store banner for this product's store (used in header)
+  const rawBanner = (resolvedStore as any)?.bannerUrl as string | undefined;
+  const bannerUrl = (() => {
+    if (!rawBanner) return undefined;
+    if (/^https?:\/\//i.test(rawBanner)) return rawBanner;
+    if (rawBanner.startsWith('/')) return `${env.API_BASE_URL}${rawBanner}`;
+    return `${env.API_BASE_URL}/files/${rawBanner}`;
+  })();
+  // If this product exists but was disabled by administrators, hide details from consumers
+  if (actualProduct && (actualProduct as any)?.isActive === false) {
+    return (
+      <SafeAreaView style={styles.safeArea}>
+        <StatusBar barStyle="dark-content" backgroundColor="#fff" />
+        <View style={[styles.scrollViewContent, { alignItems: "center", justifyContent: "center" }]}>
+          <Text style={{ fontSize: 18, fontWeight: "700", color: "#B91C1C", marginBottom: 8 }}>
+            This product is not available
+          </Text>
+          <Text style={{ fontSize: 14, color: "#6B7280", textAlign: "center" }}>
+            This item has been disabled by the store administrators and is currently hidden from shoppers.
+          </Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
   return (
     <SafeAreaView style={styles.safeArea}>
       <StatusBar barStyle="dark-content" backgroundColor="#fff" />
@@ -82,6 +109,7 @@ export default function ProductDetailScreen() {
           storeName={productStore}
           storeId={productStoreId}
           logoUrl={logoUrl}
+          bannerUrl={bannerUrl}
           onOpenStore={() =>
             router.push({
               pathname: "/(consumers)/storedetails",
@@ -556,11 +584,13 @@ function StoreHeader({
   storeName,
   storeId,
   logoUrl,
+  bannerUrl,
   onOpenStore,
 }: {
   storeName: string;
   storeId?: number;
   logoUrl?: string;
+  bannerUrl?: string;
   onOpenStore?: () => void;
 }) {
   const params = useLocalSearchParams() as Record<string, string | undefined>;
@@ -578,10 +608,17 @@ function StoreHeader({
   const description = (store as any)?.description || "";
   return (
     <View style={hdrStyles.container}>
-      <Image
-        source={require("../../assets/images/partial-react-logo.png")}
-        style={hdrStyles.bannerImage}
-      />
+      {bannerUrl ? (
+        <Image
+          source={{ uri: bannerUrl }}
+          style={hdrStyles.bannerImage}
+        />
+      ) : (
+        <Image
+          source={require("../../assets/images/partial-react-logo.png")}
+          style={hdrStyles.bannerImage}
+        />
+      )}
       <View style={hdrStyles.storeInfoContainer}>
         <View style={hdrStyles.logoAndName}>
           <Image
@@ -632,9 +669,9 @@ const hdrStyles = StyleSheet.create({
     borderBottomColor: "#f0f0f0",
   },
   bannerImage: {
-    width: screen.width - 40,
     height: 200,
-    borderRadius: 12,
+    marginLeft: -20,
+    marginRight: -20,
     marginBottom: 0,
   },
   storeInfoContainer: {

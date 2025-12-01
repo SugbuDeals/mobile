@@ -1,10 +1,11 @@
 import { logout } from "@/features/auth/slice";
+import { useNotifications } from "@/features/notifications";
 import { useStoreManagement } from "@/features/store";
-import { useAppDispatch } from "@/store/hooks";
+import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { LinearGradient } from "expo-linear-gradient";
 import { Tabs, router } from "expo-router";
-import React from "react";
+import React, { useEffect } from "react";
 import {
   Platform,
   StatusBar,
@@ -16,6 +17,13 @@ import {
 
 const RetailerHeader = () => {
   const dispatch = useAppDispatch();
+  const { action, state } = useNotifications();
+  const { userStore } = useStoreManagement();
+
+  useEffect(() => {
+    // Fetch unread count when header mounts
+    action.getUnreadCount();
+  }, []);
 
   const handleLogout = () => {
     dispatch(logout());
@@ -49,12 +57,49 @@ const RetailerHeader = () => {
               style={styles.notificationContainer}
               onPress={() => router.push("/(retailers)/notifications")}
             >
-              <Ionicons name="notifications" size={20} color="#ffffff" />
+              <Ionicons
+                name={
+                  state.unreadCount > 0
+                    ? "notifications"
+                    : "notifications-outline"
+                }
+                size={20}
+                color="#ffffff"
+              />
+              {state.unreadCount > 0 && (
+                <View style={styles.badge}>
+                  <Text style={styles.badgeText}>
+                    {state.unreadCount > 99 ? "99+" : state.unreadCount}
+                  </Text>
+                </View>
+              )}
             </TouchableOpacity>
-
-            
           </View>
         </View>
+
+        {/* Unverified store reminder */}
+        {userStore &&
+          userStore.verificationStatus &&
+          userStore.verificationStatus !== "VERIFIED" && (
+            <View style={styles.unverifiedBanner}>
+              <Ionicons
+                name="shield-outline"
+                size={16}
+                color="#B45309"
+                style={{ marginRight: 6 }}
+              />
+              <View style={{ flex: 1 }}>
+                <Text style={styles.unverifiedTitle}>
+                  Your store is currently unverified
+                </Text>
+                <Text style={styles.unverifiedText}>
+                  Customers cannot see your store, products, or promotions yet.
+                  You can still add and manage them while waiting for
+                  verification.
+                </Text>
+              </View>
+            </View>
+          )}
       </LinearGradient>
     </View>
   );
@@ -62,7 +107,34 @@ const RetailerHeader = () => {
 
 export default function RetailersLayout() {
   // Load user's store data for all retailer pages
-  useStoreManagement();
+  const { userStore, storeLoading } = useStoreManagement();
+  const { user, loading: authLoading } = useAppSelector((state) => state.auth);
+
+  // Check if retailer needs to complete setup (no store created yet)
+  React.useEffect(() => {
+    // Wait for auth and store loading to complete
+    if (authLoading || storeLoading) {
+      return;
+    }
+
+    // Only check if user is a retailer
+    if (user) {
+      const normalizedRole = String((user as any).user_type ?? (user as any).role ?? "").toLowerCase();
+      
+      if (normalizedRole === "retailer") {
+        // If retailer doesn't have a store, redirect to setup
+        // Give a small delay to ensure store loading has truly completed
+        const timeoutId = setTimeout(() => {
+          if (!userStore) {
+            console.log("Retailer has no store, redirecting to setup page");
+            router.replace("/auth/setup");
+          }
+        }, 500); // Small delay to ensure store loading is complete
+
+        return () => clearTimeout(timeoutId);
+      }
+    }
+  }, [user, userStore, storeLoading, authLoading]);
 
   return (
     <Tabs
@@ -107,6 +179,7 @@ export default function RetailersLayout() {
         name="notifications"
         options={{
           title: "Notifications",
+          headerShown: false,
           href: null,
         }}
       />
@@ -115,6 +188,16 @@ export default function RetailersLayout() {
         options={{
           title: "Categories",
           href: null,
+        }}
+      />
+      <Tabs.Screen
+        name="subscription"
+        options={{
+          title: "Subscription",
+          headerShown: false,
+          tabBarIcon: ({ color, size = 24 }) => (
+            <Ionicons name="card" color={color} size={size} />
+          ),
         }}
       />
       <Tabs.Screen
@@ -210,6 +293,46 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(255, 255, 255, 0.3)",
     justifyContent: "center",
     alignItems: "center",
+    position: "relative",
+  },
+  badge: {
+    position: "absolute",
+    top: 4,
+    right: 4,
+    backgroundColor: "#EF4444",
+    borderRadius: 10,
+    minWidth: 18,
+    height: 18,
+    paddingHorizontal: 4,
+    justifyContent: "center",
+    alignItems: "center",
+    borderWidth: 2,
+    borderColor: "#277874",
+  },
+  badgeText: {
+    color: "#ffffff",
+    fontSize: 10,
+    fontWeight: "700",
+  },
+  unverifiedBanner: {
+    marginTop: 12,
+    marginHorizontal: 2,
+    flexDirection: "row",
+    alignItems: "flex-start",
+    paddingVertical: 8,
+    paddingHorizontal: 10,
+    borderRadius: 10,
+    backgroundColor: "rgba(254, 243, 199, 0.95)",
+  },
+  unverifiedTitle: {
+    color: "#92400E",
+    fontSize: 13,
+    fontWeight: "700",
+    marginBottom: 2,
+  },
+  unverifiedText: {
+    color: "#92400E",
+    fontSize: 11,
   },
   logoutContainer: {
     width: 30,

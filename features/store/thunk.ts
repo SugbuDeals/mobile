@@ -1,7 +1,7 @@
 import env from "@/config/env";
 import { RootState } from "@/store/types";
 import { createAsyncThunk } from "@reduxjs/toolkit";
-import { CreateProductDTO, CreatePromotionDTO, CreateStoreDTO, Product, Promotion, Store, UpdateProductDTO, UpdatePromotionDTO, UpdateStoreDTO } from "./types";
+import { CreateProductDTO, CreatePromotionDTO, CreateStoreDTO, CreateSubscriptionDTO, JoinSubscriptionDTO, ManageStoreStatusDTO, Product, Promotion, Store, Subscription, SubscriptionAnalytics, UpdateProductDTO, UpdateProductStatusDTO, UpdatePromotionDTO, UpdateStoreDTO, UpdateSubscriptionDTO } from "./types";
 
 export const findStores = createAsyncThunk<
   Store[],
@@ -321,6 +321,50 @@ export const updateProduct = createAsyncThunk<
   }
 });
 
+export const updateProductAdminStatus = createAsyncThunk<
+  Product,
+  { id: number } & UpdateProductStatusDTO,
+  { rejectValue: { message: string }; state: RootState }
+>("store/updateProductAdminStatus", async ({ id, ...payload }, { rejectWithValue, getState }) => {
+  try {
+    const { accessToken } = getState().auth;
+
+    if (!accessToken) {
+      return rejectWithValue({
+        message: "Authentication required. Please log in again.",
+      });
+    }
+
+    const response = await fetch(`${env.API_BASE_URL}/product/${id}/admin-status`, {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${accessToken}`,
+      },
+      body: JSON.stringify(payload),
+    });
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({}));
+      return rejectWithValue({
+        message: error.message || "Update product status failed",
+      });
+    }
+
+    const result = await response.json();
+    return {
+      ...result,
+      price: typeof result.price === "string" ? parseFloat(result.price) : result.price,
+      stock: typeof result.stock === "string" ? parseInt(result.stock, 10) : result.stock,
+    };
+  } catch (error) {
+    return rejectWithValue({
+      message:
+        error instanceof Error ? error.message : "An unknown error occured",
+    });
+  }
+});
+
 export const deleteProduct = createAsyncThunk<
   { id: number },
   number,
@@ -556,6 +600,45 @@ export const updateStore = createAsyncThunk<
   }
 });
 
+export const updateStoreAdminStatus = createAsyncThunk<
+  Store,
+  { id: number } & ManageStoreStatusDTO,
+  { rejectValue: { message: string }; state: RootState }
+>("store/updateStoreAdminStatus", async ({ id, ...payload }, { rejectWithValue, getState }) => {
+  try {
+    const { accessToken } = getState().auth;
+
+    if (!accessToken) {
+      return rejectWithValue({
+        message: "Authentication required. Please log in again.",
+      });
+    }
+
+    const response = await fetch(`${env.API_BASE_URL}/store/${id}/admin-status`, {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${accessToken}`,
+      },
+      body: JSON.stringify(payload),
+    });
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({}));
+      return rejectWithValue({
+        message: error.message || "Update store status failed",
+      });
+    }
+
+    return response.json();
+  } catch (error) {
+    return rejectWithValue({
+      message:
+        error instanceof Error ? error.message : "An unknown error occured",
+    });
+  }
+});
+
 export const findStoreById = createAsyncThunk<
   Store,
   number,
@@ -732,6 +815,373 @@ export const deletePromotion = createAsyncThunk<
     return result;
   } catch (error) {
     console.log("Promotion deletion catch error:", error);
+    return rejectWithValue({
+      message:
+        error instanceof Error ? error.message : "An unknown error occured",
+    });
+  }
+});
+
+// Subscription thunks
+export const getActiveSubscription = createAsyncThunk<
+  Subscription | null,
+  number,
+  { rejectValue: { message: string }; state: RootState }
+>("store/getActiveSubscription", async (userId, { rejectWithValue, getState }) => {
+  try {
+    const { accessToken } = getState().auth;
+
+    if (!accessToken) {
+      return rejectWithValue({
+        message: "Authentication required. Please log in again.",
+      });
+    }
+
+    const response = await fetch(`${env.API_BASE_URL}/subscription/user/${userId}/active`, {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${accessToken}`,
+      },
+    });
+
+    if (!response.ok) {
+      // If 404, user has no active subscription (return null, not an error)
+      if (response.status === 404) {
+        return null;
+      }
+      const error = await response.json().catch(() => ({}));
+      return rejectWithValue({
+        message: error.message || "Get active subscription failed",
+      });
+    }
+
+    return response.json();
+  } catch (error) {
+    return rejectWithValue({
+      message:
+        error instanceof Error ? error.message : "An unknown error occured",
+    });
+  }
+});
+
+export const joinSubscription = createAsyncThunk<
+  Subscription,
+  JoinSubscriptionDTO,
+  { rejectValue: { message: string }; state: RootState }
+>("store/joinSubscription", async (data, { rejectWithValue, getState }) => {
+  try {
+    const { accessToken } = getState().auth;
+
+    if (!accessToken) {
+      return rejectWithValue({
+        message: "Authentication required. Please log in again.",
+      });
+    }
+
+    const response = await fetch(`${env.API_BASE_URL}/subscription/retailer/join`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${accessToken}`,
+      },
+      body: JSON.stringify(data),
+    });
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({}));
+      return rejectWithValue({
+        message: error.message || "Join subscription failed",
+      });
+    }
+
+    return response.json();
+  } catch (error) {
+    return rejectWithValue({
+      message:
+        error instanceof Error ? error.message : "An unknown error occured",
+    });
+  }
+});
+
+export const findSubscriptions = createAsyncThunk<
+  Subscription[],
+  {
+    plan?: "FREE" | "BASIC" | "PREMIUM";
+    isActive?: boolean;
+    search?: string;
+    skip?: number;
+    take?: number;
+  },
+  { rejectValue: { message: string }; state: RootState }
+>("store/findSubscriptions", async ({ plan, isActive, search, skip, take }, { rejectWithValue, getState }) => {
+  try {
+    const { accessToken } = getState().auth;
+
+    if (!accessToken) {
+      return rejectWithValue({
+        message: "Authentication required. Please log in again.",
+      });
+    }
+
+    const params = new URLSearchParams();
+    if (plan) params.append("plan", plan);
+    if (typeof isActive === "boolean") params.append("isActive", String(isActive));
+    if (search) params.append("search", search);
+    if (typeof skip === "number") params.append("skip", String(skip));
+    if (typeof take === "number") params.append("take", String(take));
+
+    const queryString = params.toString();
+
+    const response = await fetch(`${env.API_BASE_URL}/subscription${queryString ? `?${queryString}` : ""}`, {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${accessToken}`,
+      },
+    });
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({}));
+      return rejectWithValue({
+        message: error.message || "Find subscriptions failed",
+      });
+    }
+
+    return response.json();
+  } catch (error) {
+    return rejectWithValue({
+      message:
+        error instanceof Error ? error.message : "An unknown error occured",
+    });
+  }
+});
+
+export const cancelRetailerSubscription = createAsyncThunk<
+  Subscription,
+  void,
+  { rejectValue: { message: string }; state: RootState }
+>("store/cancelRetailerSubscription", async (_, { rejectWithValue, getState }) => {
+  try {
+    const { accessToken } = getState().auth;
+
+    if (!accessToken) {
+      return rejectWithValue({
+        message: "Authentication required. Please log in again.",
+      });
+    }
+
+    const response = await fetch(`${env.API_BASE_URL}/subscription/retailer/cancel`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${accessToken}`,
+      },
+    });
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({}));
+      return rejectWithValue({
+        message: error.message || "Cancel subscription failed",
+      });
+    }
+
+    return response.json();
+  } catch (error) {
+    return rejectWithValue({
+      message:
+        error instanceof Error ? error.message : "An unknown error occured",
+    });
+  }
+});
+
+export const updateRetailerSubscription = createAsyncThunk<
+  Subscription,
+  JoinSubscriptionDTO,
+  { rejectValue: { message: string }; state: RootState }
+>("store/updateRetailerSubscription", async (data, { rejectWithValue, getState }) => {
+  try {
+    const { accessToken } = getState().auth;
+
+    if (!accessToken) {
+      return rejectWithValue({
+        message: "Authentication required. Please log in again.",
+      });
+    }
+
+    const response = await fetch(`${env.API_BASE_URL}/subscription/retailer/update`, {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${accessToken}`,
+      },
+      body: JSON.stringify(data),
+    });
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({}));
+      return rejectWithValue({
+        message: error.message || "Update subscription failed",
+      });
+    }
+
+    return response.json();
+  } catch (error) {
+    return rejectWithValue({
+      message:
+        error instanceof Error ? error.message : "An unknown error occured",
+    });
+  }
+});
+
+// Admin Subscription thunks
+export const createSubscription = createAsyncThunk<
+  Subscription,
+  CreateSubscriptionDTO,
+  { rejectValue: { message: string }; state: RootState }
+>("store/createSubscription", async (data, { rejectWithValue, getState }) => {
+  try {
+    const { accessToken } = getState().auth;
+
+    if (!accessToken) {
+      return rejectWithValue({
+        message: "Authentication required. Please log in again.",
+      });
+    }
+
+    const response = await fetch(`${env.API_BASE_URL}/subscription`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${accessToken}`,
+      },
+      body: JSON.stringify(data),
+    });
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({}));
+      return rejectWithValue({
+        message: error.message || "Create subscription failed",
+      });
+    }
+
+    return response.json();
+  } catch (error) {
+    return rejectWithValue({
+      message:
+        error instanceof Error ? error.message : "An unknown error occured",
+    });
+  }
+});
+
+export const updateSubscription = createAsyncThunk<
+  Subscription,
+  { id: number } & UpdateSubscriptionDTO,
+  { rejectValue: { message: string }; state: RootState }
+>("store/updateSubscription", async ({ id, ...data }, { rejectWithValue, getState }) => {
+  try {
+    const { accessToken } = getState().auth;
+
+    if (!accessToken) {
+      return rejectWithValue({
+        message: "Authentication required. Please log in again.",
+      });
+    }
+
+    const response = await fetch(`${env.API_BASE_URL}/subscription/${id}`, {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${accessToken}`,
+      },
+      body: JSON.stringify(data),
+    });
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({}));
+      return rejectWithValue({
+        message: error.message || "Update subscription failed",
+      });
+    }
+
+    return response.json();
+  } catch (error) {
+    return rejectWithValue({
+      message:
+        error instanceof Error ? error.message : "An unknown error occured",
+    });
+  }
+});
+
+export const deleteSubscription = createAsyncThunk<
+  { id: number },
+  number,
+  { rejectValue: { message: string }; state: RootState }
+>("store/deleteSubscription", async (id, { rejectWithValue, getState }) => {
+  try {
+    const { accessToken } = getState().auth;
+
+    if (!accessToken) {
+      return rejectWithValue({
+        message: "Authentication required. Please log in again.",
+      });
+    }
+
+    const response = await fetch(`${env.API_BASE_URL}/subscription/${id}`, {
+      method: "DELETE",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${accessToken}`,
+      },
+    });
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({}));
+      return rejectWithValue({
+        message: error.message || "Delete subscription failed",
+      });
+    }
+
+    return { id };
+  } catch (error) {
+    return rejectWithValue({
+      message:
+        error instanceof Error ? error.message : "An unknown error occured",
+    });
+  }
+});
+
+export const getSubscriptionAnalytics = createAsyncThunk<
+  SubscriptionAnalytics,
+  void,
+  { rejectValue: { message: string }; state: RootState }
+>("store/getSubscriptionAnalytics", async (_, { rejectWithValue, getState }) => {
+  try {
+    const { accessToken } = getState().auth;
+
+    if (!accessToken) {
+      return rejectWithValue({
+        message: "Authentication required. Please log in again.",
+      });
+    }
+
+    const response = await fetch(`${env.API_BASE_URL}/subscription/admin/analytics`, {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${accessToken}`,
+      },
+    });
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({}));
+      return rejectWithValue({
+        message: error.message || "Get subscription analytics failed",
+      });
+    }
+
+    return response.json();
+  } catch (error) {
     return rejectWithValue({
       message:
         error instanceof Error ? error.message : "An unknown error occured",

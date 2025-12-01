@@ -1,3 +1,4 @@
+import SubscriptionOverlay from "@/components/SubscriptionOverlay";
 import { useLogin } from "@/features/auth";
 import { useCatalog } from "@/features/catalog";
 import { useStore } from "@/features/store";
@@ -8,27 +9,30 @@ import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
 import React, { useEffect, useState } from "react";
 import {
-  Alert,
-  Image,
-  Platform,
-  ScrollView,
-  StatusBar,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View
+    Alert,
+    Image,
+    Platform,
+    ScrollView,
+    StatusBar,
+    StyleSheet,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View
 } from "react-native";
+
+const MAX_PRODUCTS_FREE = 10;
+const MAX_PRODUCTS_BASIC = 50;
+const MAX_PRODUCTS_PREMIUM = 999; // Essentially unlimited
 
 export default function AddProduct() {
   const { state: { user, accessToken } } = useLogin();
-  const { action: { createProduct }, state: { loading, error, userStore } } = useStore();
+  const { action: { createProduct, findProducts, getActiveSubscription, joinSubscription }, state: { userStore, products, activeSubscription } } = useStore();
   const { action: { loadCategories }, state: { categories } } = useCatalog();
   const [productName, setProductName] = useState("");
   const [description, setDescription] = useState("");
   const [price, setPrice] = useState("");
   const [stock, setStock] = useState("");
-  const [isActive, setIsActive] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [validationErrors, setValidationErrors] = useState<{[key: string]: boolean}>({});
   const [imageUri, setImageUri] = useState<string | null>(null);
@@ -36,6 +40,36 @@ export default function AddProduct() {
   const [uploadingImage, setUploadingImage] = useState(false);
   const [selectedCategoryId, setSelectedCategoryId] = useState<number | null>(null);
   const [showCategoryList, setShowCategoryList] = useState(false);
+  const [showSubscriptionOverlay, setShowSubscriptionOverlay] = useState(false);
+  const [isUpgrading, setIsUpgrading] = useState(false);
+
+  const resetForm = () => {
+    setProductName("");
+    setDescription("");
+    setPrice("");
+    setStock("");
+    setValidationErrors({});
+    setImageUri(null);
+    setImageUrl(null);
+    setSelectedCategoryId(null);
+    setShowCategoryList(false);
+  };
+
+  // Get product limit based on subscription
+  const getMaxProducts = () => {
+    if (!activeSubscription) return MAX_PRODUCTS_FREE;
+    switch (activeSubscription.plan) {
+      case "PREMIUM":
+        return MAX_PRODUCTS_PREMIUM;
+      case "BASIC":
+        return MAX_PRODUCTS_BASIC;
+      case "FREE":
+      default:
+        return MAX_PRODUCTS_FREE;
+    }
+  };
+
+  const maxProducts = getMaxProducts();
 
   useEffect(() => {
     // Request image picker permissions
@@ -48,7 +82,19 @@ export default function AddProduct() {
       }
     })();
     loadCategories();
-  }, [user]);
+    
+    // Fetch active subscription
+    if (user && (user as any).id) {
+      getActiveSubscription(Number((user as any).id));
+    }
+    
+    // Fetch products to check limit
+    if (userStore?.id) {
+      findProducts({ storeId: userStore.id });
+    } else if (user && (user as any).id) {
+      findProducts({ storeId: Number((user as any).id) });
+    }
+  }, [user, userStore, findProducts, loadCategories, getActiveSubscription]);
 
   const pickImage = async () => {
     try {
@@ -99,6 +145,12 @@ export default function AddProduct() {
   };
 
   const handleAddProduct = async () => {
+    // Check product limit first
+    if (products.length >= maxProducts) {
+      setShowSubscriptionOverlay(true);
+      return;
+    }
+
     // Clear previous validation errors
     setValidationErrors({});
     
@@ -152,25 +204,38 @@ export default function AddProduct() {
         }
       }
 
-      const productData = {
+      const productData: any = {
         name: productName.trim(),
         description: description.trim(),
         price: Number(price),
         stock: Number(stock),
-        isActive,
         storeId: userStore.id, // Use user's store ID
         ...(typeof imageUrl === "string" && imageUrl.length > 0 ? { imageUrl } : {}), // Include imageUrl if available and valid
+        ...(selectedCategoryId ? { categoryId: selectedCategoryId } : {}),
       };
 
       console.log("Creating product with data:", productData);
       await createProduct(productData).unwrap();
       
+      // Refresh products list after creation
+      if (userStore?.id) {
+        await findProducts({ storeId: userStore.id });
+      }
+      
       Alert.alert(
         "Success!", 
         "Product has been added to your inventory successfully.", 
         [
+          {
+            text: "Add Another",
+            style: "default",
+            onPress: () => {
+              resetForm();
+            },
+          },
           { 
             text: "View Inventory", 
+            style: "cancel",
             onPress: () => router.push("/(retailers)/products") 
           }
         ]
@@ -190,6 +255,31 @@ export default function AddProduct() {
     router.back();
   };
 
+  const handleUpgrade = async () => {
+    // For now, we'll use subscription ID 1 for BASIC plan
+    // In a real app, you'd have a subscription selection screen
+    // You can modify this to use a specific subscription ID based on the plan selected
+    try {
+      setIsUpgrading(true);
+      // TODO: Replace with actual subscription ID from a subscription selection screen
+      // For now, using a placeholder - you should fetch available subscriptions and let user choose
+      const subscriptionId = 1; // This should come from a subscription selection UI
+      
+      await joinSubscription({ subscriptionId }).unwrap();
+      
+      // Refresh subscription status
+      if (user && (user as any).id) {
+        await getActiveSubscription(Number((user as any).id));
+      }
+      
+      setShowSubscriptionOverlay(false);
+      Alert.alert("Success", "Subscription upgraded successfully! You can now add more products.");
+    } catch (error: any) {
+      Alert.alert("Error", error?.message || "Failed to upgrade subscription. Please try again.");
+    } finally {
+      setIsUpgrading(false);
+    }
+  };
 
   return (
     <View style={styles.container}>
@@ -346,20 +436,19 @@ export default function AddProduct() {
         )}
       </View>
 
-          {/* Active Status */}
+          {/* Product Status (read-only - managed by administrators) */}
           <View style={styles.inputGroup}>
             <Text style={styles.label}>Product Status</Text>
             <View style={styles.toggleContainer}>
-              <Text style={styles.toggleLabel}>
-                {isActive ? "Active" : "Inactive"}
-              </Text>
-              <TouchableOpacity
-                style={[styles.toggle, isActive && styles.toggleActive]}
-                onPress={() => setIsActive(!isActive)}
-              >
-                <View style={[styles.toggleThumb, isActive && styles.toggleThumbActive]} />
-              </TouchableOpacity>
+              <Text style={styles.toggleLabel}>Active</Text>
+              <View style={[styles.toggle, styles.toggleActive]}>
+                <View style={[styles.toggleThumb, styles.toggleThumbActive]} />
+              </View>
             </View>
+            <Text style={styles.helperText}>
+              Visibility for this product is managed by the administrators. If an issue is
+              found later, they may temporarily disable it and notify you.
+            </Text>
           </View>
 
           {/* Product Image */}
@@ -426,6 +515,18 @@ export default function AddProduct() {
           </View>
         </View>
       </ScrollView>
+
+      {/* Subscription Overlay */}
+      <SubscriptionOverlay
+        visible={showSubscriptionOverlay}
+        currentCount={products.length}
+        maxCount={maxProducts}
+        onDismiss={() => setShowSubscriptionOverlay(false)}
+        onUpgrade={handleUpgrade}
+        upgradePrice={activeSubscription?.plan === "FREE" ? "$100" : "$200"}
+        validityDays={7}
+        isLoading={isUpgrading}
+      />
     </View>
   );
 }
@@ -714,6 +815,11 @@ const styles = StyleSheet.create({
   },
   toggleThumbActive: {
     transform: [{ translateX: 22 }],
+  },
+  helperText: {
+    fontSize: 12,
+    color: "#6B7280",
+    marginTop: 4,
   },
   addButtonDisabled: {
     opacity: 0.6,

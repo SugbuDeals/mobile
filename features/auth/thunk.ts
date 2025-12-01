@@ -266,3 +266,44 @@ export const deleteUserByAdmin = createAsyncThunk<
     });
   }
 });
+
+/**
+ * Approve retailer account (admin only)
+ */
+export const approveRetailer = createAsyncThunk<
+  any,
+  number,
+  { rejectValue: LoginError; state: RootState }
+>("auth/approveRetailer", async (id, { getState, rejectWithValue }) => {
+  try {
+    const token = getState().auth.accessToken;
+
+    if (!token) {
+      return rejectWithValue({
+        message: "Authentication required. Please log in again.",
+      });
+    }
+
+    const response = await fetch(`${env.API_BASE_URL}/user/${id}/approve`, {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+    });
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({}));
+      return rejectWithValue({
+        message: error.message || "Failed to approve retailer",
+      });
+    }
+
+    return response.json();
+  } catch (error) {
+    return rejectWithValue({
+      message:
+        error instanceof Error ? error.message : "An unknown error occured",
+    });
+  }
+});

@@ -1,5 +1,5 @@
 import { createSlice } from "@reduxjs/toolkit";
-import { deleteUser, deleteUserByAdmin, fetchAllUsers, fetchUserById, login, updateUser } from "./thunk";
+import { approveRetailer, deleteUser, deleteUserByAdmin, fetchAllUsers, fetchUserById, login, updateUser } from "./thunk";
 
 const initialState = {
   accessToken: null,
@@ -121,6 +121,28 @@ const authSlice = createSlice({
       .addCase(deleteUserByAdmin.rejected, (state, action) => {
         state.usersLoading = false;
         state.error = action.payload?.message || "Failed to delete user";
+      })
+      // Approve Retailer
+      .addCase(approveRetailer.pending, (state) => {
+        state.usersLoading = true;
+        state.error = null;
+      })
+      .addCase(approveRetailer.fulfilled, (state, action) => {
+        state.usersLoading = false;
+        state.error = null;
+        if (action.payload?.id) {
+          const index = state.allUsers.findIndex((user) => user.id === action.payload.id);
+          if (index !== -1) {
+            state.allUsers[index] = {
+              ...state.allUsers[index],
+              ...action.payload,
+            };
+          }
+        }
+      })
+      .addCase(approveRetailer.rejected, (state, action) => {
+        state.usersLoading = false;
+        state.error = action.payload?.message || "Failed to approve retailer";
       });
   },
 });

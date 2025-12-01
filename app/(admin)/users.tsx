@@ -54,7 +54,6 @@ const UserCard = ({ user, onDelete, onEdit }: {
   // Determine role from user data
   const userRole = user.role || user.user_type || "Unknown";
   const displayRole = userRole.replace("_", " ").replace(/^\w/, (c: string) => c.toUpperCase());
-  
   // Determine status (you can map this based on your business logic)
   const status = "Active"; // You can add a status field to your user model
   const statusColors = getStatusColor(status);
@@ -363,7 +362,12 @@ export default function Users() {
           {!state.usersLoading && (
             <View style={styles.userList}>
               {filteredUsers.map((user) => (
-                <UserCard key={user.id} user={user} onDelete={handleDeleteUser} onEdit={handleEditUser} />
+                  <UserCard
+                    key={user.id}
+                    user={user}
+                    onDelete={handleDeleteUser}
+                    onEdit={handleEditUser}
+                  />
               ))}
             </View>
           )}
@@ -803,6 +807,9 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   statusBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 12,

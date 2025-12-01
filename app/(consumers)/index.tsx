@@ -6,8 +6,8 @@ import { useStore } from "@/features/store";
 import type { Promotion } from "@/features/store/types";
 import { LinearGradient } from "expo-linear-gradient";
 import * as Location from "expo-location";
-import { useRouter } from "expo-router";
-import { useEffect, useMemo, useState } from "react";
+import { useFocusEffect, useRouter } from "expo-router";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Image,
   Modal,
@@ -62,6 +62,14 @@ export default function Home() {
       } catch {}
     })();
   }, [findNearbyStores, loadCategories, loadProducts, findActivePromotions]);
+
+  // Refresh promotions when screen comes into focus (e.g., when navigating back)
+  useFocusEffect(
+    useCallback(() => {
+      // Reload all promotions when returning to home screen
+      findActivePromotions();
+    }, [findActivePromotions])
+  );
 
   const displayName =
     (user as any)?.name || (user as any)?.fullname || (user as any)?.email || "there";
@@ -172,6 +180,31 @@ function PromotionModal({
     }
   };
 
+  const primaryProduct = productPromotions[0]?.product;
+  const primaryStoreId =
+    (primaryProduct as any)?.store?.id ??
+    primaryProduct?.storeId;
+  const primaryStoreName =
+    (primaryProduct as any)?.store?.name ??
+    (primaryProduct as any)?.storeName ??
+    "Store";
+
+  const handleStorePress = () => {
+    if (!primaryStoreId) return;
+    // Close modal first, then navigate
+    onClose();
+    // Use setTimeout to ensure modal closes before navigation
+    setTimeout(() => {
+      router.push({
+        pathname: "/(consumers)/storedetails",
+        params: {
+          store: primaryStoreName,
+          storeId: primaryStoreId,
+        },
+      });
+    }, 100);
+  };
+
   return (
     <Modal
       visible={true}
@@ -197,6 +230,26 @@ function PromotionModal({
               <Text style={styles.modalCloseText}>✕</Text>
             </TouchableOpacity>
           </View>
+
+        {!!primaryProduct && (
+          <View style={styles.modalStoreCard}>
+            <View>
+              <Text style={styles.modalStoreLabel}>Promotion from</Text>
+              <Text style={styles.modalStoreName} numberOfLines={1}>
+                {primaryStoreName}
+              </Text>
+            </View>
+            {!!primaryStoreId && (
+              <TouchableOpacity
+                onPress={handleStorePress}
+                style={styles.modalStoreButton}
+                accessibilityRole="button"
+              >
+                <Text style={styles.modalStoreButtonText}>Visit Store</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+        )}
           
           <ScrollView style={styles.modalProducts}>
             {productPromotions.map(({ product, promotion: productPromo }) => {
@@ -266,6 +319,11 @@ function Recommendations({
 }) {
   const [activeTab, setActiveTab] = useState<"products" | "deals">("products");
 
+  const visibleProducts = useMemo(
+    () => (products || []).filter((p: any) => (p as any)?.isActive !== false),
+    [products]
+  );
+
   // Group promotions by title
   const groupedPromotions = useMemo(() => {
     const groups: { [key: string]: { 
@@ -274,7 +332,7 @@ function Recommendations({
     } } = {};
     
     promotions.forEach(promotion => {
-      const product = products.find(p => p.id === promotion.productId);
+      const product = visibleProducts.find(p => p.id === promotion.productId);
       const key = promotion.title;
       
       if (!groups[key]) {
@@ -288,7 +346,7 @@ function Recommendations({
     });
     
     return Object.values(groups);
-  }, [promotions, products]);
+  }, [promotions, visibleProducts]);
 
   const handleProductPress = (p: Product) => {
     router.push({
@@ -339,7 +397,7 @@ function Recommendations({
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={styles.row}
         >
-          {products.map((p) => {
+          {visibleProducts.map((p) => {
             const promo = promotions.find(pr => pr.productId === p.id && (pr as any).active === true);
             const basePrice = Number(p.price);
             const discounted = promo
@@ -847,6 +905,40 @@ const styles = StyleSheet.create({
     marginTop: 12,
     opacity: 0.95,
     lineHeight: 20,
+  },
+  modalStoreCard: {
+    marginHorizontal: 20,
+    marginTop: 16,
+    marginBottom: 4,
+    padding: 16,
+    borderRadius: 14,
+    backgroundColor: "#F3F4F6",
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 12,
+  },
+  modalStoreLabel: {
+    fontSize: 12,
+    color: "#6B7280",
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+    marginBottom: 4,
+  },
+  modalStoreName: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: "#0F172A",
+  },
+  modalStoreButton: {
+    backgroundColor: "#277874",
+    paddingHorizontal: 18,
+    paddingVertical: 10,
+    borderRadius: 999,
+  },
+  modalStoreButtonText: {
+    color: "#ffffff",
+    fontWeight: "700",
   },
   modalCloseButton: {
     position: "absolute",

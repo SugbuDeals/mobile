@@ -2,7 +2,7 @@ import { useLogin } from "@/features/auth";
 import { useStore } from "@/features/store";
 import { Ionicons } from "@expo/vector-icons";
 import React, { useEffect, useMemo, useState } from "react";
-import { ActivityIndicator, Alert, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, Alert, ScrollView, StyleSheet, Switch, Text, TextInput, TouchableOpacity, View } from "react-native";
 
 export default function AdminViewPromotions() {
   const { state: storeState, action: storeActions } = useStore();
@@ -10,6 +10,7 @@ export default function AdminViewPromotions() {
   const [query, setQuery] = useState("");
   const [showOnlyActive, setShowOnlyActive] = useState(false);
   const [deletingId, setDeletingId] = useState<number | null>(null);
+  const [promotionStatusLoading, setPromotionStatusLoading] = useState<Record<number, boolean>>({});
 
   useEffect(() => {
     storeActions.findPromotions();
@@ -49,6 +50,18 @@ export default function AdminViewPromotions() {
       const q = query.toLowerCase();
       return title.includes(q) || productName.includes(q);
     });
+
+  const handleTogglePromotionActive = async (promotionId: number, nextValue: boolean) => {
+    setPromotionStatusLoading((prev) => ({ ...prev, [promotionId]: true }));
+    try {
+      await storeActions.updatePromotion({ id: promotionId, active: nextValue }).unwrap();
+      Alert.alert("Success", `Promotion has been ${nextValue ? "enabled" : "disabled"}.`);
+    } catch (error: any) {
+      Alert.alert("Error", error?.message || "Failed to update promotion status.");
+    } finally {
+      setPromotionStatusLoading((prev) => ({ ...prev, [promotionId]: false }));
+    }
+  };
 
   const confirmDelete = (id: number) => {
     Alert.alert(
@@ -154,6 +167,21 @@ export default function AdminViewPromotions() {
                           <Ionicons name="alert-circle" size={14} color="#991B1B" />
                           <Text style={[styles.metaText, { color: "#991B1B" }]}>Recommended to delete</Text>
                         </View>
+                      )}
+                    </View>
+                    <View style={styles.promotionActions}>
+                      <View style={styles.switchRow}>
+                        <Text style={styles.switchLabel}>{promo.active ? "Active" : "Disabled"}</Text>
+                        <Switch
+                          value={!!promo.active}
+                          onValueChange={(value) => handleTogglePromotionActive(promo.id, value)}
+                          trackColor={{ false: "#FECACA", true: "#A7F3D0" }}
+                          thumbColor="#FFFFFF"
+                          disabled={!!promotionStatusLoading[promo.id]}
+                        />
+                      </View>
+                      {promotionStatusLoading[promo.id] && (
+                        <ActivityIndicator size="small" color="#277874" />
                       )}
                     </View>
                   </View>
@@ -359,6 +387,22 @@ const styles = StyleSheet.create({
     marginTop: 12,
     fontSize: 16,
     color: "#277874",
+  },
+  promotionActions: {
+    marginTop: 10,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  switchRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  switchLabel: {
+    fontSize: 13,
+    color: "#374151",
+    fontWeight: "600",
   },
 });
 

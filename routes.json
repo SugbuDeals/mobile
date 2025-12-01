@@ -211,6 +211,210 @@
         ]
       }
     },
+    "/user/{id}/approve": {
+      "patch": {
+        "operationId": "UserController_approveRetailer",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "User id",
+            "schema": {
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Retailer approved successfully"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Admin: approve retailer account",
+        "tags": [
+          "Users"
+        ]
+      }
+    },
+    "/notifications": {
+      "get": {
+        "operationId": "NotificationController_getUserNotifications",
+        "parameters": [
+          {
+            "name": "skip",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "number"
+            }
+          },
+          {
+            "name": "take",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "number"
+            }
+          },
+          {
+            "name": "read",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Returns list of notifications"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Get user notifications",
+        "tags": [
+          "Notifications"
+        ]
+      },
+      "post": {
+        "operationId": "NotificationController_createNotification",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateNotificationDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Notification created"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Create a notification",
+        "tags": [
+          "Notifications"
+        ]
+      }
+    },
+    "/notifications/unread-count": {
+      "get": {
+        "operationId": "NotificationController_getUnreadCount",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Returns unread count"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Get unread notification count",
+        "tags": [
+          "Notifications"
+        ]
+      }
+    },
+    "/notifications/{id}/read": {
+      "patch": {
+        "operationId": "NotificationController_markAsRead",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Notification marked as read"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Mark notification as read",
+        "tags": [
+          "Notifications"
+        ]
+      }
+    },
+    "/notifications/mark-all-read": {
+      "patch": {
+        "operationId": "NotificationController_markAllAsRead",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "All notifications marked as read"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Mark all notifications as read",
+        "tags": [
+          "Notifications"
+        ]
+      }
+    },
+    "/notifications/{id}": {
+      "delete": {
+        "operationId": "NotificationController_deleteNotification",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Notification deleted"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Delete a notification",
+        "tags": [
+          "Notifications"
+        ]
+      }
+    },
     "/store": {
       "get": {
         "operationId": "StoreController_findManyStores",
@@ -432,6 +636,45 @@
         ]
       }
     },
+    "/store/{id}/admin-status": {
+      "patch": {
+        "operationId": "StoreController_updateStoreAdminStatus",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "number"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ManageStoreStatusDTO"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Store status updated"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Admin: manage store verification / active status",
+        "tags": [
+          "Stores"
+        ]
+      }
+    },
     "/product": {
       "get": {
         "operationId": "ProductController_findManyProducts",
@@ -585,6 +828,45 @@
           }
         ],
         "summary": "Delete a product",
+        "tags": [
+          "Products"
+        ]
+      }
+    },
+    "/product/{id}/admin-status": {
+      "patch": {
+        "operationId": "ProductController_updateProductAdminStatus",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "number"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateProductStatusDTO"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Product status updated"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Admin: enable or disable a product",
         "tags": [
           "Products"
         ]
@@ -1137,6 +1419,11 @@
             "description": ""
           }
         },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
         "tags": [
           "AI"
         ]
@@ -1161,6 +1448,11 @@
             "description": ""
           }
         },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
         "tags": [
           "AI"
         ]
@@ -1185,6 +1477,11 @@
             "description": ""
           }
         },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
         "tags": [
           "AI"
         ]
@@ -1284,6 +1581,410 @@
         "summary": "Upload a file",
         "tags": [
           "Files"
+        ]
+      }
+    },
+    "/files/clear": {
+      "delete": {
+        "operationId": "FileController_clearAllFiles",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "All files cleared successfully"
+          },
+          "500": {
+            "description": "Error clearing files"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Clear all uploaded files",
+        "tags": [
+          "Files"
+        ]
+      }
+    },
+    "/subscription": {
+      "get": {
+        "operationId": "SubscriptionController_findManySubscriptions",
+        "parameters": [
+          {
+            "name": "plan",
+            "required": false,
+            "in": "query",
+            "description": "Filter by subscription plan type",
+            "schema": {
+              "enum": [
+                "FREE",
+                "BASIC",
+                "PREMIUM"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "name": "isActive",
+            "required": false,
+            "in": "query",
+            "description": "Filter by availability status (admin only)",
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "search",
+            "required": false,
+            "in": "query",
+            "description": "Search by subscription name or description (admin only)",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "skip",
+            "required": false,
+            "in": "query",
+            "description": "Number of records to skip",
+            "schema": {
+              "type": "number"
+            }
+          },
+          {
+            "name": "take",
+            "required": false,
+            "in": "query",
+            "description": "Number of records to take",
+            "schema": {
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Returns list of subscription plans"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "List subscription plans",
+        "tags": [
+          "Subscriptions"
+        ]
+      },
+      "post": {
+        "operationId": "SubscriptionController_createSubscription",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateSubscriptionDTO"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Subscription created successfully"
+          },
+          "400": {
+            "description": "Invalid input"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Create a subscription",
+        "tags": [
+          "Subscriptions"
+        ]
+      }
+    },
+    "/subscription/user/{userId}/active": {
+      "get": {
+        "operationId": "SubscriptionController_getActiveSubscription",
+        "parameters": [
+          {
+            "name": "userId",
+            "required": true,
+            "in": "path",
+            "description": "User ID",
+            "schema": {
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Returns the active user subscription"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Get active subscription for a user",
+        "tags": [
+          "Subscriptions"
+        ]
+      }
+    },
+    "/subscription/{id}": {
+      "get": {
+        "operationId": "SubscriptionController_findUniqueSubscription",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "Subscription ID",
+            "schema": {
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Returns a subscription"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Get subscription by id",
+        "tags": [
+          "Subscriptions"
+        ]
+      },
+      "patch": {
+        "operationId": "SubscriptionController_updateSubscription",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "Subscription ID",
+            "schema": {
+              "type": "number"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateSubscriptionDTO"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Subscription updated successfully"
+          },
+          "400": {
+            "description": "Invalid input"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Update a subscription",
+        "tags": [
+          "Subscriptions"
+        ]
+      },
+      "delete": {
+        "operationId": "SubscriptionController_deleteSubscription",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "Subscription ID",
+            "schema": {
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Subscription deleted successfully"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Delete a subscription",
+        "tags": [
+          "Subscriptions"
+        ]
+      }
+    },
+    "/subscription/retailer/join": {
+      "post": {
+        "description": "Retailers can join a subscription by ID. If they already have an active subscription, it will be cancelled first.",
+        "operationId": "SubscriptionController_joinSubscription",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/JoinSubscriptionDTO"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Subscription joined successfully"
+          },
+          "400": {
+            "description": "Invalid input or subscription not found"
+          },
+          "401": {
+            "description": "Unauthorized or not a retailer"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Join a subscription (Retailer only)",
+        "tags": [
+          "Subscriptions"
+        ]
+      }
+    },
+    "/subscription/retailer/update": {
+      "patch": {
+        "description": "Retailers can update their active subscription to a different subscription plan by ID.",
+        "operationId": "SubscriptionController_updateRetailerSubscription",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateRetailerSubscriptionDTO"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Subscription updated successfully"
+          },
+          "400": {
+            "description": "No active subscription found or subscription not found"
+          },
+          "401": {
+            "description": "Unauthorized or not a retailer"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Update current subscription (Retailer only)",
+        "tags": [
+          "Subscriptions"
+        ]
+      }
+    },
+    "/subscription/retailer/cancel": {
+      "post": {
+        "description": "Retailers can cancel their active subscription. The subscription status will be set to CANCELLED.",
+        "operationId": "SubscriptionController_cancelRetailerSubscription",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Subscription cancelled successfully"
+          },
+          "400": {
+            "description": "No active subscription found"
+          },
+          "401": {
+            "description": "Unauthorized or not a retailer"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Cancel current subscription (Retailer only)",
+        "tags": [
+          "Subscriptions"
+        ]
+      }
+    },
+    "/subscription/admin/analytics": {
+      "get": {
+        "description": "Returns comprehensive subscription analytics including counts by status, plan, billing cycle, revenue metrics, and trends.",
+        "operationId": "SubscriptionController_getAnalytics",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Returns subscription analytics",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SubscriptionAnalyticsDTO"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized or not an admin"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Get subscription analytics (Admin only)",
+        "tags": [
+          "Subscriptions"
         ]
       }
     }
@@ -1415,6 +2116,69 @@
           }
         }
       },
+      "CreateNotificationDto": {
+        "type": "object",
+        "properties": {
+          "userId": {
+            "type": "number",
+            "description": "User ID to send notification to"
+          },
+          "type": {
+            "type": "string",
+            "description": "Type of notification",
+            "enum": [
+              "PRODUCT_CREATED",
+              "PRODUCT_PRICE_CHANGED",
+              "PRODUCT_STOCK_CHANGED",
+              "PRODUCT_STATUS_CHANGED",
+              "PROMOTION_CREATED",
+              "PROMOTION_STARTED",
+              "PROMOTION_ENDING_SOON",
+              "PROMOTION_ENDED",
+              "STORE_VERIFIED",
+              "STORE_CREATED",
+              "STORE_UNDER_REVIEW",
+              "SUBSCRIPTION_JOINED",
+              "SUBSCRIPTION_CANCELLED",
+              "SUBSCRIPTION_EXPIRED",
+              "SUBSCRIPTION_RENEWED",
+              "SUBSCRIPTION_ENDING_SOON",
+              "SUBSCRIPTION_AVAILABLE",
+              "CONSUMER_WELCOME",
+              "PROMOTION_NEARBY",
+              "GPS_REMINDER",
+              "QUESTIONABLE_PRICING_PRODUCT",
+              "QUESTIONABLE_PRICING_PROMOTION"
+            ]
+          },
+          "title": {
+            "type": "string",
+            "description": "Notification title"
+          },
+          "message": {
+            "type": "string",
+            "description": "Notification message"
+          },
+          "productId": {
+            "type": "number",
+            "description": "Related product ID"
+          },
+          "storeId": {
+            "type": "number",
+            "description": "Related store ID"
+          },
+          "promotionId": {
+            "type": "number",
+            "description": "Related promotion ID"
+          }
+        },
+        "required": [
+          "userId",
+          "type",
+          "title",
+          "message"
+        ]
+      },
       "CreateStoreDTO": {
         "type": "object",
         "properties": {
@@ -1471,6 +2235,21 @@
             "type": "number",
             "example": 42,
             "description": "The unique identifier of the store owner"
+          },
+          "imageUrl": {
+            "type": "string",
+            "example": "http://localhost:3000/files/file-1762098832774-779762879.webp",
+            "description": "The url of the store image"
+          },
+          "bannerUrl": {
+            "type": "string",
+            "example": "http://localhost:3000/files/file-1762098832774-779762879.webp",
+            "description": "The url of the banner image"
+          },
+          "isActive": {
+            "type": "boolean",
+            "description": "Whether the store is active and visible",
+            "example": true
           }
         },
         "required": [
@@ -1544,6 +2323,39 @@
             "type": "number",
             "example": 42,
             "description": "The unique identifier of the updated store owner"
+          },
+          "imageUrl": {
+            "type": "string",
+            "example": "http://localhost:3000/files/file-1762098832774-779762879.webp",
+            "description": "The url of the store profile image"
+          },
+          "bannerUrl": {
+            "type": "string",
+            "example": "http://localhost:3000/files/file-1762098832774-779762879.webp",
+            "description": "The url of the banner image"
+          },
+          "isActive": {
+            "type": "boolean",
+            "description": "Whether the store is active and visible",
+            "example": true
+          }
+        }
+      },
+      "ManageStoreStatusDTO": {
+        "type": "object",
+        "properties": {
+          "verificationStatus": {
+            "type": "string",
+            "enum": [
+              "UNVERIFIED",
+              "VERIFIED"
+            ],
+            "description": "Verification status to assign to the store"
+          },
+          "isActive": {
+            "type": "boolean",
+            "description": "Whether the store is active and visible to users",
+            "example": true
           }
         }
       },
@@ -1583,6 +2395,11 @@
             "type": "string",
             "example": "http://localhost:3000/files/file-1762098832774-779762879.webp",
             "description": "The url of the file"
+          },
+          "categoryId": {
+            "type": "number",
+            "description": "Category id to assign the product to",
+            "example": 5
           }
         },
         "required": [
@@ -1625,8 +2442,26 @@
             "type": "string",
             "example": "http://localhost:3000/files/file-1762098832774-779762879.webp",
             "description": "The url of the file"
+          },
+          "categoryId": {
+            "type": "number",
+            "description": "Category id to assign the product to",
+            "example": 5
           }
         }
+      },
+      "UpdateProductStatusDTO": {
+        "type": "object",
+        "properties": {
+          "isActive": {
+            "type": "boolean",
+            "description": "Flag indicating whether the product is active",
+            "example": false
+          }
+        },
+        "required": [
+          "isActive"
+        ]
       },
       "CreatePromotionDto": {
         "type": "object",
@@ -1834,10 +2669,320 @@
           "count": {
             "type": "number",
             "example": 6
+          },
+          "latitude": {
+            "type": "number",
+            "example": 10.3157,
+            "description": "User latitude for distance calculation",
+            "minimum": -90,
+            "maximum": 90
+          },
+          "longitude": {
+            "type": "number",
+            "example": 123.8854,
+            "description": "User longitude for distance calculation",
+            "minimum": -180,
+            "maximum": 180
           }
         },
         "required": [
           "query"
+        ]
+      },
+      "CreateSubscriptionDTO": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Display name of the subscription",
+            "example": "Premium Retailer"
+          },
+          "description": {
+            "type": "string",
+            "description": "Short description of the subscription",
+            "example": "Unlock all premium retailer features and support."
+          },
+          "plan": {
+            "type": "string",
+            "enum": [
+              "FREE",
+              "BASIC",
+              "PREMIUM"
+            ],
+            "default": "FREE",
+            "description": "Subscription plan category"
+          },
+          "billingCycle": {
+            "type": "string",
+            "enum": [
+              "MONTHLY",
+              "YEARLY"
+            ],
+            "default": "MONTHLY",
+            "description": "Billing cycle"
+          },
+          "price": {
+            "type": "string",
+            "description": "Subscription price",
+            "example": "9.99"
+          },
+          "benefits": {
+            "type": "string",
+            "description": "Additional benefits or perks description",
+            "example": "• Unlimited listings\n• Featured placement\n• Priority support"
+          },
+          "isActive": {
+            "type": "boolean",
+            "description": "Whether this subscription is currently available for retailers",
+            "default": true
+          },
+          "startsAt": {
+            "type": "string",
+            "description": "Subscription availability start date",
+            "example": "2024-01-01T00:00:00Z"
+          },
+          "endsAt": {
+            "type": "string",
+            "description": "Subscription availability end date",
+            "example": "2024-12-31T23:59:59Z"
+          }
+        },
+        "required": [
+          "name"
+        ]
+      },
+      "UpdateSubscriptionDTO": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Display name of the subscription",
+            "example": "Premium Retailer Plus"
+          },
+          "description": {
+            "type": "string",
+            "description": "Short description of the subscription",
+            "example": "Adds concierge onboarding and analytics."
+          },
+          "plan": {
+            "type": "string",
+            "enum": [
+              "FREE",
+              "BASIC",
+              "PREMIUM"
+            ],
+            "description": "Subscription plan category"
+          },
+          "billingCycle": {
+            "type": "string",
+            "enum": [
+              "MONTHLY",
+              "YEARLY"
+            ],
+            "description": "Billing cycle"
+          },
+          "price": {
+            "type": "string",
+            "description": "Subscription price",
+            "example": "19.99"
+          },
+          "benefits": {
+            "type": "string",
+            "description": "Additional benefits or perks description",
+            "example": "• Dedicated success manager\n• Exclusive promotions"
+          },
+          "isActive": {
+            "type": "boolean",
+            "description": "Whether this subscription is currently active",
+            "default": true
+          },
+          "startsAt": {
+            "type": "string",
+            "description": "Subscription availability start date",
+            "example": "2024-02-01T00:00:00Z"
+          },
+          "endsAt": {
+            "type": "string",
+            "description": "Subscription availability end date",
+            "example": "2024-12-31T23:59:59Z"
+          }
+        }
+      },
+      "JoinSubscriptionDTO": {
+        "type": "object",
+        "properties": {
+          "subscriptionId": {
+            "type": "number",
+            "description": "Subscription ID to join",
+            "example": 1
+          }
+        },
+        "required": [
+          "subscriptionId"
+        ]
+      },
+      "UpdateRetailerSubscriptionDTO": {
+        "type": "object",
+        "properties": {
+          "subscriptionId": {
+            "type": "number",
+            "description": "Subscription ID to update to",
+            "example": 1
+          }
+        },
+        "required": [
+          "subscriptionId"
+        ]
+      },
+      "SubscriptionCountByPlan": {
+        "type": "object",
+        "properties": {
+          "plan": {
+            "type": "string",
+            "enum": [
+              "FREE",
+              "BASIC",
+              "PREMIUM"
+            ]
+          },
+          "count": {
+            "type": "number",
+            "description": "Number of subscriptions with this plan",
+            "example": 10
+          }
+        },
+        "required": [
+          "plan",
+          "count"
+        ]
+      },
+      "SubscriptionCountByStatus": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "ACTIVE",
+              "CANCELLED",
+              "EXPIRED",
+              "PENDING"
+            ]
+          },
+          "count": {
+            "type": "number",
+            "description": "Number of subscriptions with this status",
+            "example": 25
+          }
+        },
+        "required": [
+          "status",
+          "count"
+        ]
+      },
+      "SubscriptionCountByBillingCycle": {
+        "type": "object",
+        "properties": {
+          "billingCycle": {
+            "type": "string",
+            "enum": [
+              "MONTHLY",
+              "YEARLY"
+            ]
+          },
+          "count": {
+            "type": "number",
+            "description": "Number of subscriptions with this billing cycle",
+            "example": 15
+          }
+        },
+        "required": [
+          "billingCycle",
+          "count"
+        ]
+      },
+      "SubscriptionAnalyticsDTO": {
+        "type": "object",
+        "properties": {
+          "total": {
+            "type": "number",
+            "description": "Total number of subscriptions",
+            "example": 100
+          },
+          "active": {
+            "type": "number",
+            "description": "Number of active subscriptions",
+            "example": 45
+          },
+          "cancelled": {
+            "type": "number",
+            "description": "Number of cancelled subscriptions",
+            "example": 30
+          },
+          "expired": {
+            "type": "number",
+            "description": "Number of expired subscriptions",
+            "example": 20
+          },
+          "pending": {
+            "type": "number",
+            "description": "Number of pending subscriptions",
+            "example": 5
+          },
+          "byPlan": {
+            "description": "Subscriptions grouped by plan",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SubscriptionCountByPlan"
+            }
+          },
+          "byStatus": {
+            "description": "Subscriptions grouped by status",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SubscriptionCountByStatus"
+            }
+          },
+          "byBillingCycle": {
+            "description": "Subscriptions grouped by billing cycle",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SubscriptionCountByBillingCycle"
+            }
+          },
+          "totalRevenue": {
+            "type": "string",
+            "description": "Total revenue from active subscriptions",
+            "example": "1250.50"
+          },
+          "averagePrice": {
+            "type": "string",
+            "description": "Average subscription price",
+            "example": "25.50"
+          },
+          "recentSubscriptions": {
+            "type": "number",
+            "description": "Number of subscriptions created in the last 30 days",
+            "example": 12
+          },
+          "subscriptionsThisMonth": {
+            "type": "number",
+            "description": "Number of subscriptions created this month",
+            "example": 8
+          }
+        },
+        "required": [
+          "total",
+          "active",
+          "cancelled",
+          "expired",
+          "pending",
+          "byPlan",
+          "byStatus",
+          "byBillingCycle",
+          "totalRevenue",
+          "averagePrice",
+          "recentSubscriptions",
+          "subscriptionsThisMonth"
         ]
       }
     }

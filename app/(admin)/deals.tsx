@@ -3,16 +3,17 @@ import { useStore } from "@/features/store";
 import { Ionicons } from "@expo/vector-icons";
 import React, { useEffect, useState } from "react";
 import {
-    ActivityIndicator,
-    Alert,
-    Dimensions,
-    Modal,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
+  ActivityIndicator,
+  Alert,
+  Dimensions,
+  Modal,
+  ScrollView,
+  StyleSheet,
+  Switch,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from "react-native";
 import Svg, { Path } from "react-native-svg";
 
@@ -33,7 +34,7 @@ const SimpleChart = ({ categories }: { categories: Array<{ name: string; percent
   const innerRadius = 30;
   const outerRadius = 60;
   
-  let cumulativePercentage = 0;
+  let cumulativeFraction = 0;
   
   const createArcPath = (startAngle: number, endAngle: number, innerR: number, outerR: number) => {
     const startAngleRad = (startAngle * Math.PI) / 180;
@@ -64,11 +65,12 @@ const SimpleChart = ({ categories }: { categories: Array<{ name: string; percent
     <View style={styles.chartVisual}>
       <Svg width={size} height={size}>
         {categories.map((category, index) => {
-          const startAngle = (cumulativePercentage * 360) - 90;
-          const endAngle = ((cumulativePercentage + category.percentage) * 360) - 90;
+          const segmentFraction = Math.max(0, Math.min(1, category.percentage / 100));
+          const startAngle = (cumulativeFraction * 360) - 90;
+          const endAngle = ((cumulativeFraction + segmentFraction) * 360) - 90;
           
           const pathData = createArcPath(startAngle, endAngle, innerRadius, outerRadius);
-          cumulativePercentage += category.percentage;
+          cumulativeFraction += segmentFraction;
           
           return (
             <Path
@@ -109,6 +111,7 @@ export default function DealsAnalytics() {
   const { state: storeState, action: storeActions } = useStore();
   const { state: catalogState, action: catalogActions } = useCatalog();
   const [isLoading, setIsLoading] = useState(true);
+  const [promotionStatusLoading, setPromotionStatusLoading] = useState<Record<number, boolean>>({});
   
   // Category management state
   const [showAddModal, setShowAddModal] = useState(false);
@@ -141,47 +144,55 @@ export default function DealsAnalytics() {
   }, 0);
   const averageDiscount = totalDeals > 0 ? (totalDiscount / totalDeals).toFixed(1) : "0.0";
 
+  const handleTogglePromotionActive = async (promotionId: number, nextValue: boolean) => {
+    setPromotionStatusLoading((prev) => ({ ...prev, [promotionId]: true }));
+    try {
+      await storeActions.updatePromotion({ id: promotionId, active: nextValue }).unwrap();
+      Alert.alert("Success", `Promotion has been ${nextValue ? "enabled" : "disabled"}.`);
+    } catch (error: any) {
+      Alert.alert("Error", error?.message || "Failed to update promotion status.");
+    } finally {
+      setPromotionStatusLoading((prev) => ({ ...prev, [promotionId]: false }));
+    }
+  };
+
   // Calculate category distribution from real data
   const calculateCategoryDistribution = () => {
-    if (!storeState.promotions.length || !storeState.products.length || !catalogState.categories.length) {
+    if (!storeState.products.length || !catalogState.categories.length) {
       return [];
     }
 
-    // Create a map of productId to categoryId
-    const productCategoryMap = new Map<number, number>();
-    storeState.products.forEach(product => {
-      if (product.categoryId) {
-        productCategoryMap.set(product.id, product.categoryId);
-      }
-    });
-
-    // Count promotions by category
+    // Count products by category
     const categoryCounts = new Map<number, number>();
-    storeState.promotions.forEach(promotion => {
-      const categoryId = productCategoryMap.get(promotion.productId);
-      if (categoryId) {
-        categoryCounts.set(categoryId, (categoryCounts.get(categoryId) || 0) + 1);
+    storeState.products.forEach((product) => {
+      const rawCategoryId = (product as any)?.categoryId ?? (product as any)?.category?.id;
+      if (rawCategoryId === null || rawCategoryId === undefined) {
+        return;
       }
+
+      const categoryId = Number(rawCategoryId);
+      categoryCounts.set(categoryId, (categoryCounts.get(categoryId) || 0) + 1);
     });
 
-    // Convert to percentage and format for chart
-    const totalPromotionsWithCategories = Array.from(categoryCounts.values()).reduce((sum, count) => sum + count, 0);
-    
-    if (totalPromotionsWithCategories === 0) {
+    const totalProductsWithCategories = Array.from(categoryCounts.values()).reduce((sum, count) => sum + count, 0);
+
+    if (totalProductsWithCategories === 0) {
       return [];
     }
 
-    return Array.from(categoryCounts.entries()).map(([categoryId, count], index) => {
-      const category = catalogState.categories.find(cat => cat.id === categoryId);
-      const percentage = (count / totalPromotionsWithCategories) * 100;
-      
-      return {
-        name: category?.name || `Category ${categoryId}`,
-        percentage: Math.round(percentage * 10) / 10, // Round to 1 decimal
-        color: categoryColors[index % categoryColors.length],
-        count: count
-      };
-    }).sort((a, b) => b.percentage - a.percentage); // Sort by percentage descending
+    return Array.from(categoryCounts.entries())
+      .map(([categoryId, count], index) => {
+        const category = catalogState.categories.find((cat) => String(cat.id) === String(categoryId));
+        const percentage = (count / totalProductsWithCategories) * 100;
+
+        return {
+          name: category?.name || `Category ${categoryId}`,
+          percentage: Math.round(percentage * 10) / 10,
+          color: categoryColors[index % categoryColors.length],
+          count,
+        };
+      })
+      .sort((a, b) => b.percentage - a.percentage);
   };
 
   const categoryDistribution = calculateCategoryDistribution();
@@ -333,6 +344,47 @@ export default function DealsAnalytics() {
                 )}
               </View>
             </View>
+          </View>
+
+          {/* Quick Promotion Management */}
+          <View style={styles.promotionManageSection}>
+            <Text style={styles.sectionSubtitle}>Manage Promotions</Text>
+            {storeState.promotions.length === 0 ? (
+              <View style={styles.emptyState}>
+                <Ionicons name="pricetag-outline" size={40} color="#9CA3AF" />
+                <Text style={styles.emptyStateText}>No promotions available</Text>
+              </View>
+            ) : (
+              <View style={styles.promotionList}>
+                {storeState.promotions.slice(0, 5).map((promotion) => (
+                  <View key={promotion.id} style={styles.promotionCard}>
+                    <View style={styles.promotionInfo}>
+                      <Text style={styles.promotionTitle} numberOfLines={1}>
+                        {promotion.title}
+                      </Text>
+                      <Text style={styles.promotionSub} numberOfLines={1}>
+                        {promotion.description}
+                      </Text>
+                    </View>
+                    <View style={styles.promotionStatusRow}>
+                      <Text style={styles.promotionStatusLabel}>
+                        {promotion.active ? "Active" : "Disabled"}
+                      </Text>
+                      <Switch
+                        value={!!promotion.active}
+                        onValueChange={(value) => handleTogglePromotionActive(promotion.id, value)}
+                        trackColor={{ false: "#FECACA", true: "#A7F3D0" }}
+                        thumbColor="#FFFFFF"
+                        disabled={!!promotionStatusLoading[promotion.id]}
+                      />
+                      {promotionStatusLoading[promotion.id] && (
+                        <ActivityIndicator size="small" color="#277874" style={styles.promotionSpinner} />
+                      )}
+                    </View>
+                  </View>
+                ))}
+              </View>
+            )}
           </View>
         </View>
 
@@ -633,6 +685,58 @@ const styles = StyleSheet.create({
     fontSize: 26,
     fontWeight: "900",
     color: "#1F2937",
+  },
+
+  // ===== PROMOTION MANAGEMENT SECTION =====
+  promotionManageSection: {
+    marginTop: 16,
+  },
+  sectionSubtitle: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#4B5563",
+    marginBottom: 8,
+  },
+  promotionList: {
+    gap: 8,
+  },
+  promotionCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    backgroundColor: "#ffffff",
+    borderRadius: 10,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderWidth: 1,
+    borderColor: "#E5E7EB",
+  },
+  promotionInfo: {
+    flex: 1,
+    paddingRight: 8,
+  },
+  promotionTitle: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: "#111827",
+  },
+  promotionSub: {
+    fontSize: 12,
+    color: "#6B7280",
+    marginTop: 2,
+  },
+  promotionStatusRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  promotionStatusLabel: {
+    fontSize: 12,
+    color: "#374151",
+    fontWeight: "600",
+  },
+  promotionSpinner: {
+    marginLeft: 4,
   },
   
   // ===== DEAL CATEGORIES SECTION =====

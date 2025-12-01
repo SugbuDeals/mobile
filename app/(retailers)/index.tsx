@@ -1,68 +1,19 @@
-import Card from "@/components/Card";
 import { useLogin } from "@/features/auth";
 import { useStore } from "@/features/store";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { router, useFocusEffect } from "expo-router";
 import React, { useCallback, useEffect, useState } from "react";
 import {
-  Alert,
-  Dimensions,
-  ImageBackground,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View
+    Alert,
+    ImageBackground,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View
 } from "react-native";
 
-const { width } = Dimensions.get("window");
-
-// Mock data for weekly views (this would come from analytics API in the future)
-const weeklyData = [
-  { day: "Mon", views: 120 },
-  { day: "Tue", views: 180 },
-  { day: "Wed", views: 90 },
-  { day: "Thu", views: 280 },
-  { day: "Fri", views: 150 },
-  { day: "Sat", views: 80 },
-  { day: "Sun", views: 200 },
-];
-
-const BarChart = ({ data }: { data: typeof weeklyData }) => {
-  const maxViews = Math.max(...data.map(d => d.views));
-  
-  return (
-    <View style={styles.chartContainer}>
-      <Text style={styles.chartTitle}>Weekly Store Views</Text>
-      <View style={styles.chart}>
-        {data.map((item, index) => (
-          <View key={index} style={styles.barContainer}>
-            <View
-              style={[
-                styles.bar,
-                {
-                  height: (item.views / maxViews) * 100,
-                  backgroundColor: index === 3 ? "#FFD700" : "#277874", // Thursday is highlighted
-                },
-              ]}
-            />
-            <Text style={styles.barLabel}>{item.day}</Text>
-          </View>
-        ))}
-      </View>
-    </View>
-  );
-};
-
-const ViewsTodayCard = () => (
-  <Card style={styles.viewsTodayCard}>
-    <View style={styles.viewsTodayContent}>
-      <Ionicons name="eye" size={24} color="#277874" />
-      <Text style={styles.viewsTodayLabel}>Views Today</Text>
-      <Text style={styles.viewsTodayNumber}>245</Text>
-    </View>
-  </Card>
-);
+const DEFAULT_BANNER = require("../../assets/images/index3.png");
 
 const PromotionCard = ({ promotion, activePromotions }: { promotion: any; activePromotions: any[] }) => {
   const { action: { updatePromotion, deletePromotion, findProducts, findProductById }, state: { products } } = useStore();
@@ -132,29 +83,10 @@ const PromotionCard = ({ promotion, activePromotions }: { promotion: any; active
   };
 
   const handleToggleActive = async () => {
-    setIsUpdating(true);
-    try {
-      // Update all related promotions
-      const productIds: number[] = promotion.productIds || [promotion.productId];
-      const promises = productIds.map((productId: number) => {
-        // Find the original promotion for this product
-        const originalPromotion = activePromotions.find(p => p.productId === productId);
-        if (originalPromotion) {
-          return updatePromotion({
-            id: originalPromotion.id,
-            active: !originalPromotion.active
-          });
-        }
-        return Promise.resolve();
-      });
-      
-      await Promise.all(promises);
-    } catch (error) {
-      console.error("Error updating promotion:", error);
-      Alert.alert("Error", "Failed to update promotion");
-    } finally {
-      setIsUpdating(false);
-    }
+    Alert.alert(
+      "Status managed by administrators",
+      "Only administrators can activate or pause promotions. If your promotion was disabled, it is because something was wrong with it. While disabled, customers cannot see this promotion."
+    );
   };
 
   const handleDelete = async () => {
@@ -223,12 +155,12 @@ const PromotionCard = ({ promotion, activePromotions }: { promotion: any; active
         </View>
         
         <View style={styles.promotionFooter}>
-          <View style={styles.statusContainer}>
-            <View style={[styles.statusDot, { backgroundColor: promotion.active ? '#10B981' : '#EF4444' }]} />
-            <Text style={styles.statusText}>
-              {promotion.active ? 'Active' : 'Inactive'}
-            </Text>
-          </View>
+            <View style={styles.statusContainer}>
+              <View style={[styles.statusDot, { backgroundColor: promotion.active ? '#10B981' : '#EF4444' }]} />
+              <Text style={styles.statusText}>
+                {promotion.active ? 'Active' : 'Disabled by administrator'}
+              </Text>
+            </View>
           {daysLeft > 0 && (
             <Text style={styles.daysLeft}>
               {daysLeft} days left
@@ -294,22 +226,21 @@ const PromotionCard = ({ promotion, activePromotions }: { promotion: any; active
         )}
 
         {/* Action Buttons */}
-        <View style={styles.promotionActions}>
+          <View style={styles.promotionActions}>
           <TouchableOpacity 
             style={[styles.actionButton, styles.toggleButton]}
             onPress={handleToggleActive}
-            disabled={isUpdating}
           >
             <Ionicons 
-              name={promotion.active ? "pause" : "play"} 
+              name="alert-circle" 
               size={16} 
               color="#ffffff" 
             />
             <Text style={styles.actionButtonText}>
-              {isUpdating ? "Updating..." : (promotion.active ? "Pause" : "Activate")}
+              Status Managed by Admin
             </Text>
           </TouchableOpacity>
-          
+
           <TouchableOpacity 
             style={[styles.actionButton, styles.deleteButton]}
             onPress={handleDelete}
@@ -420,12 +351,19 @@ export default function RetailerDashboard() {
     return userStore?.description || 'Store description coming soon';
   };
 
+  const getStoreBannerSource = () => {
+    if (typeof userStore?.bannerUrl === "string" && userStore.bannerUrl.trim().length > 0) {
+      return { uri: userStore.bannerUrl };
+    }
+    return DEFAULT_BANNER;
+  };
+
   return (
     <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
       {/* Store Header */}
       <View style={styles.storeHeader}>
         <ImageBackground
-          source={{ uri: 'https://images.unsplash.com/photo-1441986300917-64674bd600d8?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=2070&q=80' }}
+          source={getStoreBannerSource()}
           style={styles.storeBackground}
           imageStyle={styles.backgroundImage}
         >
@@ -477,14 +415,6 @@ export default function RetailerDashboard() {
               <Ionicons name="pencil" size={16} color="#277874" />
             </TouchableOpacity>
           </View>
-        </View>
-      </View>
-
-      {/* Weekly Store Views */}
-      <View style={styles.section}>
-        <View style={styles.weeklyViewsContainer}>
-          <BarChart data={weeklyData} />
-          <ViewsTodayCard />
         </View>
       </View>
 
@@ -669,75 +599,6 @@ const styles = StyleSheet.create({
     color: "#ffffff",
     fontSize: 14,
     fontWeight: "600",
-  },
-  weeklyViewsContainer: {
-    position: 'relative',
-  },
-  chartContainer: {
-    backgroundColor: "#ffffff",
-    borderRadius: 16,
-    padding: 20,
-    elevation: 2,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-  },
-  chartTitle: {
-    fontSize: 20,
-    fontWeight: "bold",
-    color: "#1f2937",
-    marginBottom: 50,
-  },
-  chart: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "flex-end",
-    height: 120,
-  },
-  barContainer: {
-    alignItems: "center",
-    flex: 1,
-  },
-  bar: {
-    width: 20,
-    borderTopLeftRadius: 4,
-    borderTopRightRadius: 4,
-    marginBottom: 8,
-  },
-  barLabel: {
-    fontSize: 12,
-    color: "#6b7280",
-    fontWeight: "500",
-  },
-  viewsTodayCard: {
-    position: 'absolute',
-    top: -1,
-    right: -1 ,
-    width: 100,
-    backgroundColor: "#ffffff",
-    borderRadius: 12,
-    padding: 10,
-    elevation: 4,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 8,
-    zIndex: 10,
-  },
-  viewsTodayContent: {
-    alignItems: "center",
-  },
-  viewsTodayLabel: {
-    fontSize: 12,
-    color: "#6b7280",
-    marginTop: 8,
-    marginBottom: 4,
-  },
-  viewsTodayNumber: {
-    fontSize: 24,
-    fontWeight: "bold",
-    color: "#1f2937",
   },
   promotionCard: {
     backgroundColor: "#ffffff",

@@ -1,4 +1,5 @@
 import { useLogin } from "@/features/auth";
+import { useCatalog } from "@/features/catalog";
 import { useStore } from "@/features/store";
 import { uploadFile } from "@/utils/fileUpload";
 import Ionicons from "@expo/vector-icons/Ionicons";
@@ -24,6 +25,7 @@ export default function EditProduct() {
   const { productId } = useLocalSearchParams();
   const { state: { user, accessToken } } = useLogin();
   const { action: { updateProduct, findProducts }, state: { loading, error, products, userStore } } = useStore();
+  const { action: { loadCategories }, state: { categories } } = useCatalog();
   
   // Initialize state with empty values
   const [productName, setProductName] = useState("");
@@ -36,6 +38,8 @@ export default function EditProduct() {
   const [imageUri, setImageUri] = useState<string | null>(null);
   const [imageUrl, setImageUrl] = useState<string | null>(null);
   const [uploadingImage, setUploadingImage] = useState(false);
+  const [selectedCategoryId, setSelectedCategoryId] = useState<number | null>(null);
+  const [showCategoryList, setShowCategoryList] = useState(false);
 
   // Request image picker permissions
   useEffect(() => {
@@ -48,6 +52,10 @@ export default function EditProduct() {
       }
     })();
   }, []);
+
+  useEffect(() => {
+    loadCategories();
+  }, [loadCategories]);
 
   // Fetch product data when component mounts
   useEffect(() => {
@@ -74,6 +82,8 @@ export default function EditProduct() {
           setPrice(productToEdit.price?.toString() || "");
           setStock(productToEdit.stock?.toString() || "");
           setIsActive(productToEdit.isActive !== false);
+          const categoryId = (productToEdit as any)?.categoryId ?? (productToEdit as any)?.category?.id ?? null;
+          setSelectedCategoryId(typeof categoryId === "number" ? categoryId : categoryId ? Number(categoryId) : null);
           // Set existing image URL if available
           if (productToEdit.imageUrl) {
             setImageUrl(productToEdit.imageUrl);
@@ -112,6 +122,8 @@ export default function EditProduct() {
           setPrice(updatedProduct.price?.toString() || "");
           setStock(updatedProduct.stock?.toString() || "");
           setIsActive(updatedProduct.isActive !== false);
+          const categoryId = (updatedProduct as any)?.categoryId ?? (updatedProduct as any)?.category?.id ?? null;
+          setSelectedCategoryId(typeof categoryId === "number" ? categoryId : categoryId ? Number(categoryId) : null);
           if (updatedProduct.imageUrl) {
             setImageUrl(updatedProduct.imageUrl);
           }
@@ -209,14 +221,14 @@ export default function EditProduct() {
         }
       }
 
-      const updateData = {
+      const updateData: any = {
         id: Number(productId),
         name: productName.trim(),
         description: description.trim(),
         price: Number(price),
         stock: Number(stock),
-        isActive,
         ...(imageUrl && { imageUrl }), // Include imageUrl if available
+        categoryId: selectedCategoryId ?? null,
       };
 
       console.log("Updating product with data:", updateData);
@@ -323,20 +335,72 @@ export default function EditProduct() {
             </View>
           </View>
 
-          {/* Active Status */}
+          {/* Category */}
+          <View style={styles.inputGroup}>
+            <Text style={styles.label}>Category</Text>
+            <TouchableOpacity
+              style={styles.inputContainer}
+              onPress={() => setShowCategoryList((value) => !value)}
+            >
+              <Ionicons name="pricetags" size={18} color="#6B7280" />
+              <Text style={{ marginLeft: 8, color: "#374151", fontSize: 16 }}>
+                {selectedCategoryId
+                  ? categories.find((c) => String(c.id) === String(selectedCategoryId))?.name || "Select category"
+                  : "Select category"}
+              </Text>
+            </TouchableOpacity>
+            {showCategoryList && (
+              <View style={{ marginTop: 8, borderWidth: 1, borderColor: "#E5E7EB", borderRadius: 12, backgroundColor: "#F9FAFB" }}>
+                {categories.map((cat) => (
+                  <TouchableOpacity
+                    key={cat.id}
+                    onPress={() => {
+                      setSelectedCategoryId(cat.id);
+                      setShowCategoryList(false);
+                    }}
+                    style={{ paddingVertical: 10, paddingHorizontal: 12 }}
+                  >
+                    <Text style={{ fontSize: 16, color: "#374151" }}>{cat.name}</Text>
+                  </TouchableOpacity>
+                ))}
+                {categories.length === 0 && (
+                  <View style={{ paddingVertical: 12, paddingHorizontal: 12 }}>
+                    <Text style={{ fontSize: 14, color: "#6B7280" }}>No categories available</Text>
+                  </View>
+                )}
+                {selectedCategoryId && (
+                  <TouchableOpacity
+                    onPress={() => {
+                      setSelectedCategoryId(null);
+                      setShowCategoryList(false);
+                    }}
+                    style={{ paddingVertical: 10, paddingHorizontal: 12, borderTopWidth: 1, borderTopColor: "#E5E7EB" }}
+                  >
+                    <Text style={{ fontSize: 14, color: "#DC2626" }}>Clear selection</Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+            )}
+          </View>
+
+          {/* Active Status (read-only - managed by administrators) */}
           <View style={styles.inputGroup}>
             <Text style={styles.label}>Product Status</Text>
             <View style={styles.toggleContainer}>
               <Text style={styles.toggleLabel}>
-                {isActive ? "Active" : "Inactive"}
+                {isActive ? "Active" : "Disabled by administrator"}
               </Text>
-              <TouchableOpacity
-                style={[styles.toggle, isActive && styles.toggleActive]}
-                onPress={() => setIsActive(!isActive)}
-              >
+              <View style={[styles.toggle, isActive && styles.toggleActive]}>
                 <View style={[styles.toggleThumb, isActive && styles.toggleThumbActive]} />
-              </TouchableOpacity>
+              </View>
             </View>
+            {!isActive && (
+              <Text style={styles.helperText}>
+                This product has been disabled by the administrators because there is a problem
+                with it. While disabled, customers cannot see or purchase this product. Please
+                review the product details or contact support to resolve the issue.
+              </Text>
+            )}
           </View>
 
           {/* Product Image */}
@@ -675,6 +739,11 @@ const styles = StyleSheet.create({
   },
   toggleThumbActive: {
     transform: [{ translateX: 22 }],
+  },
+  helperText: {
+    fontSize: 12,
+    color: "#B91C1C",
+    marginTop: 4,
   },
   saveButtonDisabled: {
     opacity: 0.6,

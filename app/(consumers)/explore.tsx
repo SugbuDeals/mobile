@@ -1,4 +1,5 @@
 import env from "@/config/env";
+import { useStore } from "@/features/store";
 import { useAppSelector } from "@/store/hooks";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { LinearGradient } from "expo-linear-gradient";
@@ -6,16 +7,18 @@ import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
 import React, { useCallback, useMemo, useState } from "react";
 import {
-    ActivityIndicator,
-    Image,
-    Modal,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View
+  ActivityIndicator,
+  Image,
+  Modal,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View
 } from "react-native";
+
+const DEFAULT_DISTANCE_KM = 1.3;
 
 export default function Explore() {
   const [searchQuery, setSearchQuery] = useState("");
@@ -37,6 +40,64 @@ export default function Explore() {
     resultsCount: number;
   }>>([]);
   const router = useRouter();
+  const {
+    state: { nearbyStores },
+  } = useStore();
+
+  const normalizeDistance = useCallback((raw: any) => {
+    if (typeof raw === "number" && Number.isFinite(raw)) return raw;
+    if (typeof raw === "string") {
+      const parsed = parseFloat(raw);
+      if (Number.isFinite(parsed)) return parsed;
+    }
+    return null;
+  }, []);
+
+  const extractDistanceFromItem = useCallback((item: any) => {
+    if (!item) return null;
+    const candidates = [
+      item.distance,
+      item.distanceKm,
+      item.distance_km,
+      item.storeDistance,
+      item.store_distance,
+      item.store?.distance,
+      item.store?.distanceKm,
+      item.store?.distance_km,
+    ];
+    for (const candidate of candidates) {
+      const normalized = normalizeDistance(candidate);
+      if (normalized != null) return normalized;
+    }
+    return null;
+  }, [normalizeDistance]);
+
+  const storeDistanceMap = useMemo(() => {
+    const map = new Map<number, number>();
+    (nearbyStores || []).forEach((store) => {
+      const normalized = normalizeDistance((store as any)?.distance);
+      if (normalized != null && typeof store?.id === "number") {
+        map.set(store.id, normalized);
+      }
+    });
+    return map;
+  }, [nearbyStores, normalizeDistance]);
+
+  const enrichDistance = useCallback(
+    (item: any) => {
+      if (!item) return item;
+      const inferred = extractDistanceFromItem(item);
+      if (inferred != null) return { ...item, distance: inferred };
+
+      const storeId = item?.storeId || item?.store?.id;
+      if (storeId && storeDistanceMap.has(storeId)) {
+        return { ...item, distance: storeDistanceMap.get(storeId) };
+      }
+
+      return item;
+    },
+    [extractDistanceFromItem, storeDistanceMap]
+  );
 
   const hasResults = useMemo(
     () => !!aiResponse || (recommendations && recommendations.length > 0),
@@ -44,15 +105,24 @@ export default function Explore() {
   );
 
   const displayedRecommendations = useMemo(() => {
-    const items = Array.isArray(recommendations) ? [...recommendations] : [];
+    const items = Array.isArray(recommendations)
+      ? recommendations.map((item) => enrichDistance(item))
+      : [];
     if (activeTab === "cheapest") {
       return items.sort((a, b) => (Number(a?.price ?? Infinity) as number) - (Number(b?.price ?? Infinity) as number));
     }
     if (activeTab === "closest") {
-      return items; // placeholder until distance available
+      return items.sort((a, b) => {
+        const distanceA = typeof a?.distance === "number" ? a.distance : extractDistanceFromItem(a);
+        const distanceB = typeof b?.distance === "number" ? b.distance : extractDistanceFromItem(b);
+        if (distanceA == null && distanceB == null) return 0;
+        if (distanceA == null) return 1;
+        if (distanceB == null) return -1;
+        return distanceA - distanceB;
+      });
     }
     return items.sort((a, b) => (Number(b?.discount ?? 0) as number) - (Number(a?.discount ?? 0) as number));
-  }, [recommendations, activeTab]);
+  }, [recommendations, activeTab, enrichDistance, extractDistanceFromItem]);
 
   const extractPrimaryProduct = useCallback((text: string | null | undefined) => {
     if (!text) return null;
@@ -109,6 +179,8 @@ export default function Explore() {
       const insightText =
         directAssistantText ||
         fromMessages ||
+        recJson?.recommendation ||
+        recJson?.recommendationText ||
         recJson?.insight ||
         recJson?.summary ||
         recJson?.message ||
@@ -119,7 +191,10 @@ export default function Explore() {
         const product = extractPrimaryProduct(insightText);
         if (product) setInsightsSummary(`I found the best deals for ${product}`);
       }
-      if (Array.isArray(items)) setRecommendations(items);
+      if (Array.isArray(items)) {
+        const normalized = items.map((item: any) => enrichDistance(item));
+        setRecommendations(normalized);
+      }
       
       // Add to query history
       const historyEntry = {
@@ -138,7 +213,7 @@ export default function Explore() {
     } finally {
       setLoading(false);
     }
-  }, [searchQuery, loading, accessToken, extractPrimaryProduct]);
+  }, [searchQuery, loading, accessToken, extractPrimaryProduct, enrichDistance]);
 
   return (
     <>
@@ -215,33 +290,6 @@ export default function Explore() {
                     ) : (
                       <Text style={styles.insightsTextMuted}>No AI response provided.</Text>
                     )}
-                    {!!recommendations?.length && (
-                      <View style={styles.recommendationsContainer}>
-                        {recommendations.map((item, idx) => (
-                          <View key={item?.id ?? idx} style={styles.recommendationCard}>
-                            <View style={styles.recommendationHeader}>
-                              <Text style={styles.recommendationName} numberOfLines={2}>
-                                {item?.name || item?.title || "Recommended Item"}
-                              </Text>
-                              {!!item?.discount && (
-                                <View style={styles.badgeDiscount}>
-                                  <Text style={styles.badgeDiscountText}>{`${item.discount}% OFF`}</Text>
-                                </View>
-                              )}
-                            </View>
-                            <Text style={styles.recommendationMeta}>
-                              {item?.store?.name || item?.storeName || item?.storeId ? `Store: ${item?.store?.name || item?.storeName || item?.storeId}` : ""}
-                            </Text>
-                            {typeof item?.price !== "undefined" && (
-                              <Text style={styles.recommendationPrice}>{`₱ ${Number(item.price).toFixed(2)}`}</Text>
-                            )}
-                            <TouchableOpacity style={styles.detailsBtn} accessibilityRole="button">
-                              <Text style={styles.detailsBtnText}>Details</Text>
-                            </TouchableOpacity>
-                          </View>
-                        ))}
-                      </View>
-                    )}
                   </View>
                 )}
               </View>
@@ -294,7 +342,17 @@ export default function Explore() {
               </View>
             ) : (
               <View style={styles.resultsList}>
-                {displayedRecommendations.map((item, idx) => (
+                {displayedRecommendations.map((item, idx) => {
+                  const distanceValue =
+                    typeof item?.distance === "number"
+                      ? item.distance
+                      : extractDistanceFromItem(item);
+                  const displayDistance =
+                    distanceValue != null && Number.isFinite(distanceValue)
+                      ? distanceValue
+                      : DEFAULT_DISTANCE_KM;
+                  const formattedDistance = `${displayDistance.toFixed(2)} km`;
+                  return (
                   <View key={item?.id ?? idx} style={styles.resultCard}>
                     <View style={styles.resultHeaderRow}>
                       <View style={[styles.badge, activeTab === "best" ? styles.badgeGreen : activeTab === "cheapest" ? styles.badgeYellow : styles.badgeTeal]}>
@@ -316,7 +374,7 @@ export default function Explore() {
                       <View style={styles.cardInfo}>
                         <Text style={styles.cardTitle} numberOfLines={2}>{item?.name || item?.title || "Product"}</Text>
                         <Text style={styles.cardMeta}>{item?.store?.name || item?.storeName || "Store"}</Text>
-                        <Text style={styles.cardMeta}>• {typeof item?.distance !== "undefined" ? `${item.distance} km` : "1.3 km"}</Text>
+                        <Text style={styles.cardMeta}>• {formattedDistance}</Text>
                         {typeof item?.price !== "undefined" && (
                           <Text style={styles.cardPrice}>{`₱ ${Number(item.price).toFixed(2)}`}</Text>
                         )}
@@ -332,7 +390,7 @@ export default function Explore() {
                       </TouchableOpacity>
                     </View>
                   </View>
-                ))}
+                )})}
               </View>
             )}
           </View>
