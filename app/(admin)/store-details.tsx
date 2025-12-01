@@ -2,12 +2,14 @@ import { useLogin } from "@/features/auth";
 import { useStore } from "@/features/store";
 import { Ionicons } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import React, { useEffect, useMemo } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
     ActivityIndicator,
+    Alert,
     Image,
     ScrollView,
     StyleSheet,
+    Switch,
     Text,
     TouchableOpacity,
     View,
@@ -21,6 +23,10 @@ export default function AdminStoreDetails() {
     state: storeState,
     action: storeActions,
   } = useStore();
+  const [storeActionLoading, setStoreActionLoading] = useState(false);
+  const [promotionStatusLoading, setPromotionStatusLoading] = useState<Record<number, boolean>>(
+    {}
+  );
 
   const storeId = useMemo(() => {
     const raw = Array.isArray(params.storeId) ? params.storeId[0] : params.storeId;
@@ -83,6 +89,62 @@ export default function AdminStoreDetails() {
       })
       .filter(Boolean) as Array<{ promo: any; productName: string }>;
   }, [storeId, storeState.promotions, storeState.products]);
+
+  const toggleStoreLoading = (loading: boolean) => {
+    setStoreActionLoading(loading);
+  };
+
+  const handleToggleStoreActive = async (nextValue: boolean) => {
+    if (!storeId) return;
+    toggleStoreLoading(true);
+    try {
+      await storeActions.updateStoreAdminStatus({ id: storeId, isActive: nextValue }).unwrap();
+      Alert.alert("Success", `Store has been ${nextValue ? "enabled" : "disabled"}.`);
+    } catch (error: any) {
+      Alert.alert("Error", error?.message || "Failed to update store status.");
+    } finally {
+      toggleStoreLoading(false);
+    }
+  };
+
+  const handleToggleVerification = async (
+    currentStatus: "UNVERIFIED" | "VERIFIED" | undefined
+  ) => {
+    if (!storeId || !currentStatus) return;
+    const nextStatus = currentStatus === "VERIFIED" ? "UNVERIFIED" : "VERIFIED";
+    toggleStoreLoading(true);
+    try {
+      await storeActions
+        .updateStoreAdminStatus({ id: storeId, verificationStatus: nextStatus })
+        .unwrap();
+      Alert.alert(
+        "Success",
+        `Store has been marked as ${nextStatus === "VERIFIED" ? "verified" : "unverified"}.`
+      );
+    } catch (error: any) {
+      Alert.alert(
+        "Error",
+        error?.message || "Failed to update verification status."
+      );
+    } finally {
+      toggleStoreLoading(false);
+    }
+  };
+
+  const handleTogglePromotionActive = async (
+    promotionId: number,
+    nextValue: boolean
+  ) => {
+    setPromotionStatusLoading((prev) => ({ ...prev, [promotionId]: true }));
+    try {
+      await storeActions.updatePromotion({ id: promotionId, active: nextValue }).unwrap();
+      Alert.alert("Success", `Promotion has been ${nextValue ? "enabled" : "disabled"}.`);
+    } catch (error: any) {
+      Alert.alert("Error", error?.message || "Failed to update promotion status.");
+    } finally {
+      setPromotionStatusLoading((prev) => ({ ...prev, [promotionId]: false }));
+    }
+  };
 
   if (!storeId) {
     return (
@@ -216,6 +278,56 @@ export default function AdminStoreDetails() {
                 </Text>
               </View>
             )}
+          </View>
+
+          <View style={styles.statusControls}>
+            <TouchableOpacity
+              style={[
+                styles.actionButton,
+                store?.verificationStatus === "VERIFIED"
+                  ? styles.unverifyButton
+                  : styles.verifyButton,
+                storeActionLoading && styles.actionButtonDisabled,
+              ]}
+              disabled={storeActionLoading || !store?.verificationStatus}
+              onPress={() =>
+                handleToggleVerification(
+                  (store?.verificationStatus as "UNVERIFIED" | "VERIFIED") || "UNVERIFIED"
+                )
+              }
+            >
+              {storeActionLoading ? (
+                <ActivityIndicator size="small" color="#FFFFFF" />
+              ) : (
+                <>
+                  <Ionicons
+                    name={
+                      store?.verificationStatus === "VERIFIED"
+                        ? "shield-outline"
+                        : "shield-checkmark"
+                    }
+                    size={16}
+                    color="#FFFFFF"
+                  />
+                  <Text style={styles.actionButtonText}>
+                    {store?.verificationStatus === "VERIFIED" ? "Unverify" : "Verify"}
+                  </Text>
+                </>
+              )}
+            </TouchableOpacity>
+
+            <View style={styles.switchRow}>
+              <Text style={styles.switchLabel}>
+                {store?.isActive === false ? "Disabled" : "Active"}
+              </Text>
+              <Switch
+                value={store?.isActive !== false}
+                onValueChange={handleToggleStoreActive}
+                thumbColor="#ffffff"
+                trackColor={{ false: "#FECACA", true: "#A7F3D0" }}
+                disabled={storeActionLoading}
+              />
+            </View>
           </View>
         </View>
 
@@ -461,6 +573,25 @@ export default function AdminStoreDetails() {
                         </Text>
                       </View>
                     </View>
+                    <View style={styles.promotionActions}>
+                      <View style={styles.switchRow}>
+                        <Text style={styles.switchLabel}>
+                          {promo.active ? "Active" : "Disabled"}
+                        </Text>
+                        <Switch
+                          value={!!promo.active}
+                          onValueChange={(value) =>
+                            handleTogglePromotionActive(promo.id, value)
+                          }
+                          trackColor={{ false: "#FECACA", true: "#A7F3D0" }}
+                          thumbColor="#FFFFFF"
+                          disabled={!!promotionStatusLoading[promo.id]}
+                        />
+                      </View>
+                      {promotionStatusLoading[promo.id] && (
+                        <ActivityIndicator size="small" color="#277874" />
+                      )}
+                    </View>
                   </View>
                 </View>
               ))}
@@ -698,6 +829,51 @@ const styles = StyleSheet.create({
     color: "#FFFFFF",
     fontSize: 14,
     fontWeight: "600",
+  },
+  statusControls: {
+    marginTop: 12,
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    gap: 12,
+  },
+  actionButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 8,
+    backgroundColor: "#065F46",
+  },
+  verifyButton: {
+    backgroundColor: "#059669",
+  },
+  unverifyButton: {
+    backgroundColor: "#DC2626",
+  },
+  actionButtonDisabled: {
+    opacity: 0.6,
+  },
+  actionButtonText: {
+    color: "#FFFFFF",
+    fontWeight: "600",
+  },
+  switchRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  switchLabel: {
+    fontSize: 13,
+    color: "#374151",
+    fontWeight: "600",
+  },
+  promotionActions: {
+    marginTop: 10,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
   },
 });
 
