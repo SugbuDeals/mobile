@@ -1,4 +1,5 @@
 import ConditionalNavigation from "@/components/ConditionalNavigation";
+import RoleSwitcherBanner from "@/components/RoleSwitcherBanner";
 import { useNotifications } from "@/features/notifications";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { LinearGradient } from "expo-linear-gradient";
@@ -40,7 +41,7 @@ const ConsumerHeader = () => {
             <Text style={styles.headerSubtitle}>Explore Deals!</Text>
           </View>
 
-          {/* Notification Bell */}
+        <View style={styles.actionsRow}>
           <TouchableOpacity
             style={styles.notificationContainer}
             onPress={() => router.push("/(consumers)/notifications")}
@@ -59,13 +60,15 @@ const ConsumerHeader = () => {
             )}
           </TouchableOpacity>
 
-          {/* Profile Picture */}
+          <RoleSwitcherBanner />
+
           <TouchableOpacity
             style={styles.profileContainer}
             onPress={() => router.push("/(consumers)/profile")}
           >
             <Ionicons name="person" size={20} color="#ffffff" />
           </TouchableOpacity>
+        </View>
         </View>
       </LinearGradient>
     </View>
@@ -253,6 +256,11 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
     marginLeft: 10,
+  },
+  actionsRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
   },
   tabBar: {
     backgroundColor: "#ffffff",

@@ -3,7 +3,6 @@ import { useBookmarks } from "@/features/bookmarks";
 import { useCatalog } from "@/features/catalog";
 import { useStore } from "@/features/store";
 import Ionicons from "@expo/vector-icons/Ionicons";
-import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import * as Location from "expo-location";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import React, { useMemo, useState } from "react";
@@ -140,7 +139,6 @@ export default function ProductDetailScreen() {
             })
           }
         />
-        <View style={{ height: 40 }} />
       </ScrollView>
     </SafeAreaView>
   );
@@ -152,9 +150,9 @@ const styles = StyleSheet.create({
     backgroundColor: "#fff",
   },
   scrollViewContent: {
-    paddingHorizontal: 20,
-    paddingTop: 10,
-    paddingBottom: 20,
+    paddingHorizontal: 16,
+    paddingTop: 4,
+    paddingBottom: 12,
   },
 });
 
@@ -240,7 +238,7 @@ function LocationCard({
 }
 
 const locStyles = StyleSheet.create({
-  container: { marginTop: 20, marginBottom: 20, paddingHorizontal: 5 },
+  container: { marginTop: 12, marginBottom: 12, paddingHorizontal: 0 },
   sectionTitle: {
     fontSize: 18,
     fontWeight: "700",
@@ -249,12 +247,12 @@ const locStyles = StyleSheet.create({
   },
   card: {
     backgroundColor: "#fff",
-    borderRadius: 15,
+    borderRadius: 18,
     overflow: "hidden",
-    elevation: 3,
+    elevation: 2,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
+    shadowOpacity: 0.08,
     shadowRadius: 2,
   },
   mapImage: {
@@ -324,12 +322,6 @@ function ProductCard({
       <View style={prodStyles.container}>
         <View style={prodStyles.headerRow}>
           <Text style={prodStyles.sectionTitle}>Product Details</Text>
-          <View style={prodStyles.statusHeaderRow}>
-            <Text style={prodStyles.statusHeaderLabel}>Status:</Text>
-            <View style={prodStyles.statusPill}>
-              <Text style={prodStyles.statusPillText}>In Stock</Text>
-            </View>
-          </View>
         </View>
         <View style={prodStyles.card}>
           <View style={prodStyles.cardRow}>
@@ -350,18 +342,19 @@ function ProductCard({
                 </View>
               ) : null}
               <Text style={prodStyles.productName}>{name}</Text>
-              <View style={prodStyles.metaRow}>
-                <MaterialIcons name="storefront" size={16} color="#888" />
-                <Text style={prodStyles.metaText}>{store}</Text>
-                <Text style={prodStyles.metaSeparator}>•</Text>
-                <MaterialIcons name="location-pin" size={16} color="#888" />
-                <Text style={prodStyles.metaText}>
-                  {distance ? `${distance} km` : ""}
-                </Text>
-              </View>
               <View style={prodStyles.statusRow}>
                 <Text style={prodStyles.statusLabel}>Status:</Text>
                 <Text style={prodStyles.statusValue}>In Stock</Text>
+              </View>
+              <View style={prodStyles.priceRow}>
+                {computedDiscountedPrice !== undefined ? (
+                  <>
+                    <Text style={prodStyles.priceOld}>₱ {Number(price).toFixed(2)}</Text>
+                    <Text style={prodStyles.priceNew}>₱ {computedDiscountedPrice.toFixed(2)}</Text>
+                  </>
+                ) : (
+                  <Text style={prodStyles.priceNew}>₱ {Number(price).toFixed(2)}</Text>
+                )}
               </View>
               <TouchableOpacity
                 style={[
@@ -381,16 +374,6 @@ function ProductCard({
               </TouchableOpacity>
             </View>
           </View>
-        </View>
-        <View style={prodStyles.priceContainer}>
-          {computedDiscountedPrice !== undefined ? (
-            <>
-              <Text style={prodStyles.priceOld}>₱ {Number(price).toFixed(2)}</Text>
-              <Text style={prodStyles.priceNew}>₱ {computedDiscountedPrice.toFixed(2)}</Text>
-            </>
-          ) : (
-            <Text style={prodStyles.priceText}>₱ {Number(price).toFixed(2)}</Text>
-          )}
         </View>
       </View>
 
@@ -425,7 +408,7 @@ function ProductCard({
 }
 
 const prodStyles = StyleSheet.create({
-  container: { marginTop: 20, marginBottom: 20, paddingHorizontal: 5 },
+  container: { marginTop: 16, marginBottom: 16, paddingHorizontal: 0 },
   headerRow: {
     flexDirection: "row",
     alignItems: "center",
@@ -437,39 +420,36 @@ const prodStyles = StyleSheet.create({
     marginBottom: 15,
     color: "#333",
   },
-  statusHeaderRow: { flexDirection: "row", alignItems: "center", columnGap: 8 },
-  statusHeaderLabel: { fontSize: 12, color: "#9CA3AF" },
-  statusPill: {
-    backgroundColor: "#D1FAE5",
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 8,
-  },
-  statusPillText: { fontSize: 12, color: "#1B6F5D", fontWeight: "600" },
   card: {
     backgroundColor: "#fff",
-    borderRadius: 15,
-    padding: 10,
-    minHeight: 190,
+    borderRadius: 18,
+    padding: 16,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
+    shadowOpacity: 0.08,
     shadowRadius: 2,
-    ...Platform.select({ android: { elevation: 3 }, ios: {} }),
+    ...Platform.select({ android: { elevation: 2 }, ios: {} }),
   },
   cardRow: {
     flexDirection: "row",
+    alignItems: "center",
+    columnGap: 16,
   },
   leftContent: {
-    flexBasis: "40%",
-    maxWidth: "40%",
-    justifyContent: "center",
+    width: 130,
     alignItems: "center",
+    justifyContent: "center",
   },
-  productImage: { width: "100%", height: 140, resizeMode: "contain" },
+  productImage: {
+    width: 120,
+    height: 120,
+    borderRadius: 16,
+    resizeMode: "cover",
+    backgroundColor: "#F3F4F6",
+  },
   rightContent: {
     flex: 1,
-    paddingLeft: 10,
+    paddingLeft: 0,
     paddingTop: 4,
     justifyContent: "flex-start",
   },
@@ -483,26 +463,27 @@ const prodStyles = StyleSheet.create({
   },
   discountText: { color: "#fff", fontSize: 12, fontWeight: "700" },
   productName: {
-    fontSize: 18,
-    fontWeight: "600",
-    color: "#333",
-    marginBottom: 6,
+    fontSize: 20,
+    fontWeight: "700",
+    color: "#1F2937",
+    marginBottom: 8,
   },
-  metaRow: { flexDirection: "row", alignItems: "center", marginBottom: 8 },
-  metaText: { fontSize: 14, color: "#888", marginLeft: 4 },
-  metaSeparator: { marginHorizontal: 8, fontSize: 14, color: "#888" },
   statusRow: { flexDirection: "row", alignItems: "center", marginBottom: 8 },
   statusLabel: { fontSize: 14, color: "#888", marginRight: 5 },
   statusValue: { fontSize: 14, fontWeight: "600", color: "#1B6F5D" },
-  buttonContainer: { marginTop: 8 },
+  priceRow: {
+    flexDirection: "row",
+    alignItems: "flex-end",
+    marginBottom: 8,
+  },
   descriptionButton: {
     backgroundColor: "#1B6F5D",
-    borderRadius: 10,
+    borderRadius: 12,
     paddingVertical: 12,
-    paddingHorizontal: 20,
+    paddingHorizontal: 16,
     alignItems: "center",
     justifyContent: "center",
-    marginTop: 8,
+    marginTop: 12,
     alignSelf: "stretch",
   },
   descriptionButtonDisabled: {
@@ -510,18 +491,8 @@ const prodStyles = StyleSheet.create({
   },
   descriptionButtonTitle: { fontSize: 16, fontWeight: "600", color: "#ffffff", textAlign: "center" },
   descriptionButtonTitleDisabled: { color: "#9CA3AF", textAlign: "center" },
-  priceContainer: {
-    marginTop: -40,
-    marginLeft: 5,
-    alignSelf: "flex-start",
-    backgroundColor: "#E6F8EF",
-    paddingHorizontal: 14,
-    paddingVertical: 6,
-    borderRadius: 8,
-  },
-  priceText: { fontSize: 18, fontWeight: "900", color: "#1B6F5D" },
-  priceOld: { fontSize: 16, color: "#9CA3AF", textDecorationLine: 'line-through', marginRight: 8 },
-  priceNew: { fontSize: 18, fontWeight: '900', color: '#1B6F5D', marginLeft: 8 },
+  priceOld: { fontSize: 16, color: "#9CA3AF", textDecorationLine: "line-through", marginRight: 8 },
+  priceNew: { fontSize: 18, fontWeight: "900", color: "#1B6F5D", marginLeft: 8 },
   // Modal styles
   modalOverlay: {
     flex: 1,
@@ -608,23 +579,27 @@ function StoreHeader({
   const description = (store as any)?.description || "";
   return (
     <View style={hdrStyles.container}>
-      {bannerUrl ? (
-        <Image
-          source={{ uri: bannerUrl }}
-          style={hdrStyles.bannerImage}
-        />
-      ) : (
-        <Image
-          source={require("../../assets/images/partial-react-logo.png")}
-          style={hdrStyles.bannerImage}
-        />
-      )}
+      <View style={hdrStyles.bannerWrapper}>
+        {bannerUrl ? (
+          <Image
+            source={{ uri: bannerUrl }}
+            style={hdrStyles.bannerImage}
+          />
+        ) : (
+          <Image
+            source={require("../../assets/images/partial-react-logo.png")}
+            style={hdrStyles.bannerImage}
+          />
+        )}
+      </View>
       <View style={hdrStyles.storeInfoContainer}>
         <View style={hdrStyles.logoAndName}>
-          <Image
-            source={typeof logoUrl === 'string' && logoUrl.length > 0 ? { uri: logoUrl } : require("../../assets/images/partial-react-logo.png")}
-            style={{ width: 64, height: 64, borderRadius: 12, backgroundColor: '#fff', marginTop: 15 }}
-          />
+          <View style={hdrStyles.logoWrapper}>
+            <Image
+              source={typeof logoUrl === 'string' && logoUrl.length > 0 ? { uri: logoUrl } : require("../../assets/images/partial-react-logo.png")}
+              style={hdrStyles.logoImage}
+            />
+          </View>
           <View style={hdrStyles.storeDetails}>
             <Text style={hdrStyles.storeName}>{storeName}</Text>
             {description ? (
@@ -664,24 +639,34 @@ function StoreHeader({
 
 const hdrStyles = StyleSheet.create({
   container: {
-    paddingBottom: 20,
-    borderBottomWidth: 1,
-    borderBottomColor: "#f0f0f0",
+    borderRadius: 18,
+    overflow: "visible",
+    backgroundColor: "#fff",
+    marginBottom: 12,
+    paddingBottom: 16,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.08,
+    shadowRadius: 2,
+    ...Platform.select({ android: { elevation: 2 }, ios: {} }),
+  },
+  bannerWrapper: {
+    borderTopLeftRadius: 18,
+    borderTopRightRadius: 18,
+    overflow: "hidden",
   },
   bannerImage: {
-    height: 200,
-    marginLeft: -20,
-    marginRight: -20,
-    marginBottom: 0,
+    height: 160,
+    width: "100%",
   },
   storeInfoContainer: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "flex-start",
-    marginTop: -40,
-    paddingHorizontal: 5,
+    marginTop: -30,
+    paddingHorizontal: 16,
   },
-  logoAndName: { flexDirection: "row", alignItems: "center", flex: 1 },
+  logoAndName: { flexDirection: "row", alignItems: "flex-start", flex: 1 },
   quickMartLogo: {
     backgroundColor: "#277874",
     paddingVertical: 22,
@@ -704,15 +689,34 @@ const hdrStyles = StyleSheet.create({
     fontSize: 14,
     textTransform: "uppercase",
   },
-  storeDetails: { marginLeft: 10, marginTop: 35 },
-  storeName: { fontSize: 22, fontWeight: "700", color: "#333" },
-  storeDescription: { fontSize: 14, color: "#888" },
+  logoWrapper: {
+    width: 84,
+    height: 84,
+    borderRadius: 20,
+    backgroundColor: "#fff",
+    justifyContent: "center",
+    alignItems: "center",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 3,
+  },
+  logoImage: {
+    width: 72,
+    height: 72,
+    borderRadius: 16,
+    resizeMode: "cover",
+  },
+  storeDetails: { marginLeft: 16, marginTop: 12, flex: 1 },
+  storeName: { fontSize: 20, fontWeight: "700", color: "#111827" },
+  storeDescription: { fontSize: 14, color: "#6B7280" },
   bookmarkIcon: { alignSelf: "flex-end", marginTop: 10 },
   buttonRow: {
     flexDirection: "row",
     justifyContent: "space-between",
-    marginTop: 20,
-    paddingHorizontal: 5,
+    marginTop: 16,
+    paddingHorizontal: 16,
   },
   buttonContainer: { flex: 1, marginHorizontal: 5 },
   detailsButton: {

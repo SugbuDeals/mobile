@@ -1,6 +1,8 @@
+import RoleSwitcherBanner from "@/components/RoleSwitcherBanner";
 import { logout } from "@/features/auth/slice";
 import { useNotifications } from "@/features/notifications";
 import { useStoreManagement } from "@/features/store";
+import { useDualRole } from "@/hooks/useDualRole";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { LinearGradient } from "expo-linear-gradient";
@@ -50,31 +52,38 @@ const RetailerHeader = () => {
             </View>
           </View>
 
-          {/* Right side buttons */}
-          <View style={styles.rightButtonsContainer}>
-            {/* Notification Bell */}
-            <TouchableOpacity
-              style={styles.notificationContainer}
-              onPress={() => router.push("/(retailers)/notifications")}
-            >
-              <Ionicons
-                name={
-                  state.unreadCount > 0
-                    ? "notifications"
-                    : "notifications-outline"
-                }
-                size={20}
-                color="#ffffff"
-              />
-              {state.unreadCount > 0 && (
-                <View style={styles.badge}>
-                  <Text style={styles.badgeText}>
-                    {state.unreadCount > 99 ? "99+" : state.unreadCount}
-                  </Text>
-                </View>
-              )}
-            </TouchableOpacity>
-          </View>
+        <View style={styles.rightButtonsContainer}>
+          <TouchableOpacity
+            style={styles.notificationContainer}
+            onPress={() => router.push("/(retailers)/notifications")}
+          >
+            <Ionicons
+              name={
+                state.unreadCount > 0
+                  ? "notifications"
+                  : "notifications-outline"
+              }
+              size={20}
+              color="#ffffff"
+            />
+            {state.unreadCount > 0 && (
+              <View style={styles.badge}>
+                <Text style={styles.badgeText}>
+                  {state.unreadCount > 99 ? "99+" : state.unreadCount}
+                </Text>
+              </View>
+            )}
+          </TouchableOpacity>
+
+          <RoleSwitcherBanner />
+
+          <TouchableOpacity
+            style={styles.logoutContainer}
+            onPress={handleLogout}
+          >
+            <Ionicons name="exit-outline" size={18} color="#ffffff" />
+          </TouchableOpacity>
+        </View>
         </View>
 
         {/* Unverified store reminder */}
@@ -109,11 +118,17 @@ export default function RetailersLayout() {
   // Load user's store data for all retailer pages
   const { userStore, storeLoading } = useStoreManagement();
   const { user, loading: authLoading } = useAppSelector((state) => state.auth);
+  const { hasDualRole, activeRole } = useDualRole();
 
   // Check if retailer needs to complete setup (no store created yet)
   React.useEffect(() => {
     // Wait for auth and store loading to complete
     if (authLoading || storeLoading) {
+      return;
+    }
+
+    if (hasDualRole && activeRole === "CONSUMER") {
+      router.replace("/(consumers)");
       return;
     }
 
