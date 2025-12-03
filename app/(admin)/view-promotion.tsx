@@ -185,9 +185,6 @@ export default function AdminViewPromotions() {
                       )}
                     </View>
                   </View>
-                  <TouchableOpacity style={styles.chevron}>
-                    <Ionicons name="chevron-forward" size={20} color="#9CA3AF" />
-                  </TouchableOpacity>
                   <TouchableOpacity
                     disabled={deletingId === promo.id}
                     onPress={() => confirmDelete(promo.id)}
@@ -340,9 +337,6 @@ const styles = StyleSheet.create({
   metaText: {
     fontSize: 12,
     fontWeight: "700",
-  },
-  chevron: {
-    padding: 6,
   },
   deleteButton: {
     flexDirection: "row",

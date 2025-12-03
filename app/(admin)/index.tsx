@@ -365,7 +365,7 @@ export default function AdminDashboard() {
         <View style={styles.usersSection}>
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>Recent Users Today</Text>
-            <TouchableOpacity>
+            <TouchableOpacity onPress={() => router.push("/(admin)/users")}>
               <Text style={styles.viewAllText}>View All</Text>
             </TouchableOpacity>
           </View>

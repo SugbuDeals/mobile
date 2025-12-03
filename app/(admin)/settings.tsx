@@ -2,8 +2,9 @@ import { logout } from "@/features/auth/slice";
 import { useAppDispatch } from "@/store/hooks";
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
+    ActivityIndicator,
     Alert,
     ScrollView,
     StyleSheet,
@@ -12,6 +13,16 @@ import {
     TouchableOpacity,
     View,
 } from "react-native";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+
+const SETTINGS_STORAGE_KEY = "@admin_settings";
+
+interface AdminSettingsData {
+  aiResponse: string;
+  searchRadius: string;
+  minDiscount: string;
+  maxResults: string;
+}
 
 // ===== MAIN COMPONENT =====
 export default function AdminSettings() {
@@ -22,10 +33,122 @@ export default function AdminSettings() {
   const [searchRadius, setSearchRadius] = useState("25");
   const [minDiscount, setMinDiscount] = useState("10");
   const [maxResults, setMaxResults] = useState("50");
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
+  const [hasChanges, setHasChanges] = useState(false);
+  const [originalSettings, setOriginalSettings] = useState<AdminSettingsData | null>(null);
+
+  // Load settings on mount
+  useEffect(() => {
+    loadSettings();
+  }, []);
+
+  // Track changes
+  useEffect(() => {
+    if (originalSettings) {
+      const current = { aiResponse, searchRadius, minDiscount, maxResults };
+      const changed = JSON.stringify(current) !== JSON.stringify(originalSettings);
+      setHasChanges(changed);
+    }
+  }, [aiResponse, searchRadius, minDiscount, maxResults, originalSettings]);
+
+  const loadSettings = async () => {
+    try {
+      setIsLoading(true);
+      const saved = await AsyncStorage.getItem(SETTINGS_STORAGE_KEY);
+      if (saved) {
+        const settings: AdminSettingsData = JSON.parse(saved);
+        setAiResponse(settings.aiResponse || "");
+        setSearchRadius(settings.searchRadius || "25");
+        setMinDiscount(settings.minDiscount || "10");
+        setMaxResults(settings.maxResults || "50");
+        setOriginalSettings(settings);
+      } else {
+        // Set defaults
+        const defaults = {
+          aiResponse: "",
+          searchRadius: "25",
+          minDiscount: "10",
+          maxResults: "50",
+        };
+        setOriginalSettings(defaults);
+      }
+    } catch (error) {
+      console.error("Error loading settings:", error);
+      Alert.alert("Error", "Failed to load settings");
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   // Event handlers
-  const handleSave = () => console.log("Settings saved");
-  const handleCancel = () => console.log("Changes cancelled");
+  const handleSave = async () => {
+    try {
+      setIsSaving(true);
+      
+      // Validate numeric inputs
+      const radius = parseFloat(searchRadius);
+      const discount = parseFloat(minDiscount);
+      const results = parseFloat(maxResults);
+      
+      if (isNaN(radius) || radius <= 0) {
+        Alert.alert("Validation Error", "Search radius must be a positive number");
+        return;
+      }
+      
+      if (isNaN(discount) || discount < 0 || discount > 100) {
+        Alert.alert("Validation Error", "Minimum discount must be between 0 and 100");
+        return;
+      }
+      
+      if (isNaN(results) || results <= 0) {
+        Alert.alert("Validation Error", "Max results must be a positive number");
+        return;
+      }
+
+      const settings: AdminSettingsData = {
+        aiResponse: aiResponse.trim(),
+        searchRadius: searchRadius.trim(),
+        minDiscount: minDiscount.trim(),
+        maxResults: maxResults.trim(),
+      };
+
+      await AsyncStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(settings));
+      setOriginalSettings(settings);
+      setHasChanges(false);
+      Alert.alert("Success", "Settings saved successfully!");
+    } catch (error) {
+      console.error("Error saving settings:", error);
+      Alert.alert("Error", "Failed to save settings. Please try again.");
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleCancel = () => {
+    if (hasChanges) {
+      Alert.alert(
+        "Discard Changes?",
+        "You have unsaved changes. Are you sure you want to discard them?",
+        [
+          { text: "Keep Editing", style: "cancel" },
+          {
+            text: "Discard",
+            style: "destructive",
+            onPress: () => {
+              if (originalSettings) {
+                setAiResponse(originalSettings.aiResponse);
+                setSearchRadius(originalSettings.searchRadius);
+                setMinDiscount(originalSettings.minDiscount);
+                setMaxResults(originalSettings.maxResults);
+                setHasChanges(false);
+              }
+            },
+          },
+        ]
+      );
+    }
+  };
   
   const handleLogout = () => {
     Alert.alert(
@@ -50,6 +173,15 @@ export default function AdminSettings() {
     );
   };
 
+  if (isLoading) {
+    return (
+      <View style={[styles.container, styles.loadingContainer]}>
+        <ActivityIndicator size="large" color="#277874" />
+        <Text style={styles.loadingText}>Loading settings...</Text>
+      </View>
+    );
+  }
+
   return (
     <View style={styles.container}>
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
@@ -70,6 +202,8 @@ export default function AdminSettings() {
         <ActionButtons 
           onSave={handleSave}
           onCancel={handleCancel}
+          isSaving={isSaving}
+          hasChanges={hasChanges}
         />
         
         <LogoutButton onLogout={handleLogout} />
@@ -170,18 +304,46 @@ const DealFinderSettingsCard = ({
 // Action Buttons Component
 const ActionButtons = ({ 
   onSave, 
-  onCancel 
+  onCancel,
+  isSaving,
+  hasChanges
 }: {
   onSave: () => void;
   onCancel: () => void;
+  isSaving: boolean;
+  hasChanges: boolean;
 }) => (
   <View style={styles.buttonContainer}>
-    <TouchableOpacity style={styles.saveButton} onPress={onSave}>
-      <Text style={styles.saveButtonText}>Save Changes</Text>
+    <TouchableOpacity 
+      style={[
+        styles.saveButton, 
+        (!hasChanges || isSaving) && styles.saveButtonDisabled
+      ]} 
+      onPress={onSave}
+      disabled={!hasChanges || isSaving}
+    >
+      {isSaving ? (
+        <>
+          <ActivityIndicator size="small" color="#ffffff" style={{ marginRight: 8 }} />
+          <Text style={styles.saveButtonText}>Saving...</Text>
+        </>
+      ) : (
+        <Text style={styles.saveButtonText}>Save Changes</Text>
+      )}
     </TouchableOpacity>
     
-    <TouchableOpacity style={styles.cancelButton} onPress={onCancel}>
-      <Text style={styles.cancelButtonText}>Cancel</Text>
+    <TouchableOpacity 
+      style={[
+        styles.cancelButton,
+        !hasChanges && styles.cancelButtonDisabled
+      ]} 
+      onPress={onCancel}
+      disabled={!hasChanges}
+    >
+      <Text style={[
+        styles.cancelButtonText,
+        !hasChanges && styles.cancelButtonTextDisabled
+      ]}>Cancel</Text>
     </TouchableOpacity>
   </View>
 );
@@ -310,6 +472,24 @@ const styles = StyleSheet.create({
     color: "#277874", // Teal text
     fontSize: 16,
     fontWeight: "600", // Semi-bold
+  },
+  saveButtonDisabled: {
+    opacity: 0.6,
+  },
+  cancelButtonDisabled: {
+    opacity: 0.5,
+  },
+  cancelButtonTextDisabled: {
+    color: "#9CA3AF",
+  },
+  loadingContainer: {
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  loadingText: {
+    marginTop: 12,
+    fontSize: 16,
+    color: "#6B7280",
   },
   
   // ===== LOGOUT BUTTON STYLES =====
