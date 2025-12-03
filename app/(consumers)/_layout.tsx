@@ -1,5 +1,3 @@
-import ConditionalNavigation from "@/components/ConditionalNavigation";
-import RoleSwitcherBanner from "@/components/RoleSwitcherBanner";
 import { useNotifications } from "@/features/notifications";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { LinearGradient } from "expo-linear-gradient";
@@ -37,7 +35,9 @@ const ConsumerHeader = () => {
 
           {/* App Title and Tagline */}
           <View style={styles.titleContainer}>
-            <Text style={styles.headerTitle}>SugbuDeals</Text>
+            <Text style={styles.headerTitle}>
+              SugbuDeals
+            </Text>
             <Text style={styles.headerSubtitle}>Explore Deals!</Text>
           </View>
 
@@ -60,8 +60,6 @@ const ConsumerHeader = () => {
             )}
           </TouchableOpacity>
 
-          <RoleSwitcherBanner />
-
           <TouchableOpacity
             style={styles.profileContainer}
             onPress={() => router.push("/(consumers)/profile")}
@@ -77,8 +75,7 @@ const ConsumerHeader = () => {
 
 export default function ConsumersLayout() {
   return (
-    <ConditionalNavigation>
-      <Tabs
+    <Tabs
         screenOptions={{
           tabBarActiveTintColor: "#277874",
           tabBarInactiveTintColor: "#6b7280",
@@ -125,8 +122,9 @@ export default function ConsumersLayout() {
         <Tabs.Screen
           name="notifications"
           options={{
-            href: null,
+            title: "Notifications",
             headerShown: false,
+            href: null,
           }}
         />
         <Tabs.Screen
@@ -166,7 +164,6 @@ export default function ConsumersLayout() {
           }}
         />
       </Tabs>
-    </ConditionalNavigation>
   );
 }
 

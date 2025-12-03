@@ -2,11 +2,10 @@ import Button from "@/components/Button";
 import TextField from "@/components/TextField";
 import { useLogin } from "@/features/auth";
 import { useStore } from "@/features/store";
-import { DualRoleManager } from "@/utils/dualRoleManager";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { yupResolver } from "@hookform/resolvers/yup";
-import { LinearGradient } from "expo-linear-gradient";
 import * as Haptics from "expo-haptics";
+import { LinearGradient } from "expo-linear-gradient";
 import { Link, router } from "expo-router";
 import React from "react";
 import { Controller, useForm } from "react-hook-form";
@@ -50,15 +49,6 @@ const ROLE_OPTIONS = [
     gradient: ["#fff1da", "#ffe0aa"],
     icon: "storefront-outline" as const,
   },
-  {
-    key: "DUAL",
-    title: "Shop & Sell",
-    description: "Use one login to browse deals and manage your storefront.",
-    chip: "Switch Ready",
-    accent: "#9333EA",
-    gradient: ["#ede9fe", "#ddd6fe"],
-    icon: "swap-horizontal" as const,
-  },
 ] as const;
 
 type RoleKey = (typeof ROLE_OPTIONS)[number]["key"];
@@ -85,7 +75,6 @@ export default function Register() {
   });
   const [selectedRole, setSelectedRole] = React.useState<RoleKey>("CONSUMER");
   const isRetailer = selectedRole === "RETAILER";
-  const isDualRoleChoice = selectedRole === "DUAL";
 
   const handleRoleSelect = React.useCallback((role: RoleKey) => {
     setSelectedRole(role);
@@ -95,32 +84,23 @@ export default function Register() {
   const onCreate = async (formData: yup.InferType<typeof schema>) => {
     try {
       setSubmitting(true);
-      const roleForApi = selectedRole === "DUAL" ? "CONSUMER" : selectedRole;
       
       // Register the user
       const result = await register({ 
         name: formData.name, 
         email: formData.email, 
         password: formData.password, 
-        role: roleForApi
+        role: selectedRole
       }).unwrap();
       
       // Automatically log in the user after successful registration
       try {
-        const loginResult = await login({
+        await login({
           email: formData.email,
           password: formData.password,
         }).unwrap();
         
-        if (isDualRoleChoice) {
-          await DualRoleManager.bootstrap({
-            userId: loginResult?.user?.id ?? result?.user?.id,
-            email: formData.email,
-            name: formData.name,
-            password: formData.password,
-          });
-          router.replace("/auth/setup");
-        } else if (isRetailer) {
+        if (isRetailer) {
           // Redirect retailers to setup page - store will be created during setup
           router.replace("/auth/setup");
         } else {
@@ -150,14 +130,6 @@ export default function Register() {
     borderRadius: circleSize / 2,
   } as const;
 
-  const primaryRoleOptions = React.useMemo(
-    () => ROLE_OPTIONS.filter((role) => role.key !== "DUAL"),
-    []
-  );
-  const dualRoleOption = React.useMemo(
-    () => ROLE_OPTIONS.find((role) => role.key === "DUAL"),
-    []
-  );
 
   const renderRoleCard = React.useCallback(
     (roleOption: (typeof ROLE_OPTIONS)[number], extraWrapperStyles?: any) => {
@@ -168,7 +140,6 @@ export default function Register() {
           style={[
             styles.roleCardWrapper,
             isActive && styles.roleCardWrapperActive,
-            roleOption.key === "DUAL" && styles.roleCardWrapperFull,
             extraWrapperStyles,
             isActive && {
               borderColor: roleOption.accent,
@@ -308,23 +279,9 @@ export default function Register() {
             <Text style={styles.label}>Select Role</Text>
             <View style={styles.roleGrid}>
               <View style={styles.roleRow}>
-                {primaryRoleOptions.map((role) => renderRoleCard(role))}
+                {ROLE_OPTIONS.map((role) => renderRoleCard(role))}
               </View>
-              {dualRoleOption ? (
-                <View style={styles.dualRoleRow}>
-                  {renderRoleCard(dualRoleOption)}
-                </View>
-              ) : null}
             </View>
-            {isDualRoleChoice && (
-              <View style={styles.dualRoleNote}>
-                <Ionicons name="information-circle-outline" size={16} color="#9333EA" />
-                <Text style={styles.dualRoleNoteText}>
-                  You will use your consumer login for both modes. After registering,
-                  we will guide you through the store setup (you can skip and finish later).
-                </Text>
-              </View>
-            )}
 
             <Button onPress={handleSubmit(onCreate)} disabled={submitting}>
               <Text style={styles.primaryButtonText}>{submitting ? "Creating..." : "Create Account"}</Text>
@@ -395,9 +352,6 @@ const styles = StyleSheet.create({
     flexWrap: "wrap",
     gap: 12,
   },
-  dualRoleRow: {
-    marginTop: 4,
-  },
   roleCardWrapper: {
     flex: 1,
     borderRadius: 14,
@@ -412,10 +366,6 @@ const styles = StyleSheet.create({
     shadowRadius: 12,
     shadowOffset: { width: 0, height: 6 },
     elevation: 5,
-  },
-  roleCardWrapperFull: {
-    width: "100%",
-    flexBasis: "100%",
   },
   roleCard: {
     padding: 14,
@@ -461,21 +411,6 @@ const styles = StyleSheet.create({
   },
   roleChipTextActive: {
     color: "#ffffff",
-  },
-  dualRoleNote: {
-    flexDirection: "row",
-    gap: 8,
-    backgroundColor: "#f5f3ff",
-    borderWidth: 1,
-    borderColor: "#ddd6fe",
-    padding: 12,
-    borderRadius: 12,
-    marginBottom: 12,
-  },
-  dualRoleNoteText: {
-    flex: 1,
-    fontSize: 12,
-    color: "#4c1d95",
   },
   primaryButtonText: {
     color: "#ffffff",

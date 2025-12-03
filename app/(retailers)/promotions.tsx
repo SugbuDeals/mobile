@@ -5,14 +5,14 @@ import DateTimePicker from '@react-native-community/datetimepicker';
 import { LinearGradient } from "expo-linear-gradient";
 import React, { useEffect, useState } from "react";
 import {
-    Platform,
-    ScrollView,
-    StatusBar,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View
+  Platform,
+  ScrollView,
+  StatusBar,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View
 } from "react-native";
 
 export default function Promotions() {
@@ -35,8 +35,8 @@ export default function Promotions() {
   const [showEditEndPicker, setShowEditEndPicker] = useState(false);
 
   useEffect(() => {
-    if (user?.id && !userStore) {
-      findUserStore(Number(user.id));
+    if ((user as any)?.id && !userStore) {
+      findUserStore(Number((user as any).id));
     }
   }, [user, userStore, findUserStore]);
 
@@ -46,7 +46,7 @@ export default function Promotions() {
     if (!storeId) return;
     findProducts({ storeId });
     findActivePromotions(storeId);
-  }, [storeId, findProducts, findActivePromotions]);
+  }, [storeId]);
 
   const retailerProducts = React.useMemo(() => {
     if (!storeId) return [];
@@ -257,13 +257,92 @@ export default function Promotions() {
       return;
     }
 
+    // Additional validation: ensure store exists and user is retailer
+    if (!storeId) {
+      alert("Store not found. Please complete your store setup first.");
+      setIsCreating(false);
+      return;
+    }
+
+    if (!userStore) {
+      alert("Store information not available. Please refresh and try again.");
+      setIsCreating(false);
+      return;
+    }
+
+    // Verify user is a retailer
+    const userRole = (user as any)?.role || (user as any)?.user_type;
+    if (userRole !== 'RETAILER') {
+      alert("Only retailers can create promotions. Please check your account type.");
+      setIsCreating(false);
+      return;
+    }
+
+    // Verify store ownership
+    const userId = (user as any)?.id;
+    if (userStore.ownerId !== userId) {
+      alert("You do not own this store. Cannot create promotions.");
+      setIsCreating(false);
+      return;
+    }
+
+    // Validate that all selected products belong to the user's store and are active
+    const invalidProducts = selectedProductIds.filter(productId => {
+      const product = retailerProducts.find(p => p.id.toString() === productId);
+      if (!product) {
+        console.log(`Product ${productId} not found in retailerProducts`);
+        return true;
+      }
+      if (product.storeId !== storeId) {
+        console.log(`Product ${productId} storeId (${product.storeId}) doesn't match userStore.id (${storeId})`);
+        return true;
+      }
+      if (!product.isActive) {
+        console.log(`Product ${productId} is not active`);
+        return true;
+      }
+      return false;
+    });
+
+    if (invalidProducts.length > 0) {
+      const inactiveProducts = invalidProducts.filter(productId => {
+        const product = retailerProducts.find(p => p.id.toString() === productId);
+        return product && !product.isActive;
+      });
+      
+      if (inactiveProducts.length > 0) {
+        alert("Some selected products are inactive. Please activate them first or select active products.");
+      } else {
+        alert("Some selected products do not belong to your store. Please refresh and try again.");
+      }
+      setIsCreating(false);
+      return;
+    }
+
     setIsCreating(true);
 
     try {
+      // Log validation info for debugging
+      console.log("Creating promotions with validation:");
+      console.log("User ID:", (user as any)?.id);
+      console.log("Store ID:", storeId);
+      console.log("Store ownerId:", userStore.ownerId);
+      console.log("Store verificationStatus:", userStore.verificationStatus);
+      console.log("Selected products:", selectedProductIds);
+      selectedProductIds.forEach(productId => {
+        const product = retailerProducts.find(p => p.id.toString() === productId);
+        console.log(`Product ${productId}:`, {
+          id: product?.id,
+          storeId: product?.storeId,
+          name: product?.name,
+          isActive: product?.isActive
+        });
+      });
+
       // Create promotion for each selected product with individual discounts
       const promises = selectedProductIds.map(productId => {
         const productData = selectedProducts[productId];
-        return createPromotion({
+        const promotionPayload = {
           title: promotionTitle,
           type: productData.type,
           description: description || `${productData.type === 'percentage' ? `${productData.discount}%` : `$${productData.discount}`} off`,
@@ -271,14 +350,17 @@ export default function Promotions() {
           endsAt: end.toISOString(),
           discount: parseFloat(productData.discount),
           productId: parseInt(productId),
-        });
+        };
+        console.log(`Creating promotion for product ${productId}:`, promotionPayload);
+        return createPromotion(promotionPayload).unwrap();
       });
 
       await Promise.all(promises);
       
-      // Refresh active promotions to show the new promotion in dashboard
+      // Refresh products and active promotions to show the new promotion
       if (storeId) {
-        findActivePromotions(storeId);
+        await findProducts({ storeId });
+        await findActivePromotions(storeId);
       }
       
       // Reset form
@@ -289,9 +371,10 @@ export default function Promotions() {
       setDescription("");
       
       alert("Promotion created successfully!");
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error creating promotion:", error);
-      alert("Failed to create promotion. Please try again.");
+      const errorMessage = error?.message || "Failed to create promotion. Please try again.";
+      alert(errorMessage);
     } finally {
       setIsCreating(false);
     }

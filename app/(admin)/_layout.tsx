@@ -161,7 +161,7 @@ export default function AdminLayout() {
           name="notifications"
           options={{
             title: "Notifications",
-            headerShown: false,
+            header: () => <AdminHeader title="Notifications" subtitle="View your notifications" />,
             href: null, // Hide from tab bar
           }}
         />

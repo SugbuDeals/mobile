@@ -3,7 +3,6 @@ import TextField from "@/components/TextField";
 import { useLogin } from "@/features/auth";
 import { completeRetailerSetup } from "@/features/auth/slice";
 import { useStore, useStoreManagement } from "@/features/store";
-import { useDualRole } from "@/hooks/useDualRole";
 import { uploadFile } from "@/utils/fileUpload";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { yupResolver } from "@hookform/resolvers/yup";
@@ -28,7 +27,6 @@ export default function RetailerSetup() {
   const { state: { user, loading: authLoading, accessToken } } = useLogin();
   // Use the store management hook to get the user's store
   const { userStore, storeLoading, refreshStore } = useStoreManagement();
-  const { hasDualRole, updateRetailerStatus } = useDualRole();
   const [submitting, setSubmitting] = React.useState(false);
   const [hasCheckedAuth, setHasCheckedAuth] = React.useState(false);
   const [imageUri, setImageUri] = React.useState<string | null>(null);
@@ -66,8 +64,10 @@ export default function RetailerSetup() {
       // Check if user is a retailer
       const normalizedRole = String(user.role ?? "").toLowerCase();
       const normalizedUserType = String(user.user_type ?? "").toLowerCase();
-      if (normalizedRole !== "retailer" && normalizedUserType !== "retailer") {
-        Alert.alert("Access Denied", "Store setup is only available for retailers.");
+      const isRetailer = normalizedRole === "retailer" || normalizedUserType === "retailer";
+      
+      if (!isRetailer) {
+        // If user is not a retailer, redirect to consumer dashboard
         router.replace("/(consumers)");
         return;
       }
@@ -286,9 +286,6 @@ export default function RetailerSetup() {
 
       // Mark retailer setup as completed
       dispatch(completeRetailerSetup());
-      if (hasDualRole) {
-        await updateRetailerStatus("completed");
-      }
       
       Alert.alert("Success", "Store setup completed successfully!");
       
@@ -321,9 +318,6 @@ export default function RetailerSetup() {
       
       // Mark retailer setup as completed even if skipped
       dispatch(completeRetailerSetup());
-      if (hasDualRole) {
-        await updateRetailerStatus("skipped");
-      }
       Alert.alert("Setup Skipped", "You can complete your store setup later in Settings.");
       
       // Small delay to ensure state is updated before redirect

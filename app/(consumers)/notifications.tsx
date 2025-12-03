@@ -1,5 +1,4 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
-import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
 import React, { useEffect } from "react";
 import {
@@ -7,7 +6,6 @@ import {
   Platform,
   SafeAreaView,
   ScrollView,
-  StatusBar,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -18,72 +16,6 @@ import {
   formatNotificationTime,
   getNotificationColor,
 } from "@/utils/notifications";
-
-const ConsumerHeader = () => {
-  const router = useRouter();
-  const { action, state } = useNotifications();
-
-  useEffect(() => {
-    // Fetch unread count when header mounts
-    action.getUnreadCount();
-  }, []);
-
-  return (
-    <View style={headerStyles.headerShadowContainer}>
-      <LinearGradient
-        colors={["#FFBE5D", "#277874"]}
-        style={headerStyles.headerContainer}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 0 }}
-      >
-        <StatusBar
-          barStyle="light-content"
-          translucent
-          backgroundColor="transparent"
-        />
-        <View style={headerStyles.headerContent}>
-          {/* Shopping Cart Icon */}
-          <View style={headerStyles.iconContainer}>
-            <Ionicons name="cart" size={20} color="#ffffff" />
-          </View>
-
-          {/* App Title and Tagline */}
-          <View style={headerStyles.titleContainer}>
-            <Text style={headerStyles.headerTitle}>SugbuDeals</Text>
-            <Text style={headerStyles.headerSubtitle}>Explore Deals!</Text>
-          </View>
-
-          {/* Notification Bell */}
-          <TouchableOpacity
-            style={headerStyles.notificationContainer}
-            onPress={() => router.push("/(consumers)/notifications")}
-          >
-            <Ionicons 
-              name={state.unreadCount > 0 ? "notifications" : "notifications-outline"} 
-              size={20} 
-              color="#ffffff" 
-            />
-            {state.unreadCount > 0 && (
-              <View style={headerStyles.badge}>
-                <Text style={headerStyles.badgeText}>
-                  {state.unreadCount > 99 ? "99+" : state.unreadCount}
-                </Text>
-              </View>
-            )}
-          </TouchableOpacity>
-
-          {/* Profile Picture */}
-          <TouchableOpacity
-            style={headerStyles.profileContainer}
-            onPress={() => router.push("/(consumers)/profile")}
-          >
-            <Ionicons name="person" size={20} color="#ffffff" />
-          </TouchableOpacity>
-        </View>
-      </LinearGradient>
-    </View>
-  );
-};
 
 export default function Notifications() {
   const router = useRouter();
@@ -129,8 +61,6 @@ export default function Notifications() {
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <ConsumerHeader />
-
       {state.loading && state.notifications.length === 0 ? (
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color="#3B82F6" />
@@ -234,7 +164,7 @@ const styles = StyleSheet.create({
   },
   backBtn: { padding: 4, borderRadius: 999 },
   title: { fontSize: 18, fontWeight: "700" },
-  content: { paddingHorizontal: 20, paddingBottom: 180 },
+  content: { paddingHorizontal: 20, paddingBottom: Platform.OS === "ios" ? 120 : 100 },
   loadingContainer: {
     flex: 1,
     justifyContent: "center",
@@ -249,11 +179,16 @@ const styles = StyleSheet.create({
     position: "absolute",
     left: 20,
     right: 20,
-    bottom: 90,
+    bottom: Platform.OS === "ios" ? 90 : 70,
     backgroundColor: "#F3F4F6",
     borderRadius: 12,
     paddingVertical: 14,
     alignItems: "center",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: -2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 5,
   },
   clearText: { color: "#6B7280", fontWeight: "700" },
   errorContainer: {
@@ -328,94 +263,5 @@ const styles = StyleSheet.create({
     color: "#9CA3AF",
     fontSize: 14,
     marginTop: 4,
-  },
-});
-
-const headerStyles = StyleSheet.create({
-  headerShadowContainer: {
-    elevation: 8,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 12,
-    borderBottomLeftRadius: 40,
-    borderBottomRightRadius: 40,
-  },
-  headerContainer: {
-    paddingTop: Platform.OS === "ios" ? 50 : StatusBar.currentHeight || 0,
-    paddingBottom: 8,
-    paddingHorizontal: 16,
-    borderBottomLeftRadius: 40,
-    borderBottomRightRadius: 40,
-    overflow: "hidden",
-  },
-  headerContent: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-  },
-  iconContainer: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: "#277874",
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  titleContainer: {
-    flex: 1,
-    alignItems: "center",
-    marginHorizontal: 10,
-  },
-  headerTitle: {
-    fontSize: 24,
-    fontWeight: "bold",
-    color: "#ffffff",
-    textAlign: "center",
-    letterSpacing: 0.5,
-  },
-  headerSubtitle: {
-    fontSize: 14,
-    color: "#ffffff",
-    opacity: 0.9,
-    marginTop: 2,
-    textAlign: "center",
-  },
-  notificationContainer: {
-    width: 30,
-    height: 40,
-    borderRadius: 10,
-    backgroundColor: "rgba(255, 255, 255, 0.3)",
-    justifyContent: "center",
-    alignItems: "center",
-    position: "relative",
-  },
-  badge: {
-    position: "absolute",
-    top: 4,
-    right: 4,
-    backgroundColor: "#EF4444",
-    borderRadius: 10,
-    minWidth: 18,
-    height: 18,
-    paddingHorizontal: 4,
-    justifyContent: "center",
-    alignItems: "center",
-    borderWidth: 2,
-    borderColor: "#277874",
-  },
-  badgeText: {
-    color: "#ffffff",
-    fontSize: 10,
-    fontWeight: "700",
-  },
-  profileContainer: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: "#277874",
-    justifyContent: "center",
-    alignItems: "center",
-    marginLeft: 10,
   },
 });

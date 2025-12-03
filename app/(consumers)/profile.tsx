@@ -1,8 +1,6 @@
-import RoleSwitcherBanner from "@/components/RoleSwitcherBanner";
 import { useLogin } from "@/features/auth";
 import { logout } from "@/features/auth/slice";
 import { fetchUserById } from "@/features/auth/thunk";
-import { useDualRole } from "@/hooks/useDualRole";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { getFileUrl, uploadFile } from "@/utils/fileUpload";
 import Ionicons from "@expo/vector-icons/Ionicons";
@@ -26,7 +24,6 @@ export default function Profile() {
   const dispatch = useAppDispatch();
   const { user, accessToken } = useAppSelector((state) => state.auth);
   const { action: { deleteUser } } = useLogin();
-  const { hasDualRole, syncSnapshot } = useDualRole();
 
   const defaultName = (user as any)?.fullname || (user as any)?.name || "";
   const defaultEmail = (user as any)?.email || "";
@@ -59,9 +56,6 @@ export default function Profile() {
           data: { name, email, ...(typeof imageUrl === "string" && imageUrl.length ? { imageUrl } : {}) },
         }) as any
       ).unwrap();
-      if (hasDualRole) {
-        await syncSnapshot({ name, email });
-      }
       Alert.alert("Success", "Profile updated successfully!");
       setIsEditing(false);
     } catch (e) {
@@ -174,9 +168,6 @@ export default function Profile() {
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        {hasDualRole && (
-          <RoleSwitcherBanner surface="default" />
-        )}
         <View style={styles.card}>
           <View style={styles.cardHeader}>
             <Ionicons name="image-outline" size={18} color="#277874" />

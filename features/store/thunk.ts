@@ -684,10 +684,12 @@ export const createPromotion = createAsyncThunk<
   { rejectValue: { message: string }; state: RootState }
 >("store/createPromotion", async (promotionData, { rejectWithValue, getState }) => {
   try {
-    const { accessToken } = getState().auth;
+    const { accessToken, user } = getState().auth;
     
-    console.log("Creating promotion with data:", promotionData);
+    console.log("Creating promotion with data:", JSON.stringify(promotionData, null, 2));
     console.log("Access token available:", !!accessToken);
+    console.log("User:", user);
+    console.log("User role:", (user as any)?.role || (user as any)?.user_type);
 
     if (!accessToken) {
       return rejectWithValue({
@@ -705,18 +707,25 @@ export const createPromotion = createAsyncThunk<
     });
 
     console.log("Promotion creation response status:", response.status);
+    console.log("Promotion creation response headers:", Object.fromEntries(response.headers.entries()));
 
     if (!response.ok) {
-      const error = await response.json().catch(() => ({}));
-      console.log("Promotion creation error:", error);
+      let errorData;
+      try {
+        const text = await response.text();
+        console.log("Promotion creation error response text:", text);
+        errorData = text ? JSON.parse(text) : {};
+      } catch (e) {
+        errorData = { message: `HTTP ${response.status}: ${response.statusText}` };
+      }
+      console.log("Promotion creation error data:", errorData);
       return rejectWithValue({
-        message: error.message || "Create promotion failed",
+        message: errorData.message || errorData.error || `Create promotion failed (${response.status})`,
       });
     }
 
     const result = await response.json();
     console.log("Promotion creation successful:", result);
-    console.log("Promotion creation response data:", result);
     return result;
   } catch (error) {
     console.log("Promotion creation catch error:", error);

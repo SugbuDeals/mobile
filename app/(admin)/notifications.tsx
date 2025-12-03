@@ -1,13 +1,11 @@
 import { useNotifications } from "@/features/notifications";
 import { Ionicons } from "@expo/vector-icons";
-import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
 import React, { useEffect } from "react";
 import {
   ActivityIndicator,
   Platform,
   ScrollView,
-  StatusBar,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -17,62 +15,6 @@ import {
   formatNotificationTime,
   getNotificationColor,
 } from "@/utils/notifications";
-
-const AdminHeader = ({ title = "Dashboard", subtitle = "Welcome back, Admin!" }: { title?: string; subtitle?: string }) => {
-  const router = useRouter();
-  const { action, state } = useNotifications();
-
-  useEffect(() => {
-    // Fetch unread count when header mounts
-    action.getUnreadCount();
-  }, []);
-  
-  return (
-    <View style={headerStyles.headerShadowContainer}>
-      <LinearGradient
-        colors={["#FFBE5D", "#277874"]}
-        style={headerStyles.headerContainer}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 0 }}
-      >
-        <StatusBar barStyle="light-content" backgroundColor="transparent" />
-        <View style={headerStyles.headerContent}>
-          <View style={headerStyles.headerLeft}>
-            <View style={headerStyles.headerIcon}>
-              <Ionicons name="cart" size={24} color="#ffffff" />
-            </View>
-            <View style={headerStyles.headerText}>
-              <Text style={headerStyles.headerTitle}>{title}</Text>
-              <Text style={headerStyles.headerSubtitle}>{subtitle}</Text>
-            </View>
-          </View>
-          
-          {/* Right side buttons */}
-          <View style={headerStyles.rightButtonsContainer}>
-            {/* Notification Bell */}
-            <TouchableOpacity 
-              style={headerStyles.notificationContainer}
-              onPress={() => router.push("/(admin)/notifications")}
-            >
-              <Ionicons 
-                name={state.unreadCount > 0 ? "notifications" : "notifications-outline"} 
-                size={20} 
-                color="#ffffff" 
-              />
-              {state.unreadCount > 0 && (
-                <View style={headerStyles.badge}>
-                  <Text style={headerStyles.badgeText}>
-                    {state.unreadCount > 99 ? "99+" : state.unreadCount}
-                  </Text>
-                </View>
-              )}
-            </TouchableOpacity>
-          </View>
-        </View>
-      </LinearGradient>
-    </View>
-  );
-};
 
 // ===== MAIN COMPONENT =====
 export default function AdminNotifications() {
@@ -119,33 +61,33 @@ export default function AdminNotifications() {
 
   return (
     <View style={styles.container}>
-      <AdminHeader title="Notifications" subtitle="View your notifications" />
-      
       {state.loading && state.notifications.length === 0 ? (
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color="#3B82F6" />
           <Text style={styles.loadingText}>Loading notifications...</Text>
         </View>
       ) : (
-        <ScrollView 
-          style={styles.scrollView} 
-          contentContainerStyle={styles.scrollContent}
-          showsVerticalScrollIndicator={false}
-        >
-          {/* Notification List */}
-          <NotificationList 
-            notifications={state.notifications}
-            onNotificationPress={handleNotificationPress}
-          />
+        <>
+          <ScrollView 
+            style={styles.scrollView} 
+            contentContainerStyle={styles.scrollContent}
+            showsVerticalScrollIndicator={false}
+          >
+            {/* Notification List */}
+            <NotificationList 
+              notifications={state.notifications}
+              onNotificationPress={handleNotificationPress}
+            />
+          </ScrollView>
           
-          {/* Clear All Button - Inside ScrollView */}
+          {/* Clear All Button - Fixed above tabbar */}
           {state.notifications.length > 0 && (
             <ClearAllButton 
               onClearAll={handleMarkAllAsRead}
               loading={state.loading}
             />
           )}
-        </ScrollView>
+        </>
       )}
 
       {state.error && (
@@ -245,7 +187,7 @@ const ClearAllButton = ({
   loading: boolean;
 }) => (
   <TouchableOpacity 
-    style={styles.clearButton} 
+    style={styles.clearButtonFixed} 
     onPress={onClearAll}
     disabled={loading}
   >
@@ -270,7 +212,7 @@ const styles = StyleSheet.create({
   scrollContent: {
     paddingHorizontal: 20,
     paddingTop: 20,
-    paddingBottom: 20,
+    paddingBottom: Platform.OS === "ios" ? 120 : 100,
   },
   loadingContainer: {
     flex: 1,
@@ -372,17 +314,20 @@ const styles = StyleSheet.create({
   },
   
   // ===== CLEAR ALL BUTTON STYLES =====
-  clearButton: {
+  clearButtonFixed: {
+    position: "absolute",
+    left: 20,
+    right: 20,
+    bottom: Platform.OS === "ios" ? 90 : 70,
     backgroundColor: "#F3F4F6",
     borderRadius: 12,
-    paddingVertical: 16,
+    paddingVertical: 14,
     alignItems: "center",
-    marginTop: 20,
     shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
+    shadowOffset: { width: 0, height: -2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
-    elevation: 3,
+    elevation: 5,
   },
   clearText: {
     color: "#6B7280",
@@ -404,91 +349,5 @@ const styles = StyleSheet.create({
     color: "#DC2626",
     fontSize: 14,
     textAlign: "center",
-  },
-});
-
-const headerStyles = StyleSheet.create({
-  headerShadowContainer: {
-    elevation: 8,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 12,
-    backgroundColor: "transparent",
-    overflow: "hidden"
-  },
-  headerContainer: {
-    paddingTop: Platform.OS === "ios" ? 50 : (StatusBar.currentHeight || 0),
-    paddingBottom: 20,
-    paddingHorizontal: 20,
-    overflow: "hidden",
-  },
-  headerContent: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginTop: 4,
-    justifyContent: "space-between",
-    backgroundColor: "transparent"
-  },
-  headerLeft: {
-    flexDirection: "row",
-    alignItems: "center",
-    flex: 1,
-  },
-  headerIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 8,
-    backgroundColor: "#277874",
-    justifyContent: "center",
-    alignItems: "center",
-    marginRight: 12,
-  },
-  headerText: {
-    flex: 1,
-  },
-  headerTitle: {
-    fontSize: 24,
-    fontWeight: "bold",
-    color: "#ffffff",
-    marginBottom: 2,
-  },
-  headerSubtitle: {
-    fontSize: 14,
-    color: "#ffffff",
-    opacity: 0.9,
-  },
-  rightButtonsContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-  },
-  notificationContainer: {
-    width: 30,
-    height: 40,
-    borderRadius: 10,
-    backgroundColor: "rgba(255, 255, 255, 0.3)",
-    justifyContent: "center",
-    alignItems: "center",
-    position: "relative",
-  },
-  badge: {
-    position: "absolute",
-    top: 4,
-    right: 4,
-    backgroundColor: "#EF4444",
-    borderRadius: 10,
-    minWidth: 18,
-    height: 18,
-    paddingHorizontal: 4,
-    justifyContent: "center",
-    alignItems: "center",
-    borderWidth: 2,
-    borderColor: "#277874",
-  },
-  badgeText: {
-    color: "#ffffff",
-    fontSize: 10,
-    fontWeight: "700",
   },
 });

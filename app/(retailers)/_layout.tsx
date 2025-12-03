@@ -1,20 +1,18 @@
-import RoleSwitcherBanner from "@/components/RoleSwitcherBanner";
 import { logout } from "@/features/auth/slice";
 import { useNotifications } from "@/features/notifications";
 import { useStoreManagement } from "@/features/store";
-import { useDualRole } from "@/hooks/useDualRole";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { LinearGradient } from "expo-linear-gradient";
 import { Tabs, router } from "expo-router";
 import React, { useEffect } from "react";
 import {
-  Platform,
-  StatusBar,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
+    Platform,
+    StatusBar,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View,
 } from "react-native";
 
 const RetailerHeader = () => {
@@ -47,7 +45,9 @@ const RetailerHeader = () => {
               <Ionicons name="storefront" size={24} color="#ffffff" />
             </View>
             <View style={styles.headerText}>
-              <Text style={styles.headerTitle}>SugbuDeals</Text>
+              <Text style={styles.headerTitle}>
+                SugbuDeals
+              </Text>
               <Text style={styles.headerSubtitle}>Manage your Store</Text>
             </View>
           </View>
@@ -75,7 +75,7 @@ const RetailerHeader = () => {
             )}
           </TouchableOpacity>
 
-          <RoleSwitcherBanner />
+          {/* Role switcher moved to settings page for dual accounts */}
 
           <TouchableOpacity
             style={styles.logoutContainer}
@@ -118,7 +118,6 @@ export default function RetailersLayout() {
   // Load user's store data for all retailer pages
   const { userStore, storeLoading } = useStoreManagement();
   const { user, loading: authLoading } = useAppSelector((state) => state.auth);
-  const { hasDualRole, activeRole } = useDualRole();
 
   // Check if retailer needs to complete setup (no store created yet)
   React.useEffect(() => {
@@ -127,27 +126,26 @@ export default function RetailersLayout() {
       return;
     }
 
-    if (hasDualRole && activeRole === "CONSUMER") {
-      router.replace("/(consumers)");
+    if (!user) {
       return;
     }
 
-    // Only check if user is a retailer
-    if (user) {
-      const normalizedRole = String((user as any).user_type ?? (user as any).role ?? "").toLowerCase();
-      
-      if (normalizedRole === "retailer") {
-        // If retailer doesn't have a store, redirect to setup
-        // Give a small delay to ensure store loading has truly completed
-        const timeoutId = setTimeout(() => {
-          if (!userStore) {
-            console.log("Retailer has no store, redirecting to setup page");
-            router.replace("/auth/setup");
-          }
-        }, 500); // Small delay to ensure store loading is complete
+    // Check if user is logged in as a retailer account
+    const normalizedRole = String((user as any).user_type ?? (user as any).role ?? "").toLowerCase();
+    const isRetailer = normalizedRole === "retailer";
 
-        return () => clearTimeout(timeoutId);
-      }
+    // If user is a retailer
+    if (isRetailer) {
+      // If retailer doesn't have a store, redirect to setup
+      // Give a small delay to ensure store loading has truly completed
+      const timeoutId = setTimeout(() => {
+        if (!userStore) {
+          console.log("Retailer has no store, redirecting to setup page");
+          router.replace("/auth/setup");
+        }
+      }, 500); // Small delay to ensure store loading is complete
+
+      return () => clearTimeout(timeoutId);
     }
   }, [user, userStore, storeLoading, authLoading]);
 
@@ -255,10 +253,10 @@ const styles = StyleSheet.create({
     overflow: "hidden",
   },
   headerContainer: {
-    paddingTop: Platform.OS === "ios" ? 50 : StatusBar.currentHeight || 0,
-    paddingBottom: 20,
-    paddingHorizontal: 20,
-    borderBottomRightRadius: 40,
+    paddingTop: Platform.OS === "ios" ? 40 : (StatusBar.currentHeight || 0) + 4,
+    paddingBottom: 10,
+    paddingHorizontal: 16,
+    borderBottomRightRadius: 32,
     overflow: "hidden",
   },
   headerContent: {
@@ -330,13 +328,13 @@ const styles = StyleSheet.create({
     fontWeight: "700",
   },
   unverifiedBanner: {
-    marginTop: 12,
+    marginTop: 6,
     marginHorizontal: 2,
     flexDirection: "row",
     alignItems: "flex-start",
-    paddingVertical: 8,
-    paddingHorizontal: 10,
-    borderRadius: 10,
+    paddingVertical: 6,
+    paddingHorizontal: 8,
+    borderRadius: 8,
     backgroundColor: "rgba(254, 243, 199, 0.95)",
   },
   unverifiedTitle: {

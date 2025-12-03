@@ -1,79 +1,20 @@
 import { useNotifications } from "@/features/notifications";
-import { useAppDispatch } from "@/store/hooks";
 import {
   formatNotificationTime,
   getNotificationColor,
 } from "@/utils/notifications";
 import Ionicons from "@expo/vector-icons/Ionicons";
-import { LinearGradient } from "expo-linear-gradient";
-import { router, useRouter } from "expo-router";
+import { useRouter } from "expo-router";
 import React, { useEffect } from "react";
 import {
   ActivityIndicator,
   Platform,
   ScrollView,
-  StatusBar,
   StyleSheet,
   Text,
   TouchableOpacity,
   View
 } from "react-native";
-
-const RetailerHeader = () => {
-  const dispatch = useAppDispatch();
-  const { action, state } = useNotifications();
-
-  useEffect(() => {
-    // Fetch unread count when header mounts
-    action.getUnreadCount();
-  }, []);
-
-  return (
-    <View style={headerStyles.headerShadowContainer}>
-      <LinearGradient
-        colors={["#FFBE5D", "#277874"]}
-        style={headerStyles.headerContainer}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 0 }}
-      >
-        <StatusBar barStyle="light-content" backgroundColor="transparent" />
-        <View style={headerStyles.headerContent}>
-          <View style={headerStyles.headerLeft}>
-            <View style={headerStyles.headerIcon}>
-              <Ionicons name="storefront" size={24} color="#ffffff" />
-            </View>
-            <View style={headerStyles.headerText}>
-              <Text style={headerStyles.headerTitle}>SugbuDeals</Text>
-              <Text style={headerStyles.headerSubtitle}>Manage your Store</Text>
-            </View>
-          </View>
-
-          {/* Right side buttons */}
-          <View style={headerStyles.rightButtonsContainer}>
-            {/* Notification Bell */}
-            <TouchableOpacity
-              style={headerStyles.notificationContainer}
-              onPress={() => router.push("/(retailers)/notifications")}
-            >
-              <Ionicons 
-                name={state.unreadCount > 0 ? "notifications" : "notifications-outline"} 
-                size={20} 
-                color="#ffffff" 
-              />
-              {state.unreadCount > 0 && (
-                <View style={headerStyles.badge}>
-                  <Text style={headerStyles.badgeText}>
-                    {state.unreadCount > 99 ? "99+" : state.unreadCount}
-                  </Text>
-                </View>
-              )}
-            </TouchableOpacity>
-          </View>
-        </View>
-      </LinearGradient>
-    </View>
-  );
-};
 
 export default function Notifications() {
   const router = useRouter();
@@ -119,8 +60,6 @@ export default function Notifications() {
 
   return (
     <View style={styles.container}>
-      <RetailerHeader />
-
       {state.loading && state.notifications.length === 0 ? (
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color="#277874" />
@@ -214,7 +153,7 @@ export default function Notifications() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#fff" },
-  content: { paddingHorizontal: 20, paddingBottom: 50 },
+  content: { paddingHorizontal: 20, paddingBottom: Platform.OS === "ios" ? 120 : 100 },
   loadingContainer: {
     flex: 1,
     justifyContent: "center",
@@ -229,11 +168,16 @@ const styles = StyleSheet.create({
     position: "absolute",
     left: 20,
     right: 20,
-    bottom: 10,
+    bottom: Platform.OS === "ios" ? 90 : 70,
     backgroundColor: "#F3F4F6",
     borderRadius: 12,
     paddingVertical: 14,
     alignItems: "center",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: -2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 5,
   },
   clearText: { color: "#6B7280", fontWeight: "700" },
   errorContainer: {
@@ -307,93 +251,5 @@ const styles = StyleSheet.create({
     color: "#9CA3AF",
     fontSize: 14,
     marginTop: 4,
-  },
-});
-
-const headerStyles = StyleSheet.create({
-  headerShadowContainer: {
-    elevation: 8,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 12,
-    borderBottomRightRadius: 40,
-    backgroundColor: "transparent",
-    overflow: "hidden",
-  },
-  headerContainer: {
-    paddingTop: Platform.OS === "ios" ? 50 : StatusBar.currentHeight || 0,
-    paddingBottom: 20,
-    paddingHorizontal: 20,
-    borderBottomRightRadius: 40,
-    overflow: "hidden",
-  },
-  headerContent: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginTop: 4,
-    justifyContent: "space-between",
-    backgroundColor: "transparent",
-  },
-  headerLeft: {
-    flexDirection: "row",
-    alignItems: "center",
-    flex: 1,
-  },
-  headerIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 8,
-    backgroundColor: "#277874",
-    justifyContent: "center",
-    alignItems: "center",
-    marginRight: 12,
-  },
-  headerText: {
-    flex: 1,
-  },
-  headerTitle: {
-    fontSize: 24,
-    fontWeight: "bold",
-    color: "#ffffff",
-    marginBottom: 2,
-  },
-  headerSubtitle: {
-    fontSize: 14,
-    color: "#ffffff",
-    opacity: 0.9,
-  },
-  rightButtonsContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-  },
-  notificationContainer: {
-    width: 30,
-    height: 40,
-    borderRadius: 10,
-    backgroundColor: "rgba(255, 255, 255, 0.3)",
-    justifyContent: "center",
-    alignItems: "center",
-    position: "relative",
-  },
-  badge: {
-    position: "absolute",
-    top: 4,
-    right: 4,
-    backgroundColor: "#EF4444",
-    borderRadius: 10,
-    minWidth: 18,
-    height: 18,
-    paddingHorizontal: 4,
-    justifyContent: "center",
-    alignItems: "center",
-    borderWidth: 2,
-    borderColor: "#277874",
-  },
-  badgeText: {
-    color: "#ffffff",
-    fontSize: 10,
-    fontWeight: "700",
   },
 });
