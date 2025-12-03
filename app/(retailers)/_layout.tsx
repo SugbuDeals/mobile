@@ -21,6 +21,7 @@ const RetailerHeader = () => {
   const dispatch = useAppDispatch();
   const { action, state } = useNotifications();
   const { userStore } = useStoreManagement();
+  const { hasDualRole } = useDualRole();
 
   useEffect(() => {
     // Fetch unread count when header mounts
@@ -36,7 +37,7 @@ const RetailerHeader = () => {
     <View style={styles.headerShadowContainer}>
       <LinearGradient
         colors={["#FFBE5D", "#277874"]}
-        style={styles.headerContainer}
+        style={[styles.headerContainer, hasDualRole && styles.headerContainerCompact]}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 0 }}
       >
@@ -47,8 +48,12 @@ const RetailerHeader = () => {
               <Ionicons name="storefront" size={24} color="#ffffff" />
             </View>
             <View style={styles.headerText}>
-              <Text style={styles.headerTitle}>SugbuDeals</Text>
-              <Text style={styles.headerSubtitle}>Manage your Store</Text>
+              <Text style={[styles.headerTitle, hasDualRole && styles.headerTitleCompact]}>
+                SugbuDeals
+              </Text>
+              {!hasDualRole && (
+                <Text style={styles.headerSubtitle}>Manage your Store</Text>
+              )}
             </View>
           </View>
 
@@ -87,7 +92,7 @@ const RetailerHeader = () => {
         </View>
 
         {/* Unverified store reminder */}
-        {userStore &&
+        {!hasDualRole && userStore &&
           userStore.verificationStatus &&
           userStore.verificationStatus !== "VERIFIED" && (
             <View style={styles.unverifiedBanner}>
@@ -255,11 +260,17 @@ const styles = StyleSheet.create({
     overflow: "hidden",
   },
   headerContainer: {
-    paddingTop: Platform.OS === "ios" ? 50 : StatusBar.currentHeight || 0,
-    paddingBottom: 20,
-    paddingHorizontal: 20,
-    borderBottomRightRadius: 40,
+    paddingTop: Platform.OS === "ios" ? 40 : (StatusBar.currentHeight || 0) + 4,
+    paddingBottom: 10,
+    paddingHorizontal: 16,
+    borderBottomRightRadius: 32,
     overflow: "hidden",
+  },
+  headerContainerCompact: {
+    paddingTop: Platform.OS === "ios" ? 30 : (StatusBar.currentHeight || 0) + 2,
+    paddingBottom: 4,
+    paddingHorizontal: 12,
+    borderBottomRightRadius: 24,
   },
   headerContent: {
     flexDirection: "row",
@@ -290,6 +301,10 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
     color: "#ffffff",
     marginBottom: 2,
+  },
+  headerTitleCompact: {
+    fontSize: 18,
+    marginBottom: 0,
   },
   headerSubtitle: {
     fontSize: 14,
@@ -330,13 +345,13 @@ const styles = StyleSheet.create({
     fontWeight: "700",
   },
   unverifiedBanner: {
-    marginTop: 12,
+    marginTop: 6,
     marginHorizontal: 2,
     flexDirection: "row",
     alignItems: "flex-start",
-    paddingVertical: 8,
-    paddingHorizontal: 10,
-    borderRadius: 10,
+    paddingVertical: 6,
+    paddingHorizontal: 8,
+    borderRadius: 8,
     backgroundColor: "rgba(254, 243, 199, 0.95)",
   },
   unverifiedTitle: {

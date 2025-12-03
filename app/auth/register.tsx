@@ -113,6 +113,19 @@ export default function Register() {
         }).unwrap();
         
         if (isDualRoleChoice) {
+          const ownerId = loginResult?.user?.id ?? result?.user?.id;
+          if (ownerId) {
+            try {
+              await createStore({
+                name: `${formData.name || "My"}'s Store`,
+                description: "Welcome to my store!",
+                ownerId: Number(ownerId),
+              }).unwrap();
+            } catch (storeError) {
+              console.warn("Failed to auto-create store for dual role user:", storeError);
+            }
+          }
+
           await DualRoleManager.bootstrap({
             userId: loginResult?.user?.id ?? result?.user?.id,
             email: formData.email,
