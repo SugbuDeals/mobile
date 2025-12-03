@@ -326,25 +326,28 @@ function Recommendations({
 
   // Group promotions by title
   const groupedPromotions = useMemo(() => {
-    const groups: { [key: string]: { 
-      promotion: Promotion; 
-      products: Array<{ product: Product; promotion: Promotion }> 
-    } } = {};
-    
-    promotions.forEach(promotion => {
-      const product = visibleProducts.find(p => p.id === promotion.productId);
+    const groups: {
+      [key: string]: {
+        promotion: Promotion;
+        products: Array<{ product: Product; promotion: Promotion }>;
+      };
+    } = {};
+
+    promotions.forEach((promotion) => {
+      const product = visibleProducts.find((p) => p.id === promotion.productId);
+      if (!product) return; // Skip promotions whose products are disabled/hidden
       const key = promotion.title;
-      
+
       if (!groups[key]) {
         groups[key] = {
           promotion,
-          products: product ? [{ product, promotion }] : [],
+          products: [{ product, promotion }],
         };
-      } else if (product) {
+      } else {
         groups[key].products.push({ product, promotion });
       }
     });
-    
+
     return Object.values(groups);
   }, [promotions, visibleProducts]);
 
