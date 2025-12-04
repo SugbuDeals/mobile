@@ -1,4 +1,5 @@
 import { useNotifications } from "@/features/notifications";
+import { useDualRole } from "@/hooks/useDualRole";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { LinearGradient } from "expo-linear-gradient";
 import { Tabs, useRouter } from "expo-router";
@@ -8,6 +9,7 @@ import { Platform, StatusBar, StyleSheet, Text, TouchableOpacity, View } from "r
 const ConsumerHeader = () => {
   const router = useRouter();
   const { action, state } = useNotifications();
+   const { hasDualRole } = useDualRole();
 
   useEffect(() => {
     // Fetch unread count when header mounts
@@ -18,7 +20,7 @@ const ConsumerHeader = () => {
     <View style={styles.headerShadowContainer}>
       <LinearGradient
         colors={["#FFBE5D", "#277874"]}
-        style={styles.headerContainer}
+        style={[styles.headerContainer, hasDualRole && styles.headerContainerCompact]}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 0 }}
       >
@@ -35,6 +37,12 @@ const ConsumerHeader = () => {
 
           {/* App Title and Tagline */}
           <View style={styles.titleContainer}>
+            <Text style={[styles.headerTitle, hasDualRole && styles.headerTitleCompact]}>
+              SugbuDeals
+            </Text>
+            {!hasDualRole && (
+              <Text style={styles.headerSubtitle}>Explore Deals!</Text>
+            )}
             <Text style={styles.headerTitle}>
               SugbuDeals
             </Text>
@@ -185,6 +193,13 @@ const styles = StyleSheet.create({
     borderBottomRightRadius: 40,
     overflow: "hidden",
   },
+  headerContainerCompact: {
+    paddingTop: Platform.OS === "ios" ? 32 : (StatusBar.currentHeight || 0) + 2,
+    paddingBottom: 4,
+    paddingHorizontal: 12,
+    borderBottomLeftRadius: 24,
+    borderBottomRightRadius: 24,
+  },
   headerContent: {
     flexDirection: "row",
     alignItems: "center",
@@ -209,6 +224,9 @@ const styles = StyleSheet.create({
     color: "#ffffff",
     textAlign: "center",
     letterSpacing: 0.5,
+  },
+  headerTitleCompact: {
+    fontSize: 18,
   },
   headerSubtitle: {
     fontSize: 14,

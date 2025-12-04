@@ -7,12 +7,12 @@ import { LinearGradient } from "expo-linear-gradient";
 import { Tabs, router } from "expo-router";
 import React, { useEffect } from "react";
 import {
-    Platform,
-    StatusBar,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View,
+  Platform,
+  StatusBar,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from "react-native";
 
 const RetailerHeader = () => {
@@ -34,7 +34,7 @@ const RetailerHeader = () => {
     <View style={styles.headerShadowContainer}>
       <LinearGradient
         colors={["#FFBE5D", "#277874"]}
-        style={styles.headerContainer}
+        style={[styles.headerContainer, hasDualRole && styles.headerContainerCompact]}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 0 }}
       >
@@ -87,7 +87,7 @@ const RetailerHeader = () => {
         </View>
 
         {/* Unverified store reminder */}
-        {userStore &&
+        { userStore &&
           userStore.verificationStatus &&
           userStore.verificationStatus !== "VERIFIED" && (
             <View style={styles.unverifiedBanner}>
@@ -118,7 +118,6 @@ export default function RetailersLayout() {
   // Load user's store data for all retailer pages
   const { userStore, storeLoading } = useStoreManagement();
   const { user, loading: authLoading } = useAppSelector((state) => state.auth);
-
   // Check if retailer needs to complete setup (no store created yet)
   React.useEffect(() => {
     // Wait for auth and store loading to complete
@@ -133,7 +132,6 @@ export default function RetailersLayout() {
     // Check if user is logged in as a retailer account
     const normalizedRole = String((user as any).user_type ?? (user as any).role ?? "").toLowerCase();
     const isRetailer = normalizedRole === "retailer";
-
     // If user is a retailer
     if (isRetailer) {
       // If retailer doesn't have a store, redirect to setup
@@ -259,6 +257,12 @@ const styles = StyleSheet.create({
     borderBottomRightRadius: 32,
     overflow: "hidden",
   },
+  headerContainerCompact: {
+    paddingTop: Platform.OS === "ios" ? 30 : (StatusBar.currentHeight || 0) + 2,
+    paddingBottom: 4,
+    paddingHorizontal: 12,
+    borderBottomRightRadius: 24,
+  },
   headerContent: {
     flexDirection: "row",
     alignItems: "center",
@@ -288,6 +292,10 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
     color: "#ffffff",
     marginBottom: 2,
+  },
+  headerTitleCompact: {
+    fontSize: 18,
+    marginBottom: 0,
   },
   headerSubtitle: {
     fontSize: 14,
