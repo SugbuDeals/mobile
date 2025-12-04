@@ -1,4 +1,9 @@
 import { useNotifications } from "@/features/notifications";
+import { useStore } from "@/features/store";
+import {
+  formatNotificationTime,
+  getNotificationColor,
+} from "@/utils/notifications";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import React, { useEffect } from "react";
@@ -11,20 +16,24 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import {
-  formatNotificationTime,
-  getNotificationColor,
-} from "@/utils/notifications";
 
 // ===== MAIN COMPONENT =====
 export default function AdminNotifications() {
   const router = useRouter();
   const { action, state } = useNotifications();
+  const { state: storeState, action: storeActions } = useStore();
 
   useEffect(() => {
     // Fetch notifications when component mounts
     action.getNotifications({ skip: 0, take: 50 });
     action.getUnreadCount();
+
+    if (!storeState.products.length) {
+      storeActions.findProducts();
+    }
+    if (!storeState.stores.length) {
+      storeActions.findStores();
+    }
   }, []);
 
   const handleMarkAsRead = async (id: number) => {
@@ -48,14 +57,43 @@ export default function AdminNotifications() {
     
     // Navigate based on notification type
     if (notification.productId) {
-      // Navigate to product page if needed
-      // router.push(`/product/${notification.productId}`);
+      // Find the product to determine its store for deep linking
+      const product = storeState.products.find(
+        (p: any) => String(p.id) === String(notification.productId)
+      );
+
+      if (product?.storeId) {
+        const store = storeState.stores.find(
+          (s: any) => String(s.id) === String(product.storeId)
+        );
+
+        router.push({
+          pathname: "/(admin)/store-details",
+          params: {
+            storeId: String(product.storeId),
+            storeName:
+              (store as any)?.name ||
+              notification.storeName ||
+              notification.title ||
+              undefined,
+          },
+        });
+      } else {
+        // Fallback: go to products list
+        router.push("/(admin)/view-product");
+      }
     } else if (notification.storeId) {
-      // Navigate to store page if needed
-      // router.push(`/store/${notification.storeId}`);
+      // Navigate to the specific store details
+      router.push({
+        pathname: "/(admin)/store-details",
+        params: {
+          storeId: String(notification.storeId),
+          storeName: notification.storeName || notification.title || undefined,
+        },
+      });
     } else if (notification.promotionId) {
-      // Navigate to promotion page if needed
-      // router.push(`/promotion/${notification.promotionId}`);
+      // For now, route to the admin promotions overview
+      router.push("/(admin)/view-promotion");
     }
   };
 
@@ -318,7 +356,7 @@ const styles = StyleSheet.create({
     position: "absolute",
     left: 20,
     right: 20,
-    bottom: Platform.OS === "ios" ? 90 : 70,
+    bottom: Platform.OS === "ios" ? 20 : 5,
     backgroundColor: "#F3F4F6",
     borderRadius: 12,
     paddingVertical: 14,

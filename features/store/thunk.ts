@@ -639,6 +639,45 @@ export const updateStoreAdminStatus = createAsyncThunk<
   }
 });
 
+export const deleteStore = createAsyncThunk<
+  { id: number },
+  number,
+  { rejectValue: { message: string }; state: RootState }
+>("store/deleteStore", async (storeId, { rejectWithValue, getState }) => {
+  try {
+    const { accessToken } = getState().auth;
+
+    if (!accessToken) {
+      return rejectWithValue({
+        message: "Authentication required. Please log in again.",
+      });
+    }
+
+    const response = await fetch(`${env.API_BASE_URL}/store/${storeId}`, {
+      method: "DELETE",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${accessToken}`,
+      },
+    });
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({}));
+      return rejectWithValue({
+        message: error.message || "Delete store failed",
+      });
+    }
+
+    const result = await response.json().catch(() => ({ id: storeId }));
+    return result && typeof result.id === "number" ? result : { id: storeId };
+  } catch (error) {
+    return rejectWithValue({
+      message:
+        error instanceof Error ? error.message : "An unknown error occured",
+    });
+  }
+});
+
 export const findStoreById = createAsyncThunk<
   Store,
   number,

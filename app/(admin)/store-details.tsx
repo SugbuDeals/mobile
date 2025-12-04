@@ -1,18 +1,20 @@
+import env from "@/config/env";
 import { useLogin } from "@/features/auth";
 import { useStore } from "@/features/store";
 import { Ionicons } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import React, { useEffect, useMemo, useState } from "react";
 import {
-    ActivityIndicator,
-    Alert,
-    Image,
-    ScrollView,
-    StyleSheet,
-    Switch,
-    Text,
-    TouchableOpacity,
-    View,
+  ActivityIndicator,
+  Alert,
+  Image,
+  Linking,
+  ScrollView,
+  StyleSheet,
+  Switch,
+  Text,
+  TouchableOpacity,
+  View,
 } from "react-native";
 
 export default function AdminStoreDetails() {
@@ -24,6 +26,9 @@ export default function AdminStoreDetails() {
     action: storeActions,
   } = useStore();
   const [storeActionLoading, setStoreActionLoading] = useState(false);
+  const [productStatusLoading, setProductStatusLoading] = useState<
+    Record<number, boolean>
+  >({});
   const [promotionStatusLoading, setPromotionStatusLoading] = useState<Record<number, boolean>>(
     {}
   );
@@ -55,7 +60,10 @@ export default function AdminStoreDetails() {
   }, []);
 
   const store = useMemo(
-    () => (storeId != null ? storeState.stores.find((s) => s.id === storeId) : undefined),
+    () =>
+      storeId != null
+        ? storeState.stores.find((s) => s.id === storeId)
+        : undefined,
     [storeId, storeState.stores]
   );
 
@@ -146,6 +154,73 @@ export default function AdminStoreDetails() {
     }
   };
 
+  const handleToggleProductActive = async (
+    productId: number,
+    nextValue: boolean
+  ) => {
+    setProductStatusLoading((prev) => ({ ...prev, [productId]: true }));
+    try {
+      await storeActions
+        .updateProductAdminStatus({ id: productId, isActive: nextValue })
+        .unwrap();
+      Alert.alert(
+        "Success",
+        `Product has been ${nextValue ? "enabled" : "disabled"}.`
+      );
+    } catch (error: any) {
+      Alert.alert(
+        "Error",
+        error?.message || "Failed to update product visibility."
+      );
+    } finally {
+      setProductStatusLoading((prev) => ({ ...prev, [productId]: false }));
+    }
+  };
+
+  const handleDeleteStore = () => {
+    if (!storeId) return;
+
+    Alert.alert(
+      "Delete Store",
+      `Are you sure you want to delete "${displayName}"? This action cannot be undone and may remove related data (products, promotions, etc.).`,
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Delete",
+          style: "destructive",
+          onPress: async () => {
+            toggleStoreLoading(true);
+            try {
+              await storeActions.deleteStore(storeId).unwrap();
+              await storeActions.findStores();
+              Alert.alert("Success", "Store deleted successfully.");
+              router.back();
+            } catch (error: any) {
+              Alert.alert("Error", error?.message || "Failed to delete store.");
+            } finally {
+              toggleStoreLoading(false);
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  const handleLocateStore = () => {
+    if (!store) return;
+    const hasCoords =
+      typeof (store as any).latitude === "number" &&
+      typeof (store as any).longitude === "number";
+
+    const url = hasCoords
+      ? `https://www.google.com/maps/search/?api=1&query=${(store as any).latitude},${(store as any).longitude}`
+      : `https://maps.google.com/maps?q=${encodeURIComponent(
+          (store as any).address || store.name || ""
+        )}`;
+
+    Linking.openURL(url);
+  };
+
   if (!storeId) {
     return (
       <View style={styles.loadingContainer}>
@@ -169,6 +244,23 @@ export default function AdminStoreDetails() {
 
   const displayName = store?.name || storeNameFromParams || "Store";
 
+  const rawLogo = (store as any)?.imageUrl as string | undefined;
+  const rawBanner = (store as any)?.bannerUrl as string | undefined;
+
+  const logoUrl = (() => {
+    if (!rawLogo) return undefined;
+    if (/^https?:\/\//i.test(rawLogo)) return rawLogo;
+    if (rawLogo.startsWith("/")) return `${env.API_BASE_URL}${rawLogo}`;
+    return `${env.API_BASE_URL}/files/${rawLogo}`;
+  })();
+
+  const bannerUrl = (() => {
+    if (!rawBanner) return undefined;
+    if (/^https?:\/\//i.test(rawBanner)) return rawBanner;
+    if (rawBanner.startsWith("/")) return `${env.API_BASE_URL}${rawBanner}`;
+    return `${env.API_BASE_URL}/files/${rawBanner}`;
+  })();
+
   return (
     <View style={styles.container}>
       <ScrollView
@@ -176,13 +268,28 @@ export default function AdminStoreDetails() {
         contentContainerStyle={styles.contentContainer}
         showsVerticalScrollIndicator={false}
       >
-        <View style={styles.headerRow}>
-          <TouchableOpacity style={styles.backIconButton} onPress={() => router.back()}>
-            <Ionicons name="arrow-back" size={18} color="#1F2937" />
-          </TouchableOpacity>
-          <Text style={styles.title} numberOfLines={1}>
-            {displayName}
-          </Text>
+        
+
+        {/* Store Banner / Hero */}
+        <View style={styles.bannerWrapper}>
+          {bannerUrl ? (
+            <Image
+              source={{ uri: bannerUrl }}
+              resizeMode="cover"
+              style={styles.banner}
+            />
+          ) : (
+            <View style={[styles.banner, styles.bannerPlaceholder]} />
+          )}
+          <View style={styles.bannerOverlayRow}>
+            <TouchableOpacity
+              style={styles.locateButton}
+              onPress={handleLocateStore}
+            >
+              <Ionicons name="navigate" size={16} color="#FFFFFF" />
+              <Text style={styles.locateButtonText}>Locate Store</Text>
+            </TouchableOpacity>
+          </View>
         </View>
 
         <View style={styles.storeCard}>
@@ -329,6 +436,16 @@ export default function AdminStoreDetails() {
               />
             </View>
           </View>
+          <View style={styles.deleteRow}>
+            <TouchableOpacity
+              style={[styles.deleteButton, storeActionLoading && styles.actionButtonDisabled]}
+              disabled={storeActionLoading}
+              onPress={handleDeleteStore}
+            >
+              <Ionicons name="trash-outline" size={16} color="#DC2626" />
+              <Text style={styles.deleteButtonText}>Delete Store</Text>
+            </TouchableOpacity>
+          </View>
         </View>
 
         <View style={styles.section}>
@@ -365,10 +482,7 @@ export default function AdminStoreDetails() {
                   <View style={styles.productBody}>
                     <Text style={styles.productTitle}>{product.name}</Text>
                     {product.description ? (
-                      <Text
-                        style={styles.productSub}
-                        numberOfLines={2}
-                      >
+                      <Text style={styles.productSub} numberOfLines={2}>
                         {product.description}
                       </Text>
                     ) : null}
@@ -447,6 +561,28 @@ export default function AdminStoreDetails() {
                           {product.isActive ? "Active" : "Inactive"}
                         </Text>
                       </View>
+                    </View>
+                    <View style={styles.promotionActions}>
+                      <View style={styles.switchRow}>
+                        <Text style={styles.switchLabel}>
+                          {product.isActive ? "Active" : "Disabled"}
+                        </Text>
+                        <Switch
+                          value={!!product.isActive}
+                          onValueChange={(value) =>
+                            handleToggleProductActive(product.id, value)
+                          }
+                          trackColor={{
+                            false: "#FECACA",
+                            true: "#A7F3D0",
+                          }}
+                          thumbColor="#FFFFFF"
+                          disabled={!!productStatusLoading[product.id]}
+                        />
+                      </View>
+                      {productStatusLoading[product.id] && (
+                        <ActivityIndicator size="small" color="#277874" />
+                      )}
                     </View>
                   </View>
                 </View>
@@ -621,6 +757,43 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginBottom: 16,
     gap: 12,
+  },
+  bannerWrapper: {
+    marginLeft: -20,
+    marginRight: -20,
+    backgroundColor: "#E5E7EB",
+    borderBottomLeftRadius: 16,
+    borderBottomRightRadius: 16,
+    overflow: "hidden",
+    marginBottom: 16,
+  },
+  banner: {
+    width: "100%",
+    height: 180,
+  },
+  bannerPlaceholder: {
+    backgroundColor: "#CBD5F5",
+  },
+  bannerOverlayRow: {
+    position: "absolute",
+    right: 16,
+    bottom: 16,
+    flexDirection: "row",
+    gap: 8,
+  },
+  locateButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 999,
+    backgroundColor: "rgba(39, 120, 116, 0.95)",
+  },
+  locateButtonText: {
+    color: "#FFFFFF",
+    fontSize: 13,
+    fontWeight: "600",
   },
   backIconButton: {
     width: 36,
@@ -857,6 +1030,27 @@ const styles = StyleSheet.create({
   },
   actionButtonText: {
     color: "#FFFFFF",
+    fontWeight: "600",
+  },
+  deleteRow: {
+    marginTop: 12,
+    flexDirection: "row",
+    justifyContent: "flex-end",
+  },
+  deleteButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 8,
+    backgroundColor: "#FEE2E2",
+    borderWidth: 1,
+    borderColor: "#DC2626",
+  },
+  deleteButtonText: {
+    color: "#DC2626",
+    fontSize: 14,
     fontWeight: "600",
   },
   switchRow: {

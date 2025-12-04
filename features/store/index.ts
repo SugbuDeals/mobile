@@ -36,6 +36,8 @@ export const useStore = () => {
     dispatch(thunk.updateStoreAdminStatus(payload));
   const findStoreById = (storeId: number) => 
     dispatch(thunk.findStoreById(storeId));
+  const deleteStore = (storeId: number) =>
+    dispatch(thunk.deleteStore(storeId));
   const getActiveSubscription = (userId: number) => 
     dispatch(thunk.getActiveSubscription(userId));
   const joinSubscription = (data: JoinSubscriptionDTO) => 
@@ -79,6 +81,7 @@ export const useStore = () => {
       createStore,
       updateStore,
       updateStoreAdminStatus,
+      deleteStore,
       findStoreById,
       getActiveSubscription,
       joinSubscription,

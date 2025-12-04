@@ -293,7 +293,7 @@ export default function DealsAnalytics() {
             </View>
           </View>
         </View>
-
+        
         {/* Deal Categories Distribution Section */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Deal Categories Distribution</Text>
@@ -330,69 +330,8 @@ export default function DealsAnalytics() {
               </View>
             </View>
           </View>
-
-          {/* Quick Promotion Management */}
-          <View style={styles.promotionManageSection}>
-            <Text style={styles.sectionSubtitle}>Manage Promotions</Text>
-            {storeState.promotions.length === 0 ? (
-              <View style={styles.emptyState}>
-                <Ionicons name="pricetag-outline" size={40} color="#9CA3AF" />
-                <Text style={styles.emptyStateText}>No promotions available</Text>
-              </View>
-            ) : (
-              <View style={styles.promotionList}>
-                {storeState.promotions.slice(0, 5).map((promotion) => (
-                  <View key={promotion.id} style={styles.promotionCard}>
-                    <View style={styles.promotionInfo}>
-                      <Text style={styles.promotionTitle} numberOfLines={1}>
-                        {promotion.title}
-                      </Text>
-                      <Text style={styles.promotionSub} numberOfLines={1}>
-                        {promotion.description}
-                      </Text>
-                    </View>
-                    <View style={styles.promotionStatusRow}>
-                      <Text style={styles.promotionStatusLabel}>
-                        {promotion.active ? "Active" : "Disabled"}
-                      </Text>
-                      <Switch
-                        value={!!promotion.active}
-                        onValueChange={(value) => handleTogglePromotionActive(promotion.id, value)}
-                        trackColor={{ false: "#FECACA", true: "#A7F3D0" }}
-                        thumbColor="#FFFFFF"
-                        disabled={!!promotionStatusLoading[promotion.id]}
-                      />
-                      {promotionStatusLoading[promotion.id] && (
-                        <ActivityIndicator size="small" color="#277874" style={styles.promotionSpinner} />
-                      )}
-                    </View>
-                  </View>
-                ))}
-              </View>
-            )}
-          </View>
         </View>
 
-        {/* Quick Actions */}
-        <View style={styles.quickActionsSection}>
-          <Text style={styles.sectionTitle}>Quick Actions</Text>
-          <View style={styles.quickActionsGrid}>
-            <TouchableOpacity 
-              style={styles.quickActionCard}
-              onPress={() => router.push("/(admin)/view-promotion")}
-            >
-              <Ionicons name="list" size={24} color="#277874" />
-              <Text style={styles.quickActionText}>View All Promotions</Text>
-            </TouchableOpacity>
-            <TouchableOpacity 
-              style={styles.quickActionCard}
-              onPress={() => router.push("/(admin)/settings")}
-            >
-              <Ionicons name="settings" size={24} color="#F59E0B" />
-              <Text style={styles.quickActionText}>Manage Categories</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
       </ScrollView>
     </View>
   );
@@ -469,58 +408,6 @@ const styles = StyleSheet.create({
     fontSize: 26,
     fontWeight: "900",
     color: "#1F2937",
-  },
-
-  // ===== PROMOTION MANAGEMENT SECTION =====
-  promotionManageSection: {
-    marginTop: 16,
-  },
-  sectionSubtitle: {
-    fontSize: 16,
-    fontWeight: "600",
-    color: "#4B5563",
-    marginBottom: 8,
-  },
-  promotionList: {
-    gap: 8,
-  },
-  promotionCard: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    backgroundColor: "#ffffff",
-    borderRadius: 10,
-    paddingVertical: 10,
-    paddingHorizontal: 12,
-    borderWidth: 1,
-    borderColor: "#E5E7EB",
-  },
-  promotionInfo: {
-    flex: 1,
-    paddingRight: 8,
-  },
-  promotionTitle: {
-    fontSize: 14,
-    fontWeight: "700",
-    color: "#111827",
-  },
-  promotionSub: {
-    fontSize: 12,
-    color: "#6B7280",
-    marginTop: 2,
-  },
-  promotionStatusRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-  },
-  promotionStatusLabel: {
-    fontSize: 12,
-    color: "#374151",
-    fontWeight: "600",
-  },
-  promotionSpinner: {
-    marginLeft: 4,
   },
   
   // ===== DEAL CATEGORIES SECTION =====
@@ -665,31 +552,4 @@ const styles = StyleSheet.create({
     fontWeight: "500",
   },
   
-  // ===== QUICK ACTIONS SECTION =====
-  quickActionsSection: {
-    marginBottom: 20,
-  },
-  quickActionsGrid: {
-    flexDirection: "row",
-    gap: 12,
-  },
-  quickActionCard: {
-    flex: 1,
-    backgroundColor: "#ffffff",
-    borderRadius: 12,
-    padding: 20,
-    alignItems: "center",
-    shadowColor: "#277874",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.15,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  quickActionText: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: "#1F2937",
-    marginTop: 8,
-    textAlign: "center",
-  },
 });
