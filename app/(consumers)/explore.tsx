@@ -592,9 +592,7 @@ const styles = StyleSheet.create({
     marginTop: 0,
   },
   searchContainerBottom: {
-    marginTop: 40,
-    marginBottom: 20,
-    paddingBottom: 20,
+    marginTop: 480,
   },
   insightHeadlineContainer: {
     flex: 1,
@@ -603,7 +601,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   insightHeadline: {
-    fontSize: 12,
+    fontSize: 16,
     fontWeight: "600",
     color: "#1F2937",
     lineHeight: 16,
@@ -803,7 +801,6 @@ const styles = StyleSheet.create({
   topRow: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between",
     marginBottom: 0,
     gap: 12,
   },
@@ -813,7 +810,6 @@ const styles = StyleSheet.create({
     borderRadius: 24,
     justifyContent: "center",
     alignItems: "center",
-    marginRight: 12,
   },
   searchInput: {
     fontSize: 16,
@@ -914,16 +910,14 @@ const styles = StyleSheet.create({
   },
   insightsText: {
     color: "#6b3f14",
-    marginBottom: 10,
-    lineHeight: 18,
-    fontSize: 12,
+    lineHeight: 22,
+    fontSize: 16,
     transform: [{ scale: 0.92 }],
-    paddingRight: 4,
   },
   insightsTextMuted: {
     color: "#9a6c3a",
     marginBottom: 10,
-    fontSize: 12,
+    fontSize: 16,
     transform: [{ scale: 0.92 }],
     paddingRight: 4,
   },

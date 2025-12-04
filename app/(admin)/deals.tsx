@@ -1,17 +1,16 @@
-import { useCatalog } from "@/features/catalog";
 import { useStore } from "@/features/store";
+import { useCatalog } from "@/features/catalog";
 import { Ionicons } from "@expo/vector-icons";
-import React, { useEffect, useState } from "react";
+import { useRouter } from "expo-router";
+import React, { useEffect, useState, useMemo } from "react";
 import {
   ActivityIndicator,
   Alert,
   Dimensions,
-  Modal,
   ScrollView,
   StyleSheet,
   Switch,
   Text,
-  TextInput,
   TouchableOpacity,
   View,
 } from "react-native";
@@ -110,18 +109,9 @@ const MetricsCard = ({ label, value, icon, color, bgColor }: {
 export default function DealsAnalytics() {
   const { state: storeState, action: storeActions } = useStore();
   const { state: catalogState, action: catalogActions } = useCatalog();
+  const router = useRouter();
   const [isLoading, setIsLoading] = useState(true);
   const [promotionStatusLoading, setPromotionStatusLoading] = useState<Record<number, boolean>>({});
-  
-  // Category management state
-  const [showAddModal, setShowAddModal] = useState(false);
-  const [showEditModal, setShowEditModal] = useState(false);
-  const [showDeleteModal, setShowDeleteModal] = useState(false);
-  const [categoryToEdit, setCategoryToEdit] = useState<any>(null);
-  const [categoryToDelete, setCategoryToDelete] = useState<number | null>(null);
-  const [newCategoryName, setNewCategoryName] = useState("");
-  const [editCategoryName, setEditCategoryName] = useState("");
-  const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
     // Fetch promotions, products, and categories data
@@ -134,15 +124,48 @@ export default function DealsAnalytics() {
     return () => clearTimeout(timer);
   }, []);
 
-  // Calculate metrics from real data
-  const totalDeals = storeState.promotions.length;
-  const activeDeals = storeState.promotions.filter(promotion => promotion.active).length;
-  
-  // Calculate average discount
-  const totalDiscount = storeState.promotions.reduce((sum, promotion) => {
-    return sum + (promotion.discount || 0);
-  }, 0);
-  const averageDiscount = totalDeals > 0 ? (totalDiscount / totalDeals).toFixed(1) : "0.0";
+  // Calculate comprehensive metrics
+  const metrics = useMemo(() => {
+    const totalDeals = storeState.promotions.length;
+    const activeDeals = storeState.promotions.filter(promotion => promotion.active).length;
+    const inactiveDeals = totalDeals - activeDeals;
+    
+    // Calculate average discount
+    const totalDiscount = storeState.promotions.reduce((sum, promotion) => {
+      return sum + (promotion.discount || 0);
+    }, 0);
+    const averageDiscount = totalDeals > 0 ? (totalDiscount / totalDeals).toFixed(1) : "0.0";
+    
+    // Calculate discount types
+    const percentageDeals = storeState.promotions.filter(p => p.type === "percentage").length;
+    const fixedDeals = storeState.promotions.filter(p => p.type === "fixed").length;
+    
+    // Calculate deals by date (last 7 days, last 30 days)
+    const now = new Date();
+    const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+    const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+    
+    const dealsLast7Days = storeState.promotions.filter(p => {
+      const created = new Date(p.createdAt || p.created_at || 0);
+      return created >= sevenDaysAgo;
+    }).length;
+    
+    const dealsLast30Days = storeState.promotions.filter(p => {
+      const created = new Date(p.createdAt || p.created_at || 0);
+      return created >= thirtyDaysAgo;
+    }).length;
+    
+    return {
+      totalDeals,
+      activeDeals,
+      inactiveDeals,
+      averageDiscount,
+      percentageDeals,
+      fixedDeals,
+      dealsLast7Days,
+      dealsLast30Days,
+    };
+  }, [storeState.promotions]);
 
   const handleTogglePromotionActive = async (promotionId: number, nextValue: boolean) => {
     setPromotionStatusLoading((prev) => ({ ...prev, [promotionId]: true }));
@@ -197,74 +220,6 @@ export default function DealsAnalytics() {
 
   const categoryDistribution = calculateCategoryDistribution();
 
-  // Category management functions
-  const handleAddCategory = async () => {
-    if (!newCategoryName.trim()) {
-      Alert.alert("Error", "Category name is required");
-      return;
-    }
-
-    setIsSaving(true);
-    try {
-      await catalogActions.addCategory({ name: newCategoryName.trim() });
-      setShowAddModal(false);
-      setNewCategoryName("");
-      Alert.alert("Success", "Category created successfully");
-    } catch (error) {
-      Alert.alert("Error", "Failed to create category");
-    } finally {
-      setIsSaving(false);
-    }
-  };
-
-  const handleEditCategory = async () => {
-    if (!editCategoryName.trim()) {
-      Alert.alert("Error", "Category name is required");
-      return;
-    }
-
-    if (!categoryToEdit) return;
-
-    setIsSaving(true);
-    try {
-      await catalogActions.editCategory(categoryToEdit.id, { name: editCategoryName.trim() });
-      setShowEditModal(false);
-      setCategoryToEdit(null);
-      setEditCategoryName("");
-      Alert.alert("Success", "Category updated successfully");
-    } catch (error) {
-      Alert.alert("Error", "Failed to update category");
-    } finally {
-      setIsSaving(false);
-    }
-  };
-
-  const handleDeleteCategory = async () => {
-    if (!categoryToDelete) return;
-
-    setIsSaving(true);
-    try {
-      await catalogActions.removeCategory(categoryToDelete);
-      setShowDeleteModal(false);
-      setCategoryToDelete(null);
-      Alert.alert("Success", "Category deleted successfully");
-    } catch (error) {
-      Alert.alert("Error", "Failed to delete category");
-    } finally {
-      setIsSaving(false);
-    }
-  };
-
-  const openEditModal = (category: any) => {
-    setCategoryToEdit(category);
-    setEditCategoryName(category.name);
-    setShowEditModal(true);
-  };
-
-  const openDeleteModal = (categoryId: number) => {
-    setCategoryToDelete(categoryId);
-    setShowDeleteModal(true);
-  };
 
   if (isLoading) {
     return (
@@ -283,28 +238,58 @@ export default function DealsAnalytics() {
           <View style={styles.metricsGrid}>
             <MetricsCard
               label="Total Deals"
-              value={totalDeals.toLocaleString()}
+              value={metrics.totalDeals.toLocaleString()}
               icon="flame"
               color="#277874"
               bgColor="#e0f2f1"
             />
             <MetricsCard
               label="Active Deals"
-              value={activeDeals.toLocaleString()}
+              value={metrics.activeDeals.toLocaleString()}
               icon="pricetag"
               color="#FFBE5D"
               bgColor="#fef3c7"
             />
+            <MetricsCard
+              label="Inactive Deals"
+              value={metrics.inactiveDeals.toLocaleString()}
+              icon="pause-circle"
+              color="#6B7280"
+              bgColor="#F3F4F6"
+            />
+            <MetricsCard
+              label="Avg Discount"
+              value={`${metrics.averageDiscount}%`}
+              icon="trending-up"
+              color="#10B981"
+              bgColor="#D1FAE5"
+            />
           </View>
-          <View style={styles.fullWidthCard}>
-            <View style={styles.fullWidthMetricCard}>
-              <View style={styles.metricHeader}>
-                <Text style={styles.metricLabel}>Avg Discount</Text>
-                <View style={[styles.metricIcon, { backgroundColor: "#e0f2f1" }]}>
-                  <Ionicons name="trending-up" size={20} color="#277874" />
-                </View>
-              </View>
-              <Text style={[styles.metricValue, { color: "#277874" }]}>{averageDiscount}%</Text>
+        </View>
+
+        {/* Additional Analytics */}
+        <View style={styles.analyticsSection}>
+          <Text style={styles.sectionTitle}>Deal Statistics</Text>
+          <View style={styles.analyticsGrid}>
+            <View style={styles.analyticsCard}>
+              <Ionicons name="percent" size={24} color="#3B82F6" />
+              <Text style={styles.analyticsValue}>{metrics.percentageDeals}</Text>
+              <Text style={styles.analyticsLabel}>Percentage Deals</Text>
+            </View>
+            <View style={styles.analyticsCard}>
+              <Ionicons name="cash" size={24} color="#F59E0B" />
+              <Text style={styles.analyticsValue}>{metrics.fixedDeals}</Text>
+              <Text style={styles.analyticsLabel}>Fixed Amount Deals</Text>
+            </View>
+            <View style={styles.analyticsCard}>
+              <Ionicons name="calendar" size={24} color="#10B981" />
+              <Text style={styles.analyticsValue}>{metrics.dealsLast7Days}</Text>
+              <Text style={styles.analyticsLabel}>Last 7 Days</Text>
+            </View>
+            <View style={styles.analyticsCard}>
+              <Ionicons name="time" size={24} color="#8B5CF6" />
+              <Text style={styles.analyticsValue}>{metrics.dealsLast30Days}</Text>
+              <Text style={styles.analyticsLabel}>Last 30 Days</Text>
             </View>
           </View>
         </View>
@@ -388,228 +373,27 @@ export default function DealsAnalytics() {
           </View>
         </View>
 
-        {/* Categories Management Section */}
-        <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Categories Management</Text>
+        {/* Quick Actions */}
+        <View style={styles.quickActionsSection}>
+          <Text style={styles.sectionTitle}>Quick Actions</Text>
+          <View style={styles.quickActionsGrid}>
             <TouchableOpacity 
-              style={styles.addCategoryButton}
-              onPress={() => setShowAddModal(true)}
+              style={styles.quickActionCard}
+              onPress={() => router.push("/(admin)/view-promotion")}
             >
-              <Ionicons name="add" size={20} color="#1f2937" />
+              <Ionicons name="list" size={24} color="#277874" />
+              <Text style={styles.quickActionText}>View All Promotions</Text>
             </TouchableOpacity>
-          </View>
-
-          <View style={styles.categoriesList}>
-            {catalogState.categories.length > 0 ? (
-              catalogState.categories.map((category, index) => (
-                <View key={category.id} style={styles.categoryCard}>
-                  <View style={styles.categoryInfo}>
-                    <View style={[styles.categoryColorDot, { backgroundColor: categoryColors[index % categoryColors.length] }]} />
-                    <Text style={styles.categoryName}>{category.name}</Text>
-                  </View>
-                  <View style={styles.categoryActions}>
-                    <TouchableOpacity 
-                      style={styles.categoryActionButton}
-                      onPress={() => openEditModal(category)}
-                    >
-                      <Ionicons name="create-outline" size={18} color="#277874" />
-                    </TouchableOpacity>
-                    <TouchableOpacity 
-                      style={styles.categoryActionButton}
-                      onPress={() => openDeleteModal(category.id)}
-                    >
-                      <Ionicons name="trash-outline" size={18} color="#DC2626" />
-                    </TouchableOpacity>
-                  </View>
-                </View>
-              ))
-            ) : (
-              <View style={styles.emptyCategoriesState}>
-                <Ionicons name="folder-outline" size={48} color="#9CA3AF" />
-                <Text style={styles.emptyCategoriesText}>No categories created yet</Text>
-                <Text style={styles.emptyCategoriesSubtext}>
-                  Create your first category to start organizing products
-                </Text>
-              </View>
-            )}
+            <TouchableOpacity 
+              style={styles.quickActionCard}
+              onPress={() => router.push("/(admin)/settings")}
+            >
+              <Ionicons name="settings" size={24} color="#F59E0B" />
+              <Text style={styles.quickActionText}>Manage Categories</Text>
+            </TouchableOpacity>
           </View>
         </View>
       </ScrollView>
-
-      {/* Add Category Modal */}
-      <Modal
-        visible={showAddModal}
-        transparent={true}
-        animationType="slide"
-        onRequestClose={() => setShowAddModal(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Add New Category</Text>
-              <TouchableOpacity
-                onPress={() => setShowAddModal(false)}
-                style={styles.closeButton}
-              >
-                <Ionicons name="close" size={24} color="#6B7280" />
-              </TouchableOpacity>
-            </View>
-
-            <View style={styles.modalBody}>
-              <View style={styles.inputGroup}>
-                <Text style={styles.inputLabel}>Category Name</Text>
-                <TextInput
-                  style={styles.textInput}
-                  value={newCategoryName}
-                  onChangeText={setNewCategoryName}
-                  placeholder="Enter category name"
-                  placeholderTextColor="#9CA3AF"
-                />
-              </View>
-            </View>
-
-            <View style={styles.modalButtons}>
-              <TouchableOpacity
-                style={[styles.modalButton, styles.cancelButton]}
-                onPress={() => {
-                  setShowAddModal(false);
-                  setNewCategoryName("");
-                }}
-              >
-                <Text style={styles.cancelButtonText}>Cancel</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.modalButton, styles.saveButton]}
-                onPress={handleAddCategory}
-                disabled={isSaving}
-              >
-                {isSaving ? (
-                  <ActivityIndicator size="small" color="#ffffff" />
-                ) : (
-                  <Text style={styles.saveButtonText}>Create Category</Text>
-                )}
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
-
-      {/* Edit Category Modal */}
-      <Modal
-        visible={showEditModal}
-        transparent={true}
-        animationType="slide"
-        onRequestClose={() => setShowEditModal(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Edit Category</Text>
-              <TouchableOpacity
-                onPress={() => setShowEditModal(false)}
-                style={styles.closeButton}
-              >
-                <Ionicons name="close" size={24} color="#6B7280" />
-              </TouchableOpacity>
-            </View>
-
-            <View style={styles.modalBody}>
-              <View style={styles.inputGroup}>
-                <Text style={styles.inputLabel}>Category Name</Text>
-                <TextInput
-                  style={styles.textInput}
-                  value={editCategoryName}
-                  onChangeText={setEditCategoryName}
-                  placeholder="Enter category name"
-                  placeholderTextColor="#9CA3AF"
-                />
-              </View>
-            </View>
-
-            <View style={styles.modalButtons}>
-              <TouchableOpacity
-                style={[styles.modalButton, styles.cancelButton]}
-                onPress={() => {
-                  setShowEditModal(false);
-                  setCategoryToEdit(null);
-                  setEditCategoryName("");
-                }}
-              >
-                <Text style={styles.cancelButtonText}>Cancel</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.modalButton, styles.saveButton]}
-                onPress={handleEditCategory}
-                disabled={isSaving}
-              >
-                {isSaving ? (
-                  <ActivityIndicator size="small" color="#ffffff" />
-                ) : (
-                  <Text style={styles.saveButtonText}>Update Category</Text>
-                )}
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
-
-      {/* Delete Category Modal */}
-      <Modal
-        visible={showDeleteModal}
-        transparent={true}
-        animationType="slide"
-        onRequestClose={() => setShowDeleteModal(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Delete Category</Text>
-              <TouchableOpacity
-                onPress={() => setShowDeleteModal(false)}
-                style={styles.closeButton}
-              >
-                <Ionicons name="close" size={24} color="#6B7280" />
-              </TouchableOpacity>
-            </View>
-
-            <View style={styles.modalBody}>
-              <View style={styles.warningIcon}>
-                <Ionicons name="warning" size={48} color="#DC2626" />
-              </View>
-              <Text style={styles.warningText}>
-                Are you sure you want to delete this category?
-              </Text>
-              <Text style={styles.warningSubtext}>
-                This action cannot be undone. Products assigned to this category may be affected.
-              </Text>
-            </View>
-
-            <View style={styles.modalButtons}>
-              <TouchableOpacity
-                style={[styles.modalButton, styles.cancelButton]}
-                onPress={() => {
-                  setShowDeleteModal(false);
-                  setCategoryToDelete(null);
-                }}
-              >
-                <Text style={styles.cancelButtonText}>Cancel</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.modalButton, styles.deleteButton]}
-                onPress={handleDeleteCategory}
-                disabled={isSaving}
-              >
-                {isSaving ? (
-                  <ActivityIndicator size="small" color="#ffffff" />
-                ) : (
-                  <Text style={styles.deleteButtonText}>Delete Category</Text>
-                )}
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
     </View>
   );
 }
@@ -846,195 +630,66 @@ const styles = StyleSheet.create({
     lineHeight: 20,
   },
 
-  // ===== CATEGORIES LIST STYLES =====
-  categoriesList: {
+  // ===== ANALYTICS SECTION =====
+  analyticsSection: {
+    marginBottom: 20,
+  },
+  analyticsGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    justifyContent: "space-between",
     gap: 12,
   },
-  categoryCard: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
+  analyticsCard: {
     backgroundColor: "#ffffff",
     borderRadius: 12,
     padding: 16,
-    borderWidth: 1,
-    borderColor: "#E5E7EB",
+    width: (width - 60) / 2,
+    alignItems: "center",
     shadowColor: "#277874",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 1,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
+    elevation: 3,
   },
-  categoryInfo: {
-    flexDirection: "row",
-    alignItems: "center",
-    flex: 1,
-  },
-  categoryColorDot: {
-    width: 16,
-    height: 16,
-    borderRadius: 8,
-    marginRight: 12,
-  },
-  categoryName: {
-    fontSize: 16,
-    fontWeight: "600",
-    color: "#1F2937",
-  },
-  emptyCategoriesState: {
-    alignItems: "center",
-    padding: 40,
-  },
-  emptyCategoriesText: {
-    fontSize: 16,
-    fontWeight: "600",
-    color: "#6B7280",
-    marginTop: 12,
-    marginBottom: 8,
-  },
-  emptyCategoriesSubtext: {
-    fontSize: 14,
-    color: "#9CA3AF",
-    textAlign: "center",
-    lineHeight: 20,
-  },
-
-  // ===== CATEGORY MANAGEMENT STYLES =====
-  sectionHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 16,
-  },
-  addCategoryButton: {
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: "#FFBE5D",
-    width: 40,
-    height: 40,
-    borderRadius: 8,
-  },
-  legendItem: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: 8,
-  },
-  categoryActions: {
-    flexDirection: "row",
-    gap: 8,
-  },
-  categoryActionButton: {
-    padding: 8,
-    borderRadius: 6,
-    backgroundColor: "#f0f9f8",
-  },
-
-  // ===== MODAL STYLES =====
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: "rgba(0, 0, 0, 0.5)",
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  modalContent: {
-    backgroundColor: "#ffffff",
-    borderRadius: 20,
-    width: width - 40,
-    maxHeight: "80%",
-    overflow: "hidden",
-  },
-  modalHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    padding: 20,
-    borderBottomWidth: 1,
-    borderBottomColor: "#E5E7EB",
-  },
-  modalTitle: {
-    fontSize: 20,
-    fontWeight: "bold",
+  analyticsValue: {
+    fontSize: 24,
+    fontWeight: "900",
     color: "#277874",
+    marginTop: 8,
+    marginBottom: 4,
   },
-  closeButton: {
-    width: 32,
-    height: 32,
-    justifyContent: "center",
-    alignItems: "center",
+  analyticsLabel: {
+    fontSize: 12,
+    color: "#6B7280",
+    fontWeight: "500",
   },
-  modalBody: {
-    padding: 20,
+  
+  // ===== QUICK ACTIONS SECTION =====
+  quickActionsSection: {
+    marginBottom: 20,
   },
-  inputGroup: {
-    marginBottom: 16,
-  },
-  inputLabel: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: "#374151",
-    marginBottom: 8,
-  },
-  textInput: {
-    backgroundColor: "#F9FAFB",
-    borderWidth: 1,
-    borderColor: "#277874",
-    borderRadius: 8,
-    padding: 12,
-    fontSize: 16,
-    color: "#1F2937",
-  },
-  modalButtons: {
+  quickActionsGrid: {
     flexDirection: "row",
     gap: 12,
-    padding: 20,
-    borderTopWidth: 1,
-    borderTopColor: "#E5E7EB",
   },
-  modalButton: {
+  quickActionCard: {
     flex: 1,
-    paddingVertical: 12,
-    borderRadius: 8,
+    backgroundColor: "#ffffff",
+    borderRadius: 12,
+    padding: 20,
     alignItems: "center",
+    shadowColor: "#277874",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
+    elevation: 3,
   },
-  cancelButton: {
-    backgroundColor: "#F3F4F6",
-  },
-  cancelButtonText: {
-    color: "#374151",
-    fontSize: 16,
-    fontWeight: "600",
-  },
-  saveButton: {
-    backgroundColor: "#277874",
-  },
-  saveButtonText: {
-    color: "#ffffff",
-    fontSize: 16,
-    fontWeight: "600",
-  },
-  deleteButton: {
-    backgroundColor: "#DC2626",
-  },
-  deleteButtonText: {
-    color: "#ffffff",
-    fontSize: 16,
-    fontWeight: "600",
-  },
-  warningIcon: {
-    alignItems: "center",
-    marginBottom: 16,
-  },
-  warningText: {
-    fontSize: 16,
+  quickActionText: {
+    fontSize: 14,
     fontWeight: "600",
     color: "#1F2937",
+    marginTop: 8,
     textAlign: "center",
-    marginBottom: 8,
-  },
-  warningSubtext: {
-    fontSize: 14,
-    color: "#6B7280",
-    textAlign: "center",
-    lineHeight: 20,
   },
 });

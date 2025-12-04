@@ -1,11 +1,14 @@
 import { logout } from "@/features/auth/slice";
 import { useAppDispatch } from "@/store/hooks";
+import { useCatalog } from "@/features/catalog";
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import React, { useEffect, useState } from "react";
 import {
     ActivityIndicator,
     Alert,
+    Dimensions,
+    Modal,
     ScrollView,
     StyleSheet,
     Text,
@@ -14,6 +17,8 @@ import {
     View,
 } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+
+const { width } = Dimensions.get("window");
 
 const SETTINGS_STORAGE_KEY = "@admin_settings";
 
@@ -27,6 +32,7 @@ interface AdminSettingsData {
 // ===== MAIN COMPONENT =====
 export default function AdminSettings() {
   const dispatch = useAppDispatch();
+  const { state: catalogState, action: catalogActions } = useCatalog();
   
   // State management for all form inputs
   const [aiResponse, setAiResponse] = useState("");
@@ -37,10 +43,26 @@ export default function AdminSettings() {
   const [isSaving, setIsSaving] = useState(false);
   const [hasChanges, setHasChanges] = useState(false);
   const [originalSettings, setOriginalSettings] = useState<AdminSettingsData | null>(null);
+  
+  // Category management state
+  const [showAddCategoryModal, setShowAddCategoryModal] = useState(false);
+  const [showEditCategoryModal, setShowEditCategoryModal] = useState(false);
+  const [showDeleteCategoryModal, setShowDeleteCategoryModal] = useState(false);
+  const [categoryToEdit, setCategoryToEdit] = useState<any>(null);
+  const [categoryToDelete, setCategoryToDelete] = useState<number | null>(null);
+  const [newCategoryName, setNewCategoryName] = useState("");
+  const [editCategoryName, setEditCategoryName] = useState("");
+  const [isSavingCategory, setIsSavingCategory] = useState(false);
+  
+  const categoryColors = [
+    "#277874", "#FFBE5D", "#8B5CF6", "#F87171", "#60A5FA", 
+    "#F59E0B", "#1E40AF", "#10B981", "#EF4444", "#06B6D4"
+  ];
 
-  // Load settings on mount
+  // Load settings and categories on mount
   useEffect(() => {
     loadSettings();
+    catalogActions.loadCategories();
   }, []);
 
   // Track changes
@@ -173,6 +195,75 @@ export default function AdminSettings() {
     );
   };
 
+  // Category management functions
+  const handleAddCategory = async () => {
+    if (!newCategoryName.trim()) {
+      Alert.alert("Error", "Category name is required");
+      return;
+    }
+
+    setIsSavingCategory(true);
+    try {
+      await catalogActions.addCategory({ name: newCategoryName.trim() });
+      setShowAddCategoryModal(false);
+      setNewCategoryName("");
+      Alert.alert("Success", "Category created successfully");
+    } catch (error) {
+      Alert.alert("Error", "Failed to create category");
+    } finally {
+      setIsSavingCategory(false);
+    }
+  };
+
+  const handleEditCategory = async () => {
+    if (!editCategoryName.trim()) {
+      Alert.alert("Error", "Category name is required");
+      return;
+    }
+
+    if (!categoryToEdit) return;
+
+    setIsSavingCategory(true);
+    try {
+      await catalogActions.editCategory(categoryToEdit.id, { name: editCategoryName.trim() });
+      setShowEditCategoryModal(false);
+      setCategoryToEdit(null);
+      setEditCategoryName("");
+      Alert.alert("Success", "Category updated successfully");
+    } catch (error) {
+      Alert.alert("Error", "Failed to update category");
+    } finally {
+      setIsSavingCategory(false);
+    }
+  };
+
+  const handleDeleteCategory = async () => {
+    if (!categoryToDelete) return;
+
+    setIsSavingCategory(true);
+    try {
+      await catalogActions.removeCategory(categoryToDelete);
+      setShowDeleteCategoryModal(false);
+      setCategoryToDelete(null);
+      Alert.alert("Success", "Category deleted successfully");
+    } catch (error) {
+      Alert.alert("Error", "Failed to delete category");
+    } finally {
+      setIsSavingCategory(false);
+    }
+  };
+
+  const openEditCategoryModal = (category: any) => {
+    setCategoryToEdit(category);
+    setEditCategoryName(category.name);
+    setShowEditCategoryModal(true);
+  };
+
+  const openDeleteCategoryModal = (categoryId: number) => {
+    setCategoryToDelete(categoryId);
+    setShowDeleteCategoryModal(true);
+  };
+
   if (isLoading) {
     return (
       <View style={[styles.container, styles.loadingContainer]}>
@@ -206,8 +297,190 @@ export default function AdminSettings() {
           hasChanges={hasChanges}
         />
         
+        <CategoryManagementCard
+          categories={catalogState.categories}
+          categoryColors={categoryColors}
+          onAdd={() => setShowAddCategoryModal(true)}
+          onEdit={openEditCategoryModal}
+          onDelete={openDeleteCategoryModal}
+        />
+        
         <LogoutButton onLogout={handleLogout} />
       </ScrollView>
+
+      {/* Add Category Modal */}
+      <Modal
+        visible={showAddCategoryModal}
+        transparent={true}
+        animationType="slide"
+        onRequestClose={() => setShowAddCategoryModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Add New Category</Text>
+              <TouchableOpacity
+                onPress={() => setShowAddCategoryModal(false)}
+                style={styles.closeButton}
+              >
+                <Ionicons name="close" size={24} color="#6B7280" />
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.modalBody}>
+              <View style={styles.inputGroup}>
+                <Text style={styles.inputLabel}>Category Name</Text>
+                <TextInput
+                  style={styles.textInput}
+                  value={newCategoryName}
+                  onChangeText={setNewCategoryName}
+                  placeholder="Enter category name"
+                  placeholderTextColor="#9CA3AF"
+                />
+              </View>
+            </View>
+
+            <View style={styles.modalButtons}>
+              <TouchableOpacity
+                style={[styles.modalButton, styles.cancelButton]}
+                onPress={() => {
+                  setShowAddCategoryModal(false);
+                  setNewCategoryName("");
+                }}
+              >
+                <Text style={styles.cancelButtonText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.modalButton, styles.saveButton]}
+                onPress={handleAddCategory}
+                disabled={isSavingCategory}
+              >
+                {isSavingCategory ? (
+                  <ActivityIndicator size="small" color="#ffffff" />
+                ) : (
+                  <Text style={styles.saveButtonText}>Create Category</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Edit Category Modal */}
+      <Modal
+        visible={showEditCategoryModal}
+        transparent={true}
+        animationType="slide"
+        onRequestClose={() => setShowEditCategoryModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Edit Category</Text>
+              <TouchableOpacity
+                onPress={() => setShowEditCategoryModal(false)}
+                style={styles.closeButton}
+              >
+                <Ionicons name="close" size={24} color="#6B7280" />
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.modalBody}>
+              <View style={styles.inputGroup}>
+                <Text style={styles.inputLabel}>Category Name</Text>
+                <TextInput
+                  style={styles.textInput}
+                  value={editCategoryName}
+                  onChangeText={setEditCategoryName}
+                  placeholder="Enter category name"
+                  placeholderTextColor="#9CA3AF"
+                />
+              </View>
+            </View>
+
+            <View style={styles.modalButtons}>
+              <TouchableOpacity
+                style={[styles.modalButton, styles.cancelButton]}
+                onPress={() => {
+                  setShowEditCategoryModal(false);
+                  setCategoryToEdit(null);
+                  setEditCategoryName("");
+                }}
+              >
+                <Text style={styles.cancelButtonText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.modalButton, styles.saveButton]}
+                onPress={handleEditCategory}
+                disabled={isSavingCategory}
+              >
+                {isSavingCategory ? (
+                  <ActivityIndicator size="small" color="#ffffff" />
+                ) : (
+                  <Text style={styles.saveButtonText}>Update Category</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Delete Category Modal */}
+      <Modal
+        visible={showDeleteCategoryModal}
+        transparent={true}
+        animationType="slide"
+        onRequestClose={() => setShowDeleteCategoryModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Delete Category</Text>
+              <TouchableOpacity
+                onPress={() => setShowDeleteCategoryModal(false)}
+                style={styles.closeButton}
+              >
+                <Ionicons name="close" size={24} color="#6B7280" />
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.modalBody}>
+              <View style={styles.warningIcon}>
+                <Ionicons name="warning" size={48} color="#DC2626" />
+              </View>
+              <Text style={styles.warningText}>
+                Are you sure you want to delete this category?
+              </Text>
+              <Text style={styles.warningSubtext}>
+                This action cannot be undone. Products assigned to this category may be affected.
+              </Text>
+            </View>
+
+            <View style={styles.modalButtons}>
+              <TouchableOpacity
+                style={[styles.modalButton, styles.cancelButton]}
+                onPress={() => {
+                  setShowDeleteCategoryModal(false);
+                  setCategoryToDelete(null);
+                }}
+              >
+                <Text style={styles.cancelButtonText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.modalButton, styles.deleteButton]}
+                onPress={handleDeleteCategory}
+                disabled={isSavingCategory}
+              >
+                {isSavingCategory ? (
+                  <ActivityIndicator size="small" color="#ffffff" />
+                ) : (
+                  <Text style={styles.deleteButtonText}>Delete Category</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -345,6 +618,69 @@ const ActionButtons = ({
         !hasChanges && styles.cancelButtonTextDisabled
       ]}>Cancel</Text>
     </TouchableOpacity>
+  </View>
+);
+
+// Category Management Card Component
+const CategoryManagementCard = ({
+  categories,
+  categoryColors,
+  onAdd,
+  onEdit,
+  onDelete,
+}: {
+  categories: any[];
+  categoryColors: string[];
+  onAdd: () => void;
+  onEdit: (category: any) => void;
+  onDelete: (categoryId: number) => void;
+}) => (
+  <View style={styles.settingsCard}>
+    <View style={styles.sectionHeader}>
+      <Ionicons name="albums" size={20} color="#8B5CF6" />
+      <Text style={styles.sectionTitle}>Category Management</Text>
+      <TouchableOpacity 
+        style={styles.addCategoryButton}
+        onPress={onAdd}
+      >
+        <Ionicons name="add" size={20} color="#1f2937" />
+      </TouchableOpacity>
+    </View>
+    
+    <View style={styles.categoriesList}>
+      {categories.length > 0 ? (
+        categories.map((category, index) => (
+          <View key={category.id} style={styles.categoryCard}>
+            <View style={styles.categoryInfo}>
+              <View style={[styles.categoryColorDot, { backgroundColor: categoryColors[index % categoryColors.length] }]} />
+              <Text style={styles.categoryName}>{category.name}</Text>
+            </View>
+            <View style={styles.categoryActions}>
+              <TouchableOpacity 
+                style={styles.categoryActionButton}
+                onPress={() => onEdit(category)}
+              >
+                <Ionicons name="create-outline" size={18} color="#277874" />
+              </TouchableOpacity>
+              <TouchableOpacity 
+                style={styles.categoryActionButton}
+                onPress={() => onDelete(category.id)}
+              >
+                <Ionicons name="trash-outline" size={18} color="#DC2626" />
+              </TouchableOpacity>
+            </View>
+          </View>
+        ))
+      ) : (
+        <View style={styles.emptyCategoriesState}>
+          <Ionicons name="folder-outline" size={48} color="#9CA3AF" />
+          <Text style={styles.emptyCategoriesText}>No categories created yet</Text>
+          <Text style={styles.emptyCategoriesSubtext}>
+            Create your first category to start organizing products
+          </Text>
+        </View>
+      )}
+    </View>
   </View>
 );
 
@@ -513,5 +849,181 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "600", // Semi-bold
     marginLeft: 8, // Space after icon
+  },
+  
+  // ===== CATEGORY MANAGEMENT STYLES =====
+  categoriesList: {
+    gap: 12,
+  },
+  categoryCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    backgroundColor: "#F9FAFB",
+    borderRadius: 12,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: "#E5E7EB",
+  },
+  categoryInfo: {
+    flexDirection: "row",
+    alignItems: "center",
+    flex: 1,
+  },
+  categoryColorDot: {
+    width: 16,
+    height: 16,
+    borderRadius: 8,
+    marginRight: 12,
+  },
+  categoryName: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#1F2937",
+  },
+  categoryActions: {
+    flexDirection: "row",
+    gap: 8,
+  },
+  categoryActionButton: {
+    padding: 8,
+    borderRadius: 6,
+    backgroundColor: "#ffffff",
+    borderWidth: 1,
+    borderColor: "#E5E7EB",
+  },
+  addCategoryButton: {
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#FFBE5D",
+    width: 40,
+    height: 40,
+    borderRadius: 8,
+  },
+  emptyCategoriesState: {
+    alignItems: "center",
+    padding: 40,
+  },
+  emptyCategoriesText: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#6B7280",
+    marginTop: 12,
+    marginBottom: 8,
+  },
+  emptyCategoriesSubtext: {
+    fontSize: 14,
+    color: "#9CA3AF",
+    textAlign: "center",
+    lineHeight: 20,
+  },
+  
+  // ===== MODAL STYLES =====
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  modalContent: {
+    backgroundColor: "#ffffff",
+    borderRadius: 20,
+    width: width - 40,
+    maxHeight: "80%",
+    overflow: "hidden",
+  },
+  modalHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    padding: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: "#E5E7EB",
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: "bold",
+    color: "#277874",
+  },
+  closeButton: {
+    width: 32,
+    height: 32,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  modalBody: {
+    padding: 20,
+  },
+  inputGroup: {
+    marginBottom: 16,
+  },
+  inputLabel: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#374151",
+    marginBottom: 8,
+  },
+  textInput: {
+    backgroundColor: "#F9FAFB",
+    borderWidth: 1,
+    borderColor: "#277874",
+    borderRadius: 8,
+    padding: 12,
+    fontSize: 16,
+    color: "#1F2937",
+  },
+  modalButtons: {
+    flexDirection: "row",
+    gap: 12,
+    padding: 20,
+    borderTopWidth: 1,
+    borderTopColor: "#E5E7EB",
+  },
+  modalButton: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 8,
+    alignItems: "center",
+  },
+  cancelButton: {
+    backgroundColor: "#F3F4F6",
+  },
+  cancelButtonText: {
+    color: "#374151",
+    fontSize: 16,
+    fontWeight: "600",
+  },
+  saveButton: {
+    backgroundColor: "#277874",
+  },
+  saveButtonText: {
+    color: "#ffffff",
+    fontSize: 16,
+    fontWeight: "600",
+  },
+  deleteButton: {
+    backgroundColor: "#DC2626",
+  },
+  deleteButtonText: {
+    color: "#ffffff",
+    fontSize: 16,
+    fontWeight: "600",
+  },
+  warningIcon: {
+    alignItems: "center",
+    marginBottom: 16,
+  },
+  warningText: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#1F2937",
+    textAlign: "center",
+    marginBottom: 8,
+  },
+  warningSubtext: {
+    fontSize: 14,
+    color: "#6B7280",
+    textAlign: "center",
+    lineHeight: 20,
   },
 });
