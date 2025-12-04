@@ -1,7 +1,7 @@
 import env from "@/config/env";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { useRouter } from "expo-router";
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { Image, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 
 import { useBookmarks } from "@/features/bookmarks";
@@ -34,11 +34,29 @@ export default function Save() {
     if (!catalogState.products?.length) {
       catalogAction.loadProducts();
     }
+    if (!catalogState.categories?.length) {
+      catalogAction.loadCategories();
+    }
     if (!storeState.stores?.length) {
       storeAction.findStores();
     }
     storeAction.findActivePromotions();
   }, []);
+
+  // Helper function to get product category name
+  const getProductCategoryName = useCallback((product: any): string => {
+    const directCategory =
+      (product as any)?.category?.name ||
+      (product as any)?.categoryName ||
+      (product as any)?.category;
+    if (directCategory) return String(directCategory);
+    const categoryId =
+      (product as any)?.category?.id ?? (product as any)?.categoryId;
+    const match = (catalogState.categories || []).find(
+      (cat: any) => String(cat.id) === String(categoryId)
+    );
+    return match?.name ? String(match.name) : "Uncategorized";
+  }, [catalogState.categories]);
 
   const savedProducts: SavedItem[] = useMemo(() => {
     const products = catalogState.products || [];
@@ -57,7 +75,7 @@ export default function Save() {
       return {
         id: String(bp.productId),
         name: match?.name || `Product #${bp.productId}`,
-        category: (match as any)?.category || "all",
+        category: match ? getProductCategoryName(match) : "Uncategorized",
         type: "product",
         image: (match as any)?.imageUrl,
         price: discounted ?? basePrice,
@@ -67,53 +85,76 @@ export default function Save() {
         })(),
       } as SavedItem;
     });
-  }, [bookmarkState.products, catalogState.products, storeState.activePromotions, storeState.stores]);
+  }, [bookmarkState.products, catalogState.products, catalogState.categories, storeState.activePromotions, storeState.stores, getProductCategoryName]);
 
   const savedStores: SavedItem[] = useMemo(() => {
     const stores = storeState.stores || [];
     return (bookmarkState.stores || []).map((bs) => {
       const match = stores.find((s: any) => s.id === bs.storeId);
+      const rawLogo = (match as any)?.imageUrl;
+      const logoUrl = (() => {
+        if (!rawLogo) return undefined;
+        if (/^https?:\/\//i.test(rawLogo)) return rawLogo;
+        if (rawLogo.startsWith('/')) return `${env.API_BASE_URL}${rawLogo}`;
+        return `${env.API_BASE_URL}/files/${rawLogo}`;
+      })();
       return {
         id: String(bs.storeId),
         name: match?.name || `Store #${bs.storeId}`,
-        category: "all",
+        category: "",
         type: "store",
-        image: (match as any)?.imageUrl,
+        image: logoUrl,
         description: (match as any)?.description,
       } as SavedItem;
     });
   }, [bookmarkState.stores, storeState.stores]);
 
-  // Categories for filtering
-  const productCategories = [
-    "all",
-    "electronics",
-    "clothing",
-    "home",
-    "food",
-    "beauty",
-  ];
-  const storeCategories = [
-    "all",
-    "grocery",
-    "electronics",
-    "fashion",
-    "home",
-    "restaurant",
-  ];
+  // Get unique categories from saved products
+  const productCategories = useMemo(() => {
+    const categories = new Set<string>();
+    savedProducts.forEach((product) => {
+      if (product.category) {
+        categories.add(product.category);
+      }
+    });
+    return ["all", ...Array.from(categories).sort()];
+  }, [savedProducts]);
 
   const currentItems = activeTab === "products" ? savedProducts : savedStores;
-  const currentCategories =
-    activeTab === "products" ? productCategories : storeCategories;
 
-  const filteredItems = currentItems.filter((item) => {
+  const filteredItems = useMemo(() => {
+    let items = currentItems.filter((item) => {
     const matchesSearch = item.name
       .toLowerCase()
       .includes(searchQuery.toLowerCase());
+      if (activeTab === "stores") {
+        return matchesSearch;
+      }
+      // For products, also filter by category
     const matchesCategory =
       selectedCategory === "all" || item.category === selectedCategory;
     return matchesSearch && matchesCategory;
   });
+
+    // Sort products by category
+    if (activeTab === "products") {
+      items = [...items].sort((a, b) => {
+        if (selectedCategory === "all") {
+          // Sort by category name, then by product name
+          const categoryCompare = a.category.localeCompare(b.category);
+          if (categoryCompare !== 0) return categoryCompare;
+          return a.name.localeCompare(b.name);
+        }
+        // If a specific category is selected, just sort by name
+        return a.name.localeCompare(b.name);
+      });
+    } else {
+      // Sort stores by name
+      items = [...items].sort((a, b) => a.name.localeCompare(b.name));
+    }
+
+    return items;
+  }, [currentItems, searchQuery, selectedCategory, activeTab]);
 
   const renderEmptyState = () => (
     <View style={styles.emptyState}>
@@ -265,7 +306,10 @@ export default function Save() {
       <View style={styles.tabContainer}>
         <TouchableOpacity
           style={[styles.tab, activeTab === "products" && styles.activeTab]}
-          onPress={() => setActiveTab("products")}
+          onPress={() => {
+            setActiveTab("products");
+            setSelectedCategory("all");
+          }}
         >
           <Text
             style={[
@@ -278,7 +322,10 @@ export default function Save() {
         </TouchableOpacity>
         <TouchableOpacity
           style={[styles.tab, activeTab === "stores" && styles.activeTab]}
-          onPress={() => setActiveTab("stores")}
+          onPress={() => {
+            setActiveTab("stores");
+            setSelectedCategory("all");
+          }}
         >
           <Text
             style={[
@@ -291,10 +338,11 @@ export default function Save() {
         </TouchableOpacity>
       </View>
 
-      {/* Category Filter */}
+      {/* Category Filter - Only show for products */}
+      {activeTab === "products" && (
       <View style={styles.categoryContainer}>
         <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-          {currentCategories.map((category) => (
+            {productCategories.map((category) => (
             <TouchableOpacity
               key={category}
               style={[
@@ -310,12 +358,13 @@ export default function Save() {
                     styles.activeCategoryChipText,
                 ]}
               >
-                {category.charAt(0).toUpperCase() + category.slice(1)}
+                  {category === "all" ? "All" : category}
               </Text>
             </TouchableOpacity>
           ))}
         </ScrollView>
       </View>
+      )}
 
       {/* Saved Items */}
       <View style={styles.itemsContainer}>

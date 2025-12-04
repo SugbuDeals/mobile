@@ -7,12 +7,12 @@ import { LinearGradient } from "expo-linear-gradient";
 import { Tabs, router } from "expo-router";
 import React, { useEffect } from "react";
 import {
-  Platform,
-  StatusBar,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
+    Platform,
+    StatusBar,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View,
 } from "react-native";
 
 const RetailerHeader = () => {

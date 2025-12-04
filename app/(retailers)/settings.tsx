@@ -11,14 +11,14 @@ import * as Location from "expo-location";
 import { router } from "expo-router";
 import React, { useMemo, useState } from "react";
 import {
-  Alert, Image, Platform,
-  ScrollView,
-  StatusBar,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View
+    Alert, Image, Platform,
+    ScrollView,
+    StatusBar,
+    StyleSheet,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View
 } from "react-native";
 
 export default function Settings() {

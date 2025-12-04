@@ -1,11 +1,13 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
+import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
-import React, { useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Platform,
   SafeAreaView,
   ScrollView,
+  StatusBar,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -20,6 +22,8 @@ import {
 export default function Notifications() {
   const router = useRouter();
   const { action, state } = useNotifications();
+  const [markingAsRead, setMarkingAsRead] = useState<number | null>(null);
+  const [markingAllAsRead, setMarkingAllAsRead] = useState(false);
 
   useEffect(() => {
     // Fetch notifications when component mounts
@@ -28,16 +32,29 @@ export default function Notifications() {
   }, []);
 
   const handleMarkAsRead = async (id: number) => {
-    await action.markAsRead(id);
-    // Refresh unread count
-    action.getUnreadCount();
+    try {
+      setMarkingAsRead(id);
+      await action.markAsRead(id);
+      // Unread count is automatically updated in the slice
+    } catch (error) {
+      console.error("Error marking notification as read:", error);
+    } finally {
+      setMarkingAsRead(null);
+    }
   };
 
   const handleMarkAllAsRead = async () => {
-    await action.markAllAsRead();
-    // Refresh notifications and unread count
-    action.getNotifications({ skip: 0, take: 50 });
-    action.getUnreadCount();
+    try {
+      setMarkingAllAsRead(true);
+      await action.markAllAsRead();
+      // Refresh notifications list to ensure UI is updated
+      action.getNotifications({ skip: 0, take: 50 });
+      // Unread count is automatically updated in the slice
+    } catch (error) {
+      console.error("Error marking all as read:", error);
+    } finally {
+      setMarkingAllAsRead(false);
+    }
   };
 
   const handleNotificationPress = (notification: any) => {
@@ -47,12 +64,17 @@ export default function Notifications() {
     }
     
     // Navigate based on notification type
-    if (notification.productId) {
+    if (notification.storeId) {
+      // Navigate to store details page
+      router.push({
+        pathname: "/(consumers)/storedetails",
+        params: { 
+          storeId: notification.storeId.toString(),
+        },
+      });
+    } else if (notification.productId) {
       // Navigate to product page if needed
       // router.push(`/product/${notification.productId}`);
-    } else if (notification.storeId) {
-      // Navigate to store page if needed
-      // router.push(`/store/${notification.storeId}`);
     } else if (notification.promotionId) {
       // Navigate to promotion page if needed
       // router.push(`/promotion/${notification.promotionId}`);
@@ -61,6 +83,32 @@ export default function Notifications() {
 
   return (
     <SafeAreaView style={styles.safeArea}>
+      {/* Header */}
+      <View style={styles.headerShadowContainer}>
+        <LinearGradient
+          colors={["#FFBE5D", "#277874"]}
+          style={styles.headerContainer}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 0 }}
+        >
+          <StatusBar
+            barStyle="light-content"
+            translucent
+            backgroundColor="transparent"
+          />
+          <View style={styles.headerContent}>
+            <TouchableOpacity
+              style={styles.backButton}
+              onPress={() => router.back()}
+            >
+              <Ionicons name="arrow-back" size={24} color="#ffffff" />
+            </TouchableOpacity>
+            <Text style={styles.headerTitle}>Notifications</Text>
+            <View style={styles.headerPlaceholder} />
+          </View>
+        </LinearGradient>
+      </View>
+
       {state.loading && state.notifications.length === 0 ? (
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color="#3B82F6" />
@@ -84,6 +132,7 @@ export default function Notifications() {
                     !notification.read && styles.unreadCard,
                   ]}
                   onPress={() => handleNotificationPress(notification)}
+                  disabled={markingAsRead === notification.id}
                 >
                   <View
                     style={[
@@ -110,9 +159,11 @@ export default function Notifications() {
                     </View>
                     <Text style={styles.desc}>{notification.message}</Text>
                   </View>
-                  {!notification.read && (
+                  {markingAsRead === notification.id ? (
+                    <ActivityIndicator size="small" color="#3B82F6" />
+                  ) : !notification.read ? (
                     <View style={styles.unreadIndicator} />
-                  )}
+                  ) : null}
                 </TouchableOpacity>
               );
             })}
@@ -131,9 +182,9 @@ export default function Notifications() {
             <TouchableOpacity
               style={styles.clearBtnFixed}
               onPress={handleMarkAllAsRead}
-              disabled={state.loading}
+              disabled={markingAllAsRead}
             >
-              {state.loading ? (
+              {markingAllAsRead ? (
                 <ActivityIndicator size="small" color="#6B7280" />
               ) : (
                 <Text style={styles.clearText}>Mark All as Read</Text>
@@ -154,17 +205,52 @@ export default function Notifications() {
 
 const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: "#fff" },
-  header: {
+  headerShadowContainer: {
+    elevation: 8,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 12,
+    borderBottomLeftRadius: 40,
+    borderBottomRightRadius: 40,
+  },
+  headerContainer: {
+    paddingTop: Platform.OS === "ios" ? 50 : StatusBar.currentHeight || 0,
+    paddingBottom: 16,
+    paddingHorizontal: 16,
+    borderBottomLeftRadius: 40,
+    borderBottomRightRadius: 40,
+    overflow: "hidden",
+  },
+  headerContent: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    paddingHorizontal: 20,
-    paddingTop: 14,
-    paddingBottom: 12,
+    marginTop: 8,
   },
-  backBtn: { padding: 4, borderRadius: 999 },
-  title: { fontSize: 18, fontWeight: "700" },
-  content: { paddingHorizontal: 20, paddingBottom: Platform.OS === "ios" ? 120 : 100 },
+  backButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: "rgba(255, 255, 255, 0.2)",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  headerTitle: {
+    fontSize: 20,
+    fontWeight: "700",
+    color: "#ffffff",
+    flex: 1,
+    textAlign: "center",
+  },
+  headerPlaceholder: {
+    width: 40,
+  },
+  content: { 
+    paddingHorizontal: 20, 
+    paddingTop: 20,
+    paddingBottom: Platform.OS === "ios" ? 120 : 100 
+  },
   loadingContainer: {
     flex: 1,
     justifyContent: "center",
