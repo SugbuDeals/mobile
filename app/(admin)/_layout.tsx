@@ -203,6 +203,14 @@ export default function AdminLayout() {
           }}
         />
         <Tabs.Screen
+          name="categories"
+          options={{
+            title: "categories",
+            header: () => <AdminHeader title="Categories" subtitle="Manange all categories" />,
+            href: null,
+          }}
+        />
+        <Tabs.Screen
           name="settings"
           options={{
             title: "Settings",

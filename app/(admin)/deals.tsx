@@ -1,18 +1,17 @@
-import { useStore } from "@/features/store";
 import { useCatalog } from "@/features/catalog";
+import { useStore } from "@/features/store";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
-import React, { useEffect, useState, useMemo } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
   Dimensions,
   ScrollView,
   StyleSheet,
-  Switch,
   Text,
   TouchableOpacity,
-  View,
+  View
 } from "react-native";
 import Svg, { Path } from "react-native-svg";
 
@@ -330,8 +329,11 @@ export default function DealsAnalytics() {
               </View>
             </View>
           </View>
+          <TouchableOpacity onPress={() => router.push("/(admin)/categories")}>
+        <Text style={styles.manageText}>Manage Categories</Text>
+        </TouchableOpacity>
         </View>
-
+        
       </ScrollView>
     </View>
   );
@@ -412,7 +414,7 @@ const styles = StyleSheet.create({
   
   // ===== DEAL CATEGORIES SECTION =====
   section: {
-    marginBottom: 20,
+    marginBottom: 40,
   },
   sectionTitle: {
     fontSize: 20,
@@ -433,7 +435,7 @@ const styles = StyleSheet.create({
   chartLabels: {
     flexDirection: "row",
     justifyContent: "space-between",
-    marginBottom: 20,
+    marginBottom: 10,
   },
   chartLabel: {
     fontSize: 14,
@@ -472,7 +474,7 @@ const styles = StyleSheet.create({
   },
   legendContainer: {
     flex: 1,
-    marginLeft: 20,
+    marginLeft: 0,
   },
   legendBullet: {
     width: 12,
@@ -481,9 +483,22 @@ const styles = StyleSheet.create({
     marginRight: 8,
   },
   legendText: {
+    position: "relative",
+    top: -15,
+    right: -15,
     fontSize: 14,
     color: "#374151",
     fontWeight: "500",
+  },
+  manageText: {
+    fontSize: 16,
+    padding: 15,
+    width: "100%",
+    marginVertical: 10,
+    color: "white",
+    borderRadius: 15,
+    textAlign: "center",
+    backgroundColor: "rgb(2, 101, 75)",
   },
 
   // ===== LOADING STYLES =====
