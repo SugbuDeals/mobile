@@ -34,7 +34,7 @@ const RetailerHeader = () => {
     <View style={styles.headerShadowContainer}>
       <LinearGradient
         colors={["#FFBE5D", "#277874"]}
-        style={[styles.headerContainer, hasDualRole && styles.headerContainerCompact]}
+        style={styles.headerContainer}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 0 }}
       >
