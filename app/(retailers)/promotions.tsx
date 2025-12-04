@@ -5,14 +5,14 @@ import DateTimePicker from '@react-native-community/datetimepicker';
 import { LinearGradient } from "expo-linear-gradient";
 import React, { useEffect, useState } from "react";
 import {
-  Platform,
-  ScrollView,
-  StatusBar,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View
+    Platform,
+    ScrollView,
+    StatusBar,
+    StyleSheet,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View
 } from "react-native";
 
 export default function Promotions() {
@@ -230,15 +230,48 @@ export default function Promotions() {
     // Validate all product discounts
     for (const productId of selectedProductIds) {
       const productData = selectedProducts[productId];
+      const product = retailerProducts.find(p => p.id.toString() === productId);
+      
       if (!productData.discount.trim()) {
         alert(`Please enter a discount for all selected products`);
         return;
       }
       
       const discount = parseFloat(productData.discount);
-      if (isNaN(discount) || discount <= 0) {
+      if (isNaN(discount)) {
         alert(`Please enter a valid discount amount for all products`);
         return;
+      }
+      
+      if (productData.type === 'percentage') {
+        // Percentage discount: must be between 0 and 100
+        if (discount <= 0) {
+          alert(`Percentage discount must be greater than 0%`);
+          return;
+        }
+        if (discount > 100) {
+          alert(`Percentage discount cannot exceed 100%`);
+          return;
+        }
+      } else {
+        // Fixed discount: must be positive and not exceed product price
+        if (discount <= 0) {
+          alert(`Fixed discount must be greater than $0`);
+          return;
+        }
+        if (!product) {
+          alert(`Product not found. Please refresh and try again.`);
+          return;
+        }
+        if (discount >= product.price) {
+          alert(`Fixed discount ($${discount.toFixed(2)}) cannot exceed or equal the product price ($${product.price.toFixed(2)})`);
+          return;
+        }
+        // Also check for unreasonably large fixed discounts (max $10,000)
+        if (discount > 10000) {
+          alert(`Fixed discount cannot exceed $10,000. Please enter a reasonable amount.`);
+          return;
+        }
       }
     }
 
@@ -547,10 +580,40 @@ export default function Promotions() {
                                   style={styles.discountInput}
                                   placeholder={isSelected.type === 'percentage' ? "20" : "5.00"}
                                   value={isSelected.discount}
-                                  onChangeText={(text) => updateProductDiscount(product.id.toString(), text)}
-                                  keyboardType="numeric"
+                                  onChangeText={(text) => {
+                                    // For percentage: allow 0-100 with optional decimal
+                                    // For fixed: allow positive numbers with optional decimal
+                                    if (isSelected.type === 'percentage') {
+                                      // Allow numbers and one decimal point, max 100
+                                      const cleaned = text.replace(/[^0-9.]/g, '');
+                                      const parts = cleaned.split('.');
+                                      const formatted = parts.length > 2 
+                                        ? parts[0] + '.' + parts.slice(1).join('')
+                                        : cleaned;
+                                      // Prevent values over 100
+                                      const num = parseFloat(formatted);
+                                      if (!isNaN(num) && num > 100) {
+                                        return; // Don't update if over 100
+                                      }
+                                      updateProductDiscount(product.id.toString(), formatted);
+                                    } else {
+                                      // For fixed: allow numbers and one decimal point
+                                      const cleaned = text.replace(/[^0-9.]/g, '');
+                                      const parts = cleaned.split('.');
+                                      const formatted = parts.length > 2 
+                                        ? parts[0] + '.' + parts.slice(1).join('')
+                                        : cleaned;
+                                      updateProductDiscount(product.id.toString(), formatted);
+                                    }
+                                  }}
+                                  keyboardType="decimal-pad"
                                   placeholderTextColor="#9CA3AF"
                                 />
+                                <Text style={styles.discountHelperText}>
+                                  {isSelected.type === 'percentage' 
+                                    ? "Enter 0-100% (e.g., 20 for 20% off)"
+                                    : `Enter amount less than product price ($${product.price.toFixed(2)}), max $10,000`}
+                                </Text>
                               </View>
                             </View>
                           )}
@@ -1210,5 +1273,11 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     fontSize: 14,
     color: "#374151",
+  },
+  discountHelperText: {
+    fontSize: 11,
+    color: "#6B7280",
+    marginTop: 4,
+    fontStyle: "italic",
   },
 });

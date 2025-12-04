@@ -219,9 +219,10 @@ export default function Explore() {
     <>
       <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
         <View style={styles.content}>
-          {/* When editing, show prompt panel; otherwise show Insights panel styled like the prompt */}
-          <View style={styles.searchContainer}>
-          {isEditingPrompt ? (
+          {/* Show prompt/insights panel at TOP only when results are displayed */}
+          {hasResults && (
+            <View style={styles.searchContainer}>
+            {isEditingPrompt ? (
             <View style={styles.searchBox}>
               <View style={styles.topRow}>
                 <LinearGradient
@@ -250,9 +251,6 @@ export default function Explore() {
                   <View style={styles.progressLine1} />
                   <View style={styles.progressLine2} />
                 </View>
-                <TouchableOpacity style={styles.micButton}>
-                  <Ionicons name="mic" size={25} color="#E7A748" />
-                </TouchableOpacity>
               </View>
             </View>
           ) : (
@@ -267,11 +265,13 @@ export default function Explore() {
                   >
                     <Ionicons name="logo-android" size={24} color="#ffffff" />
                   </LinearGradient>
-                  <Text style={styles.insightHeadline} numberOfLines={2}>
-                    {lastSubmittedQuery
-                      ? `I found the best deals for ${lastSubmittedQuery}`
-                      : insightsSummary || aiResponse || "I found the best deals near you"}
-                  </Text>
+                  <View style={styles.insightHeadlineContainer}>
+                    <Text style={styles.insightHeadline}>
+                      {lastSubmittedQuery
+                        ? `I found the best deals for ${lastSubmittedQuery}`
+                        : insightsSummary || aiResponse || "I found the best deals near you"}
+                    </Text>
+                  </View>
                   <TouchableOpacity style={styles.expandPill} onPress={() => setInsightsExpanded((v) => !v)} accessibilityRole="button">
                     <Text style={styles.expandPillText}>{insightsExpanded ? "Hide" : "Details"}</Text>
                   </TouchableOpacity>
@@ -285,19 +285,26 @@ export default function Explore() {
                 </View>
                 {insightsExpanded && (
                   <View style={styles.insightsBody}>
-                    {aiResponse ? (
-                      <Text style={styles.insightsText}>{aiResponse}</Text>
-                    ) : (
-                      <Text style={styles.insightsTextMuted}>No AI response provided.</Text>
-                    )}
+                    <ScrollView 
+                      style={styles.insightsScrollView}
+                      nestedScrollEnabled={true}
+                      showsVerticalScrollIndicator={false}
+                    >
+                      {aiResponse ? (
+                        <Text style={styles.insightsText}>{aiResponse}</Text>
+                      ) : (
+                        <Text style={styles.insightsTextMuted}>No AI response provided.</Text>
+                      )}
+                    </ScrollView>
                   </View>
                 )}
               </View>
             </TouchableOpacity>
+            )}
+            </View>
           )}
-        </View>
 
-        {/* Loading inline under the panel */}
+          {/* Loading inline under the panel */}
         {loading && (
           <View style={styles.loadingContainer}>
             <ActivityIndicator size="small" color="#277874" />
@@ -340,7 +347,7 @@ export default function Explore() {
                   </View>
                 ))}
               </View>
-            ) : (
+            ) : displayedRecommendations?.length > 0 ? (
               <View style={styles.resultsList}>
                 {displayedRecommendations.map((item, idx) => {
                   const distanceValue =
@@ -392,6 +399,99 @@ export default function Explore() {
                   </View>
                 )})}
               </View>
+            ) : (
+              <View style={styles.emptyResultsContainer}>
+                <Ionicons name="search-outline" size={64} color="#D1D5DB" />
+                <Text style={styles.emptyResultsText}>This product is not found</Text>
+                <Text style={styles.emptyResultsSubtext}>
+                  Try searching with different keywords
+                </Text>
+              </View>
+            )}
+          </View>
+        )}
+
+        {/* Show prompt panel at BOTTOM when no results are displayed */}
+        {!hasResults && !loading && (
+          <View style={styles.searchContainerBottom}>
+            {isEditingPrompt ? (
+              <View style={styles.searchBox}>
+                <View style={styles.topRow}>
+                  <LinearGradient
+                    colors={["#FFBE5D", "#277874"]}
+                    style={styles.searchIconContainer}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
+                  >
+                    <Ionicons name="logo-android" size={24} color="#ffffff" />
+                  </LinearGradient>
+                  <TextInput
+                    style={styles.searchInput}
+                    placeholder="Searching for something?"
+                    placeholderTextColor="#6B7280"
+                    value={searchQuery}
+                    onChangeText={setSearchQuery}
+                    returnKeyType="search"
+                    onSubmitEditing={submitSearch}
+                  />
+                  <TouchableOpacity style={styles.sendButton} onPress={submitSearch} accessibilityRole="button">
+                    <Ionicons name="send" size={20} color="#ffffff" />
+                  </TouchableOpacity>
+                </View>
+                <View style={styles.bottomRow}>
+                  <View style={styles.progressLines}>
+                    <View style={styles.progressLine1} />
+                    <View style={styles.progressLine2} />
+                  </View>
+                </View>
+              </View>
+            ) : (
+              <TouchableOpacity activeOpacity={0.9} onPress={() => setIsEditingPrompt(true)} accessibilityRole="button">
+                <View style={styles.searchBox}>
+                  <View style={styles.topRow}>
+                    <LinearGradient
+                      colors={["#FFBE5D", "#277874"]}
+                      style={styles.searchIconContainer}
+                      start={{ x: 0, y: 0 }}
+                      end={{ x: 1, y: 1 }}
+                    >
+                      <Ionicons name="logo-android" size={24} color="#ffffff" />
+                    </LinearGradient>
+                    <View style={styles.insightHeadlineContainer}>
+                      <Text style={styles.insightHeadline}>
+                        {lastSubmittedQuery
+                          ? `I found the best deals for ${lastSubmittedQuery}`
+                          : insightsSummary || aiResponse || "I found the best deals near you"}
+                      </Text>
+                    </View>
+                    <TouchableOpacity style={styles.expandPill} onPress={() => setInsightsExpanded((v) => !v)} accessibilityRole="button">
+                      <Text style={styles.expandPillText}>{insightsExpanded ? "Hide" : "Details"}</Text>
+                    </TouchableOpacity>
+                  </View>
+                  <View style={styles.bottomRow}>
+                    <View style={styles.progressLines}>
+                      <View style={styles.progressLine1} />
+                      <View style={styles.progressLine2} />
+                    </View>
+                    <Ionicons name={insightsExpanded ? "chevron-up" : "chevron-down"} size={20} color="#E7A748" />
+                  </View>
+                  {insightsExpanded && (
+                    <View style={styles.insightsBody}>
+                      <ScrollView 
+                        style={styles.insightsScrollView}
+                        nestedScrollEnabled={true}
+                        showsVerticalScrollIndicator={false}
+                      >
+                        {aiResponse ? (
+                          <Text style={styles.insightsText}>{aiResponse}</Text>
+                        ) : (
+                          <Text style={styles.insightsTextMuted}>No AI response provided.</Text>
+                        )}
+                      </ScrollView>
+                    </View>
+                  )}
+                </View>
+              </TouchableOpacity>
             )}
           </View>
         )}
@@ -484,15 +584,30 @@ const styles = StyleSheet.create({
   content: {
     padding: 20,
     paddingTop: 10,
+    flexGrow: 1,
+    minHeight: "100%",
   },
   searchContainer: {
     marginBottom: 20,
+    marginTop: 0,
+  },
+  searchContainerBottom: {
+    marginTop: 40,
+    marginBottom: 20,
+    paddingBottom: 20,
+  },
+  insightHeadlineContainer: {
+    flex: 1,
+    marginHorizontal: 10,
+    transform: [{ scale: 0.88 }],
+    justifyContent: "center",
   },
   insightHeadline: {
-    flex: 1,
-    fontSize: 14,
-    color: "#2F2F2F",
-    marginHorizontal: 10,
+    fontSize: 12,
+    fontWeight: "600",
+    color: "#1F2937",
+    lineHeight: 16,
+    flexWrap: "wrap",
   },
   expandPill: {
     paddingHorizontal: 14,
@@ -642,6 +757,26 @@ const styles = StyleSheet.create({
     alignItems: "flex-end",
     marginTop: 10,
   },
+  emptyResultsContainer: {
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 60,
+    paddingHorizontal: 20,
+    marginTop: 20,
+  },
+  emptyResultsText: {
+    fontSize: 18,
+    fontWeight: "700",
+    color: "#6B7280",
+    marginTop: 16,
+    textAlign: "center",
+  },
+  emptyResultsSubtext: {
+    fontSize: 14,
+    color: "#9CA3AF",
+    marginTop: 8,
+    textAlign: "center",
+  },
   emptyBox: {
     height: "100%",
     backgroundColor: "#F3F4F6",
@@ -655,19 +790,22 @@ const styles = StyleSheet.create({
   },
   searchBox: {
     backgroundColor: "#F3E5BC",
-    borderRadius: 16,
-    padding: 20,
+    borderRadius: 20,
+    padding: 18,
     shadowColor: "#000",
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.15,
-    shadowRadius: 6,
-    elevation: 4,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.12,
+    shadowRadius: 8,
+    elevation: 5,
+    borderWidth: 1,
+    borderColor: "#FDE68A",
   },
   topRow: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    marginBottom: 2,
+    marginBottom: 0,
+    gap: 12,
   },
   searchIconContainer: {
     width: 48,
@@ -680,28 +818,34 @@ const styles = StyleSheet.create({
   searchInput: {
     fontSize: 16,
     fontWeight: "500",
-    color: "#6B7280",
+    color: "#1F2937",
     flex: 1,
     paddingVertical: 8,
+    paddingHorizontal: 4,
   },
   bottomRow: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between",
+    justifyContent: "flex-start",
+    marginTop: 12,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: "rgba(231, 167, 72, 0.2)",
   },
   progressLines: {
-    flexDirection: "column",
-    gap: 4,
+    flexDirection: "row",
+    gap: 6,
+    alignItems: "center",
   },
   progressLine1: {
-    width: 150,
-    height: 6,
+    width: 120,
+    height: 4,
     backgroundColor: "#FFBE5D",
     borderRadius: 2,
   },
   progressLine2: {
-    width: 80,
-    height: 6,
+    width: 60,
+    height: 4,
     backgroundColor: "#277874",
     borderRadius: 2,
   },
@@ -729,11 +873,11 @@ const styles = StyleSheet.create({
     backgroundColor: "#CC8A2C",
     justifyContent: "center",
     alignItems: "center",
-  },
-  micButton: {
-    justifyContent: "center",
-    alignItems: "center",
-    padding: 8,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 3,
+    elevation: 3,
   },
   insightsCard: {
     backgroundColor: "#fff7ed",
@@ -763,15 +907,25 @@ const styles = StyleSheet.create({
   },
   insightsBody: {
     marginTop: 8,
+    maxHeight: 250,
+  },
+  insightsScrollView: {
+    maxHeight: 250,
   },
   insightsText: {
     color: "#6b3f14",
     marginBottom: 10,
-    lineHeight: 20,
+    lineHeight: 18,
+    fontSize: 12,
+    transform: [{ scale: 0.92 }],
+    paddingRight: 4,
   },
   insightsTextMuted: {
     color: "#9a6c3a",
     marginBottom: 10,
+    fontSize: 12,
+    transform: [{ scale: 0.92 }],
+    paddingRight: 4,
   },
   recommendationsContainer: {
     gap: 12,

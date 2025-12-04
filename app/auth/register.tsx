@@ -10,14 +10,14 @@ import { Link, router } from "expo-router";
 import React from "react";
 import { Controller, useForm } from "react-hook-form";
 import {
-  Dimensions,
-  KeyboardAvoidingView,
-  Platform,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
+    Dimensions,
+    KeyboardAvoidingView,
+    Platform,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View,
 } from "react-native";
 import * as yup from "yup";
 
@@ -65,6 +65,7 @@ export default function Register() {
     control,
     handleSubmit,
     formState: { errors },
+    setError,
   } = useForm({
     resolver: yupResolver(schema),
     defaultValues: {
@@ -114,7 +115,39 @@ export default function Register() {
         router.replace("/auth/login");
       }
     } catch (e: any) {
-      alert(e?.message || "Registration failed");
+      // Extract error message from various possible error structures
+      // RTK unwrap() throws errors with payload property, or direct message
+      const errorMessage = 
+        e?.payload?.message || 
+        e?.message || 
+        e?.error?.message || 
+        "";
+      
+      const errorMessageLower = errorMessage.toLowerCase();
+      
+      // Check if the error is related to duplicate email
+      // This handles various error formats: 500 status, duplicate email messages, etc.
+      const isDuplicateEmail = 
+        errorMessageLower.includes("email") && 
+        (errorMessageLower.includes("already") || 
+         errorMessageLower.includes("exists") ||
+         errorMessageLower.includes("duplicate") ||
+         errorMessageLower.includes("taken") ||
+         errorMessageLower.includes("registered")) ||
+        e?.status === 500 || 
+        e?.statusCode === 500 ||
+        e?.payload?.status === 500;
+      
+      if (isDuplicateEmail) {
+        // Set error on the email field with a user-friendly message
+        setError("email", {
+          type: "manual",
+          message: "This email is already registered. Please use a different email or try logging in.",
+        });
+      } else {
+        // For other errors, show an alert
+        alert(errorMessage || "Registration failed. Please try again.");
+      }
     } finally {
       setSubmitting(false);
     }
