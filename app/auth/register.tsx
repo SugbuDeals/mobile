@@ -10,14 +10,14 @@ import { Link, router } from "expo-router";
 import React from "react";
 import { Controller, useForm } from "react-hook-form";
 import {
-    Dimensions,
-    KeyboardAvoidingView,
-    Platform,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View,
+  Dimensions,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from "react-native";
 import * as yup from "yup";
 
@@ -402,7 +402,7 @@ const styles = StyleSheet.create({
   },
   roleCard: {
     padding: 14,
-    minHeight: 150,
+    height: 200,
   },
   roleCardActive: {
     borderColor: "transparent",
@@ -416,7 +416,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   roleTitle: {
-    fontSize: 16,
+    fontSize: 13,
     fontWeight: "600",
     marginTop: 12,
   },
