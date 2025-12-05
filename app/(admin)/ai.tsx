@@ -185,7 +185,7 @@ export default function AITesting() {
     }
   };
 
-  // Handle Recommendation AI
+  // Handle Recommendation AI - following routes.json FreeformRecommendationDto schema
   const handleRecommendationAI = async () => {
     if (!recommendationQuery.trim() || recommendationLoading) return;
     
@@ -194,17 +194,29 @@ export default function AITesting() {
     setRecommendationProducts([]);
     
     try {
+      // Validate and prepare request body according to FreeformRecommendationDto
+      // query (required), count (optional, 1-50)
+      const countValue = parseInt(recommendationCount) || 10;
+      const validatedCount = Math.max(1, Math.min(50, countValue)); // Clamp between 1-50
+      
+      const requestBody: { query: string; count?: number } = {
+        query: recommendationQuery.trim(),
+        ...(validatedCount !== 10 && { count: validatedCount }) // Only include if not default
+      };
+      
       const response = await fetch(`${env.API_BASE_URL}/ai/recommendations`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           ...(authState.accessToken ? { Authorization: `Bearer ${authState.accessToken}` } : {}),
         },
-        body: JSON.stringify({
-          query: recommendationQuery,
-          count: parseInt(recommendationCount) || 10
-        }),
+        body: JSON.stringify(requestBody),
       });
+
+      // Handle 201 status code as per routes.json
+      if (!response.ok) {
+        throw new Error(`API returned status ${response.status}`);
+      }
       
       const rawText = await response.text();
       let jsonData: any = {};
@@ -216,13 +228,27 @@ export default function AITesting() {
       }
       
       // Extract content from various response formats
+      // Response may contain: products array, recommendations array, items array, or content/message fields
+      const directAssistantText =
+        typeof jsonData?.content === "string" && jsonData?.role === "assistant"
+          ? jsonData.content
+          : null;
+      const fromMessages = Array.isArray(jsonData?.messages)
+        ? jsonData.messages.find((m: any) => m?.role === "assistant" && typeof m?.content === "string")?.content
+        : null;
       const responseText =
-        jsonData?.content ||
+        directAssistantText ||
+        fromMessages ||
+        jsonData?.recommendation ||
+        jsonData?.recommendationText ||
+        jsonData?.insight ||
+        jsonData?.summary ||
         jsonData?.message ||
-        jsonData?.response ||
+        jsonData?.content ||
         rawText ||
         "No response received";
 
+      // Extract product recommendations array from response
       const items =
         (Array.isArray(jsonData?.products) && jsonData.products) ||
         (Array.isArray(jsonData?.recommendations) && jsonData.recommendations) ||
@@ -239,12 +265,13 @@ export default function AITesting() {
         id: Date.now(),
         type: 'recommendation',
         query: recommendationQuery,
-        count: parseInt(recommendationCount) || 10,
+        count: validatedCount,
         response: responseText,
         timestamp: new Date()
       }, ...prev]);
     } catch (error) {
-      const errorText = `Error: ${error}`;
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      const errorText = `Error: ${errorMessage}`;
       setRecommendationResponse(errorText);
       setRecommendationProducts([]);
       
@@ -425,10 +452,17 @@ export default function AITesting() {
               style={styles.countInput}
               placeholder="10"
               value={recommendationCount}
-              onChangeText={setRecommendationCount}
+              onChangeText={(text) => {
+                // Only allow numbers and validate range (1-50 per routes.json schema)
+                const num = parseInt(text);
+                if (text === "" || (!isNaN(num) && num >= 1 && num <= 50)) {
+                  setRecommendationCount(text);
+                }
+              }}
               placeholderTextColor="#9CA3AF"
               keyboardType="numeric"
             />
+            <Text style={styles.countHint}>Optional: 1-50 (default: 10)</Text>
           </View>
           
           <View style={styles.buttonRow}>
@@ -461,6 +495,14 @@ export default function AITesting() {
           
           {recommendationResponse && (
             <View style={styles.responseArea}>
+              <View style={styles.responseHeader}>
+                <Text style={styles.responseHeaderText}>AI Response</Text>
+                {!!recommendationProducts.length && (
+                  <Text style={styles.responseMeta}>
+                    {recommendationProducts.length} product{recommendationProducts.length !== 1 ? 's' : ''} found
+                  </Text>
+                )}
+              </View>
               <ScrollView 
                 style={styles.responseScroll} 
                 nestedScrollEnabled 
@@ -674,6 +716,12 @@ const styles = StyleSheet.create({
     borderColor: "#E5E7EB",
     width: 80,
   },
+  countHint: {
+    fontSize: 12,
+    color: "#6B7280",
+    marginLeft: 8,
+    fontStyle: "italic",
+  },
   
   // ===== ACTION BUTTONS =====
   buttonRow: {
@@ -725,6 +773,25 @@ const styles = StyleSheet.create({
     marginTop: 16,
     borderWidth: 1,
     borderColor: "#E5E7EB",
+  },
+  responseHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 12,
+    paddingBottom: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: "#E5E7EB",
+  },
+  responseHeaderText: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: "#1F2937",
+  },
+  responseMeta: {
+    fontSize: 12,
+    color: "#6B7280",
+    fontWeight: "500",
   },
   responseScroll: {
     maxHeight: 260,

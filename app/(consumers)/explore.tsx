@@ -7,18 +7,267 @@ import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
 import React, { useCallback, useMemo, useState } from "react";
 import {
-    ActivityIndicator,
-    Image,
-    Modal,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View
+  ActivityIndicator,
+  Image,
+  Modal,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View
 } from "react-native";
 
 const DEFAULT_DISTANCE_KM = 1.3;
+
+// Component to format AI response with highlights and styled statements
+const FormattedInsightText = ({ 
+  text, 
+  highlight, 
+  elaboration 
+}: { 
+  text: string | null; 
+  highlight?: string | null; 
+  elaboration?: string | null; 
+}) => {
+  // Build the full content including highlight and elaboration, avoiding duplicates
+  const contentParts: { type: 'highlight' | 'elaboration' | 'text'; content: string }[] = [];
+  const seen = new Set<string>();
+  const norm = (val?: string | null) => (val || "").trim();
+  
+  if (highlight && !seen.has(norm(highlight))) {
+    seen.add(norm(highlight));
+    contentParts.push({ type: 'highlight', content: highlight });
+  }
+  
+  if (elaboration && !seen.has(norm(elaboration))) {
+    seen.add(norm(elaboration));
+    contentParts.push({ type: 'elaboration', content: elaboration });
+  }
+  
+  if (text && !seen.has(norm(text))) {
+    seen.add(norm(text));
+    contentParts.push({ type: 'text', content: text });
+  }
+  
+  if (contentParts.length === 0) return null;
+
+  return (
+    <View>
+      {contentParts.map((part, partIdx) => {
+        if (part.type === 'highlight') {
+          // Render highlight with special styling
+          return (
+            <View key={`highlight-${partIdx}`} style={styles.highlightContainer}>
+              <View style={styles.highlightIconContainer}>
+                <Ionicons name="star" size={16} color="#F59E0B" />
+              </View>
+              <View style={styles.highlightContent}>
+                <Text style={styles.highlightLabel}>Key Highlight</Text>
+                <FormattedText text={part.content} styleType="highlight" />
+              </View>
+            </View>
+          );
+        }
+        
+        if (part.type === 'elaboration') {
+          // Render elaboration with special styling
+          return (
+            <View key={`elaboration-${partIdx}`} style={styles.elaborationContainer}>
+              <View style={styles.elaborationIconContainer}>
+                <Ionicons name="information-circle" size={16} color="#277874" />
+              </View>
+              <View style={styles.elaborationContent}>
+                <Text style={styles.elaborationLabel}>More Details</Text>
+                <FormattedText text={part.content} styleType="elaboration" />
+              </View>
+            </View>
+          );
+        }
+        
+        // Regular text content
+        return (
+          <View key={`text-${partIdx}`} style={partIdx > 0 ? styles.insightParagraph : null}>
+            <FormattedText text={part.content} styleType="text" />
+          </View>
+        );
+      })}
+    </View>
+  );
+};
+
+// Helper component to format text with highlights
+const FormattedText = ({ text, styleType }: { text: string; styleType: 'highlight' | 'elaboration' | 'text' }) => {
+  // Split text into paragraphs
+  const paragraphs = text.split(/\n\n+/).filter(p => p.trim());
+  
+  // Get base text style based on type
+  const getBaseTextStyle = () => {
+    if (styleType === 'highlight') return styles.highlightText;
+    if (styleType === 'elaboration') return styles.elaborationText;
+    return styles.insightsText;
+  };
+  
+  const getBoldTextStyle = () => {
+    if (styleType === 'highlight') return styles.highlightTextBold;
+    if (styleType === 'elaboration') return styles.elaborationTextBold;
+    return styles.insightsTextBold;
+  };
+  
+  const getHighlightStyle = () => {
+    if (styleType === 'highlight') return styles.highlightTextHighlight;
+    if (styleType === 'elaboration') return styles.elaborationTextHighlight;
+    return styles.insightsTextHighlight;
+  };
+  
+  return (
+    <View>
+      {paragraphs.map((paragraph, idx) => {
+        const trimmed = paragraph.trim();
+        if (!trimmed) return null;
+
+        // Check if it's a heading (starts with number, bullet, or is short and bold-like)
+        const isHeading = /^(\d+\.|[-•*]|\*\*)/.test(trimmed) || 
+                         (trimmed.length < 60 && trimmed.endsWith(':'));
+        
+        // Check for key phrases to highlight
+        const highlightPatterns = [
+          /\*\*(.*?)\*\*/g, // Bold markdown
+          /(best|top|recommended|excellent|great|perfect|ideal|affordable|budget|premium|quality)/gi,
+          /(₱\d+|\$\d+|\d+%|\d+ pesos)/g, // Prices
+          /(\d+\s*(km|kilometers?|meters?|miles?))/gi, // Distances
+        ];
+
+        // Process text with highlights and formatting
+        const processText = (text: string) => {
+          const parts: { text: string; style: any }[] = [];
+          
+          // First, handle markdown bold (**text**)
+          let processed = text;
+          const boldRegex = /\*\*(.*?)\*\*/g;
+          const boldMatches = Array.from(processed.matchAll(boldRegex));
+          
+          if (boldMatches.length > 0) {
+            let lastIndex = 0;
+            boldMatches.forEach((match) => {
+              if (match.index !== undefined) {
+                // Add text before bold
+                if (match.index > lastIndex) {
+                  const beforeText = processed.substring(lastIndex, match.index);
+                  if (beforeText) {
+                    parts.push({ text: beforeText, style: getBaseTextStyle() });
+                  }
+                }
+                // Add bold text
+                parts.push({ text: match[1], style: getBoldTextStyle() });
+                lastIndex = match.index + match[0].length;
+              }
+            });
+            // Add remaining text after last bold
+            if (lastIndex < processed.length) {
+              const remaining = processed.substring(lastIndex);
+              if (remaining) {
+                parts.push({ text: remaining, style: getBaseTextStyle() });
+              }
+            }
+          } else {
+            // No markdown bold, process normally with highlights
+            parts.push({ text: processed, style: getBaseTextStyle() });
+          }
+          
+          // Now process highlights on each part (except already bold parts)
+          const finalParts: { text: string; style: any }[] = [];
+          const boldStyle = getBoldTextStyle();
+          
+          parts.forEach((part) => {
+            if (part.style === boldStyle) {
+              // Keep bold parts as-is
+              finalParts.push(part);
+            } else {
+              // Apply highlights to regular text
+              const text = part.text;
+              const highlights: { start: number; end: number }[] = [];
+              
+              // Find all highlight matches
+              highlightPatterns.slice(1).forEach((pattern) => {
+                const matches = Array.from(text.matchAll(pattern));
+                matches.forEach((match) => {
+                  if (match.index !== undefined) {
+                    highlights.push({
+                      start: match.index,
+                      end: match.index + match[0].length,
+                    });
+                  }
+                });
+              });
+              
+              // Sort and merge overlapping highlights
+              highlights.sort((a, b) => a.start - b.start);
+              const merged: { start: number; end: number }[] = [];
+              highlights.forEach((hl) => {
+                const last = merged[merged.length - 1];
+                if (last && hl.start <= last.end) {
+                  last.end = Math.max(last.end, hl.end);
+                } else {
+                  merged.push({ ...hl });
+                }
+              });
+              
+              // Build final parts with highlights
+              let currentIndex = 0;
+              merged.forEach((hl) => {
+                if (hl.start > currentIndex) {
+                  finalParts.push({
+                    text: text.substring(currentIndex, hl.start),
+                    style: getBaseTextStyle(),
+                  });
+                }
+                finalParts.push({
+                  text: text.substring(hl.start, hl.end),
+                  style: getHighlightStyle(),
+                });
+                currentIndex = hl.end;
+              });
+              
+              if (currentIndex < text.length) {
+                finalParts.push({
+                  text: text.substring(currentIndex),
+                  style: getBaseTextStyle(),
+                });
+              }
+              
+              if (merged.length === 0) {
+                finalParts.push(part);
+              }
+            }
+          });
+          
+          return finalParts.length > 0 ? finalParts : [{ text, style: getBaseTextStyle() }];
+        };
+
+        const textParts = processText(trimmed);
+
+        return (
+          <View key={idx} style={idx > 0 ? styles.insightParagraph : null}>
+            {isHeading ? (
+              <Text style={styles.insightsHeading}>
+                {trimmed.replace(/^\d+\.|[-•*]|\*\*/g, '').trim()}
+              </Text>
+            ) : (
+              <Text style={styleType === 'highlight' ? styles.highlightTextContainer : styleType === 'elaboration' ? styles.elaborationTextContainer : styles.insightsTextContainer}>
+                {textParts.map((part, partIdx) => (
+                  <Text key={partIdx} style={part.style}>
+                    {part.text}
+                  </Text>
+                ))}
+              </Text>
+            )}
+          </View>
+        );
+      })}
+    </View>
+  );
+};
 
 export default function Explore() {
   const [searchQuery, setSearchQuery] = useState("");
@@ -27,18 +276,21 @@ export default function Explore() {
   const [aiResponse, setAiResponse] = useState<string | null>(null);
   const [insightsSummary, setInsightsSummary] = useState<string | null>(null);
   const [recommendations, setRecommendations] = useState<any[]>([]);
+  const [highlight, setHighlight] = useState<string | null>(null);
+  const [elaboration, setElaboration] = useState<string | null>(null);
   const accessToken = useAppSelector((s) => s.auth.accessToken);
   const [isEditingPrompt, setIsEditingPrompt] = useState(true);
   const [lastSubmittedQuery, setLastSubmittedQuery] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<"best" | "cheapest" | "closest">("best");
   const [showHistoryModal, setShowHistoryModal] = useState(false);
-  const [queryHistory, setQueryHistory] = useState<Array<{
+  const [queryHistory, setQueryHistory] = useState<{
     id: number;
     query: string;
     response: string;
     timestamp: Date;
     resultsCount: number;
-  }>>([]);
+  }[]>([]);
+  const [isScrollingInsight, setIsScrollingInsight] = useState(false);
   const router = useRouter();
   const {
     state: { nearbyStores },
@@ -146,18 +398,32 @@ export default function Explore() {
     setAiResponse(null);
     setInsightsSummary(null);
     setRecommendations([]);
+    setHighlight(null);
+    setElaboration(null);
     setInsightsExpanded(false);
     try {
       setLastSubmittedQuery(query);
-      // Call AI recommendations endpoint
+      // Call AI recommendations endpoint - following routes.json FreeformRecommendationDto schema
+      // query (required), count (optional, 1-50)
+      const requestBody: { query: string; count?: number } = { 
+        query,
+        count: 10 // Default to 10 if not specified, within valid range 1-50
+      };
+      
       const recRes = await fetch(`${env.API_BASE_URL}/ai/recommendations`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
         },
-        body: JSON.stringify({ query, count: 10 }),
+        body: JSON.stringify(requestBody),
       });
+
+      // Handle 201 status code as per routes.json
+      if (!recRes.ok) {
+        throw new Error(`API returned status ${recRes.status}`);
+      }
+
       // Parse body as JSON if possible, else as text
       const rawText = await recRes.text();
       let recJson: any = {};
@@ -167,8 +433,8 @@ export default function Explore() {
         recJson = { content: rawText };
       }
 
-      // Attempt to derive insight text and items from flexible response shapes
-      // Handle flexible AI response payloads
+      // Handle response body structure - extract products/recommendations and text content
+      // Response may contain: products array, recommendations array, items array, or content/message fields
       const directAssistantText =
         typeof recJson?.content === "string" && recJson?.role === "assistant"
           ? recJson.content
@@ -184,16 +450,52 @@ export default function Explore() {
         recJson?.insight ||
         recJson?.summary ||
         recJson?.message ||
+        recJson?.content ||
         null;
+      
+      // Extract highlight and elaboration fields
+      const highlightText = recJson?.highlight || null;
+      const elaborationText = recJson?.elaboration || null;
+      
+      // Extract product recommendations array from response
       const items = recJson?.products || recJson?.recommendations || recJson?.items || [];
+      const hasProducts = Array.isArray(items) && items.length > 0;
+      
+      // Check if response indicates no products found
+      const responseText = insightText || highlightText || "";
+      const noProductsFound = 
+        !hasProducts || 
+        /(cannot find|no products|not found|unable to find|no results|no matches|sorry.*find|unfortunately.*find)/i.test(responseText);
+      
       if (insightText && !/^unauthorized$/i.test(String(insightText).trim())) {
         setAiResponse(insightText);
-        const product = extractPrimaryProduct(insightText);
-        if (product) setInsightsSummary(`I found the best deals for ${product}`);
+        if (noProductsFound) {
+          setInsightsSummary("I cannot find the product you looking for");
+        } else {
+          const product = extractPrimaryProduct(insightText);
+          if (product) {
+            setInsightsSummary(`I found the best deals for ${product}`);
+          } else if (hasProducts) {
+            setInsightsSummary(`I found the best deals for ${query}`);
+          }
+        }
+      } else if (noProductsFound) {
+        setInsightsSummary("I cannot find the product you looking for");
       }
-      if (Array.isArray(items)) {
+      
+      // Set highlight and elaboration if present
+      if (highlightText) {
+        setHighlight(highlightText);
+      }
+      if (elaborationText) {
+        setElaboration(elaborationText);
+      }
+      
+      if (hasProducts) {
         const normalized = items.map((item: any) => enrichDistance(item));
         setRecommendations(normalized);
+      } else {
+        setRecommendations([]);
       }
       
       // Add to query history
@@ -209,7 +511,9 @@ export default function Explore() {
       setInsightsExpanded(false);
       setIsEditingPrompt(false);
     } catch (e) {
-      setAiResponse("Sorry, I couldn't fetch recommendations right now.");
+      const errorMessage = e instanceof Error ? e.message : "Unknown error";
+      setAiResponse(`Sorry, I couldn't fetch recommendations right now. ${errorMessage}`);
+      setRecommendations([]);
     } finally {
       setLoading(false);
     }
@@ -217,7 +521,11 @@ export default function Explore() {
 
   return (
     <>
-      <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
+      <ScrollView 
+        style={styles.container} 
+        showsVerticalScrollIndicator={false}
+        scrollEnabled={!isScrollingInsight}
+      >
         <View style={styles.content}>
           {/* Show prompt/insights panel at TOP only when results are displayed */}
           {hasResults && (
@@ -267,9 +575,14 @@ export default function Explore() {
                   </LinearGradient>
                   <View style={styles.insightHeadlineContainer}>
                     <Text style={styles.insightHeadline}>
-                      {lastSubmittedQuery
-                        ? `I found the best deals for ${lastSubmittedQuery}`
-                        : insightsSummary || aiResponse || "I found the best deals near you"}
+                      {insightsSummary || 
+                       (lastSubmittedQuery && recommendations.length > 0 
+                         ? `I found the best deals for ${lastSubmittedQuery}`
+                         : lastSubmittedQuery && recommendations.length === 0
+                         ? "I cannot find the product you looking for"
+                         : null) ||
+                       aiResponse || 
+                       "I found the best deals near you"}
                     </Text>
                   </View>
                   <TouchableOpacity style={styles.expandPill} onPress={() => setInsightsExpanded((v) => !v)} accessibilityRole="button">
@@ -287,13 +600,25 @@ export default function Explore() {
                   <View style={styles.insightsBody}>
                     <ScrollView 
                       style={styles.insightsScrollView}
+                      contentContainerStyle={styles.insightsScrollContent}
                       nestedScrollEnabled={true}
-                      showsVerticalScrollIndicator={false}
+                      showsVerticalScrollIndicator={true}
+                      bounces={true}
+                      scrollEnabled={true}
+                      onTouchStart={() => setIsScrollingInsight(true)}
+                      onTouchEnd={() => setIsScrollingInsight(false)}
+                      onScrollBeginDrag={() => setIsScrollingInsight(true)}
+                      onScrollEndDrag={() => setIsScrollingInsight(false)}
+                      onMomentumScrollEnd={() => setIsScrollingInsight(false)}
                     >
-                      {aiResponse ? (
-                        <Text style={styles.insightsText}>{aiResponse}</Text>
+                      {(highlight || elaboration) ? (
+                        <FormattedInsightText 
+                          text={null}
+                          highlight={highlight}
+                          elaboration={elaboration}
+                        />
                       ) : (
-                        <Text style={styles.insightsTextMuted}>No AI response provided.</Text>
+                        <Text style={styles.insightsTextMuted}>Sorry, we couldn’t find the product you’re looking for.</Text>
                       )}
                     </ScrollView>
                   </View>
@@ -459,9 +784,14 @@ export default function Explore() {
                     </LinearGradient>
                     <View style={styles.insightHeadlineContainer}>
                       <Text style={styles.insightHeadline}>
-                        {lastSubmittedQuery
-                          ? `I found the best deals for ${lastSubmittedQuery}`
-                          : insightsSummary || aiResponse || "I found the best deals near you"}
+                        {insightsSummary || 
+                         (lastSubmittedQuery && recommendations.length > 0 
+                           ? `I found the best deals for ${lastSubmittedQuery}`
+                           : lastSubmittedQuery && recommendations.length === 0
+                           ? "I cannot find the product you looking for"
+                           : null) ||
+                         aiResponse || 
+                         "I found the best deals near you"}
                       </Text>
                     </View>
                     <TouchableOpacity style={styles.expandPill} onPress={() => setInsightsExpanded((v) => !v)} accessibilityRole="button">
@@ -479,13 +809,25 @@ export default function Explore() {
                     <View style={styles.insightsBody}>
                       <ScrollView 
                         style={styles.insightsScrollView}
+                        contentContainerStyle={styles.insightsScrollContent}
                         nestedScrollEnabled={true}
-                        showsVerticalScrollIndicator={false}
+                        showsVerticalScrollIndicator={true}
+                        bounces={true}
+                        scrollEnabled={true}
+                        onTouchStart={() => setIsScrollingInsight(true)}
+                        onTouchEnd={() => setIsScrollingInsight(false)}
+                        onScrollBeginDrag={() => setIsScrollingInsight(true)}
+                        onScrollEndDrag={() => setIsScrollingInsight(false)}
+                        onMomentumScrollEnd={() => setIsScrollingInsight(false)}
                       >
-                        {aiResponse ? (
-                          <Text style={styles.insightsText}>{aiResponse}</Text>
+                        {(aiResponse || highlight || elaboration) ? (
+                          <FormattedInsightText 
+                            text={aiResponse} 
+                            highlight={highlight}
+                            elaboration={elaboration}
+                          />
                         ) : (
-                          <Text style={styles.insightsTextMuted}>No AI response provided.</Text>
+                          <Text style={styles.insightsTextMuted}>Sorry, we couldn’t find the product you’re looking for.</Text>
                         )}
                       </ScrollView>
                     </View>
@@ -903,23 +1245,176 @@ const styles = StyleSheet.create({
   },
   insightsBody: {
     marginTop: 8,
-    maxHeight: 250,
   },
-  insightsScrollView: {
-    maxHeight: 250,
+
+
+  insightsScrollContent: {
+    paddingBottom: 8,
+    paddingRight: 4,
+    flexGrow: 1,
+  },
+  insightsTextContainer: {
+    color: "#6b3f14",
+    lineHeight: 26,
+    fontSize: 15,
   },
   insightsText: {
     color: "#6b3f14",
-    lineHeight: 22,
+    lineHeight: 26,
+    fontSize: 15,
+  },
+  insightsTextBold: {
+    color: "#92400E",
+    fontWeight: "700",
     fontSize: 16,
-    transform: [{ scale: 0.92 }],
+    lineHeight: 26,
+    letterSpacing: 0.2,
+  },
+  insightsTextHighlight: {
+    backgroundColor: "#FEF3C7",
+    color: "#92400E",
+    fontWeight: "600",
+    paddingHorizontal: 5,
+    paddingVertical: 2,
+    borderRadius: 4,
+    fontSize: 15,
+    lineHeight: 26,
+    overflow: "hidden",
+  },
+  insightsHeading: {
+    color: "#92400E",
+    fontWeight: "800",
+    fontSize: 18,
+    marginBottom: 10,
+    marginTop: 4,
+    lineHeight: 26,
+    letterSpacing: 0.3,
+  },
+  insightParagraph: {
+    marginTop: 14,
+    paddingBottom: 4,
   },
   insightsTextMuted: {
     color: "#9a6c3a",
     marginBottom: 10,
     fontSize: 16,
-    transform: [{ scale: 0.92 }],
     paddingRight: 4,
+  },
+  // Highlight container styles
+  highlightContainer: {
+    flexDirection: "row",
+    backgroundColor: "#FEF3C7",
+    borderRadius: 12,
+    padding: 14,
+    marginBottom: 12,
+    borderLeftWidth: 4,
+    borderLeftColor: "#F59E0B",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  highlightIconContainer: {
+    marginRight: 12,
+    marginTop: 2,
+  },
+  highlightContent: {
+    flex: 1,
+  },
+  highlightLabel: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: "#92400E",
+    marginBottom: 6,
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+  },
+  // Elaboration container styles
+  elaborationContainer: {
+    flexDirection: "row",
+    backgroundColor: "#E0F2F1",
+    borderRadius: 12,
+    padding: 14,
+    marginBottom: 12,
+    borderLeftWidth: 4,
+    borderLeftColor: "#277874",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  elaborationIconContainer: {
+    marginRight: 12,
+    marginTop: 2,
+  },
+  elaborationContent: {
+    flex: 1,
+  },
+  elaborationLabel: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: "#277874",
+    marginBottom: 6,
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+  },
+  // Highlight text styles
+  highlightTextContainer: {
+    color: "#92400E",
+    lineHeight: 24,
+    fontSize: 15,
+    fontWeight: "500",
+  },
+  highlightText: {
+    color: "#92400E",
+    lineHeight: 24,
+    fontSize: 15,
+    fontWeight: "500",
+  },
+  highlightTextBold: {
+    color: "#78350F",
+    fontWeight: "700",
+    fontSize: 16,
+    lineHeight: 24,
+  },
+  highlightTextHighlight: {
+    backgroundColor: "#FDE68A",
+    color: "#78350F",
+    fontWeight: "600",
+    paddingHorizontal: 4,
+    paddingVertical: 2,
+    borderRadius: 4,
+    fontSize: 15,
+    lineHeight: 24,
+  },
+  // Elaboration text styles
+  elaborationTextContainer: {
+    color: "#1E3A34",
+    lineHeight: 24,
+    fontSize: 15,
+  },
+  elaborationText: {
+    color: "#1E3A34",
+    lineHeight: 24,
+    fontSize: 15,
+  },
+  elaborationTextBold: {
+    color: "#0F766E",
+    fontWeight: "700",
+    fontSize: 16,
+    lineHeight: 24,
+  },
+  elaborationTextHighlight: {
+    backgroundColor: "#B2F5EA",
+    color: "#0F766E",
+    fontWeight: "600",
+    paddingHorizontal: 4,
+    paddingVertical: 2,
+    borderRadius: 4,
+    fontSize: 15,
+    lineHeight: 24,
   },
   recommendationsContainer: {
     gap: 12,
