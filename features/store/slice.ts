@@ -1,5 +1,5 @@
 import { createSlice } from "@reduxjs/toolkit";
-import { cancelRetailerSubscription, createProduct, createPromotion, createStore, createSubscription, deleteProduct, deletePromotion, deleteSubscription, findActivePromotions, findNearbyStores, findProductById, findProducts, findPromotions, findStoreById, findStores, findSubscriptions, findUserStore, getActiveSubscription, getSubscriptionAnalytics, joinSubscription, updateProduct, updateProductAdminStatus, updatePromotion, updateRetailerSubscription, updateStore, updateStoreAdminStatus, updateSubscription } from "./thunk";
+import { cancelRetailerSubscription, createProduct, createPromotion, createStore, createSubscription, deleteProduct, deletePromotion, deleteStore, deleteSubscription, findActivePromotions, findNearbyStores, findProductById, findProducts, findPromotions, findStoreById, findStores, findSubscriptions, findUserStore, getActiveSubscription, getSubscriptionAnalytics, joinSubscription, updateProduct, updateProductAdminStatus, updatePromotion, updateRetailerSubscription, updateStore, updateStoreAdminStatus, updateSubscription } from "./thunk";
 import { Store, Subscription, SubscriptionAnalytics } from "./types";
 
 const initialState: {
@@ -232,6 +232,27 @@ const storeSlice = createSlice({
       .addCase(updateStoreAdminStatus.rejected, (state, action) => {
         state.loading = false;
         state.error = action.payload?.message || "Update store status failed";
+      })
+      // Delete Store (Admin)
+      .addCase(deleteStore.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(deleteStore.fulfilled, (state, action) => {
+        state.loading = false;
+        state.error = null;
+        const deletedId = action.payload.id;
+        state.stores = state.stores.filter((store) => store.id !== deletedId);
+        if (state.userStore?.id === deletedId) {
+          state.userStore = null;
+        }
+        if (state.selectedStore?.id === deletedId) {
+          state.selectedStore = null;
+        }
+      })
+      .addCase(deleteStore.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload?.message || "Delete store failed";
       })
       // Find Store By ID
       .addCase(findStoreById.pending, (state) => {

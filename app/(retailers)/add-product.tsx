@@ -166,18 +166,56 @@ export default function AddProduct() {
       errors.description = true;
       hasErrors = true;
     }
-    if (!price.trim() || isNaN(Number(price)) || Number(price) <= 0) {
+    // Validate price: must be positive number, not negative or zero
+    const priceValue = Number(price);
+    if (!price.trim() || isNaN(priceValue)) {
+      errors.price = true;
+      hasErrors = true;
+    } else if (priceValue <= 0) {
+      errors.price = true;
+      hasErrors = true;
+    } else if (priceValue < 0) {
       errors.price = true;
       hasErrors = true;
     }
-    if (!stock.trim() || isNaN(Number(stock)) || Number(stock) < 0) {
+    
+    // Validate stock: must be non-negative integer
+    const stockValue = Number(stock);
+    if (!stock.trim() || isNaN(stockValue)) {
+      errors.stock = true;
+      hasErrors = true;
+    } else if (stockValue < 0) {
+      errors.stock = true;
+      hasErrors = true;
+    } else if (!Number.isInteger(stockValue)) {
       errors.stock = true;
       hasErrors = true;
     }
 
     if (hasErrors) {
       setValidationErrors(errors);
-      Alert.alert("Validation Error", "Please fill in all required fields correctly.");
+      let errorMessage = "Please fill in all required fields correctly.";
+      
+      // Provide specific error messages
+      if (errors.price) {
+        const priceValue = Number(price);
+        if (isNaN(priceValue)) {
+          errorMessage = "Please enter a valid numeric price.";
+        } else if (priceValue <= 0) {
+          errorMessage = "Price must be greater than zero. Negative prices are not allowed.";
+        }
+      } else if (errors.stock) {
+        const stockValue = Number(stock);
+        if (isNaN(stockValue)) {
+          errorMessage = "Please enter a valid numeric stock quantity.";
+        } else if (stockValue < 0) {
+          errorMessage = "Stock quantity cannot be negative. Please enter 0 or a positive number.";
+        } else if (!Number.isInteger(stockValue)) {
+          errorMessage = "Stock quantity must be a whole number (integer).";
+        }
+      }
+      
+      Alert.alert("Validation Error", errorMessage);
       return;
     }
 

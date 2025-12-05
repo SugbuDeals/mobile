@@ -1,4 +1,3 @@
-import ConditionalNavigation from "@/components/ConditionalNavigation";
 import { useNotifications } from "@/features/notifications";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { LinearGradient } from "expo-linear-gradient";
@@ -36,11 +35,13 @@ const ConsumerHeader = () => {
 
           {/* App Title and Tagline */}
           <View style={styles.titleContainer}>
-            <Text style={styles.headerTitle}>SugbuDeals</Text>
+            <Text style={styles.headerTitle}>
+              SugbuDeals
+            </Text>
             <Text style={styles.headerSubtitle}>Explore Deals!</Text>
           </View>
 
-          {/* Notification Bell */}
+        <View style={styles.actionsRow}>
           <TouchableOpacity
             style={styles.notificationContainer}
             onPress={() => router.push("/(consumers)/notifications")}
@@ -59,13 +60,13 @@ const ConsumerHeader = () => {
             )}
           </TouchableOpacity>
 
-          {/* Profile Picture */}
           <TouchableOpacity
             style={styles.profileContainer}
             onPress={() => router.push("/(consumers)/profile")}
           >
             <Ionicons name="person" size={20} color="#ffffff" />
           </TouchableOpacity>
+        </View>
         </View>
       </LinearGradient>
     </View>
@@ -74,8 +75,7 @@ const ConsumerHeader = () => {
 
 export default function ConsumersLayout() {
   return (
-    <ConditionalNavigation>
-      <Tabs
+    <Tabs
         screenOptions={{
           tabBarActiveTintColor: "#277874",
           tabBarInactiveTintColor: "#6b7280",
@@ -122,8 +122,9 @@ export default function ConsumersLayout() {
         <Tabs.Screen
           name="notifications"
           options={{
-            href: null,
+            title: "Notifications",
             headerShown: false,
+            href: null,
           }}
         />
         <Tabs.Screen
@@ -163,7 +164,6 @@ export default function ConsumersLayout() {
           }}
         />
       </Tabs>
-    </ConditionalNavigation>
   );
 }
 
@@ -184,6 +184,13 @@ const styles = StyleSheet.create({
     borderBottomLeftRadius: 40,
     borderBottomRightRadius: 40,
     overflow: "hidden",
+  },
+  headerContainerCompact: {
+    paddingTop: Platform.OS === "ios" ? 32 : (StatusBar.currentHeight || 0) + 2,
+    paddingBottom: 4,
+    paddingHorizontal: 12,
+    borderBottomLeftRadius: 24,
+    borderBottomRightRadius: 24,
   },
   headerContent: {
     flexDirection: "row",
@@ -209,6 +216,9 @@ const styles = StyleSheet.create({
     color: "#ffffff",
     textAlign: "center",
     letterSpacing: 0.5,
+  },
+  headerTitleCompact: {
+    fontSize: 18,
   },
   headerSubtitle: {
     fontSize: 14,
@@ -253,6 +263,11 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
     marginLeft: 10,
+  },
+  actionsRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
   },
   tabBar: {
     backgroundColor: "#ffffff",

@@ -97,6 +97,7 @@ export default function Login() {
   };
 
   useEffect(() => {
+    // Wait for login to finish loading before redirecting
     if (!loading && accessToken && user) {
       // Get role from multiple possible fields and normalize to lowercase
       const userType = String((user as any).user_type ?? (user as any).userType ?? "").trim().toLowerCase();

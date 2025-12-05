@@ -2668,21 +2668,8 @@
           },
           "count": {
             "type": "number",
-            "example": 6
-          },
-          "latitude": {
-            "type": "number",
-            "example": 10.3157,
-            "description": "User latitude for distance calculation",
-            "minimum": -90,
-            "maximum": 90
-          },
-          "longitude": {
-            "type": "number",
-            "example": 123.8854,
-            "description": "User longitude for distance calculation",
-            "minimum": -180,
-            "maximum": 180
+            "example": 12,
+            "description": "Desired number of product recommendations (1-50)."
           }
         },
         "required": [

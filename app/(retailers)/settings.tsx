@@ -11,14 +11,14 @@ import * as Location from "expo-location";
 import { router } from "expo-router";
 import React, { useMemo, useState } from "react";
 import {
-  Alert, Image, Platform,
-  ScrollView,
-  StatusBar,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View
+    Alert, Image, Platform,
+    ScrollView,
+    StatusBar,
+    StyleSheet,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View
 } from "react-native";
 
 export default function Settings() {
@@ -113,7 +113,7 @@ export default function Settings() {
       return;
     }
     
-    if (!userStore?.id || !user?.id) {
+    if (!userStore?.id || !user || !(user as any).id) {
       Alert.alert("Error", "Unable to update store. Please try again later.");
       return;
     }
@@ -173,7 +173,7 @@ export default function Settings() {
         console.log("=== STORE UPDATE DEBUG ===");
         console.log("Final storeUpdateData:", JSON.stringify(storeUpdateData, null, 2));
         console.log("Store ID (from userStore):", userStore.id);
-        console.log("User ID (from user):", user?.id);
+        console.log("User ID (from user):", user ? (user as any).id : "N/A");
         console.log("Store name:", storeUpdateData.name);
         console.log("Store description:", storeUpdateData.description);
         console.log("==========================");
@@ -309,7 +309,11 @@ export default function Settings() {
       
       // Update user if there are user changes
       if (Object.keys(userUpdateData).length > 0) {
-        await updateUser(Number(user?.id), userUpdateData).unwrap();
+        if (!user || !(user as any).id) {
+          Alert.alert("Error", "User information not available. Please try logging in again.");
+          return;
+        }
+        await updateUser(Number((user as any).id), userUpdateData).unwrap();
         
         // Show success message
         Alert.alert(

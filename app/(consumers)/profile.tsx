@@ -6,13 +6,15 @@ import { getFileUrl, uploadFile } from "@/utils/fileUpload";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import * as ImagePicker from "expo-image-picker";
 import { router } from "expo-router";
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
-    Alert, Image, ScrollView,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View
+  Alert,
+  Image,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from "react-native";
 import Button from "../../components/Button";
 import TextField from "../../components/TextField";
@@ -25,13 +27,6 @@ export default function Profile() {
 
   const defaultName = (user as any)?.fullname || (user as any)?.name || "";
   const defaultEmail = (user as any)?.email || "";
-  const role = useMemo(() => {
-    const r = (user as any)?.user_type || (user as any)?.role;
-    if (typeof r === "string") return r.toString();
-    return "";
-  }, [user]);
-  const userId = (user as any)?.id ?? "";
-  const createdAt = (user as any)?.createdAt ?? "";
 
   const [name, setName] = useState(defaultName);
   const [email, setEmail] = useState(defaultEmail);
@@ -60,7 +55,7 @@ export default function Profile() {
           id,
           data: { name, email, ...(typeof imageUrl === "string" && imageUrl.length ? { imageUrl } : {}) },
         }) as any
-      );
+      ).unwrap();
       Alert.alert("Success", "Profile updated successfully!");
       setIsEditing(false);
     } catch (e) {
@@ -167,46 +162,56 @@ export default function Profile() {
   };
 
   return (
-    <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
-      <View style={styles.content}>
-        {/* Profile Picture Section */}
-        <View style={styles.profilePictureContainer}>
-          <View style={styles.profilePicture}>
-            {imageUrl ? (
-              <Image source={{ uri: imageUrl }} style={{ width: 114, height: 114, borderRadius: 57 }} />
-            ) : (
-              <Ionicons name="person" size={80} color="#277874" />
-            )}
+    <View style={styles.root}>
+      <ScrollView
+        style={styles.scroll}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
+        <View style={styles.card}>
+          <View style={styles.cardHeader}>
+            <Ionicons name="image-outline" size={18} color="#277874" />
+            <Text style={styles.cardTitle}>Profile Photo</Text>
           </View>
-          <TouchableOpacity
-            style={[
-              styles.editPhotoButton,
-              !isEditing ? { opacity: 0.5 } : null,
-            ]}
-            onPress={() => {
-              if (!isEditing) {
-                Alert.alert('Edit required', 'Tap Edit Profile first to change your photo.');
-                return;
-              }
-              pickProfileImage();
-            }}
-            disabled={uploadingImage || !isEditing}
-          >
-            <Ionicons name={uploadingImage ? "time" : "add"} size={16} color="#ffffff" />
-          </TouchableOpacity>
+          <View style={styles.profilePictureRow}>
+            <View style={styles.profilePicture}>
+              {imageUrl ? (
+                <Image source={{ uri: imageUrl }} style={styles.profilePictureImage} />
+              ) : (
+                <Ionicons name="person" size={72} color="#277874" />
+              )}
+            </View>
+            <TouchableOpacity
+              style={[styles.editPhotoButton, !isEditing && styles.editPhotoButtonDisabled]}
+              onPress={() => {
+                if (!isEditing) {
+                  Alert.alert("Edit required", "Tap Edit Profile first to change your photo.");
+                  return;
+                }
+                pickProfileImage();
+              }}
+              disabled={uploadingImage || !isEditing}
+            >
+              <Ionicons name={uploadingImage ? "time" : "add"} size={16} color="#ffffff" />
+              <Text style={styles.editPhotoButtonText}>
+                {uploadingImage ? "Uploading..." : "Update"}
+              </Text>
+            </TouchableOpacity>
+          </View>
         </View>
 
-        {/* User Information Section */}
-        <View style={styles.sectionContainer}>
-          <Text style={styles.sectionTitle}>Personal Information</Text>
+        <View style={styles.card}>
+          <View style={styles.cardHeader}>
+            <Ionicons name="person-outline" size={18} color="#277874" />
+            <Text style={styles.cardTitle}>Personal Information</Text>
+          </View>
+
           <View style={styles.formContainer}>
             <TextField
               placeholder="e.g. Juan Dela Cruz"
               value={name}
               onChangeText={setName}
-              iconComponent={
-                <Ionicons name="person-outline" size={18} color="#277874" />
-              }
+              iconComponent={<Ionicons name="person-outline" size={18} color="#277874" />}
               editable={isEditing}
             />
 
@@ -214,105 +219,115 @@ export default function Profile() {
               placeholder="e.g. juandelacruz@email.com"
               value={email}
               onChangeText={setEmail}
-              iconComponent={
-                <Ionicons name="mail-outline" size={18} color="#277874" />
-              }
+              iconComponent={<Ionicons name="mail-outline" size={18} color="#277874" />}
               editable={isEditing}
               keyboardType="email-address"
             />
           </View>
+
+          <View style={styles.inlineActions}>
+            {!isEditing ? (
+              <Button variant="success" style={styles.inlineActionButton} onPress={handleEditProfile}>
+                <Text style={styles.buttonTextLight}>Edit Details</Text>
+              </Button>
+            ) : (
+              <>
+                <Button variant="outline" style={styles.inlineActionButton} onPress={handleCancel}>
+                  <Text style={styles.buttonTextDark}>Cancel</Text>
+                </Button>
+                <Button variant="success" style={styles.inlineActionButton} onPress={handleSave}>
+                  <Text style={styles.buttonTextLight}>Save</Text>
+                </Button>
+              </>
+            )}
+          </View>
         </View>
 
-        {/* Authentication Details Section is intentionally hidden */}
-
-        {/* Notification Settings Section */}
-        <View style={styles.sectionContainer}>
-          <Text style={styles.sectionTitle}>Settings</Text>
+        <View style={styles.card}>
+          <View style={styles.cardHeader}>
+            <Ionicons name="notifications-outline" size={18} color="#277874" />
+            <Text style={styles.cardTitle}>Settings</Text>
+          </View>
           <View style={styles.notificationContainer}>
             <Toggle
               value={notificationsEnabled}
               onValueChange={setNotificationsEnabled}
               label="Receive Notifications"
-              icon={
-                <Ionicons
-                  name="notifications-outline"
-                  size={18}
-                  color="#277874"
-                />
-              }
+              icon={<Ionicons name="notifications-outline" size={18} color="#277874" />}
             />
           </View>
         </View>
 
-        {/* Action Buttons Section */}
-        <View style={styles.sectionContainer}>
+        <View style={styles.dangerCard}>
           <Text style={styles.sectionTitle}>Account Actions</Text>
           <View style={styles.buttonContainer}>
-            {!isEditing && (
-              <Button
-                variant="success"
-                style={styles.editButton}
-                onPress={handleEditProfile}
-              >
-                <Text style={styles.buttonText}>Edit Profile</Text>
-              </Button>
-            )}
-
-            {isEditing && (
-              <View style={styles.editButtonsContainer}>
-                <Button
-                  variant="outline"
-                  style={styles.cancelButton}
-                  onPress={handleCancel}
-                >
-                  <Text style={styles.buttonText}>Cancel</Text>
-                </Button>
-
-                <Button
-                  variant="success"
-                  style={styles.saveButton}
-                  onPress={handleSave}
-                >
-                  <Text style={styles.buttonText}>Save Changes</Text>
-                </Button>
-              </View>
-            )}
-
-            <Button
-              variant="danger"
-              style={styles.logoutButton}
-              onPress={handleLogout}
-            >
-              <Text style={styles.buttonText}>Logout Account</Text>
+            <Button variant="danger" style={styles.logoutButton} onPress={handleLogout}>
+              <Text style={styles.buttonTextLight}>Logout Account</Text>
             </Button>
-
-            <Button
-              variant="danger"
-              style={styles.deleteButton}
-              onPress={handleDeleteAccount}
-            >
-              <Text style={styles.buttonText}>Delete Account</Text>
+            <Button variant="danger" style={styles.deleteButton} onPress={handleDeleteAccount}>
+              <Text style={styles.buttonTextLight}>Delete Account</Text>
             </Button>
           </View>
         </View>
-      </View>
-    </ScrollView>
+      </ScrollView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
+  root: {
     flex: 1,
+    backgroundColor: "#F3F4F6",
+  },
+  scroll: {
+    flex: 1,
+  },
+  scrollContent: {
+    padding: 20,
+    paddingBottom: 40,
+    gap: 16,
+  },
+  card: {
     backgroundColor: "#ffffff",
+    borderRadius: 16,
+    padding: 20,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    elevation: 3,
   },
-  content: {
-    paddingHorizontal: 20,
-    paddingVertical: 20,
+  dangerCard: {
+    backgroundColor: "#FEF2F2",
+    borderRadius: 16,
+    padding: 20,
+    borderWidth: 1,
+    borderColor: "#FECACA",
   },
-  profilePictureContainer: {
+  cardHeader: {
+    flexDirection: "row",
     alignItems: "center",
-    marginBottom: 40,
-    position: "relative",
+    gap: 8,
+    marginBottom: 16,
+  },
+  cardTitle: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#1f2937",
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: "600",
+    color: "#1f2937",
+    marginBottom: 16,
+  },
+  formContainer: {
+    gap: 16,
+  },
+  profilePictureRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
   },
   profilePicture: {
     width: 120,
@@ -324,43 +339,58 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
   },
+  profilePictureImage: {
+    width: 114,
+    height: 114,
+    borderRadius: 57,
+  },
   editPhotoButton: {
-    position: "absolute",
-    bottom: 0,
-    right: 0,
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: "#277874",
-    justifyContent: "center",
+    flexDirection: "row",
     alignItems: "center",
-    borderWidth: 2,
-    borderColor: "#ffffff",
+    gap: 8,
+    backgroundColor: "#277874",
+    paddingHorizontal: 18,
+    paddingVertical: 12,
+    borderRadius: 999,
   },
-  sectionContainer: {
-    marginBottom: 32,
+  editPhotoButtonDisabled: {
+    opacity: 0.5,
   },
-  sectionTitle: {
-    fontSize: 18,
+  editPhotoButtonText: {
+    color: "#ffffff",
     fontWeight: "600",
-    color: "#1f2937",
-    marginBottom: 16,
-    marginLeft: 4,
   },
-  formContainer: {
-    gap: 16,
+  inlineActions: {
+    flexDirection: "row",
+    gap: 12,
+    marginTop: 20,
+  },
+  inlineActionButton: {
+    flex: 1,
+    borderRadius: 12,
+    paddingVertical: 14,
   },
   notificationContainer: {
     marginTop: 8,
+    paddingVertical: 4,
   },
   buttonContainer: {
-    gap: 16,
+    gap: 12,
+  },
+  buttonTextLight: {
+    color: "#ffffff",
+    fontSize: 16,
+    fontWeight: "600",
+  },
+  buttonTextDark: {
+    color: "#277874",
+    fontSize: 16,
+    fontWeight: "600",
   },
   logoutButton: {
     backgroundColor: "#f97316",
     borderRadius: 12,
     paddingVertical: 16,
-    marginTop: 8,
     borderWidth: 1.5,
     borderColor: "#ea580c",
   },
@@ -368,41 +398,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#991b1b",
     borderRadius: 12,
     paddingVertical: 16,
-    marginTop: 8,
     borderWidth: 2,
     borderColor: "#7f1d1d",
-  },
-  editButtonsContainer: {
-    flexDirection: "row",
-    gap: 12,
-    marginBottom: 8,
-  },
-  cancelButton: {
-    flex: 1,
-    backgroundColor: "#277874",
-    borderRadius: 12,
-    paddingVertical: 16,
-  },
-  saveButton: {
-    flex: 1,
-    backgroundColor: "#f59e0b",
-    borderRadius: 12,
-    paddingVertical: 16,
-  },
-  editButton: {
-    backgroundColor: "#277874",
-    borderRadius: 12,
-    paddingVertical: 16,
-    marginBottom: 8,
-  },
-  buttonText: {
-    color: "#ffffff",
-    fontSize: 16,
-    fontWeight: "600",
-  },
-  outlineButtonText: {
-    color: "#277874",
-    fontSize: 16,
-    fontWeight: "600",
   },
 });

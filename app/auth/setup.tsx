@@ -62,10 +62,12 @@ export default function RetailerSetup() {
       setHasCheckedAuth(true);
       
       // Check if user is a retailer
-      const normalizedRole = String(user.role ?? "").toLowerCase();
-      const normalizedUserType = String(user.user_type ?? "").toLowerCase();
-      if (normalizedRole !== "retailer" && normalizedUserType !== "retailer") {
-        Alert.alert("Access Denied", "Store setup is only available for retailers.");
+      const normalizedRole = String((user as any).role ?? "").toLowerCase();
+      const normalizedUserType = String((user as any).user_type ?? "").toLowerCase();
+      const isRetailer = normalizedRole === "retailer" || normalizedUserType === "retailer";
+      
+      if (!isRetailer) {
+        // If user is not a retailer, redirect to consumer dashboard
         router.replace("/(consumers)");
         return;
       }
@@ -75,7 +77,7 @@ export default function RetailerSetup() {
 
       // Check if setup is already completed AND user has a store
       // Only redirect if both conditions are met - if no store exists, allow setup
-      if (user?.retailer_setup_completed && userStore?.id) {
+      if ((user as any)?.retailer_setup_completed && userStore?.id) {
         Alert.alert(
           "Setup Already Completed",
           "You have already completed your store setup. You can update your store details in Settings.",
@@ -215,7 +217,7 @@ export default function RetailerSetup() {
     try {
       setSubmitting(true);
       
-      if (!user?.id) {
+      if (!(user as any)?.id) {
         Alert.alert("Error", "User information not available. Please try logging in again.");
         router.replace("/auth/login");
         return;
@@ -243,11 +245,16 @@ export default function RetailerSetup() {
 
       if (!userStore?.id) {
         // Create a new store if one doesn't exist
+        if (!user) {
+          Alert.alert("Error", "User information not available. Please try logging in again.");
+          router.replace("/auth/login");
+          return;
+        }
         try {
           const newStore = await createStore({
             name: formData.storeName,
             description: formData.storeDescription,
-            ownerId: Number(user.id),
+            ownerId: Number((user as any).id),
             ...(imageUrl && { imageUrl }),
             ...(address && { address }),
             ...(latitude !== undefined && { latitude }),
@@ -265,12 +272,16 @@ export default function RetailerSetup() {
         }
       } else {
         // Update existing store
+        if (!user) {
+          Alert.alert("Error", "User information not available. Please try logging in again.");
+          router.replace("/auth/login");
+          return;
+        }
         try {
           await updateStore({
             id: userStore.id,
             name: formData.storeName,
             description: formData.storeDescription,
-            userId: Number(user.id),
             ...(imageUrl && { imageUrl }),
             ...(address && { address }),
             ...(latitude !== undefined && { latitude }),
@@ -301,11 +312,11 @@ export default function RetailerSetup() {
   const onLater = async () => {
     try {
       // Create a basic store if one doesn't exist
-      if (!userStore?.id && user?.id) {
+      if (!userStore?.id && (user as any)?.id) {
         const newStore = await createStore({
-          name: `${user.name || 'My'}'s Store`,
+          name: `${(user as any).name || 'My'}'s Store`,
           description: "Welcome to my store!",
-          ownerId: Number(user.id),
+          ownerId: Number((user as any).id),
         }).unwrap();
         
         console.log("Store created successfully (Later):", newStore);

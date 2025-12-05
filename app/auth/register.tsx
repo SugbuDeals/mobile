@@ -4,18 +4,20 @@ import { useLogin } from "@/features/auth";
 import { useStore } from "@/features/store";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { yupResolver } from "@hookform/resolvers/yup";
+import * as Haptics from "expo-haptics";
+import { LinearGradient } from "expo-linear-gradient";
 import { Link, router } from "expo-router";
 import React from "react";
 import { Controller, useForm } from "react-hook-form";
 import {
-    Dimensions,
-    KeyboardAvoidingView,
-    Platform,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View,
+  Dimensions,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from "react-native";
 import * as yup from "yup";
 
@@ -28,14 +30,42 @@ const schema = yup.object().shape({
     .min(8, "Password must contain at least 8 characters"),
 });
 
+const ROLE_OPTIONS = [
+  {
+    key: "CONSUMER",
+    title: "Smart Shopper",
+    description: "Unlock curated deals, flash drops, and nearby steals.",
+    chip: "Discover",
+    accent: "#277874",
+    gradient: ["#d3f5ef", "#a7ede0"],
+    icon: "pricetag-outline" as const,
+  },
+  {
+    key: "RETAILER",
+    title: "Store Owner",
+    description: "Showcase products, push promos, and grow loyal fans.",
+    chip: "Build",
+    accent: "#FFBE5E",
+    gradient: ["#fff1da", "#ffe0aa"],
+    icon: "storefront-outline" as const,
+  },
+] as const;
+
+type RoleKey = (typeof ROLE_OPTIONS)[number]["key"];
+
 export default function Register() {
-  const { action: { register, login } } = useLogin();
-  const { action: { createStore } } = useStore();
+  const {
+    action: { register, login },
+  } = useLogin();
+  const {
+    action: { createStore },
+  } = useStore();
   const [submitting, setSubmitting] = React.useState(false);
   const {
     control,
     handleSubmit,
     formState: { errors },
+    setError,
   } = useForm({
     resolver: yupResolver(schema),
     defaultValues: {
@@ -44,24 +74,29 @@ export default function Register() {
       password: "",
     },
   });
-  const [isRetailer, setIsRetailer] = React.useState(false);
+  const [selectedRole, setSelectedRole] = React.useState<RoleKey>("CONSUMER");
+  const isRetailer = selectedRole === "RETAILER";
+
+  const handleRoleSelect = React.useCallback((role: RoleKey) => {
+    setSelectedRole(role);
+    Haptics.selectionAsync();
+  }, []);
 
   const onCreate = async (formData: yup.InferType<typeof schema>) => {
     try {
       setSubmitting(true);
-      const role = isRetailer ? "RETAILER" : "CONSUMER";
       
       // Register the user
       const result = await register({ 
         name: formData.name, 
         email: formData.email, 
         password: formData.password, 
-        role 
+        role: selectedRole
       }).unwrap();
       
       // Automatically log in the user after successful registration
       try {
-        const loginResult = await login({
+        await login({
           email: formData.email,
           password: formData.password,
         }).unwrap();
@@ -80,7 +115,39 @@ export default function Register() {
         router.replace("/auth/login");
       }
     } catch (e: any) {
-      alert(e?.message || "Registration failed");
+      // Extract error message from various possible error structures
+      // RTK unwrap() throws errors with payload property, or direct message
+      const errorMessage = 
+        e?.payload?.message || 
+        e?.message || 
+        e?.error?.message || 
+        "";
+      
+      const errorMessageLower = errorMessage.toLowerCase();
+      
+      // Check if the error is related to duplicate email
+      // This handles various error formats: 500 status, duplicate email messages, etc.
+      const isDuplicateEmail = 
+        errorMessageLower.includes("email") && 
+        (errorMessageLower.includes("already") || 
+         errorMessageLower.includes("exists") ||
+         errorMessageLower.includes("duplicate") ||
+         errorMessageLower.includes("taken") ||
+         errorMessageLower.includes("registered")) ||
+        e?.status === 500 || 
+        e?.statusCode === 500 ||
+        e?.payload?.status === 500;
+      
+      if (isDuplicateEmail) {
+        // Set error on the email field with a user-friendly message
+        setError("email", {
+          type: "manual",
+          message: "This email is already registered. Please use a different email or try logging in.",
+        });
+      } else {
+        // For other errors, show an alert
+        alert(errorMessage || "Registration failed. Please try again.");
+      }
     } finally {
       setSubmitting(false);
     }
@@ -95,6 +162,82 @@ export default function Register() {
     right: -circleSize * 0.20,
     borderRadius: circleSize / 2,
   } as const;
+
+
+  const renderRoleCard = React.useCallback(
+    (roleOption: (typeof ROLE_OPTIONS)[number], extraWrapperStyles?: any) => {
+      const isActive = roleOption.key === selectedRole;
+      return (
+        <TouchableOpacity
+          key={roleOption.key}
+          style={[
+            styles.roleCardWrapper,
+            isActive && styles.roleCardWrapperActive,
+            extraWrapperStyles,
+            isActive && {
+              borderColor: roleOption.accent,
+              shadowColor: roleOption.accent,
+            },
+          ]}
+          onPress={() => handleRoleSelect(roleOption.key)}
+          activeOpacity={0.9}
+        >
+          <LinearGradient
+            colors={roleOption.gradient}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={[styles.roleCard, isActive && styles.roleCardActive]}
+          >
+            <View
+              style={[
+                styles.roleIconBadge,
+                {
+                  backgroundColor: `${roleOption.accent}1a`,
+                  borderColor: roleOption.accent,
+                },
+              ]}
+            >
+              <Ionicons
+                name={roleOption.icon}
+                size={20}
+                color={roleOption.accent}
+              />
+            </View>
+            <Text
+              style={[
+                styles.roleTitle,
+                { color: roleOption.accent },
+                isActive && styles.roleTitleActive,
+              ]}
+            >
+              {roleOption.title}
+            </Text>
+            <Text style={styles.roleDescription}>{roleOption.description}</Text>
+            <View
+              style={[
+                styles.roleChipBase,
+                {
+                  borderColor: roleOption.accent,
+                  backgroundColor: isActive ? roleOption.accent : "transparent",
+                },
+              ]}
+            >
+              <Text
+                style={[
+                  styles.roleChipText,
+                  { color: roleOption.accent },
+                  isActive && styles.roleChipTextActive,
+                ]}
+              >
+                {roleOption.chip}
+              </Text>
+            </View>
+          </LinearGradient>
+        </TouchableOpacity>
+      );
+    },
+    [handleRoleSelect, selectedRole]
+  );
 
   return (
     <View style={styles.container}>
@@ -167,16 +310,10 @@ export default function Register() {
             />
 
             <Text style={styles.label}>Select Role</Text>
-            <View style={styles.switchRow}>
-              <Text style={[styles.switchLabel, !isRetailer && styles.activeLabel]}>Customer</Text>
-              <TouchableOpacity
-                onPress={() => setIsRetailer((v) => !v)}
-                activeOpacity={0.9}
-                style={[styles.switchPill, isRetailer && styles.switchPillActive]}
-              >
-                <View style={[styles.switchThumb, isRetailer && styles.switchThumbRight]} />
-              </TouchableOpacity>
-              <Text style={[styles.switchLabel, isRetailer && styles.activeLabel]}>Store Owner</Text>
+            <View style={styles.roleGrid}>
+              <View style={styles.roleRow}>
+                {ROLE_OPTIONS.map((role) => renderRoleCard(role))}
+              </View>
             </View>
 
             <Button onPress={handleSubmit(onCreate)} disabled={submitting}>
@@ -238,45 +375,75 @@ const styles = StyleSheet.create({
     marginBottom: 6,
     marginTop: 8,
   },
-  switchRow: {
-    backgroundColor: "#dedede",
-    paddingHorizontal: 15,
-    paddingVertical: 10,
-    borderRadius: 7,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
+  roleGrid: {
+    gap: 12,
     marginTop: 8,
     marginBottom: 16,
   },
-  switchLabel: {
-    color: "#64748b",
-    fontSize: 14,
+  roleRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 12,
   },
-  activeLabel: {
+  roleCardWrapper: {
+    flex: 1,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: "#e2e8f0",
+    overflow: "hidden",
+  },
+  roleCardWrapperActive: {
+    borderColor: "#277874",
+    shadowColor: "#277874",
+    shadowOpacity: 0.25,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 6 },
+    elevation: 5,
+  },
+  roleCard: {
+    padding: 14,
+    height: 200,
+  },
+  roleCardActive: {
+    borderColor: "transparent",
+  },
+  roleIconBadge: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+  },
+  roleTitle: {
+    fontSize: 13,
+    fontWeight: "600",
+    marginTop: 12,
+  },
+  roleTitleActive: {
+    color: "#0b3b38",
+  },
+  roleDescription: {
+    fontSize: 12,
+    color: "#475569",
+    marginTop: 6,
+    lineHeight: 18,
+  },
+  roleChipBase: {
+    alignSelf: "flex-start",
+    marginTop: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+    borderRadius: 999,
+    borderWidth: 1,
+  },
+  roleChipText: {
+    fontSize: 12,
     color: "#0f172a",
     fontWeight: "600",
   },
-  switchPill: {
-    width: 80,
-    height: 30,
-    borderRadius: 999,
-    backgroundColor: "#e2e8f0",
-    padding: 4,
-    justifyContent: "center",
-  },
-  switchPillActive: {
-    backgroundColor: "#277874",
-  },
-  switchThumb: {
-    width: 22,
-    height: 22,
-    borderRadius: 11,
-    backgroundColor: "#ffffff",
-    transform: [{ translateX: 0 }],
-  },
-  switchThumbRight: {
-    transform: [{ translateX: 50 }],
+  roleChipTextActive: {
+    color: "#ffffff",
   },
   primaryButtonText: {
     color: "#ffffff",

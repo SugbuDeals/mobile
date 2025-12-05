@@ -67,6 +67,8 @@ export default function AdminViewStores() {
     }
   };
 
+  
+
   if (storeState.loading && storeState.stores.length === 0) {
     return (
       <View style={styles.loadingContainer}>
@@ -164,6 +166,7 @@ export default function AdminViewStores() {
                         disabled={!!storeActionLoading[store.id]}
                       />
                     </View>
+                    
                   </View>
                 </View>
                 <View style={styles.chevron}>
@@ -295,6 +298,22 @@ const styles = StyleSheet.create({
   },
   actionButtonText: {
     color: "#FFFFFF",
+    fontWeight: "600",
+  },
+  deleteButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 8,
+    backgroundColor: "#FEE2E2",
+    borderWidth: 1,
+    borderColor: "#DC2626",
+  },
+  deleteButtonText: {
+    color: "#DC2626",
+    fontSize: 13,
     fontWeight: "600",
   },
   switchRow: {

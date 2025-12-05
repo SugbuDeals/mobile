@@ -1,9 +1,9 @@
-import env from "@/config/env";
 import { useLogin } from "@/features/auth";
+import { useCatalog } from "@/features/catalog";
 import { useStore } from "@/features/store";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
     ActivityIndicator,
     Dimensions,
@@ -11,48 +11,32 @@ import {
     ScrollView,
     StyleSheet,
     Text,
-    TextInput,
     TouchableOpacity,
     View,
 } from "react-native";
 
 const { width } = Dimensions.get("window");
 
-type AiRecommendationProduct = {
-  id?: number;
-  productId?: number;
-  name?: string;
-  title?: string;
-  storeName?: string;
-  storeId?: number;
-  store?: { id?: number; name?: string };
-  price?: number;
-  discount?: number;
-  imageUrl?: string;
-  image?: string;
-  description?: string;
-  distance?: number;
-};
-
 export default function AdminDashboard() {
   const { state: authState, action: authActions } = useLogin();
-  const { action: storeActions, state: { promotions, loading: storeLoading } } = useStore();
+  const { action: storeActions, state: { promotions, products, stores, subscriptions, subscriptionAnalytics, loading: storeLoading } } = useStore();
+  const { state: catalogState, action: catalogActions } = useCatalog();
   const router = useRouter();
   
   const [isLoading, setIsLoading] = useState(true);
-  const [aiQuery, setAiQuery] = useState("");
-  const [aiResponse, setAiResponse] = useState("");
-  const [isLoadingAI, setIsLoadingAI] = useState(false);
-  const [aiProducts, setAiProducts] = useState<AiRecommendationProduct[]>([]);
 
   useEffect(() => {
-    // Fetch all users
+    // Fetch all data needed for dashboard
     if (authState.allUsers.length === 0) {
       authActions.fetchAllUsers();
     }
     
-    // Fetch all promotions
     storeActions.findPromotions();
+    storeActions.findProducts();
+    storeActions.findStores();
+    storeActions.findSubscriptions();
+    storeActions.getSubscriptionAnalytics();
+    catalogActions.loadCategories();
     
     // Set loading to false after a short delay
     const timer = setTimeout(() => setIsLoading(false), 500);
@@ -60,9 +44,6 @@ export default function AdminDashboard() {
   }, []);
 
   // Calculate today's date for filtering
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  
   const getTodayStart = () => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
@@ -80,12 +61,60 @@ export default function AdminDashboard() {
     return createdDate >= getTodayStart() && createdDate <= getTodayEnd();
   };
 
-  // Filter users created today
-  const recentUsersToday = authState.allUsers.filter(user => {
-    const createdAt = user.createdAt || user.created_at;
-    if (!createdAt) return false;
-    return isCreatedToday(createdAt);
-  });
+  // Calculate comprehensive metrics
+  const metrics = useMemo(() => {
+    const totalUsers = authState.allUsers.length;
+    const consumers = authState.allUsers.filter(u => (u.role === "CONSUMER" || u.user_type === "consumer")).length;
+    const retailers = authState.allUsers.filter(u => (u.role === "RETAILER" || u.user_type === "retailer")).length;
+    const admins = authState.allUsers.filter(u => (u.role === "ADMIN" || u.user_type === "admin")).length;
+    
+    const totalStores = stores.length;
+    const verifiedStores = stores.filter(s => s.verificationStatus === "VERIFIED").length;
+    const activeStores = stores.filter(s => s.isActive !== false).length;
+    
+    const totalProducts = products.length;
+    const activeProducts = products.filter(p => p.isActive !== false).length;
+    
+    const totalPromotions = promotions.length;
+    const activePromotions = promotions.filter(p => p.active).length;
+    
+    const totalCategories = catalogState.categories.length;
+    
+    const totalSubscriptions = subscriptions.length;
+    const activeSubscriptions = subscriptions.filter(s => s.isActive !== false).length;
+    const revenue = typeof subscriptionAnalytics?.totalRevenue === 'number' ? subscriptionAnalytics.totalRevenue : 0;
+    
+    // Calculate average discount
+    const totalDiscount = promotions.reduce((sum, p) => sum + (p.discount || 0), 0);
+    const avgDiscount = totalPromotions > 0 ? (totalDiscount / totalPromotions).toFixed(1) : "0.0";
+    
+    // Recent users today
+    const recentUsersToday = authState.allUsers.filter(user => {
+      const createdAt = user.createdAt || user.created_at;
+      if (!createdAt) return false;
+      return isCreatedToday(createdAt);
+    });
+
+    return {
+      totalUsers,
+      consumers,
+      retailers,
+      admins,
+      totalStores,
+      verifiedStores,
+      activeStores,
+      totalProducts,
+      activeProducts,
+      totalPromotions,
+      activePromotions,
+      totalCategories,
+      totalSubscriptions,
+      activeSubscriptions,
+      revenue,
+      avgDiscount,
+      recentUsersToday,
+    };
+  }, [authState.allUsers, stores, products, promotions, catalogState.categories, subscriptions, subscriptionAnalytics]);
 
   // Format time ago for recent users
   const getTimeAgo = (createdAt: string) => {
@@ -100,67 +129,10 @@ export default function AdminDashboard() {
     if (diffHours < 1) return "Less than 1h ago";
     return `${diffHours}h ago`;
   };
-
-  // Calculate metrics
-  const totalUsers = authState.allUsers.length;
-  const totalPromotions = promotions.length;
   
   // Format number with commas
   const formatNumber = (num: number) => {
     return num.toLocaleString('en-US');
-  };
-
-  // Handle AI test submission
-  const handleTestAI = async () => {
-    if (!aiQuery.trim() || isLoadingAI) return;
-    
-    setIsLoadingAI(true);
-    setAiResponse("Processing...");
-    setAiProducts([]);
-    
-    try {
-      const response = await fetch(`${env.API_BASE_URL}/ai/recommendations`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          ...(authState.accessToken ? { Authorization: `Bearer ${authState.accessToken}` } : {}),
-        },
-        body: JSON.stringify({ query: aiQuery, count: 10 }),
-      });
-      
-      const rawText = await response.text();
-      let jsonData: any = {};
-      
-      try {
-        jsonData = rawText ? JSON.parse(rawText) : {};
-      } catch {
-        jsonData = { content: rawText };
-      }
-      
-      // Extract AI response text
-      const aiText =
-        jsonData?.content ||
-        jsonData?.messages?.find((m: any) => m?.role === "assistant")?.content ||
-        jsonData?.insight ||
-        jsonData?.summary ||
-        jsonData?.message ||
-        "AI response received";
-
-      const items =
-        (Array.isArray(jsonData?.products) && jsonData.products) ||
-        (Array.isArray(jsonData?.recommendations) && jsonData.recommendations) ||
-        (Array.isArray(jsonData?.items) && jsonData.items) ||
-        [];
-      
-      setAiResponse(aiText);
-      setAiProducts((items as AiRecommendationProduct[]).filter(Boolean));
-    } catch (error) {
-      setAiResponse("Error: Could not fetch AI recommendations. Please try again.");
-      setAiProducts([]);
-      console.error("AI error:", error);
-    } finally {
-      setIsLoadingAI(false);
-    }
   };
 
   if (isLoading || authState.usersLoading || storeLoading) {
@@ -178,186 +150,136 @@ export default function AdminDashboard() {
         {/* Key Metrics Cards */}
         <View style={styles.metricsSection}>
           <View style={styles.metricsGrid}>
-            <View style={styles.metricCard}>
+            <TouchableOpacity 
+              style={styles.metricCard}
+              onPress={() => router.push("/(admin)/users")}
+            >
               <View style={styles.metricHeader}>
                 <Text style={styles.metricLabel}>Total Users</Text>
                 <View style={[styles.metricIcon, { backgroundColor: "#D1FAE5" }]}>
                   <Ionicons name="people" size={20} color="#1B6F5D" />
                 </View>
               </View>
-              <Text style={styles.metricValue}>{formatNumber(totalUsers)}</Text>
-              <Text style={styles.metricChange}>+12% vs last month</Text>
-            </View>
+              <Text style={styles.metricValue}>{formatNumber(metrics.totalUsers)}</Text>
+              <View style={styles.metricBreakdown}>
+                <Text style={styles.metricBreakdownText}>Consumers: {metrics.consumers}</Text>
+                <Text style={styles.metricBreakdownText}>Retailers: {metrics.retailers}</Text>
+              </View>
+            </TouchableOpacity>
 
-            <View style={styles.metricCard}>
+            <TouchableOpacity 
+              style={styles.metricCard}
+              onPress={() => router.push("/(admin)/deals")}
+            >
               <View style={styles.metricHeader}>
-                <Text style={styles.metricLabel}>AI Deal Found</Text>
+                <Text style={styles.metricLabel}>Active Deals</Text>
                 <View style={[styles.metricIcon, { backgroundColor: "#DBEAFE" }]}>
                   <Ionicons name="pricetag" size={20} color="#3B82F6" />
                 </View>
               </View>
-              <Text style={styles.metricValue}>{formatNumber(totalPromotions)}</Text>
-              <Text style={styles.metricChange}>+8% vs last month</Text>
-            </View>
+              <Text style={styles.metricValue}>{formatNumber(metrics.activePromotions)}</Text>
+              <Text style={styles.metricChange}>Avg: {metrics.avgDiscount}% off</Text>
+            </TouchableOpacity>
 
-            <View style={styles.metricCard}>
+            <TouchableOpacity 
+              style={styles.metricCard}
+              onPress={() => router.push("/(admin)/subscriptions")}
+            >
               <View style={styles.metricHeader}>
-                <Text style={styles.metricLabel}>Total Income</Text>
+                <Text style={styles.metricLabel}>Revenue</Text>
                 <View style={[styles.metricIcon, { backgroundColor: "#FEF3C7" }]}>
                   <Ionicons name="cash" size={20} color="#F59E0B" />
                 </View>
               </View>
-              <Text style={styles.metricValue}>N/A</Text>
-              <Text style={styles.metricChange}>Tracking coming soon</Text>
-            </View>
+              <Text style={styles.metricValue}>₱{formatNumber(typeof metrics.revenue === 'number' ? metrics.revenue : 0)}</Text>
+              <Text style={styles.metricChange}>{metrics.activeSubscriptions} active plans</Text>
+            </TouchableOpacity>
 
-            <View style={styles.metricCard}>
+            <TouchableOpacity 
+              style={styles.metricCard}
+              onPress={() => router.push("/(admin)/view-store")}
+            >
               <View style={styles.metricHeader}>
-                <Text style={styles.metricLabel}>AI Queries</Text>
-                <View style={[styles.metricIcon, { backgroundColor: "#F3F4F6" }]}>
-                  <Ionicons name="hardware-chip" size={20} color="#6B7280" />
+                <Text style={styles.metricLabel}>Stores</Text>
+                <View style={[styles.metricIcon, { backgroundColor: "#E0E7FF" }]}>
+                  <Ionicons name="storefront" size={20} color="#6366F1" />
                 </View>
               </View>
-              <Text style={styles.metricValue}>N/A</Text>
-              <Text style={styles.metricChange}>Tracking coming soon</Text>
-            </View>
-          </View>
-        </View>
-
-        {/* Quick Views */}
-        <View style={styles.quickViewsSection}>
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Quick Views</Text>
-          </View>
-          <View style={styles.quickGrid}>
-            <TouchableOpacity style={styles.quickCard} onPress={() => router.push("/(admin)/view-product") }>
-              <View style={[styles.quickIcon, { backgroundColor: "#e0f2f1" }]}>
-                <Ionicons name="cube" size={20} color="#277874" />
-              </View>
-              <Text style={styles.quickTitle}>View Products</Text>
-              <Text style={styles.quickSub}>Browse all products</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity style={styles.quickCard} onPress={() => router.push("/(admin)/view-store") }>
-              <View style={[styles.quickIcon, { backgroundColor: "#f0f9ff" }]}>
-                <Ionicons name="storefront" size={20} color="#3B82F6" />
-              </View>
-              <Text style={styles.quickTitle}>View Stores</Text>
-              <Text style={styles.quickSub}>See registered stores</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity style={styles.quickCard} onPress={() => router.push("/(admin)/view-promotion") }>
-              <View style={[styles.quickIcon, { backgroundColor: "#fef3c7" }]}>
-                <Ionicons name="pricetag" size={20} color="#F59E0B" />
-              </View>
-              <Text style={styles.quickTitle}>View Promotions</Text>
-              <Text style={styles.quickSub}>All active and archived</Text>
+              <Text style={styles.metricValue}>{formatNumber(metrics.totalStores)}</Text>
+              <Text style={styles.metricChange}>{metrics.verifiedStores} verified</Text>
             </TouchableOpacity>
           </View>
         </View>
 
-        {/* AI Deal Finder Test Section */}
-        <View style={styles.aiSection}>
+        {/* System Overview */}
+        <View style={styles.overviewSection}>
           <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>AI Deal Finder Test</Text>
-            <Ionicons name="hardware-chip" size={20} color="#F59E0B" />
+            <Text style={styles.sectionTitle}>System Overview</Text>
           </View>
-          
-          <View style={styles.aiTestCard}>
-            <TextInput
-              style={styles.aiInput}
-              placeholder="Enter a deal search query to test the AI..."
-              value={aiQuery}
-              onChangeText={setAiQuery}
-              placeholderTextColor="#9CA3AF"
-              editable={!isLoadingAI}
-            />
-            
-            <View style={styles.aiButtons}>
+          <View style={styles.overviewGrid}>
+            <View style={styles.overviewCard}>
+              <View style={styles.overviewHeader}>
+                <Ionicons name="cube-outline" size={24} color="#277874" />
+                <Text style={styles.overviewLabel}>Products</Text>
+              </View>
+              <Text style={styles.overviewValue}>{formatNumber(metrics.totalProducts)}</Text>
+              <Text style={styles.overviewSub}>{metrics.activeProducts} active</Text>
               <TouchableOpacity 
-                style={[styles.testButton, isLoadingAI && styles.testButtonDisabled]} 
-                onPress={handleTestAI}
-                disabled={isLoadingAI || !aiQuery.trim()}
+                style={styles.overviewButton}
+                onPress={() => router.push("/(admin)/view-product")}
               >
-                {isLoadingAI ? (
-                  <ActivityIndicator size="small" color="#ffffff" />
-                ) : (
-                <Text style={styles.testButtonText}>Test AI</Text>
-                )}
-              </TouchableOpacity>
-              
-              <TouchableOpacity 
-                style={styles.refreshButton}
-                onPress={() => {
-                  setAiQuery("");
-                  setAiResponse("");
-                  setAiProducts([]);
-                }}
-              >
-                <Ionicons name="refresh" size={20} color="#6B7280" />
+                <Text style={styles.overviewButtonText}>View All</Text>
+                <Ionicons name="chevron-forward" size={16} color="#277874" />
               </TouchableOpacity>
             </View>
-            
-            {aiResponse && (
-              <View style={styles.aiResponseContainer}>
-                <Text style={styles.aiResponseText}>{aiResponse}</Text>
-                {!!aiProducts.length && (
-                  <View style={styles.aiProductsList}>
-                    {aiProducts.map((item, idx) => {
-                      const displayName = item.name || item.title || `Product ${idx + 1}`;
-                      const displayStore = item.storeName || item.store?.name || "Store";
-                      const price =
-                        typeof item.price === "number"
-                          ? item.price
-                          : item.price != null
-                            ? Number(item.price)
-                            : undefined;
-                      const discount =
-                        typeof item.discount === "number"
-                          ? item.discount
-                          : item.discount != null
-                            ? Number(item.discount)
-                            : undefined;
-                      const distance =
-                        typeof item.distance === "number"
-                          ? item.distance
-                          : item.distance != null
-                            ? Number(item.distance)
-                            : undefined;
-                      const imageUrl = (() => {
-                        const url = item.imageUrl || item.image;
-                        if (!url) return null;
-                        if (/^https?:\/\//i.test(url)) return url;
-                        if (url.startsWith("/")) return `${env.API_BASE_URL}${url}`;
-                        return `${env.API_BASE_URL}/files/${url}`;
-                      })();
-                      return (
-                        <View key={item.id ?? item.productId ?? idx} style={styles.aiProductCard}>
-                          {imageUrl ? (
-                            <Image source={{ uri: imageUrl }} style={styles.aiProductImage} />
-                          ) : (
-                            <View style={styles.aiProductPlaceholder} />
-                          )}
-                          <View style={styles.aiProductInfo}>
-                            <Text style={styles.aiProductName} numberOfLines={2}>{displayName}</Text>
-                            <Text style={styles.aiProductStore}>{displayStore}</Text>
-                            {distance !== undefined && (
-                              <Text style={styles.aiProductMeta}>{distance.toFixed(1)} km away</Text>
-                            )}
-                            {price !== undefined && (
-                              <Text style={styles.aiProductPrice}>₱ {price.toFixed(2)}</Text>
-                            )}
-                            {discount !== undefined && (
-                              <Text style={styles.aiProductDiscount}>{discount}% OFF</Text>
-                            )}
-                          </View>
-                        </View>
-                      );
-                    })}
-                  </View>
-                )}
+
+            <View style={styles.overviewCard}>
+              <View style={styles.overviewHeader}>
+                <Ionicons name="pricetag-outline" size={24} color="#F59E0B" />
+                <Text style={styles.overviewLabel}>Promotions</Text>
               </View>
-            )}
+              <Text style={styles.overviewValue}>{formatNumber(metrics.totalPromotions)}</Text>
+              <Text style={styles.overviewSub}>{metrics.activePromotions} active</Text>
+              <TouchableOpacity 
+                style={styles.overviewButton}
+                onPress={() => router.push("/(admin)/view-promotion")}
+              >
+                <Text style={styles.overviewButtonText}>View All</Text>
+                <Ionicons name="chevron-forward" size={16} color="#F59E0B" />
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.overviewCard}>
+              <View style={styles.overviewHeader}>
+                <Ionicons name="albums-outline" size={24} color="#8B5CF6" />
+                <Text style={styles.overviewLabel}>Categories</Text>
+              </View>
+              <Text style={styles.overviewValue}>{formatNumber(metrics.totalCategories)}</Text>
+              <Text style={styles.overviewSub}>Total categories</Text>
+              <TouchableOpacity 
+                style={styles.overviewButton}
+                onPress={() => router.push("/(admin)/settings")}
+              >
+                <Text style={styles.overviewButtonText}>Manage</Text>
+                <Ionicons name="chevron-forward" size={16} color="#8B5CF6" />
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.overviewCard}>
+              <View style={styles.overviewHeader}>
+                <Ionicons name="card-outline" size={24} color="#10B981" />
+                <Text style={styles.overviewLabel}>Subscriptions</Text>
+              </View>
+              <Text style={styles.overviewValue}>{formatNumber(metrics.totalSubscriptions)}</Text>
+              <Text style={styles.overviewSub}>{metrics.activeSubscriptions} active</Text>
+              <TouchableOpacity 
+                style={styles.overviewButton}
+                onPress={() => router.push("/(admin)/subscriptions")}
+              >
+                <Text style={styles.overviewButtonText}>Manage</Text>
+                <Ionicons name="chevron-forward" size={16} color="#10B981" />
+              </TouchableOpacity>
+            </View>
           </View>
         </View>
 
@@ -365,19 +287,19 @@ export default function AdminDashboard() {
         <View style={styles.usersSection}>
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>Recent Users Today</Text>
-            <TouchableOpacity>
+            <TouchableOpacity onPress={() => router.push("/(admin)/users")}>
               <Text style={styles.viewAllText}>View All</Text>
             </TouchableOpacity>
           </View>
           
-          {recentUsersToday.length === 0 ? (
+          {metrics.recentUsersToday.length === 0 ? (
             <View style={styles.emptyState}>
               <Ionicons name="people-outline" size={48} color="#9CA3AF" />
               <Text style={styles.emptyStateText}>No new users today</Text>
             </View>
           ) : (
           <View style={styles.usersList}>
-              {recentUsersToday.slice(0, 5).map((user) => {
+              {metrics.recentUsersToday.slice(0, 5).map((user) => {
                 const createdAt = user.createdAt || user.created_at;
                 const avatarUrl = user.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(user.name || user.fullname || user.email || 'U')}&background=random`;
                 
@@ -413,47 +335,73 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingHorizontal: 20,
   },
-  quickViewsSection: {
+  overviewSection: {
     marginBottom: 16,
   },
-  quickGrid: {
+  overviewGrid: {
     flexDirection: "row",
     flexWrap: "wrap",
     justifyContent: "space-between",
   },
-  quickCard: {
+  overviewCard: {
     backgroundColor: "#ffffff",
-    borderRadius: 12,
-    padding: 16,
+    borderRadius: 10,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
     width: (width - 60) / 2,
-    marginBottom: 12,
-    shadowColor: "#277874",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.15,
-    shadowRadius: 4,
-    elevation: 3,
+    marginBottom: 10,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.06,
+    shadowRadius: 2,
+    elevation: 1,
   },
-  quickIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 8,
+  overviewHeader: {
+    flexDirection: "row",
     alignItems: "center",
-    justifyContent: "center",
+    marginBottom: 12,
+    gap: 8,
+  },
+  overviewLabel: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: "#6b7280",
+  },
+  overviewValue: {
+    fontSize: 20,
+    fontWeight: "800",
+    color: "#277874",
+    marginBottom: 4,
+  },
+  overviewSub: {
+    fontSize: 11,
+    color: "#9ca3af",
     marginBottom: 10,
   },
-  quickTitle: {
-    fontSize: 16,
-    fontWeight: "800",
-    color: "#1f2937",
+  overviewButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: "#e5e7eb",
   },
-  quickSub: {
-    fontSize: 12,
+  overviewButtonText: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#277874",
+  },
+  metricBreakdown: {
+    marginTop: 4,
+    gap: 2,
+  },
+  metricBreakdownText: {
+    fontSize: 11,
     color: "#6b7280",
-    marginTop: 2,
   },
   metricsSection: {
-    marginBottom: 10,
-    marginTop: 20,
+    marginBottom: 8,
+    marginTop: 12,
   },
   metricsGrid: {
     flexDirection: "row",
@@ -462,15 +410,16 @@ const styles = StyleSheet.create({
   },
   metricCard: {
     backgroundColor: "#ffffff",
-    borderRadius: 12,
-    padding: 16,
+    borderRadius: 10,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
     width: (width - 60) / 2,
-    marginBottom: 12,
-    shadowColor: "#277874",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.15,
-    shadowRadius: 4,
-    elevation: 3,
+    marginBottom: 10,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.06,
+    shadowRadius: 2,
+    elevation: 1,
   },
   metricHeader: {
     flexDirection: "row",
@@ -485,24 +434,21 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   metricValue: {
-    fontSize: 25,
-    fontWeight: "900",
+    fontSize: 20,
+    fontWeight: "800",
     color: "#277874",
     marginTop: 4,
   },
   metricLabel: {
-    fontSize: 14,
+    fontSize: 13,
     color: "#6b7280",
     fontWeight: "500",
   },
   metricChange: {
-    fontSize: 12,
+    fontSize: 11,
     color: "#10B981",
     fontWeight: "500",
     marginTop: 2,
-  },
-  aiSection: {
-    marginBottom: 20,
   },
   sectionHeader: {
     flexDirection: "row",
@@ -520,142 +466,24 @@ const styles = StyleSheet.create({
     color: "#FFBE5D",
     fontWeight: "500",
   },
-  aiTestCard: {
-    backgroundColor: "#ffffff",
-    borderRadius: 12,
-    padding: 16,
-    shadowColor: "#277874",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.15,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  aiInput: {
-    backgroundColor: "#f9fafb",
-    borderRadius: 8,
-    padding: 12,
-    fontSize: 16,
-    color: "#1f2937",
-    marginBottom: 12,
-    borderWidth: 1,
-    borderColor: "#e5e7eb",
-  },
-  aiButtons: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: 12,
-    gap: 12,
-  },
-  testButton: {
-    backgroundColor: "#FFBE5D",
-    paddingVertical: 12,
-    borderRadius: 8,
-    flex: 0.85,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  testButtonDisabled: {
-    opacity: 0.6,
-  },
-  testButtonText: {
-    color: "#1f2937",
-    fontSize: 16,
-    fontWeight: "600",
-  },
-  refreshButton: {
-    flex: 0.15,
-    height: 48,
-    borderRadius: 8,
-    backgroundColor: "#f0f9f8",
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  aiResponseContainer: {
-    backgroundColor: "#f9fafb",
-    borderRadius: 8,
-    padding: 12,
-    marginTop: 8,
-    borderWidth: 1,
-    borderColor: "#e5e7eb",
-  },
-  aiResponseText: {
-    fontSize: 14,
-    color: "#1f2937",
-    lineHeight: 20,
-  },
-  aiProductsList: {
-    marginTop: 12,
-  },
-  aiProductCard: {
-    flexDirection: "row",
-    alignItems: "center",
-    borderWidth: 1,
-    borderColor: "#e5e7eb",
-    borderRadius: 10,
-    padding: 10,
-    marginTop: 10,
-    backgroundColor: "#ffffff",
-  },
-  aiProductImage: {
-    width: 62,
-    height: 62,
-    borderRadius: 10,
-    backgroundColor: "#f3f4f6",
-    marginRight: 12,
-  },
-  aiProductPlaceholder: {
-    width: 62,
-    height: 62,
-    borderRadius: 10,
-    backgroundColor: "#f3f4f6",
-    marginRight: 12,
-  },
-  aiProductInfo: {
-    flex: 1,
-  },
-  aiProductName: {
-    fontSize: 15,
-    fontWeight: "700",
-    color: "#0f172a",
-  },
-  aiProductStore: {
-    fontSize: 13,
-    color: "#475569",
-    marginTop: 2,
-  },
-  aiProductMeta: {
-    fontSize: 12,
-    color: "#94a3b8",
-    marginTop: 2,
-  },
-  aiProductPrice: {
-    fontSize: 16,
-    fontWeight: "800",
-    color: "#047857",
-    marginTop: 4,
-  },
-  aiProductDiscount: {
-    fontSize: 12,
-    color: "#b45309",
-    fontWeight: "700",
-  },
   usersSection: {
-    marginBottom: 24,
+    marginBottom: 16,
   },
   usersList: {
     gap: 12,
   },
   userCard: {
     backgroundColor: "#ffffff",
-    borderRadius: 12,
-    padding: 16,
+    borderRadius: 10,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
     flexDirection: "row",
     alignItems: "center",
-    shadowColor: "#277874",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.15,
-    shadowRadius: 4,
-    elevation: 3,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.06,
+    shadowRadius: 2,
+    elevation: 1,
   },
   userAvatar: {
     width: 40,
@@ -708,3 +536,4 @@ const styles = StyleSheet.create({
     color: "#9ca3af",
   },
 });
+

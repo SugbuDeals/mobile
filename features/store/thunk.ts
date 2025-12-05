@@ -639,6 +639,45 @@ export const updateStoreAdminStatus = createAsyncThunk<
   }
 });
 
+export const deleteStore = createAsyncThunk<
+  { id: number },
+  number,
+  { rejectValue: { message: string }; state: RootState }
+>("store/deleteStore", async (storeId, { rejectWithValue, getState }) => {
+  try {
+    const { accessToken } = getState().auth;
+
+    if (!accessToken) {
+      return rejectWithValue({
+        message: "Authentication required. Please log in again.",
+      });
+    }
+
+    const response = await fetch(`${env.API_BASE_URL}/store/${storeId}`, {
+      method: "DELETE",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${accessToken}`,
+      },
+    });
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({}));
+      return rejectWithValue({
+        message: error.message || "Delete store failed",
+      });
+    }
+
+    const result = await response.json().catch(() => ({ id: storeId }));
+    return result && typeof result.id === "number" ? result : { id: storeId };
+  } catch (error) {
+    return rejectWithValue({
+      message:
+        error instanceof Error ? error.message : "An unknown error occured",
+    });
+  }
+});
+
 export const findStoreById = createAsyncThunk<
   Store,
   number,
@@ -684,10 +723,12 @@ export const createPromotion = createAsyncThunk<
   { rejectValue: { message: string }; state: RootState }
 >("store/createPromotion", async (promotionData, { rejectWithValue, getState }) => {
   try {
-    const { accessToken } = getState().auth;
+    const { accessToken, user } = getState().auth;
     
-    console.log("Creating promotion with data:", promotionData);
+    console.log("Creating promotion with data:", JSON.stringify(promotionData, null, 2));
     console.log("Access token available:", !!accessToken);
+    console.log("User:", user);
+    console.log("User role:", (user as any)?.role || (user as any)?.user_type);
 
     if (!accessToken) {
       return rejectWithValue({
@@ -705,18 +746,25 @@ export const createPromotion = createAsyncThunk<
     });
 
     console.log("Promotion creation response status:", response.status);
+    console.log("Promotion creation response headers:", Object.fromEntries(response.headers.entries()));
 
     if (!response.ok) {
-      const error = await response.json().catch(() => ({}));
-      console.log("Promotion creation error:", error);
+      let errorData;
+      try {
+        const text = await response.text();
+        console.log("Promotion creation error response text:", text);
+        errorData = text ? JSON.parse(text) : {};
+      } catch (e) {
+        errorData = { message: `HTTP ${response.status}: ${response.statusText}` };
+      }
+      console.log("Promotion creation error data:", errorData);
       return rejectWithValue({
-        message: error.message || "Create promotion failed",
+        message: errorData.message || errorData.error || `Create promotion failed (${response.status})`,
       });
     }
 
     const result = await response.json();
     console.log("Promotion creation successful:", result);
-    console.log("Promotion creation response data:", result);
     return result;
   } catch (error) {
     console.log("Promotion creation catch error:", error);

@@ -2,6 +2,15 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased]
+
+### Fixed
+- Fixed TypeScript errors in consumer and retailer layout files
+- Removed non-existent `useDualRole` hook references
+- Fixed duplicate title/subtitle rendering in consumer layout
+- Fixed TypeScript type inference issues in setup.tsx and settings.tsx
+- Added proper null checks for user object access across all layout files
+
 ## [0.2.0] - 2025-10-14
 ### Added
 - Screens for consumers and retailers

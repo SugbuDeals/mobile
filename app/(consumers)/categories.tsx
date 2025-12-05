@@ -1,3 +1,4 @@
+import env from "@/config/env";
 import { useCatalog } from "@/features/catalog";
 import { useStore } from "@/features/store";
 import Ionicons from "@expo/vector-icons/Ionicons";
@@ -14,6 +15,17 @@ import {
     TouchableOpacity,
     View,
 } from "react-native";
+
+const fallbackProductImage = require("../../assets/images/partial-react-logo.png");
+
+const normalizeImageUrl = (rawUrl?: string) => {
+  if (!rawUrl || typeof rawUrl !== "string" || rawUrl.trim().length === 0) {
+    return undefined;
+  }
+  if (/^https?:\/\//i.test(rawUrl)) return rawUrl;
+  if (rawUrl.startsWith("/")) return `${env.API_BASE_URL}${rawUrl}`;
+  return `${env.API_BASE_URL}/files/${rawUrl}`;
+};
 
 export default function CategoriesPage() {
   const [selectedCategory, setSelectedCategory] = React.useState("All Items");
@@ -98,13 +110,17 @@ export default function CategoriesPage() {
             productCategoryName === selectedCategory;
           return matchesQuery && matchesCategory;
         })
-        .map((p: any) => ({
-          id: String(p.id),
-          name: p.name,
-          price: `₱${Number(p.price ?? 0).toFixed(2)}`,
-          originalPrice: undefined,
-          image: require("../../assets/images/partial-react-logo.png"),
-        }));
+        .map((p: any) => {
+          const imageUrl = normalizeImageUrl(p.imageUrl);
+          return {
+            id: String(p.id),
+            name: p.name,
+            price: `₱${Number(p.price ?? 0).toFixed(2)}`,
+            originalPrice: undefined,
+            imageUrl,
+            description: p.description ?? "",
+          };
+        });
       return {
         id: String(store.id),
         storeName: store.name,
@@ -289,7 +305,12 @@ function StoreSection({
         style={sectionStyles.productsScroll}
       >
         <View style={sectionStyles.productsContainer}>
-          {products.map((product) => (
+          {products.map((product) => {
+            const imageSource =
+              typeof product.imageUrl === "string" && product.imageUrl.length > 0
+                ? { uri: product.imageUrl }
+                : fallbackProductImage;
+            return (
             <TouchableOpacity
               key={product.id}
               style={sectionStyles.productCard}
@@ -303,12 +324,13 @@ function StoreSection({
                     price: product.price?.replace("₱", ""),
                     description: product.description,
                     productId: product.id,
+                    imageUrl: product.imageUrl,
                   },
                 })
               }
             >
               <Image
-                source={product.image}
+                source={imageSource}
                 style={sectionStyles.productImage}
               />
               <Text style={sectionStyles.productName} numberOfLines={2}>
@@ -323,7 +345,8 @@ function StoreSection({
                 )}
               </View>
             </TouchableOpacity>
-          ))}
+          );
+          })}
         </View>
       </ScrollView>
     </View>

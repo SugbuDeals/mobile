@@ -195,12 +195,34 @@ export default function EditProduct() {
       Alert.alert("Error", "Product description is required");
       return;
     }
-    if (!price.trim() || isNaN(Number(price))) {
-      Alert.alert("Error", "Please enter a valid price");
+    
+    // Validate price: must be positive number, not negative or zero
+    const priceValue = Number(price);
+    if (!price.trim() || isNaN(priceValue)) {
+      Alert.alert("Error", "Please enter a valid numeric price");
       return;
     }
-    if (!stock.trim() || isNaN(Number(stock)) || Number(stock) < 0) {
-      Alert.alert("Error", "Please enter a valid stock quantity");
+    if (priceValue <= 0) {
+      Alert.alert("Error", "Price must be greater than zero. Negative prices are not allowed.");
+      return;
+    }
+    if (priceValue < 0) {
+      Alert.alert("Error", "Price cannot be negative. Please enter a positive value.");
+      return;
+    }
+    
+    // Validate stock: must be non-negative integer
+    const stockValue = Number(stock);
+    if (!stock.trim() || isNaN(stockValue)) {
+      Alert.alert("Error", "Please enter a valid numeric stock quantity");
+      return;
+    }
+    if (stockValue < 0) {
+      Alert.alert("Error", "Stock quantity cannot be negative. Please enter 0 or a positive number.");
+      return;
+    }
+    if (!Number.isInteger(stockValue)) {
+      Alert.alert("Error", "Stock quantity must be a whole number (integer).");
       return;
     }
 

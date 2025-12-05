@@ -161,7 +161,7 @@ export default function AdminLayout() {
           name="notifications"
           options={{
             title: "Notifications",
-            headerShown: false,
+            header: () => <AdminHeader title="Notifications" subtitle="View your notifications" />,
             href: null, // Hide from tab bar
           }}
         />
@@ -199,6 +199,14 @@ export default function AdminLayout() {
           options={{
             title: "Promotions",
             header: () => <AdminHeader title="Promotions" subtitle="Browse all promotions" />,
+            href: null,
+          }}
+        />
+        <Tabs.Screen
+          name="categories"
+          options={{
+            title: "categories",
+            header: () => <AdminHeader title="Categories" subtitle="Manange all categories" />,
             href: null,
           }}
         />
