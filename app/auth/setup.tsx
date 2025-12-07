@@ -125,8 +125,8 @@ export default function RetailerSetup() {
         setImageUrl(userStore.imageUrl);
       }
       setAddress(userStore.address || "");
-      setLatitude(userStore.latitude);
-      setLongitude(userStore.longitude);
+      setLatitude(userStore.latitude ?? undefined);
+      setLongitude(userStore.longitude ?? undefined);
     }
   }, [userStore, setValue]);
 
@@ -309,34 +309,6 @@ export default function RetailerSetup() {
     }
   };
 
-  const onLater = async () => {
-    try {
-      // Create a basic store if one doesn't exist
-      if (!userStore?.id && (user as any)?.id) {
-        const newStore = await createStore({
-          name: `${(user as any).name || 'My'}'s Store`,
-          description: "Welcome to my store!",
-          ownerId: Number((user as any).id),
-        }).unwrap();
-        
-        console.log("Store created successfully (Later):", newStore);
-        
-        // The store should already be set in the Redux state by createStore.fulfilled
-        console.log("Store should now be available in Redux state (Later)");
-      }
-      
-      // Mark retailer setup as completed even if skipped
-      dispatch(completeRetailerSetup());
-      Alert.alert("Setup Skipped", "You can complete your store setup later in Settings.");
-      
-      // Small delay to ensure state is updated before redirect
-      setTimeout(() => {
-        router.replace("/(retailers)");
-      }, 100);
-    } catch (error: any) {
-      Alert.alert("Error", "Failed to create basic store. Please try again.");
-    }
-  };
 
   // Show loading while checking authentication or loading store
   if (authLoading || loading || storeLoading || (!user && !hasCheckedAuth)) {
@@ -501,12 +473,9 @@ export default function RetailerSetup() {
 
         {/* Action Buttons */}
         <View style={styles.buttonContainer}>
-          <TouchableOpacity style={styles.laterButton} onPress={onLater}>
-            <Text style={styles.laterButtonText}>Later</Text>
-          </TouchableOpacity>
           <Button onPress={handleSubmit(onConfirm)} style={styles.confirmButton} disabled={submitting || loading || uploadingImage}>
             <Text style={styles.confirmButtonText}>
-              {submitting ? "Updating..." : uploadingImage ? "Uploading..." : loading ? "Loading..." : "Confirm"}
+              {submitting ? "Updating..." : uploadingImage ? "Uploading..." : loading ? "Loading..." : "Complete Setup"}
             </Text>
           </Button>
         </View>
@@ -737,27 +706,11 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   buttonContainer: {
-    flexDirection: "row",
-    gap: 12,
     marginBottom: 32,
     paddingHorizontal: 20,
   },
-  laterButton: {
-    flex: 1,
-    borderWidth: 1,
-    borderColor: "#FFBE5D",
-    borderRadius: 8,
-    paddingVertical: 12,
-    alignItems: "center",
-    backgroundColor: "#ffffff",
-  },
-  laterButtonText: {
-    fontSize: 16,
-    color: "#FFBE5D",
-    fontWeight: "500",
-  },
   confirmButton: {
-    flex: 1,
+    width: "100%",
     backgroundColor: "#FFBE5D",
     borderRadius: 8,
     paddingVertical: 12,

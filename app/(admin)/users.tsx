@@ -52,7 +52,7 @@ const UserCard = ({ user, onDelete, onEdit }: {
   };
 
   // Determine role from user data
-  const userRole = user.role || user.user_type || "Unknown";
+  const userRole = user.role || "Unknown";
   const displayRole = userRole.replace("_", " ").replace(/^\w/, (c: string) => c.toUpperCase());
   // Determine status (you can map this based on your business logic)
   const status = "Active"; // You can add a status field to your user model
@@ -65,7 +65,7 @@ const UserCard = ({ user, onDelete, onEdit }: {
     <View style={styles.userCard}>
       <Image source={{ uri: avatarUrl }} style={styles.userAvatar} />
       <View style={styles.userInfo}>
-        <Text style={styles.userName}>{user.name || user.fullname || user.email}</Text>
+        <Text style={styles.userName}>{user.name || user.email}</Text>
         <Text style={styles.userEmail}>{user.email}</Text>
         <Text style={styles.userRole}>{displayRole}</Text>
       </View>
@@ -129,7 +129,7 @@ export default function Users() {
   const [addName, setAddName] = useState("");
   const [addEmail, setAddEmail] = useState("");
   const [addPassword, setAddPassword] = useState("");
-  const [addRole, setAddRole] = useState("CONSUMER");
+  const [addRole, setAddRole] = useState<"CONSUMER" | "RETAILER" | "ADMIN">("CONSUMER");
   const [isAdding, setIsAdding] = useState(false);
   
   // Get current logged-in user ID
@@ -149,12 +149,12 @@ export default function Users() {
       searchQuery === "" ||
       user.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
       user.email?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      user.fullname?.toLowerCase().includes(searchQuery.toLowerCase());
+      false; // fullname removed per server.json
 
     const matchesType = 
       selectedUserType === "All" ||
       user.role === selectedUserType ||
-      user.user_type === selectedUserType;
+      user.role === selectedUserType;
 
     return matchesSearch && matchesType;
   });
@@ -162,8 +162,8 @@ export default function Users() {
   // Calculate metrics
   const totalUsers = filteredUsers.length;
   const activeUsers = filteredUsers.length; // You can add status field to user model
-  const consumers = filteredUsers.filter(u => u.role === "CONSUMER" || u.user_type === "consumer").length;
-  const retailers = filteredUsers.filter(u => u.role === "RETAILER" || u.user_type === "retailer").length;
+  const consumers = filteredUsers.filter(u => u.role === "CONSUMER").length;
+  const retailers = filteredUsers.filter(u => u.role === "RETAILER").length;
 
   const handleDeleteUser = async (id: number) => {
     // Prevent users from deleting themselves
@@ -177,9 +177,9 @@ export default function Users() {
 
   const handleEditUser = (user: any) => {
     setUserToEdit(user);
-    setEditName(user.name || user.fullname || "");
+    setEditName(user.name || "");
     setEditEmail(user.email || "");
-    setEditRole(user.role || user.user_type || "CONSUMER");
+    setEditRole(user.role || "CONSUMER");
     setShowEditModal(true);
   };
 
@@ -239,11 +239,15 @@ export default function Users() {
     setIsAdding(true);
     
     try {
+      // ADMIN role cannot be registered via register endpoint (per server.json spec)
+      // Only CONSUMER and RETAILER can be registered
+      const registerRole = addRole === "ADMIN" ? "CONSUMER" : addRole;
+      
       await action.register({
         name: addName.trim(),
         email: addEmail.trim(),
         password: addPassword,
-        role: addRole,
+        role: registerRole,
       });
       
       // Refresh users list
@@ -568,7 +572,7 @@ export default function Users() {
                         styles.roleButton,
                         addRole === role && styles.roleButtonSelected
                       ]}
-                      onPress={() => setAddRole(role)}
+                      onPress={() => setAddRole(role as "CONSUMER" | "RETAILER" | "ADMIN")}
                     >
                       <Text
                         style={[

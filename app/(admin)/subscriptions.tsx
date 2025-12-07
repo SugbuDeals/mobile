@@ -5,16 +5,16 @@ import DateTimePicker from "@react-native-community/datetimepicker";
 import { useFocusEffect } from "expo-router";
 import React, { useCallback, useState } from "react";
 import {
-  Alert,
-  Modal,
-  Platform,
-  ScrollView,
-  StatusBar,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
+    Alert,
+    Modal,
+    Platform,
+    ScrollView,
+    StatusBar,
+    StyleSheet,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View,
 } from "react-native";
 
 export default function AdminSubscriptions() {
@@ -69,14 +69,9 @@ export default function AdminSubscriptions() {
       setIsProcessing(true);
       await createSubscription({
         name: formData.name.trim(),
-        description: formData.description.trim() || undefined,
         plan: formData.plan,
-        billingCycle: formData.billingCycle,
-        price: formData.price || undefined,
-        benefits: formData.benefits.trim() || undefined,
+        price: formData.price ? formData.price : "0",
         isActive: formData.isActive,
-        startsAt: formData.startsAt || undefined,
-        endsAt: formData.endsAt || undefined,
       }).unwrap();
 
       setShowCreateModal(false);
@@ -99,14 +94,9 @@ export default function AdminSubscriptions() {
       await updateSubscription({
         id: selectedSubscription.id,
         name: formData.name.trim() || undefined,
-        description: formData.description.trim() || undefined,
         plan: formData.plan,
-        billingCycle: formData.billingCycle,
-        price: formData.price || undefined,
-        benefits: formData.benefits.trim() || undefined,
+        price: formData.price ? formData.price : "0",
         isActive: formData.isActive,
-        startsAt: formData.startsAt || undefined,
-        endsAt: formData.endsAt || undefined,
       }).unwrap();
 
       setShowEditModal(false);

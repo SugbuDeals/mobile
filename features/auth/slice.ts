@@ -1,13 +1,25 @@
 import { createSlice } from "@reduxjs/toolkit";
-import { approveRetailer, deleteUser, deleteUserByAdmin, fetchAllUsers, fetchUserById, login, updateUser } from "./thunk";
+import { approveRetailer, deleteUser, deleteUserByAdmin, fetchAllUsers, fetchUserById, login, register, updateUser } from "./thunk";
+import type { LoginResponse } from "./types";
 
-const initialState = {
+interface AuthState {
+  accessToken: string | null;
+  user: LoginResponse['user'] | null;
+  loading: boolean;
+  error: string | null;
+  allUsers: any[];
+  usersLoading: boolean;
+  registering: boolean;
+}
+
+const initialState: AuthState = {
   accessToken: null,
   user: null,
   loading: false,
   error: null,
-  allUsers: [] as any[],
+  allUsers: [],
   usersLoading: false,
+  registering: false,
 };
 
 const authSlice = createSlice({
@@ -41,7 +53,22 @@ const authSlice = createSlice({
       })
       .addCase(login.rejected, (state, action) => {
         state.loading = false;
-        state.error = action.payload?.message || "Login failed";
+        state.error = (action.payload as { message?: string })?.message || "Login failed";
+      })
+      // Register
+      .addCase(register.pending, (state) => {
+        state.registering = true;
+        state.error = null;
+      })
+      .addCase(register.fulfilled, (state, action) => {
+        state.registering = false;
+        state.accessToken = action.payload.access_token;
+        state.user = action.payload.user;
+        state.error = null;
+      })
+      .addCase(register.rejected, (state, action) => {
+        state.registering = false;
+        state.error = (action.payload as { message?: string })?.message || "Registration failed";
       })
       // Fetch user by id
       .addCase(fetchUserById.pending, (state) => {

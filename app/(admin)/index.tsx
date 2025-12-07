@@ -3,7 +3,7 @@ import { useCatalog } from "@/features/catalog";
 import { useStore } from "@/features/store";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo } from "react";
 import {
     ActivityIndicator,
     Dimensions,
@@ -22,8 +22,6 @@ export default function AdminDashboard() {
   const { action: storeActions, state: { promotions, products, stores, subscriptions, subscriptionAnalytics, loading: storeLoading } } = useStore();
   const { state: catalogState, action: catalogActions } = useCatalog();
   const router = useRouter();
-  
-  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     // Fetch all data needed for dashboard
@@ -37,10 +35,6 @@ export default function AdminDashboard() {
     storeActions.findSubscriptions();
     storeActions.getSubscriptionAnalytics();
     catalogActions.loadCategories();
-    
-    // Set loading to false after a short delay
-    const timer = setTimeout(() => setIsLoading(false), 500);
-    return () => clearTimeout(timer);
   }, []);
 
   // Calculate today's date for filtering
@@ -64,9 +58,9 @@ export default function AdminDashboard() {
   // Calculate comprehensive metrics
   const metrics = useMemo(() => {
     const totalUsers = authState.allUsers.length;
-    const consumers = authState.allUsers.filter(u => (u.role === "CONSUMER" || u.user_type === "consumer")).length;
-    const retailers = authState.allUsers.filter(u => (u.role === "RETAILER" || u.user_type === "retailer")).length;
-    const admins = authState.allUsers.filter(u => (u.role === "ADMIN" || u.user_type === "admin")).length;
+    const consumers = authState.allUsers.filter(u => u.role === "CONSUMER").length;
+    const retailers = authState.allUsers.filter(u => u.role === "RETAILER").length;
+    const admins = authState.allUsers.filter(u => u.role === "ADMIN").length;
     
     const totalStores = stores.length;
     const verifiedStores = stores.filter(s => s.verificationStatus === "VERIFIED").length;
@@ -135,7 +129,7 @@ export default function AdminDashboard() {
     return num.toLocaleString('en-US');
   };
 
-  if (isLoading || authState.usersLoading || storeLoading) {
+  if (authState.usersLoading || storeLoading) {
     return (
       <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color="#1B6F5D" />
@@ -301,14 +295,14 @@ export default function AdminDashboard() {
           <View style={styles.usersList}>
               {metrics.recentUsersToday.slice(0, 5).map((user) => {
                 const createdAt = user.createdAt || user.created_at;
-                const avatarUrl = user.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(user.name || user.fullname || user.email || 'U')}&background=random`;
+                const avatarUrl = user.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(user.name || user.email || 'U')}&background=random`;
                 
                 return (
               <View key={user.id} style={styles.userCard}>
                     <Image source={{ uri: avatarUrl }} style={styles.userAvatar} />
                 <View style={styles.userInfo}>
                       <Text style={styles.userName}>
-                        {user.name || user.fullname || user.email || "Unknown"}
+                        {user.name || user.email || "Unknown"}
                       </Text>
                   <Text style={styles.userEmail}>{user.email}</Text>
                 </View>

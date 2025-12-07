@@ -8,7 +8,7 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 import { yupResolver } from "@hookform/resolvers/yup";
 import { Link, router } from "expo-router";
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { Controller, useForm } from "react-hook-form";
 import {
     Dimensions,
@@ -30,10 +30,8 @@ const schema = yup.object().shape({
 export default function Login() {
   const {
     action: { login },
-    state: { accessToken, loading, user, error },
+    state: { accessToken, loading, user, error, showError },
   } = useLogin();
-
-  const [showError, setShowError] = useState(false);
 
   const {
     control,
@@ -47,25 +45,12 @@ export default function Login() {
     },
   });
 
-  useEffect(() => {
-    console.log(`access_token: ${accessToken}`);
-    console.log(`error: ${error}`);
-    
-    // Show error when there's an error and not loading
-    if (error && !loading) {
-      setShowError(true);
-    } else {
-      setShowError(false);
-    }
-  }, [accessToken, error, loading]);
-
   const onSignIn = (formData: yup.InferType<typeof schema>) => {
-    setShowError(false); // Hide any existing errors when attempting to login
     login(formData);
   };
 
   const dismissError = () => {
-    setShowError(false);
+    // Error will be cleared when login is attempted again or component unmounts
   };
 
   const getErrorMessage = (error: string | null) => {
@@ -197,7 +182,7 @@ export default function Login() {
             {/* Error Alert */}
             <ErrorAlert
               message={getErrorMessage(error)}
-              visible={showError}
+              visible={showError ?? false}
               onDismiss={dismissError}
               type="error"
             />

@@ -1,6 +1,6 @@
-import env from "@/config/env";
 import { RootState } from "@/store/types";
 import { createAsyncThunk } from "@reduxjs/toolkit";
+import { bookmarksApi } from "@/services/api";
 import { BookmarkedProduct, BookmarkedStore, ListBookmarksPayload } from "./types";
 
 export const listStoreBookmarks = createAsyncThunk<
@@ -9,24 +9,22 @@ export const listStoreBookmarks = createAsyncThunk<
   { rejectValue: { message: string }; state: RootState }
 >(
   "bookmarks/listStoreBookmarks",
-  async (payload, { getState, rejectWithValue }) => {
+  async (payload, { rejectWithValue }) => {
     try {
-      const { accessToken } = getState().auth;
-      const response = await fetch(`${env.API_BASE_URL}/bookmarks/stores/list`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${accessToken}`,
-        },
-        body: JSON.stringify({ take: 50, skip: 0, ...(payload || {}) }),
+      const result = await bookmarksApi.listStoreBookmarks({
+        take: 50,
+        skip: 0,
+        ...(payload || {}),
       });
-      if (!response.ok) {
-        const error = await response.json().catch(() => ({}));
-        return rejectWithValue({ message: error.message || "Failed to list store bookmarks" });
-      }
-      return response.json();
-    } catch (error) {
-      return rejectWithValue({ message: error instanceof Error ? error.message : "An unknown error occured" });
+      // Map API response to BookmarkedStore format
+      return result.map((item) => ({
+        storeId: item.storeId,
+        name: item.store?.name,
+      }));
+    } catch (error: any) {
+      return rejectWithValue({
+        message: error?.message || "Failed to list store bookmarks",
+      });
     }
   }
 );
@@ -37,24 +35,22 @@ export const listProductBookmarks = createAsyncThunk<
   { rejectValue: { message: string }; state: RootState }
 >(
   "bookmarks/listProductBookmarks",
-  async (payload, { getState, rejectWithValue }) => {
+  async (payload, { rejectWithValue }) => {
     try {
-      const { accessToken } = getState().auth;
-      const response = await fetch(`${env.API_BASE_URL}/bookmarks/products/list`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${accessToken}`,
-        },
-        body: JSON.stringify({ take: 50, skip: 0, ...(payload || {}) }),
+      const result = await bookmarksApi.listProductBookmarks({
+        take: 50,
+        skip: 0,
+        ...(payload || {}),
       });
-      if (!response.ok) {
-        const error = await response.json().catch(() => ({}));
-        return rejectWithValue({ message: error.message || "Failed to list product bookmarks" });
-      }
-      return response.json();
-    } catch (error) {
-      return rejectWithValue({ message: error instanceof Error ? error.message : "An unknown error occured" });
+      // Map API response to BookmarkedProduct format
+      return result.map((item) => ({
+        productId: item.productId,
+        name: item.product?.name,
+      }));
+    } catch (error: any) {
+      return rejectWithValue({
+        message: error?.message || "Failed to list product bookmarks",
+      });
     }
   }
 );
@@ -63,24 +59,14 @@ export const bookmarkStore = createAsyncThunk<
   { storeId: number },
   { storeId: number },
   { rejectValue: { message: string }; state: RootState }
->("bookmarks/bookmarkStore", async ({ storeId }, { getState, rejectWithValue }) => {
+>("bookmarks/bookmarkStore", async ({ storeId }, { rejectWithValue }) => {
   try {
-    const { accessToken } = getState().auth;
-    const response = await fetch(`${env.API_BASE_URL}/bookmarks/stores`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${accessToken}`,
-      },
-      body: JSON.stringify({ storeId }),
-    });
-    if (!response.ok) {
-      const error = await response.json().catch(() => ({}));
-      return rejectWithValue({ message: error.message || "Failed to bookmark store" });
-    }
+    await bookmarksApi.bookmarkStore({ storeId });
     return { storeId };
-  } catch (error) {
-    return rejectWithValue({ message: error instanceof Error ? error.message : "An unknown error occured" });
+  } catch (error: any) {
+    return rejectWithValue({
+      message: error?.message || "Failed to bookmark store",
+    });
   }
 });
 
@@ -88,24 +74,14 @@ export const unbookmarkStore = createAsyncThunk<
   { storeId: number },
   { storeId: number },
   { rejectValue: { message: string }; state: RootState }
->("bookmarks/unbookmarkStore", async ({ storeId }, { getState, rejectWithValue }) => {
+>("bookmarks/unbookmarkStore", async ({ storeId }, { rejectWithValue }) => {
   try {
-    const { accessToken } = getState().auth;
-    const response = await fetch(`${env.API_BASE_URL}/bookmarks/stores`, {
-      method: "DELETE",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${accessToken}`,
-      },
-      body: JSON.stringify({ storeId }),
-    });
-    if (!response.ok) {
-      const error = await response.json().catch(() => ({}));
-      return rejectWithValue({ message: error.message || "Failed to remove store bookmark" });
-    }
+    await bookmarksApi.unbookmarkStore({ storeId });
     return { storeId };
-  } catch (error) {
-    return rejectWithValue({ message: error instanceof Error ? error.message : "An unknown error occured" });
+  } catch (error: any) {
+    return rejectWithValue({
+      message: error?.message || "Failed to remove store bookmark",
+    });
   }
 });
 
@@ -113,24 +89,14 @@ export const bookmarkProduct = createAsyncThunk<
   { productId: number },
   { productId: number },
   { rejectValue: { message: string }; state: RootState }
->("bookmarks/bookmarkProduct", async ({ productId }, { getState, rejectWithValue }) => {
+>("bookmarks/bookmarkProduct", async ({ productId }, { rejectWithValue }) => {
   try {
-    const { accessToken } = getState().auth;
-    const response = await fetch(`${env.API_BASE_URL}/bookmarks/products`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${accessToken}`,
-      },
-      body: JSON.stringify({ productId }),
-    });
-    if (!response.ok) {
-      const error = await response.json().catch(() => ({}));
-      return rejectWithValue({ message: error.message || "Failed to bookmark product" });
-    }
+    await bookmarksApi.bookmarkProduct({ productId });
     return { productId };
-  } catch (error) {
-    return rejectWithValue({ message: error instanceof Error ? error.message : "An unknown error occured" });
+  } catch (error: any) {
+    return rejectWithValue({
+      message: error?.message || "Failed to bookmark product",
+    });
   }
 });
 
@@ -138,24 +104,14 @@ export const unbookmarkProduct = createAsyncThunk<
   { productId: number },
   { productId: number },
   { rejectValue: { message: string }; state: RootState }
->("bookmarks/unbookmarkProduct", async ({ productId }, { getState, rejectWithValue }) => {
+>("bookmarks/unbookmarkProduct", async ({ productId }, { rejectWithValue }) => {
   try {
-    const { accessToken } = getState().auth;
-    const response = await fetch(`${env.API_BASE_URL}/bookmarks/products`, {
-      method: "DELETE",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${accessToken}`,
-      },
-      body: JSON.stringify({ productId }),
-    });
-    if (!response.ok) {
-      const error = await response.json().catch(() => ({}));
-      return rejectWithValue({ message: error.message || "Failed to remove product bookmark" });
-    }
+    await bookmarksApi.unbookmarkProduct({ productId });
     return { productId };
-  } catch (error) {
-    return rejectWithValue({ message: error instanceof Error ? error.message : "An unknown error occured" });
+  } catch (error: any) {
+    return rejectWithValue({
+      message: error?.message || "Failed to remove product bookmark",
+    });
   }
 });
 

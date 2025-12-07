@@ -33,7 +33,8 @@ export default function AdminViewPromotions() {
     return map;
   }, [storeState.stores]);
 
-  const isOrphanPromotion = (productId: number) => {
+  const isOrphanPromotion = (productId: number | null) => {
+    if (!productId) return true; // Null productId means orphan
     const product = storeState.products.find((p) => p.id === productId);
     if (!product) return true;
     const store = storeById.get(product.storeId);
@@ -46,7 +47,7 @@ export default function AdminViewPromotions() {
     .filter((p) => (showOnlyActive ? p.active : true))
     .filter((p) => {
       const title = (p.title || "").toLowerCase();
-      const productName = (productById.get(p.productId) || "").toLowerCase();
+      const productName = (p.productId ? (productById.get(p.productId) || "") : "").toLowerCase();
       const q = query.toLowerCase();
       return title.includes(q) || productName.includes(q);
     });
@@ -136,7 +137,7 @@ export default function AdminViewPromotions() {
         ) : (
           <View style={styles.list}>
             {promotions.map((promo) => {
-              const productName = productById.get(promo.productId) || `Product #${promo.productId}`;
+              const productName = promo.productId ? (productById.get(promo.productId) || `Product #${promo.productId}`) : "No product";
               return (
                 <View key={promo.id} style={styles.card}>
                   <View style={styles.iconBadge}>

@@ -1,20 +1,20 @@
 import { useNotifications } from "@/features/notifications";
 import { useStore } from "@/features/store";
 import {
-  formatNotificationTime,
-  getNotificationColor,
+    formatNotificationTime,
+    getNotificationColor,
 } from "@/utils/notifications";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import React, { useEffect } from "react";
 import {
-  ActivityIndicator,
-  Platform,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
+    ActivityIndicator,
+    Platform,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View,
 } from "react-native";
 
 // ===== MAIN COMPONENT =====
@@ -72,7 +72,7 @@ export default function AdminNotifications() {
           params: {
             storeId: String(product.storeId),
             storeName:
-              (store as any)?.name ||
+              store?.name ||
               notification.storeName ||
               notification.title ||
               undefined,

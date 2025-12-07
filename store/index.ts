@@ -3,6 +3,7 @@ import { bookmarksReducer } from "@/features/bookmarks/slice";
 import { catalogReducer } from "@/features/catalog/slice";
 import { notificationReducer } from "@/features/notifications/slice";
 import { storeReducer } from "@/features/store/slice";
+import uiReducer from "@/features/ui/slice";
 import { configureStore } from "@reduxjs/toolkit";
 
 export default configureStore({
@@ -12,5 +13,6 @@ export default configureStore({
     catalog: catalogReducer,
     bookmarks: bookmarksReducer,
     notifications: notificationReducer,
+    ui: uiReducer,
   },
 });
