@@ -22,6 +22,7 @@ export interface CreateProductDTO {
   storeId: number;
   categoryId?: number;
   imageUrl?: string;
+  isActive?: boolean;
 }
 
 export interface UpdateProductDTO {
@@ -31,10 +32,11 @@ export interface UpdateProductDTO {
   stock?: number;
   categoryId?: number;
   imageUrl?: string;
+  isActive?: boolean;
 }
 
 export interface UpdateProductStatusDTO {
-  isActive?: boolean;
+  isActive: boolean;
 }
 
 export const productsApi = {

@@ -3,7 +3,7 @@
  */
 
 import { getApiClient } from "../client";
-import type { Subscription, SubscriptionAnalytics } from "@/features/store/types";
+import type { Subscription, SubscriptionAnalytics, UserSubscription } from "@/features/store/types";
 
 export interface FindSubscriptionsParams {
   plan?: "FREE" | "BASIC" | "PREMIUM";
@@ -16,25 +16,33 @@ export interface FindSubscriptionsParams {
 
 export interface CreateSubscriptionDTO {
   name: string;
-  plan: "FREE" | "BASIC" | "PREMIUM";
-  price: number;
-  durationDays: number;
-  maxProducts?: number;
-  features?: string[];
+  description?: string;
+  plan?: "FREE" | "BASIC" | "PREMIUM";
+  billingCycle?: "MONTHLY" | "YEARLY";
+  price?: string;
+  benefits?: string;
   isActive?: boolean;
+  startsAt?: string; // ISO 8601 format
+  endsAt?: string; // ISO 8601 format
 }
 
 export interface UpdateSubscriptionDTO {
   name?: string;
+  description?: string;
   plan?: "FREE" | "BASIC" | "PREMIUM";
-  price?: number;
-  durationDays?: number;
-  maxProducts?: number;
-  features?: string[];
+  billingCycle?: "MONTHLY" | "YEARLY";
+  price?: string;
+  benefits?: string;
   isActive?: boolean;
+  startsAt?: string; // ISO 8601 format
+  endsAt?: string; // ISO 8601 format
 }
 
 export interface JoinSubscriptionDTO {
+  subscriptionId: number;
+}
+
+export interface UpdateRetailerSubscriptionDTO {
   subscriptionId: number;
 }
 
@@ -57,13 +65,14 @@ export const subscriptionsApi = {
 
   /**
    * Get active subscription for a user
+   * Returns UserSubscriptionResponseDto per server.json
    */
-  getActiveSubscription: (userId: number): Promise<Subscription | null> => {
+  getActiveSubscription: (userId: number): Promise<UserSubscription | null> => {
     return getApiClient()
-      .get<Subscription>(`/subscription/user/${userId}/active`)
+      .get<UserSubscription>(`/subscription/user/${userId}/active`)
       .catch((error) => {
-        // Return null for 404 (no active subscription)
-        if (error.status === 404) {
+        // Return null for 404 (no active subscription) or 200 with null body
+        if (error.status === 404 || error.status === 200) {
           return null;
         }
         throw error;
@@ -72,9 +81,10 @@ export const subscriptionsApi = {
 
   /**
    * Join a subscription (retailer)
+   * Returns UserSubscriptionResponseDto per server.json
    */
-  joinSubscription: (data: JoinSubscriptionDTO): Promise<Subscription> => {
-    return getApiClient().post<Subscription>(
+  joinSubscription: (data: JoinSubscriptionDTO): Promise<UserSubscription> => {
+    return getApiClient().post<UserSubscription>(
       "/subscription/retailer/join",
       data
     );
@@ -82,11 +92,12 @@ export const subscriptionsApi = {
 
   /**
    * Update retailer subscription
+   * Returns UserSubscriptionResponseDto per server.json
    */
   updateRetailerSubscription: (
-    data: JoinSubscriptionDTO
-  ): Promise<Subscription> => {
-    return getApiClient().patch<Subscription>(
+    data: UpdateRetailerSubscriptionDTO
+  ): Promise<UserSubscription> => {
+    return getApiClient().patch<UserSubscription>(
       "/subscription/retailer/update",
       data
     );
@@ -94,9 +105,10 @@ export const subscriptionsApi = {
 
   /**
    * Cancel retailer subscription
+   * Returns UserSubscriptionResponseDto per server.json
    */
-  cancelRetailerSubscription: (): Promise<Subscription> => {
-    return getApiClient().post<Subscription>(
+  cancelRetailerSubscription: (): Promise<UserSubscription> => {
+    return getApiClient().post<UserSubscription>(
       "/subscription/retailer/cancel"
     );
   },

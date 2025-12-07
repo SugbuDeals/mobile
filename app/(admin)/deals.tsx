@@ -145,13 +145,14 @@ export default function DealsAnalytics() {
     const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
     const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
     
+    // Use startsAt as proxy for creation date (PromotionResponseDto doesn't have createdAt)
     const dealsLast7Days = storeState.promotions.filter(p => {
-      const created = new Date(p.createdAt || 0);
+      const created = new Date(p.startsAt || 0);
       return created >= sevenDaysAgo;
     }).length;
     
     const dealsLast30Days = storeState.promotions.filter(p => {
-      const created = new Date(p.createdAt || 0);
+      const created = new Date(p.startsAt || 0);
       return created >= thirtyDaysAgo;
     }).length;
     

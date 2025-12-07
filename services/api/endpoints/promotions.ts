@@ -13,24 +13,31 @@ export interface FindPromotionsParams {
   [key: string]: unknown;
 }
 
+/**
+ * CreatePromotionDto matching server.json CreatePromotionDto
+ */
 export interface CreatePromotionDTO {
   title: string;
-  description?: string;
-  productId: number;
+  type: string; // Promotion type (e.g., "percentage", "fixed")
+  description: string;
   discount: number;
-  type: "percentage" | "fixed";
-  startDate?: string;
-  endDate?: string;
-  active?: boolean;
+  productId: number;
+  startsAt?: string; // ISO 8601 format date-time, defaults to current time if not provided
+  endsAt?: string; // ISO 8601 format date-time, nullable (if not provided, promotion has no end date)
+  active?: boolean; // Defaults to true if not provided
 }
 
+/**
+ * UpdatePromotionDto matching server.json UpdatePromotionDto
+ */
 export interface UpdatePromotionDTO {
   title?: string;
+  type?: string; // Promotion type (e.g., "percentage", "fixed")
   description?: string;
   discount?: number;
-  type?: "percentage" | "fixed";
-  startDate?: string;
-  endDate?: string;
+  productId?: number;
+  startsAt?: string; // ISO 8601 format date-time
+  endsAt?: string; // ISO 8601 format date-time, nullable
   active?: boolean;
 }
 
@@ -40,6 +47,13 @@ export const promotionsApi = {
    */
   findPromotions: (params?: FindPromotionsParams): Promise<Promotion[]> => {
     return getApiClient().get<Promotion[]>("/promotions", params);
+  },
+
+  /**
+   * Find active promotions
+   */
+  findActivePromotions: (): Promise<Promotion[]> => {
+    return getApiClient().get<Promotion[]>("/promotions/active");
   },
 
   /**
@@ -71,9 +85,10 @@ export const promotionsApi = {
 
   /**
    * Delete a promotion
+   * Returns PromotionResponseDto per server.json (not partial)
    */
-  deletePromotion: (promotionId: number): Promise<{ id: number }> => {
-    return getApiClient().delete<{ id: number }>(`/promotions/${promotionId}`);
+  deletePromotion: (promotionId: number): Promise<Promotion> => {
+    return getApiClient().delete<Promotion>(`/promotions/${promotionId}`);
   },
 };
 

@@ -58,9 +58,9 @@ export default function AdminDashboard() {
   // Calculate comprehensive metrics
   const metrics = useMemo(() => {
     const totalUsers = authState.allUsers.length;
-    const consumers = authState.allUsers.filter(u => (u.role === "CONSUMER" || u.user_type === "consumer")).length;
-    const retailers = authState.allUsers.filter(u => (u.role === "RETAILER" || u.user_type === "retailer")).length;
-    const admins = authState.allUsers.filter(u => (u.role === "ADMIN" || u.user_type === "admin")).length;
+    const consumers = authState.allUsers.filter(u => u.role === "CONSUMER").length;
+    const retailers = authState.allUsers.filter(u => u.role === "RETAILER").length;
+    const admins = authState.allUsers.filter(u => u.role === "ADMIN").length;
     
     const totalStores = stores.length;
     const verifiedStores = stores.filter(s => s.verificationStatus === "VERIFIED").length;
@@ -295,14 +295,14 @@ export default function AdminDashboard() {
           <View style={styles.usersList}>
               {metrics.recentUsersToday.slice(0, 5).map((user) => {
                 const createdAt = user.createdAt || user.created_at;
-                const avatarUrl = user.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(user.name || user.fullname || user.email || 'U')}&background=random`;
+                const avatarUrl = user.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(user.name || user.email || 'U')}&background=random`;
                 
                 return (
               <View key={user.id} style={styles.userCard}>
                     <Image source={{ uri: avatarUrl }} style={styles.userAvatar} />
                 <View style={styles.userInfo}>
                       <Text style={styles.userName}>
-                        {user.name || user.fullname || user.email || "Unknown"}
+                        {user.name || user.email || "Unknown"}
                       </Text>
                   <Text style={styles.userEmail}>{user.email}</Text>
                 </View>

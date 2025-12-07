@@ -19,13 +19,10 @@ export const findProducts = createAsyncThunk<
 >("products/findProducts", async (filters, { rejectWithValue }) => {
   try {
     const products = await productsApi.findProducts(filters);
-    // Transform the data to ensure proper types
+    // Return products as-is - price is string per server.json
     return products.map((product: any) => ({
       ...product,
-      price:
-        typeof product.price === "string"
-          ? parseFloat(product.price)
-          : product.price,
+      // Ensure stock is number (API should return number)
       stock:
         typeof product.stock === "string"
           ? parseInt(product.stock, 10)
@@ -48,13 +45,10 @@ export const findProductById = createAsyncThunk<
 >("products/findProductById", async (productId, { rejectWithValue }) => {
   try {
     const product = await productsApi.findProductById(productId);
-    // Transform the data to ensure proper types
+    // Return product as-is - price is string per server.json
     return {
       ...product,
-      price:
-        typeof product.price === "string"
-          ? parseFloat(product.price)
-          : product.price,
+      // Ensure stock is number (API should return number)
       stock:
         typeof product.stock === "string"
           ? parseInt(product.stock, 10)
@@ -125,12 +119,10 @@ export const updateProductAdminStatus = createAsyncThunk<
   async ({ id, ...payload }, { rejectWithValue }) => {
     try {
       const result = await productsApi.updateProductAdminStatus(id, payload);
+      // Return result as-is - price is string per server.json
       return {
         ...result,
-        price:
-          typeof result.price === "string"
-            ? parseFloat(result.price)
-            : result.price,
+        // Ensure stock is number (API should return number)
         stock:
           typeof result.stock === "string"
             ? parseInt(result.stock, 10)

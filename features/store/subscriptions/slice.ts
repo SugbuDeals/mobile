@@ -15,10 +15,10 @@ import {
   getSubscriptionAnalytics,
 } from "./thunks";
 import { createAsyncReducer } from "@/utils/redux/createAsyncReducer";
-import type { Subscription, SubscriptionAnalytics, JoinSubscriptionDTO, CreateSubscriptionDTO, UpdateSubscriptionDTO } from "./types";
+import type { Subscription, UserSubscription, SubscriptionAnalytics, JoinSubscriptionDTO, CreateSubscriptionDTO, UpdateSubscriptionDTO } from "./types";
 
 interface SubscriptionsState {
-  activeSubscription: Subscription | null;
+  activeSubscription: UserSubscription | null;
   subscriptions: Subscription[];
   subscriptionAnalytics: SubscriptionAnalytics | null;
   loading: boolean;
@@ -47,14 +47,14 @@ const subscriptionsSlice = createSlice({
   },
   extraReducers: (builder) => {
     // Get Active Subscription
-    createAsyncReducer<SubscriptionsState, Subscription | null, number>(builder, getActiveSubscription, {
+    createAsyncReducer<SubscriptionsState, UserSubscription | null, number>(builder, getActiveSubscription, {
       onFulfilled: (state: Draft<SubscriptionsState>, action) => {
         state.activeSubscription = action.payload;
       },
     });
 
     // Join Subscription
-    createAsyncReducer<SubscriptionsState, Subscription, JoinSubscriptionDTO>(builder, joinSubscription, {
+    createAsyncReducer<SubscriptionsState, UserSubscription, JoinSubscriptionDTO>(builder, joinSubscription, {
       onFulfilled: (state: Draft<SubscriptionsState>, action) => {
         state.activeSubscription = action.payload;
       },
@@ -68,14 +68,14 @@ const subscriptionsSlice = createSlice({
     });
 
     // Cancel Retailer Subscription
-    createAsyncReducer<SubscriptionsState, Subscription, void>(builder, cancelRetailerSubscription, {
+    createAsyncReducer<SubscriptionsState, UserSubscription, void>(builder, cancelRetailerSubscription, {
       onFulfilled: (state: Draft<SubscriptionsState>) => {
         state.activeSubscription = null;
       },
     });
 
     // Update Retailer Subscription
-    createAsyncReducer<SubscriptionsState, Subscription, JoinSubscriptionDTO>(builder, updateRetailerSubscription, {
+    createAsyncReducer<SubscriptionsState, UserSubscription, JoinSubscriptionDTO>(builder, updateRetailerSubscription, {
       onFulfilled: (state: Draft<SubscriptionsState>, action) => {
         state.activeSubscription = action.payload;
       },

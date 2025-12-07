@@ -1,5 +1,6 @@
 import store from "@/store";
 import { initApiClient } from "@/services/api/client";
+import env from "@/config/env";
 import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { Provider } from "react-redux";
@@ -7,7 +8,7 @@ import { useEffect } from "react";
 
 // Initialize API client
 initApiClient({
-  baseURL: "http://192.168.1.48:3000",
+  baseURL: env.API_BASE_URL,
   getAccessToken: () => {
     const state = store.getState();
     return state.auth.accessToken || null;

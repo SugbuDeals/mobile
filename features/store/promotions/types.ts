@@ -1,19 +1,16 @@
 /**
- * Promotion domain types
+ * Promotion domain types matching server.json PromotionResponseDto
  */
-
 export type Promotion = {
   id: number;
   title: string;
-  type: "percentage" | "fixed";
+  type: string; // Promotion type (e.g., "PERCENTAGE")
   description: string;
-  startsAt?: Date | string;
-  endsAt?: Date | string;
+  startsAt: string; // ISO 8601 format date-time
+  endsAt: string | null; // Nullable per server.json
   active: boolean;
   discount: number;
-  productId: number;
-  createdAt?: Date | string;
-  updatedAt?: Date | string;
+  productId: number | null; // Nullable per server.json
 };
 
 export type CreatePromotionDTO = {

@@ -33,7 +33,9 @@ export default function AllRecommendations() {
   const promotionMap = useMemo(() => {
     const map = new Map<number, Promotion>();
     activePromotions.forEach(promotion => {
-      map.set(promotion.productId, promotion);
+      if (promotion.productId !== null) {
+        map.set(promotion.productId, promotion);
+      }
     });
     return map;
   }, [activePromotions]);

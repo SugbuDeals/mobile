@@ -1,10 +1,11 @@
-import env from "@/config/env";
 import { RootState } from "@/store/types";
 import { createAsyncThunk } from "@reduxjs/toolkit";
+import { notificationsApi } from "@/services/api";
 import {
   CreateNotificationDto,
   GetNotificationsParams,
   Notification,
+  NotificationType,
 } from "./types";
 
 /**
@@ -16,52 +17,26 @@ export const getNotifications = createAsyncThunk<
   { rejectValue: { message: string }; state: RootState }
 >(
   "notifications/getNotifications",
-  async (params, { rejectWithValue, getState }) => {
+  async (params, { rejectWithValue }) => {
     try {
-      const { accessToken } = getState().auth;
-
-      if (!accessToken) {
-        return rejectWithValue({
-          message: "Authentication required. Please log in again.",
-        });
-      }
-
-      const queryParams = new URLSearchParams();
-      if (params?.skip !== undefined) {
-        queryParams.append("skip", params.skip.toString());
-      }
-      if (params?.take !== undefined) {
-        queryParams.append("take", params.take.toString());
-      }
-      if (params?.read !== undefined) {
-        queryParams.append("read", params.read.toString());
-      }
-
-      const queryString = queryParams.toString();
-      const url = `${env.API_BASE_URL}/notifications${
-        queryString ? `?${queryString}` : ""
-      }`;
-
-      const response = await fetch(url, {
-        method: "GET",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${accessToken}`,
-        },
-      });
-
-      if (!response.ok) {
-        const error = await response.json().catch(() => ({}));
-        return rejectWithValue({
-          message: error.message || "Get notifications failed",
-        });
-      }
-
-      return response.json();
-    } catch (error) {
+      const apiNotifications = await notificationsApi.getNotifications(params);
+      // Map API notifications to feature Notification format
+      return apiNotifications.map((n: any) => ({
+        id: n.id,
+        userId: 0, // Not returned by API, will need to be set from context
+        type: n.type as NotificationType,
+        title: n.title,
+        message: n.message,
+        read: n.read,
+        createdAt: n.createdAt,
+        readAt: n.readAt,
+        productId: null, // Not returned by API
+        storeId: null, // Not returned by API
+        promotionId: null, // Not returned by API
+      }));
+    } catch (error: any) {
       return rejectWithValue({
-        message:
-          error instanceof Error ? error.message : "An unknown error occurred",
+        message: error?.message || "Get notifications failed",
       });
     }
   }
@@ -74,39 +49,13 @@ export const getUnreadCount = createAsyncThunk<
   number,
   void,
   { rejectValue: { message: string }; state: RootState }
->("notifications/getUnreadCount", async (_, { rejectWithValue, getState }) => {
+>("notifications/getUnreadCount", async (_, { rejectWithValue }) => {
   try {
-    const { accessToken } = getState().auth;
-
-    if (!accessToken) {
-      return rejectWithValue({
-        message: "Authentication required. Please log in again.",
-      });
-    }
-
-    const response = await fetch(
-      `${env.API_BASE_URL}/notifications/unread-count`,
-      {
-        method: "GET",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${accessToken}`,
-        },
-      }
-    );
-
-    if (!response.ok) {
-      const error = await response.json().catch(() => ({}));
-      return rejectWithValue({
-        message: error.message || "Get unread count failed",
-      });
-    }
-
-    return response.json();
-  } catch (error) {
+    const result = await notificationsApi.getUnreadCount();
+    return result.count || 0;
+  } catch (error: any) {
     return rejectWithValue({
-      message:
-        error instanceof Error ? error.message : "An unknown error occurred",
+      message: error?.message || "Get unread count failed",
     });
   }
 });
@@ -118,39 +67,26 @@ export const markAsRead = createAsyncThunk<
   Notification,
   number,
   { rejectValue: { message: string }; state: RootState }
->("notifications/markAsRead", async (id, { rejectWithValue, getState }) => {
+>("notifications/markAsRead", async (id, { rejectWithValue }) => {
   try {
-    const { accessToken } = getState().auth;
-
-    if (!accessToken) {
-      return rejectWithValue({
-        message: "Authentication required. Please log in again.",
-      });
-    }
-
-    const response = await fetch(
-      `${env.API_BASE_URL}/notifications/${id}/read`,
-      {
-        method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${accessToken}`,
-        },
-      }
-    );
-
-    if (!response.ok) {
-      const error = await response.json().catch(() => ({}));
-      return rejectWithValue({
-        message: error.message || "Mark as read failed",
-      });
-    }
-
-    return response.json();
-  } catch (error) {
+    const result = await notificationsApi.markAsRead(id);
+    // Map API response to Notification format
+    return {
+      id: result.id,
+      userId: 0, // Not returned by API
+      type: "PRODUCT_CREATED" as any, // Not returned by API
+      title: "",
+      message: "",
+      read: result.read,
+      createdAt: result.readAt || new Date().toISOString(),
+      readAt: result.readAt ? new Date(result.readAt) : null,
+      productId: null,
+      storeId: null,
+      promotionId: null,
+    };
+  } catch (error: any) {
     return rejectWithValue({
-      message:
-        error instanceof Error ? error.message : "An unknown error occurred",
+      message: error?.message || "Mark as read failed",
     });
   }
 });
@@ -164,40 +100,13 @@ export const markAllAsRead = createAsyncThunk<
   { rejectValue: { message: string }; state: RootState }
 >(
   "notifications/markAllAsRead",
-  async (_, { rejectWithValue, getState }) => {
+  async (_, { rejectWithValue }) => {
     try {
-      const { accessToken } = getState().auth;
-
-      if (!accessToken) {
-        return rejectWithValue({
-          message: "Authentication required. Please log in again.",
-        });
-      }
-
-      const response = await fetch(
-        `${env.API_BASE_URL}/notifications/mark-all-read`,
-        {
-          method: "PATCH",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${accessToken}`,
-          },
-        }
-      );
-
-      if (!response.ok) {
-        const error = await response.json().catch(() => ({}));
-        return rejectWithValue({
-          message: error.message || "Mark all as read failed",
-        });
-      }
-
-      // Response might be empty, so we don't return anything
+      await notificationsApi.markAllAsRead();
       return;
-    } catch (error) {
+    } catch (error: any) {
       return rejectWithValue({
-        message:
-          error instanceof Error ? error.message : "An unknown error occurred",
+        message: error?.message || "Mark all as read failed",
       });
     }
   }
@@ -212,36 +121,26 @@ export const deleteNotification = createAsyncThunk<
   { rejectValue: { message: string }; state: RootState }
 >(
   "notifications/deleteNotification",
-  async (id, { rejectWithValue, getState }) => {
+  async (id, { rejectWithValue }) => {
     try {
-      const { accessToken } = getState().auth;
-
-      if (!accessToken) {
-        return rejectWithValue({
-          message: "Authentication required. Please log in again.",
-        });
-      }
-
-      const response = await fetch(`${env.API_BASE_URL}/notifications/${id}`, {
-        method: "DELETE",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${accessToken}`,
-        },
-      });
-
-      if (!response.ok) {
-        const error = await response.json().catch(() => ({}));
-        return rejectWithValue({
-          message: error.message || "Delete notification failed",
-        });
-      }
-
-      return response.json();
-    } catch (error) {
+      await notificationsApi.deleteNotification(id);
+      // Return a minimal notification object for the reducer
+      return {
+        id,
+        userId: 0,
+        type: "PRODUCT_CREATED" as any,
+        title: "",
+        message: "",
+        read: false,
+        createdAt: new Date().toISOString(),
+        readAt: null,
+        productId: null,
+        storeId: null,
+        promotionId: null,
+      };
+    } catch (error: any) {
       return rejectWithValue({
-        message:
-          error instanceof Error ? error.message : "An unknown error occurred",
+        message: error?.message || "Delete notification failed",
       });
     }
   }
@@ -256,37 +155,26 @@ export const createNotification = createAsyncThunk<
   { rejectValue: { message: string }; state: RootState }
 >(
   "notifications/createNotification",
-  async (notificationData, { rejectWithValue, getState }) => {
+  async (notificationData, { rejectWithValue }) => {
     try {
-      const { accessToken } = getState().auth;
-
-      if (!accessToken) {
-        return rejectWithValue({
-          message: "Authentication required. Please log in again.",
-        });
-      }
-
-      const response = await fetch(`${env.API_BASE_URL}/notifications`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${accessToken}`,
-        },
-        body: JSON.stringify(notificationData),
-      });
-
-      if (!response.ok) {
-        const error = await response.json().catch(() => ({}));
-        return rejectWithValue({
-          message: error.message || "Create notification failed",
-        });
-      }
-
-      return response.json();
-    } catch (error) {
+      const result = await notificationsApi.createNotification(notificationData);
+      // Map API response to Notification format
+      return {
+        id: result.id,
+        userId: result.userId,
+        type: result.type as any,
+        title: result.title,
+        message: result.message,
+        read: false,
+        createdAt: new Date().toISOString(),
+        readAt: null,
+        productId: notificationData.productId || null,
+        storeId: notificationData.storeId || null,
+        promotionId: notificationData.promotionId || null,
+      };
+    } catch (error: any) {
       return rejectWithValue({
-        message:
-          error instanceof Error ? error.message : "An unknown error occurred",
+        message: error?.message || "Create notification failed",
       });
     }
   }

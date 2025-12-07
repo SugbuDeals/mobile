@@ -53,20 +53,22 @@ const authSlice = createSlice({
       })
       .addCase(login.rejected, (state, action) => {
         state.loading = false;
-        state.error = action.payload?.message || "Login failed";
+        state.error = (action.payload as { message?: string })?.message || "Login failed";
       })
       // Register
       .addCase(register.pending, (state) => {
         state.registering = true;
         state.error = null;
       })
-      .addCase(register.fulfilled, (state) => {
+      .addCase(register.fulfilled, (state, action) => {
         state.registering = false;
+        state.accessToken = action.payload.access_token;
+        state.user = action.payload.user;
         state.error = null;
       })
       .addCase(register.rejected, (state, action) => {
         state.registering = false;
-        state.error = action.payload?.message || "Registration failed";
+        state.error = (action.payload as { message?: string })?.message || "Registration failed";
       })
       // Fetch user by id
       .addCase(fetchUserById.pending, (state) => {

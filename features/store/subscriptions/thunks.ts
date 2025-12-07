@@ -7,6 +7,7 @@ import { RootState } from "@/store/types";
 import { subscriptionsApi } from "@/services/api/endpoints/subscriptions";
 import type {
   Subscription,
+  UserSubscription,
   SubscriptionAnalytics,
   CreateSubscriptionDTO,
   UpdateSubscriptionDTO,
@@ -14,7 +15,7 @@ import type {
 } from "./types";
 
 export const getActiveSubscription = createAsyncThunk<
-  Subscription | null,
+  UserSubscription | null,
   number,
   { rejectValue: { message: string }; state: RootState }
 >(
@@ -34,7 +35,7 @@ export const getActiveSubscription = createAsyncThunk<
 );
 
 export const joinSubscription = createAsyncThunk<
-  Subscription,
+  UserSubscription,
   JoinSubscriptionDTO,
   { rejectValue: { message: string }; state: RootState }
 >("subscriptions/joinSubscription", async (data, { rejectWithValue }) => {
@@ -74,7 +75,7 @@ export const findSubscriptions = createAsyncThunk<
 });
 
 export const cancelRetailerSubscription = createAsyncThunk<
-  Subscription,
+  UserSubscription,
   void,
   { rejectValue: { message: string }; state: RootState }
 >(
@@ -94,7 +95,7 @@ export const cancelRetailerSubscription = createAsyncThunk<
 );
 
 export const updateRetailerSubscription = createAsyncThunk<
-  Subscription,
+  UserSubscription,
   JoinSubscriptionDTO,
   { rejectValue: { message: string }; state: RootState }
 >(
@@ -119,13 +120,15 @@ export const createSubscription = createAsyncThunk<
   { rejectValue: { message: string }; state: RootState }
 >("subscriptions/createSubscription", async (data, { rejectWithValue }) => {
   try {
-    return await subscriptionsApi.createSubscription(data);
-  } catch (error) {
+    // Convert price from number to string for API
+    const apiData = {
+      ...data,
+      price: String(data.price),
+    } as any;
+    return await subscriptionsApi.createSubscription(apiData);
+  } catch (error: any) {
     return rejectWithValue({
-      message:
-        error && typeof error === "object" && "message" in error
-          ? String(error.message)
-          : "Create subscription failed",
+      message: error?.message || "Create subscription failed",
     });
   }
 });
@@ -136,13 +139,15 @@ export const updateSubscription = createAsyncThunk<
   { rejectValue: { message: string }; state: RootState }
 >("subscriptions/updateSubscription", async ({ id, ...data }, { rejectWithValue }) => {
   try {
-    return await subscriptionsApi.updateSubscription(id, data);
-  } catch (error) {
+    // Convert price from number to string for API if present
+    const apiData = {
+      ...data,
+      ...(data.price !== undefined && { price: String(data.price) }),
+    } as any;
+    return await subscriptionsApi.updateSubscription(id, apiData);
+  } catch (error: any) {
     return rejectWithValue({
-      message:
-        error && typeof error === "object" && "message" in error
-          ? String(error.message)
-          : "Update subscription failed",
+      message: error?.message || "Update subscription failed",
     });
   }
 });

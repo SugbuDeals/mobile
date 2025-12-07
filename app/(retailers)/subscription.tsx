@@ -165,18 +165,18 @@ export default function Subscription() {
             <View
               style={[
                 styles.subscriptionCard,
-                { borderColor: getPlanColor(activeSubscription.plan || "FREE") },
+                { borderColor: getPlanColor(activeSubscription.subscription?.plan || "FREE") },
               ]}
             >
               <View style={styles.subscriptionHeader}>
                 <View
                   style={[
                     styles.planBadge,
-                    { backgroundColor: getPlanColor(activeSubscription.plan || "FREE") },
+                    { backgroundColor: getPlanColor(activeSubscription.subscription?.plan || "FREE") },
                   ]}
                 >
                   <Text style={styles.planBadgeText}>
-                    {activeSubscription.plan || "FREE"}
+                    {activeSubscription.subscription?.plan || "FREE"}
                   </Text>
                 </View>
                 <View

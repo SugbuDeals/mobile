@@ -1,60 +1,71 @@
+/**
+ * Store type matching server.json StoreResponseDto
+ * All location fields are nullable per server.json
+ */
 export type Store = {
   id: number;
   name: string;
   description: string;
-  imageUrl?: string;
-  /**
-   * Optional store banner image (wide hero image shown on consumer store page)
-   */
-  bannerUrl?: string;
-  createdAt: Date;
+  createdAt: string; // ISO 8601 format date-time
   verificationStatus: "UNVERIFIED" | "VERIFIED";
-  isActive?: boolean;
-  ownerId?: number;
-  userId?: number;
-  latitude?: number;
-  longitude?: number;
-  address?: string;
-  city?: string;
-  state?: string;
-  country?: string;
-  postalCode?: string;
-  distance?: number;
+  ownerId: number;
+  isActive: boolean;
+  imageUrl: string | null; // Nullable per server.json
+  bannerUrl: string | null; // Nullable per server.json
+  latitude: number | null; // Nullable per server.json
+  longitude: number | null; // Nullable per server.json
+  address: string | null; // Nullable per server.json
+  city: string | null; // Nullable per server.json
+  state: string | null; // Nullable per server.json
+  country: string | null; // Nullable per server.json
+  postalCode: string | null; // Nullable per server.json
+  distance?: number; // Only present in StoreWithDistanceResponseDto
 };
 
+/**
+ * Product type matching server.json ProductResponseDto
+ * price is string (Decimal as string from backend)
+ */
 export type Product = {
   id: number;
   name: string;
   description: string;
-  price: number | string; // API returns string, we'll convert to number
+  price: string; // Decimal as string per server.json
   stock: number;
   isActive: boolean;
   storeId: number;
-  imageUrl?: string;
-  createdAt?: Date | string;
-  updatedAt?: Date | string;
-  categoryId?: number | null;
+  createdAt: string; // ISO 8601 format date-time
+  imageUrl: string | null; // Nullable per server.json
+  categoryId: number | null; // Nullable per server.json
 };
 
+/**
+ * CreateProductDTO matching server.json CreateProductDTO
+ * price is number in request (will be converted to string by backend)
+ */
 export type CreateProductDTO = {
   name: string;
   description: string;
-  price: number;
+  price: number; // Number in request, backend converts to Decimal string
   stock: number;
   isActive?: boolean;
   storeId: number;
   imageUrl?: string;
-  categoryId?: number | null;
+  categoryId?: number;
 };
 
+/**
+ * UpdateProductDTO matching server.json UpdateProductDTO
+ * price is number in request (will be converted to string by backend)
+ */
 export type UpdateProductDTO = {
   name?: string;
   description?: string;
-  price?: number;
+  price?: number; // Number in request, backend converts to Decimal string
   stock?: number;
   isActive?: boolean;
   imageUrl?: string;
-  categoryId?: number | null;
+  categoryId?: number;
 };
 
 export type ManageStoreStatusDTO = {
@@ -97,18 +108,19 @@ export type UpdateStoreDTO = {
   postalCode?: string;
 };
 
+/**
+ * Promotion type matching server.json PromotionResponseDto
+ */
 export type Promotion = {
   id: number;
   title: string;
-  type: string;
+  type: string; // Promotion type (e.g., "PERCENTAGE")
   description: string;
-  startsAt?: Date;
-  endsAt?: Date;
+  startsAt: string; // ISO 8601 format date-time
+  endsAt: string | null; // Nullable per server.json
   active: boolean;
   discount: number;
-  productId: number;
-  createdAt?: Date;
-  updatedAt?: Date;
+  productId: number | null; // Nullable per server.json
 };
 
 export type CreatePromotionDTO = {
@@ -119,6 +131,7 @@ export type CreatePromotionDTO = {
   endsAt: string;
   discount: number;
   productId: number;
+  active?: boolean;
 };
 
 export type UpdatePromotionDTO = {
@@ -132,29 +145,42 @@ export type UpdatePromotionDTO = {
   active?: boolean;
 };
 
+/**
+ * Subscription type matching server.json SubscriptionResponseDto
+ * Used for subscription plans (admin-managed)
+ */
 export type Subscription = {
   id: number;
-  /**
-   * For retailer/user-specific subscriptions returned by
-   * `/subscription/user/{userId}/active`, join/update/cancel endpoints.
-   */
-  userId?: number;
-  status?: "ACTIVE" | "CANCELLED" | "EXPIRED" | "PENDING";
-  billingCycle?: "MONTHLY" | "YEARLY";
-  price?: string;
-  startsAt?: string;
-  endsAt?: string;
-  cancelledAt?: string;
-  createdAt?: string;
-  updatedAt?: string;
-  /**
-   * For admin-managed subscription plans returned by `/subscription` endpoints.
-   */
-  name?: string;
-  description?: string;
-  plan?: "FREE" | "BASIC" | "PREMIUM";
-  benefits?: string;
-  isActive?: boolean;
+  name: string;
+  plan: "FREE" | "BASIC" | "PREMIUM";
+  billingCycle: "MONTHLY" | "YEARLY";
+  price: string; // Decimal as string per server.json
+  isActive: boolean;
+  createdAt: string; // ISO 8601 format date-time
+  updatedAt: string; // ISO 8601 format date-time
+  startsAt: string; // ISO 8601 format date-time
+  endsAt: string | null; // Nullable per server.json
+  description: string | null; // Nullable per server.json
+  benefits: string | null; // Nullable per server.json
+};
+
+/**
+ * UserSubscription type matching server.json UserSubscriptionResponseDto
+ * Used for user-specific subscriptions
+ */
+export type UserSubscription = {
+  id: number;
+  userId: number;
+  subscriptionId: number;
+  status: "ACTIVE" | "CANCELLED" | "EXPIRED" | "PENDING";
+  price: string; // Decimal as string per server.json
+  billingCycle: "MONTHLY" | "YEARLY";
+  startsAt: string; // ISO 8601 format date-time
+  endsAt: string | null; // Nullable per server.json
+  cancelledAt: string | null; // Nullable per server.json
+  createdAt: string; // ISO 8601 format date-time
+  updatedAt: string; // ISO 8601 format date-time
+  subscription?: Subscription; // Nested subscription plan details
 };
 
 export type JoinSubscriptionDTO = {

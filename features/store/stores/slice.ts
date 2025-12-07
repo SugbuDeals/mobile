@@ -76,18 +76,24 @@ const storesSlice = createSlice({
     });
 
     // Find Store By ID
-    createAsyncReducer<StoresState, Store, number>(builder, findStoreById, {
+    createAsyncReducer<StoresState, Store | null, number>(builder, findStoreById, {
       onFulfilled: (state: Draft<StoresState>, action) => {
-        state.selectedStore = action.payload;
-        state.userStore = action.payload;
+        if (action.payload === null) {
+          state.selectedStore = null;
+          state.userStore = null;
+          return;
+        }
+        const store = action.payload; // Store is guaranteed non-null here
+        state.selectedStore = store;
+        state.userStore = store;
         // Add to stores list if not already present
         const existingIndex = state.stores.findIndex(
-          (s: Store) => s.id === action.payload.id
+          (s: Store) => s.id === store.id
         );
         if (existingIndex === -1) {
-          state.stores.push(action.payload);
+          state.stores.push(store);
         } else {
-          state.stores[existingIndex] = action.payload;
+          state.stores[existingIndex] = store;
         }
       },
     });

@@ -70,8 +70,7 @@ export default function AdminSubscriptions() {
       await createSubscription({
         name: formData.name.trim(),
         plan: formData.plan,
-        price: formData.price ? parseFloat(formData.price) : 0,
-        durationDays: 30, // Default to 30 days, should be configurable
+        price: formData.price ? formData.price : "0",
         isActive: formData.isActive,
       }).unwrap();
 
@@ -96,7 +95,7 @@ export default function AdminSubscriptions() {
         id: selectedSubscription.id,
         name: formData.name.trim() || undefined,
         plan: formData.plan,
-        price: formData.price ? parseFloat(formData.price) : 0,
+        price: formData.price ? formData.price : "0",
         isActive: formData.isActive,
       }).unwrap();
 

@@ -29,7 +29,7 @@ export default function Settings() {
   const [storeName, setStoreName] = useState("");
   const [storeDescription, setStoreDescription] = useState("");
   // Get user information
-  const defaultName = user?.fullname || user?.name || "";
+  const defaultName = user?.name || "";
   const defaultEmail = user?.email || "";
   const role = useMemo(() => {
     const r = user?.user_type || user?.role;
@@ -66,8 +66,8 @@ export default function Settings() {
       // Banner is optional and may not exist on older stores
       setStoreBannerUrl(userStore.bannerUrl || undefined);
       setAddress(userStore.address || "");
-      setLatitude(userStore.latitude);
-      setLongitude(userStore.longitude);
+      setLatitude(userStore.latitude ?? undefined);
+      setLongitude(userStore.longitude ?? undefined);
     }
   }, [userStore]);
 

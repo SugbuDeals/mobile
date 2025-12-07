@@ -42,4 +42,4 @@ app-example
 /ios
 /android
 
-app.json
+server.json

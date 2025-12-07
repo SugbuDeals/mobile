@@ -58,7 +58,7 @@ export default function Promotions() {
     if (!storeId) return [];
     const storeProductIds = new Set(retailerProducts.map((product) => product.id));
     return (activePromotions || []).filter((promotion) =>
-      storeProductIds.has(promotion.productId)
+      promotion.productId !== null && storeProductIds.has(promotion.productId)
     );
   }, [activePromotions, retailerProducts, storeId]);
 

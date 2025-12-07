@@ -8,6 +8,7 @@ import { ApiError, ApiResponse } from "./types/common";
 export interface RequestConfig extends RequestInit {
   skipAuth?: boolean;
   skipErrorHandling?: boolean;
+  skipUnauthorizedCallback?: boolean;
 }
 
 export interface ApiClientConfig {
@@ -52,11 +53,50 @@ class ApiClient {
   }
 
   /**
+   * Log API request/response/error with sanitized data
+   */
+  private log(level: 'info' | 'warn' | 'error', message: string, data?: Record<string, unknown>): void {
+    const sanitizedData = this.sanitizeLogData(data);
+    const logMessage = `[API Client] ${message}`;
+    
+    if (level === 'error') {
+      console.error(logMessage, sanitizedData);
+    } else if (level === 'warn') {
+      console.warn(logMessage, sanitizedData);
+    } else {
+      console.log(logMessage, sanitizedData);
+    }
+  }
+
+  /**
+   * Sanitize sensitive data from logs (passwords, tokens, etc.)
+   */
+  private sanitizeLogData(data?: Record<string, unknown>): Record<string, unknown> | undefined {
+    if (!data) return undefined;
+    
+    const sensitiveKeys = ['password', 'access_token', 'token', 'authorization', 'authorization'];
+    const sanitized = { ...data };
+    
+    for (const key of Object.keys(sanitized)) {
+      const lowerKey = key.toLowerCase();
+      if (sensitiveKeys.some(sk => lowerKey.includes(sk))) {
+        sanitized[key] = '[REDACTED]';
+      } else if (typeof sanitized[key] === 'object' && sanitized[key] !== null) {
+        sanitized[key] = this.sanitizeLogData(sanitized[key] as Record<string, unknown>);
+      }
+    }
+    
+    return sanitized;
+  }
+
+  /**
    * Handle API errors
    */
   private async handleError(
     response: Response,
-    skipErrorHandling?: boolean
+    skipErrorHandling?: boolean,
+    skipUnauthorizedCallback?: boolean,
+    endpoint?: string
   ): Promise<ApiError> {
     let errorData: ApiError = {
       message: `HTTP ${response.status}: ${response.statusText}`,
@@ -67,8 +107,22 @@ class ApiClient {
       const text = await response.text();
       if (text) {
         const parsed = JSON.parse(text);
+        
+        // Handle message that can be string or array (e.g., validation errors)
+        let message = errorData.message;
+        if (parsed.message) {
+          if (Array.isArray(parsed.message)) {
+            // Join array messages with newlines for readability
+            message = parsed.message.join('\n');
+          } else if (typeof parsed.message === 'string') {
+            message = parsed.message;
+          }
+        } else if (parsed.error) {
+          message = typeof parsed.error === 'string' ? parsed.error : errorData.message;
+        }
+        
         errorData = {
-          message: parsed.message || parsed.error || errorData.message,
+          message,
           status: response.status,
           code: parsed.code,
           details: parsed,
@@ -78,8 +132,28 @@ class ApiClient {
       // If parsing fails, use default error
     }
 
-    // Handle unauthorized
-    if (response.status === 401 && !skipErrorHandling) {
+    // Log error with context
+    // 401 errors (Invalid credentials) are expected user errors, log as warning
+    // Other errors are system/network errors, log as error
+    const isUserError = response.status === 401;
+    const logLevel = isUserError ? 'warn' : 'error';
+    const logMessage = isUserError 
+      ? `API Warning (User Error): ${endpoint || 'Unknown endpoint'}`
+      : `API Error: ${endpoint || 'Unknown endpoint'}`;
+    
+    this.log(logLevel, logMessage, {
+      status: response.status,
+      statusText: response.statusText,
+      message: errorData.message,
+      endpoint,
+    });
+
+    // Handle unauthorized - only call callback if not skipped
+    // Login/register endpoints should skip this to avoid false "Unauthorized API request" messages
+    if (response.status === 401 && !skipErrorHandling && !skipUnauthorizedCallback) {
+      this.log('warn', 'Unauthorized request detected, calling onUnauthorized callback', {
+        endpoint,
+      });
       this.onUnauthorized?.();
     }
 
@@ -96,25 +170,53 @@ class ApiClient {
     const {
       skipAuth = false,
       skipErrorHandling = false,
+      skipUnauthorizedCallback = false,
       headers = {},
+      body,
       ...restConfig
     } = config;
 
     const url = `${this.baseURL}${endpoint}`;
+    
+    // Check if body is FormData - if so, don't set Content-Type (browser will set it with boundary)
+    const isFormData = body instanceof FormData;
+    
     const requestHeaders: HeadersInit = {
-      "Content-Type": "application/json",
+      ...(!isFormData && { "Content-Type": "application/json" }),
       ...(skipAuth ? {} : this.getAuthHeaders()),
       ...headers,
     };
 
+    // Log request (sanitized)
+    this.log('info', `Request: ${restConfig.method || 'GET'} ${endpoint}`, {
+      method: restConfig.method || 'GET',
+      endpoint,
+      skipAuth,
+      hasBody: !!body,
+      isFormData,
+    });
+
     try {
       const response = await fetch(url, {
         ...restConfig,
+        body: body,
         headers: requestHeaders,
       });
 
+      // Log response status
+      this.log('info', `Response: ${endpoint}`, {
+        status: response.status,
+        statusText: response.statusText,
+        ok: response.ok,
+      });
+
       if (!response.ok) {
-        const error = await this.handleError(response, skipErrorHandling);
+        const error = await this.handleError(
+          response,
+          skipErrorHandling,
+          skipUnauthorizedCallback,
+          endpoint
+        );
         throw error;
       }
 
@@ -122,17 +224,81 @@ class ApiClient {
       const contentType = response.headers.get("content-type");
       if (!contentType || !contentType.includes("application/json")) {
         const text = await response.text();
-        return (text ? JSON.parse(text) : {}) as T;
+        let result: T;
+        try {
+          result = (text ? JSON.parse(text) : {}) as T;
+        } catch (parseError) {
+          this.log('error', `Failed to parse non-JSON response: ${endpoint}`, {
+            textLength: text?.length,
+            parseError: parseError instanceof Error ? parseError.message : String(parseError),
+          });
+          result = {} as T;
+        }
+        this.log('info', `Response parsed (non-JSON): ${endpoint}`, {
+          hasContent: !!text,
+        });
+        return result;
       }
 
-      return response.json() as Promise<T>;
+      let result: T;
+      try {
+        result = await response.json() as T;
+      } catch (parseError) {
+        this.log('error', `Failed to parse JSON response: ${endpoint}`, {
+          status: response.status,
+          parseError: parseError instanceof Error ? parseError.message : String(parseError),
+        });
+        throw {
+          message: `Failed to parse server response: ${parseError instanceof Error ? parseError.message : 'Unknown parsing error'}`,
+          status: response.status,
+        } as ApiError;
+      }
+      
+      this.log('info', `Response parsed (JSON): ${endpoint}`, {
+        hasData: !!result,
+      });
+      return result;
     } catch (error) {
-      if (error instanceof Error && "status" in error) {
+      // Check if it's already an ApiError (either Error instance with status or plain object with message)
+      const isApiError = 
+        (error instanceof Error && "status" in error) ||
+        (typeof error === 'object' && error !== null && 'message' in error && typeof (error as any).message === 'string');
+      
+      if (isApiError) {
+        // Re-throw ApiError as-is
         throw error;
       }
+      
+      // Handle network errors and other non-ApiError exceptions
+      let errorMessage = "An unknown error occurred";
+      
+      if (error instanceof Error) {
+        errorMessage = error.message;
+      } else if (typeof error === 'string') {
+        errorMessage = error;
+      } else if (typeof error === 'object' && error !== null && 'message' in error) {
+        errorMessage = String((error as any).message);
+      }
+      
+      const isNetworkError = 
+        errorMessage.includes("Network request failed") ||
+        errorMessage.includes("Failed to fetch") ||
+        errorMessage.includes("NetworkError") ||
+        errorMessage.includes("connection") ||
+        errorMessage.includes("ECONNREFUSED") ||
+        errorMessage.includes("timeout");
+      
+      this.log('error', `Network/Request Error: ${endpoint}`, {
+        error: errorMessage,
+        isNetworkError,
+        errorType: error instanceof Error ? 'Error' : typeof error,
+        hasStatus: typeof error === 'object' && error !== null && 'status' in error,
+      });
+      
       throw {
-        message:
-          error instanceof Error ? error.message : "An unknown error occurred",
+        message: isNetworkError 
+          ? "Network error. Please check your internet connection and ensure the server is running."
+          : errorMessage,
       } as ApiError;
     }
   }
@@ -160,10 +326,45 @@ class ApiClient {
     data?: unknown,
     config?: RequestConfig
   ): Promise<T> {
+    // If data is FormData, use it directly; otherwise stringify JSON
+    const body = data instanceof FormData ? data : data ? JSON.stringify(data) : undefined;
     return this.request<T>(endpoint, {
       ...config,
       method: "POST",
-      body: data ? JSON.stringify(data) : undefined,
+      body,
+    });
+  }
+
+  /**
+   * Upload a file (multipart/form-data)
+   */
+  async uploadFile<T = unknown>(
+    endpoint: string,
+    file: File | Blob | { uri: string; type?: string; name?: string },
+    fieldName: string = "file",
+    config?: RequestConfig
+  ): Promise<T> {
+    const formData = new FormData();
+    
+    // Handle different file types
+    if (file instanceof File || file instanceof Blob) {
+      formData.append(fieldName, file);
+    } else if (file.uri) {
+      // React Native file upload - create a file-like object
+      // In React Native, we need to use a different approach
+      // For now, we'll assume the file is already a File/Blob or use fetch with FormData
+      const fileData = {
+        uri: file.uri,
+        type: file.type || "application/octet-stream",
+        name: file.name || "file",
+      } as any;
+      formData.append(fieldName, fileData);
+    }
+    
+    return this.request<T>(endpoint, {
+      ...config,
+      method: "POST",
+      body: formData,
     });
   }
 

@@ -1,36 +1,19 @@
-import env from "@/config/env";
+import { productsApi, promotionsApi, storesApi, subscriptionsApi } from "@/services/api";
 import { RootState } from "@/store/types";
 import { createAsyncThunk } from "@reduxjs/toolkit";
-import { CreateProductDTO, CreatePromotionDTO, CreateStoreDTO, CreateSubscriptionDTO, JoinSubscriptionDTO, ManageStoreStatusDTO, Product, Promotion, Store, Subscription, SubscriptionAnalytics, UpdateProductDTO, UpdateProductStatusDTO, UpdatePromotionDTO, UpdateStoreDTO, UpdateSubscriptionDTO } from "./types";
+import { CreateProductDTO, CreateStoreDTO, CreateSubscriptionDTO, JoinSubscriptionDTO, ManageStoreStatusDTO, Product, Promotion, Store, Subscription, UserSubscription, SubscriptionAnalytics, UpdateProductDTO, UpdateProductStatusDTO, UpdateSubscriptionDTO } from "./types";
+import type { CreatePromotionDTO, UpdatePromotionDTO } from "@/services/api/endpoints/promotions";
 
 export const findStores = createAsyncThunk<
   Store[],
   undefined,
   { rejectValue: { message: string }; state: RootState }
->("store/findStores", async (_, { rejectWithValue, getState }) => {
+>("store/findStores", async (_, { rejectWithValue }) => {
   try {
-    const { accessToken } = getState().auth;
-
-    const response = await fetch(`${env.API_BASE_URL}/store`, {
-      method: "GET",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${accessToken}`,
-      },
-    });
-
-    if (!response.ok) {
-      const error = await response.json();
-      return rejectWithValue({
-        message: error.message || "Find stores failed",
-      });
-    }
-
-    return response.json();
-  } catch (error) {
+    return await storesApi.findStores();
+  } catch (error: any) {
     return rejectWithValue({
-      message:
-        error instanceof Error ? error.message : "An unknown error occured",
+      message: error?.message || "Find stores failed",
     });
   }
 });
@@ -39,30 +22,17 @@ export const findNearbyStores = createAsyncThunk<
   Store[],
   { latitude: number; longitude: number; radiusKm?: number },
   { rejectValue: { message: string }; state: RootState }
->("store/findNearbyStores", async ({ latitude, longitude, radiusKm }, { rejectWithValue, getState }) => {
+>("store/findNearbyStores", async ({ latitude, longitude, radiusKm }, { rejectWithValue }) => {
   try {
-    const { accessToken } = getState().auth;
-    const params = new URLSearchParams();
-    params.append("latitude", String(latitude));
-    params.append("longitude", String(longitude));
-    if (radiusKm) params.append("radius", String(radiusKm));
-
-    const response = await fetch(`${env.API_BASE_URL}/store/nearby?${params.toString()}` , {
-      method: "GET",
-      headers: {
-        "Content-Type": "application/json",
-        ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
-      },
+    return await storesApi.findNearbyStores({
+      latitude,
+      longitude,
+      radiusKm,
     });
-
-    if (!response.ok) {
-      const error = await response.json().catch(() => ({}));
-      return rejectWithValue({ message: error.message || "Find nearby stores failed" });
-    }
-
-    return response.json();
-  } catch (error) {
-    return rejectWithValue({ message: error instanceof Error ? error.message : "An unknown error occured" });
+  } catch (error: any) {
+    return rejectWithValue({
+      message: error?.message || "Find nearby stores failed",
+    });
   }
 });
 
@@ -81,22 +51,7 @@ export const findUserStore = createAsyncThunk<
     }
 
     // Get all stores and filter by ownerId
-    const response = await fetch(`${env.API_BASE_URL}/store`, {
-      method: "GET",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${accessToken}`,
-      },
-    });
-
-    if (!response.ok) {
-      const error = await response.json().catch(() => ({}));
-      return rejectWithValue({
-        message: error.message || "Find user store failed",
-      });
-    }
-
-    const stores = await response.json();
+    const stores = await storesApi.findStores();
     console.log("All stores from API:", stores);
     console.log("Looking for store with userId:", userId);
     
@@ -134,41 +89,19 @@ export const findProducts = createAsyncThunk<
   Product[],
   { storeId?: number; isActive?: boolean },
   { rejectValue: { message: string }; state: RootState }
->("store/findProducts", async ({ storeId, isActive }, { rejectWithValue, getState }) => {
+>("store/findProducts", async ({ storeId, isActive }, { rejectWithValue }) => {
   try {
-    const { accessToken } = getState().auth;
-
-    const params = new URLSearchParams();
-    if (storeId) params.append('storeId', storeId.toString());
-    if (isActive !== undefined) params.append('isActive', isActive.toString());
-
-    const response = await fetch(`${env.API_BASE_URL}/product?${params}`, {
-      method: "GET",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${accessToken}`,
-      },
-    });
-
-    if (!response.ok) {
-      const error = await response.json();
-      return rejectWithValue({
-        message: error.message || "Find products failed",
-      });
-    }
-
-    const products = await response.json();
+    const products = await productsApi.findProducts({ storeId, isActive });
     
-    // Transform the data to ensure proper types
+    // Return products as-is - price is string per server.json
     return products.map((product: any) => ({
       ...product,
-      price: typeof product.price === 'string' ? parseFloat(product.price) : product.price,
+      // Ensure stock is number (API should return number)
       stock: typeof product.stock === 'string' ? parseInt(product.stock) : product.stock,
     }));
-  } catch (error) {
+  } catch (error: any) {
     return rejectWithValue({
-      message:
-        error instanceof Error ? error.message : "An unknown error occured",
+      message: error?.message || "Find products failed",
     });
   }
 });
@@ -177,50 +110,19 @@ export const findProductById = createAsyncThunk<
   Product,
   number,
   { rejectValue: { message: string }; state: RootState }
->("store/findProductById", async (productId, { rejectWithValue, getState }) => {
+>("store/findProductById", async (productId, { rejectWithValue }) => {
   try {
-    const { accessToken } = getState().auth;
-
-    if (!accessToken) {
-      return rejectWithValue({
-        message: "Authentication required. Please log in again.",
-      });
-    }
-
-    console.log("findProductById - Fetching product with ID:", productId);
-
-    const response = await fetch(`${env.API_BASE_URL}/product/${productId}`, {
-      method: "GET",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${accessToken}`,
-      },
-    });
-
-    console.log("findProductById - Response status:", response.status);
-
-    if (!response.ok) {
-      const error = await response.json();
-      console.log("findProductById - Error response:", error);
-      return rejectWithValue({
-        message: error.message || "Find product by ID failed",
-      });
-    }
-
-    const product = await response.json();
-    console.log("findProductById - Success response:", product);
+    const product = await productsApi.findProductById(productId);
     
-    // Transform the data to ensure proper types
+    // Return product as-is - price is string per server.json
     return {
       ...product,
-      price: typeof product.price === 'string' ? parseFloat(product.price) : product.price,
+      // Ensure stock is number (API should return number)
       stock: typeof product.stock === 'string' ? parseInt(product.stock) : product.stock,
     };
-  } catch (error) {
-    console.log("findProductById - Exception:", error);
+  } catch (error: any) {
     return rejectWithValue({
-      message:
-        error instanceof Error ? error.message : "An unknown error occured",
+      message: error?.message || "Find product by ID failed",
     });
   }
 });
@@ -229,46 +131,17 @@ export const createProduct = createAsyncThunk<
   Product,
   CreateProductDTO,
   { rejectValue: { message: string }; state: RootState }
->("store/createProduct", async (productData, { rejectWithValue, getState }) => {
+>("store/createProduct", async (productData, { rejectWithValue }) => {
   try {
-    const { accessToken } = getState().auth;
-    
-    console.log("Creating product with data:", productData);
-    console.log("Access token available:", !!accessToken);
-
-    if (!accessToken) {
-      return rejectWithValue({
-        message: "Authentication required. Please log in again.",
-      });
-    }
-
-    const response = await fetch(`${env.API_BASE_URL}/product`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${accessToken}`,
-      },
-      body: JSON.stringify(productData),
-    });
-
-    console.log("Product creation response status:", response.status);
-
-    if (!response.ok) {
-      const error = await response.json().catch(() => ({}));
-      console.log("Product creation error:", error);
-      return rejectWithValue({
-        message: error.message || "Create product failed",
-      });
-    }
-
-    const result = await response.json();
-    console.log("Product creation successful:", result);
-    return result;
-  } catch (error) {
-    console.log("Product creation catch error:", error);
+    // Convert categoryId from null to undefined for API
+    const apiData = {
+      ...productData,
+      categoryId: productData.categoryId ?? undefined,
+    };
+    return await productsApi.createProduct(apiData);
+  } catch (error: any) {
     return rejectWithValue({
-      message:
-        error instanceof Error ? error.message : "An unknown error occured",
+      message: error?.message || "Create product failed",
     });
   }
 });
@@ -277,46 +150,17 @@ export const updateProduct = createAsyncThunk<
   Product,
   { id: number } & UpdateProductDTO,
   { rejectValue: { message: string }; state: RootState }
->("store/updateProduct", async ({ id, ...updateData }, { rejectWithValue, getState }) => {
+>("store/updateProduct", async ({ id, ...updateData }, { rejectWithValue }) => {
   try {
-    const { accessToken } = getState().auth;
-    
-    console.log("Updating product with data:", { id, ...updateData });
-    console.log("Access token available:", !!accessToken);
-
-    if (!accessToken) {
-      return rejectWithValue({
-        message: "Authentication required. Please log in again.",
-      });
-    }
-
-    const response = await fetch(`${env.API_BASE_URL}/product/${id}`, {
-      method: "PATCH",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${accessToken}`,
-      },
-      body: JSON.stringify(updateData),
-    });
-
-    console.log("Product update response status:", response.status);
-
-    if (!response.ok) {
-      const error = await response.json().catch(() => ({}));
-      console.log("Product update error:", error);
-      return rejectWithValue({
-        message: error.message || "Update product failed",
-      });
-    }
-
-    const result = await response.json();
-    console.log("Product update successful:", result);
-    return result;
-  } catch (error) {
-    console.log("Product update catch error:", error);
+    // Convert categoryId from null to undefined for API
+    const apiData = {
+      ...updateData,
+      categoryId: updateData.categoryId ?? undefined,
+    };
+    return await productsApi.updateProduct(id, apiData);
+  } catch (error: any) {
     return rejectWithValue({
-      message:
-        error instanceof Error ? error.message : "An unknown error occured",
+      message: error?.message || "Update product failed",
     });
   }
 });
@@ -325,42 +169,18 @@ export const updateProductAdminStatus = createAsyncThunk<
   Product,
   { id: number } & UpdateProductStatusDTO,
   { rejectValue: { message: string }; state: RootState }
->("store/updateProductAdminStatus", async ({ id, ...payload }, { rejectWithValue, getState }) => {
+>("store/updateProductAdminStatus", async ({ id, ...payload }, { rejectWithValue }) => {
   try {
-    const { accessToken } = getState().auth;
-
-    if (!accessToken) {
-      return rejectWithValue({
-        message: "Authentication required. Please log in again.",
-      });
-    }
-
-    const response = await fetch(`${env.API_BASE_URL}/product/${id}/admin-status`, {
-      method: "PATCH",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${accessToken}`,
-      },
-      body: JSON.stringify(payload),
-    });
-
-    if (!response.ok) {
-      const error = await response.json().catch(() => ({}));
-      return rejectWithValue({
-        message: error.message || "Update product status failed",
-      });
-    }
-
-    const result = await response.json();
+    const result = await productsApi.updateProductAdminStatus(id, payload);
+    // Return result as-is - price is string per server.json
     return {
       ...result,
-      price: typeof result.price === "string" ? parseFloat(result.price) : result.price,
+      // Ensure stock is number (API should return number)
       stock: typeof result.stock === "string" ? parseInt(result.stock, 10) : result.stock,
     };
-  } catch (error) {
+  } catch (error: any) {
     return rejectWithValue({
-      message:
-        error instanceof Error ? error.message : "An unknown error occured",
+      message: error?.message || "Update product status failed",
     });
   }
 });
@@ -369,45 +189,13 @@ export const deleteProduct = createAsyncThunk<
   { id: number },
   number,
   { rejectValue: { message: string }; state: RootState }
->("store/deleteProduct", async (productId, { rejectWithValue, getState }) => {
+>("store/deleteProduct", async (productId, { rejectWithValue }) => {
   try {
-    const { accessToken } = getState().auth;
-    
-    console.log("Deleting product with id:", productId);
-    console.log("Access token available:", !!accessToken);
-
-    if (!accessToken) {
-      return rejectWithValue({
-        message: "Authentication required. Please log in again.",
-      });
-    }
-
-    const response = await fetch(`${env.API_BASE_URL}/product/${productId}`, {
-      method: "DELETE",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${accessToken}`,
-      },
-    });
-
-    console.log("Product deletion response status:", response.status);
-
-    if (!response.ok) {
-      const error = await response.json().catch(() => ({}));
-      console.log("Product deletion error:", error);
-      return rejectWithValue({
-        message: error.message || "Delete product failed",
-      });
-    }
-
-    const result = await response.json().catch(() => ({ id: productId }));
-    console.log("Product deletion successful:", result);
-    return result;
-  } catch (error) {
-    console.log("Product deletion catch error:", error);
+    await productsApi.deleteProduct(productId);
+    return { id: productId };
+  } catch (error: any) {
     return rejectWithValue({
-      message:
-        error instanceof Error ? error.message : "An unknown error occured",
+      message: error?.message || "Delete product failed",
     });
   }
 });
@@ -417,30 +205,25 @@ export const findPromotions = createAsyncThunk<
   Promotion[],
   undefined,
   { rejectValue: { message: string }; state: RootState }
->("store/findPromotions", async (_, { rejectWithValue, getState }) => {
+>("store/findPromotions", async (_, { rejectWithValue }) => {
   try {
-    const { accessToken } = getState().auth;
-
-    const response = await fetch(`${env.API_BASE_URL}/promotions`, {
-      method: "GET",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${accessToken}`,
-      },
-    });
-
-    if (!response.ok) {
-      const error = await response.json();
-      return rejectWithValue({
-        message: error.message || "Find promotions failed",
-      });
-    }
-
-    return response.json();
-  } catch (error) {
+    const apiPromotions = await promotionsApi.findPromotions();
+    // Map API promotions to feature Promotion format
+    // PromotionResponseDto: startsAt is string (ISO 8601), endsAt is string | null, no createdAt/updatedAt
+    return apiPromotions.map((p: any) => ({
+      id: p.id,
+      title: p.title,
+      type: p.type, // Keep as string (e.g., "PERCENTAGE")
+      description: p.description || "",
+      startsAt: typeof p.startsAt === "string" ? p.startsAt : new Date(p.startsAt).toISOString(),
+      endsAt: p.endsAt ? (typeof p.endsAt === "string" ? p.endsAt : new Date(p.endsAt).toISOString()) : null,
+      active: p.active,
+      discount: p.discount,
+      productId: p.productId ?? null, // Nullable per server.json
+    }));
+  } catch (error: any) {
     return rejectWithValue({
-      message:
-        error instanceof Error ? error.message : "An unknown error occured",
+      message: error?.message || "Find promotions failed",
     });
   }
 });
@@ -451,41 +234,25 @@ export const findActivePromotions = createAsyncThunk<
   { rejectValue: { message: string }; state: RootState }
 >("store/findActivePromotions", async ({ storeId }, { rejectWithValue, getState }) => {
   try {
-    const { accessToken, user } = getState().auth;
-    const { stores, products } = getState().store;
-    const userStore = stores.userStore;
+    const { products } = getState().store;
     const productsList = products.products;
 
-    console.log("findActivePromotions - Making API call to:", `${env.API_BASE_URL}/promotions`);
-    console.log("findActivePromotions - Using access token:", accessToken ? "Present" : "Missing");
-    console.log("findActivePromotions - Current user:", user);
-    console.log("findActivePromotions - Current userStore:", userStore);
-    console.log("findActivePromotions - Requested storeId:", storeId);
-
-    const response = await fetch(`${env.API_BASE_URL}/promotions`, {
-      method: "GET",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${accessToken}`,
-      },
-    });
-
-    console.log("findActivePromotions - Response status:", response.status);
-
-    if (!response.ok) {
-      const error = await response.json();
-      console.log("findActivePromotions - Error response:", error);
-      return rejectWithValue({
-        message: error.message || "Find active promotions failed",
-      });
-    }
-
-    const allPromotions = await response.json();
-    console.log("findActivePromotions - All promotions response:", allPromotions);
+    // Use the new active promotions endpoint
+    const apiPromotions = await promotionsApi.findActivePromotions();
     
-    // Filter for active promotions
-    let activePromotions = allPromotions.filter((promotion: any) => promotion.active === true);
-    console.log("findActivePromotions - Filtered active promotions:", activePromotions);
+    // Map API promotions to feature Promotion format
+    // PromotionResponseDto: startsAt is string (ISO 8601), endsAt is string | null, no createdAt/updatedAt
+    let activePromotions = apiPromotions.map((p: any) => ({
+      id: p.id,
+      title: p.title,
+      type: p.type, // Keep as string (e.g., "PERCENTAGE")
+      description: p.description || "",
+      startsAt: typeof p.startsAt === "string" ? p.startsAt : new Date(p.startsAt).toISOString(),
+      endsAt: p.endsAt ? (typeof p.endsAt === "string" ? p.endsAt : new Date(p.endsAt).toISOString()) : null,
+      active: p.active,
+      discount: p.discount,
+      productId: p.productId ?? null, // Nullable per server.json
+    }));
     
     // If storeId is provided, filter promotions by store ownership
     if (storeId) {
@@ -494,22 +261,16 @@ export const findActivePromotions = createAsyncThunk<
         .filter((product: any) => product.storeId === storeId)
         .map((product: any) => product.id);
       
-      console.log("findActivePromotions - Store product IDs:", storeProductIds);
-      
       // Filter promotions to only include those for products owned by the store
       activePromotions = activePromotions.filter((promotion: any) => 
         storeProductIds.includes(promotion.productId)
       );
-      
-      console.log("findActivePromotions - Store-filtered promotions:", activePromotions);
     }
     
     return activePromotions;
-  } catch (error) {
-    console.log("findActivePromotions - Exception:", error);
+  } catch (error: any) {
     return rejectWithValue({
-      message:
-        error instanceof Error ? error.message : "An unknown error occured",
+      message: error?.message || "Find active promotions failed",
     });
   }
 });
@@ -519,124 +280,28 @@ export const createStore = createAsyncThunk<
   Store,
   CreateStoreDTO,
   { rejectValue: { message: string }; state: RootState }
->("store/createStore", async (storeData, { rejectWithValue, getState }) => {
+>("store/createStore", async (storeData, { rejectWithValue }) => {
   try {
-    const { accessToken } = getState().auth;
-
-    if (!accessToken) {
-      return rejectWithValue({
-        message: "Authentication required. Please log in again.",
-      });
-    }
-
-    const response = await fetch(`${env.API_BASE_URL}/store`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${accessToken}`,
-      },
-      body: JSON.stringify(storeData),
-    });
-
-    if (!response.ok) {
-      const error = await response.json().catch(() => ({}));
-      return rejectWithValue({
-        message: error.message || "Create store failed",
-      });
-    }
-
-    return response.json();
-  } catch (error) {
+    return await storesApi.createStore(storeData);
+  } catch (error: any) {
     return rejectWithValue({
-      message:
-        error instanceof Error ? error.message : "An unknown error occured",
+      message: error?.message || "Create store failed",
     });
   }
 });
 
-export const updateStore = createAsyncThunk<
-  Store,
-  { id: number } & UpdateStoreDTO,
-  { rejectValue: { message: string }; state: RootState }
->("store/updateStore", async ({ id, ...updateData }, { rejectWithValue, getState }) => {
-  try {
-    const { accessToken } = getState().auth;
-
-    if (!accessToken) {
-      return rejectWithValue({
-        message: "Authentication required. Please log in again.",
-      });
-    }
-
-    console.log("Updating store with data:", updateData);
-    console.log("Store ID:", id);
-
-    const response = await fetch(`${env.API_BASE_URL}/store/${id}`, {
-      method: "PATCH",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${accessToken}`,
-      },
-      body: JSON.stringify(updateData),
-    });
-
-    console.log("Update store response status:", response.status);
-
-    if (!response.ok) {
-      const error = await response.json().catch(() => ({}));
-      console.log("Update store error:", error);
-      return rejectWithValue({
-        message: error.message || "Update store failed",
-      });
-    }
-
-    const result = await response.json();
-    console.log("Update store successful:", result);
-    return result;
-  } catch (error) {
-    console.log("Update store catch error:", error);
-    return rejectWithValue({
-      message:
-        error instanceof Error ? error.message : "An unknown error occured",
-    });
-  }
-});
+// updateStore is already defined above, this duplicate is removed
 
 export const updateStoreAdminStatus = createAsyncThunk<
   Store,
   { id: number } & ManageStoreStatusDTO,
   { rejectValue: { message: string }; state: RootState }
->("store/updateStoreAdminStatus", async ({ id, ...payload }, { rejectWithValue, getState }) => {
+>("store/updateStoreAdminStatus", async ({ id, ...payload }, { rejectWithValue }) => {
   try {
-    const { accessToken } = getState().auth;
-
-    if (!accessToken) {
-      return rejectWithValue({
-        message: "Authentication required. Please log in again.",
-      });
-    }
-
-    const response = await fetch(`${env.API_BASE_URL}/store/${id}/admin-status`, {
-      method: "PATCH",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${accessToken}`,
-      },
-      body: JSON.stringify(payload),
-    });
-
-    if (!response.ok) {
-      const error = await response.json().catch(() => ({}));
-      return rejectWithValue({
-        message: error.message || "Update store status failed",
-      });
-    }
-
-    return response.json();
-  } catch (error) {
+    return await storesApi.updateStoreAdminStatus(id, payload);
+  } catch (error: any) {
     return rejectWithValue({
-      message:
-        error instanceof Error ? error.message : "An unknown error occured",
+      message: error?.message || "Update store status failed",
     });
   }
 });
@@ -645,75 +310,32 @@ export const deleteStore = createAsyncThunk<
   { id: number },
   number,
   { rejectValue: { message: string }; state: RootState }
->("store/deleteStore", async (storeId, { rejectWithValue, getState }) => {
+>("store/deleteStore", async (storeId, { rejectWithValue }) => {
   try {
-    const { accessToken } = getState().auth;
-
-    if (!accessToken) {
-      return rejectWithValue({
-        message: "Authentication required. Please log in again.",
-      });
-    }
-
-    const response = await fetch(`${env.API_BASE_URL}/store/${storeId}`, {
-      method: "DELETE",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${accessToken}`,
-      },
-    });
-
-    if (!response.ok) {
-      const error = await response.json().catch(() => ({}));
-      return rejectWithValue({
-        message: error.message || "Delete store failed",
-      });
-    }
-
-    const result = await response.json().catch(() => ({ id: storeId }));
-    return result && typeof result.id === "number" ? result : { id: storeId };
-  } catch (error) {
+    await storesApi.deleteStore(storeId);
+    return { id: storeId };
+  } catch (error: any) {
     return rejectWithValue({
-      message:
-        error instanceof Error ? error.message : "An unknown error occured",
+      message: error?.message || "Delete store failed",
     });
   }
 });
 
 export const findStoreById = createAsyncThunk<
-  Store,
+  Store | null,
   number,
   { rejectValue: { message: string }; state: RootState }
->("store/findStoreById", async (storeId, { rejectWithValue, getState }) => {
+>("store/findStoreById", async (storeId, { rejectWithValue }) => {
   try {
-    const { accessToken } = getState().auth;
-
-    if (!accessToken) {
-      return rejectWithValue({
-        message: "Authentication required. Please log in again.",
-      });
+    const store = await storesApi.findStoreById(storeId);
+    // If 404 or null, return null (not an error)
+    if (store === null) {
+      return null;
     }
-
-    const response = await fetch(`${env.API_BASE_URL}/store/${storeId}`, {
-      method: "GET",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${accessToken}`,
-      },
-    });
-
-    if (!response.ok) {
-      const error = await response.json().catch(() => ({}));
-      return rejectWithValue({
-        message: error.message || "Find store by ID failed",
-      });
-    }
-
-    return response.json();
-  } catch (error) {
+    return store;
+  } catch (error: any) {
     return rejectWithValue({
-      message:
-        error instanceof Error ? error.message : "An unknown error occured",
+      message: error?.message || "Find store by ID failed",
     });
   }
 });
@@ -723,56 +345,39 @@ export const createPromotion = createAsyncThunk<
   Promotion,
   CreatePromotionDTO,
   { rejectValue: { message: string }; state: RootState }
->("store/createPromotion", async (promotionData, { rejectWithValue, getState }) => {
+>("store/createPromotion", async (promotionData, { rejectWithValue }) => {
   try {
-    const { accessToken, user } = getState().auth;
+    // Map feature DTO to API DTO format
+    // Use API CreatePromotionDTO which matches server.json
+    const apiData: CreatePromotionDTO = {
+      title: promotionData.title,
+      type: promotionData.type,
+      description: promotionData.description,
+      discount: promotionData.discount,
+      productId: promotionData.productId,
+      ...(promotionData.startsAt && { startsAt: promotionData.startsAt }),
+      ...(promotionData.endsAt && { endsAt: promotionData.endsAt }),
+      ...(promotionData.active !== undefined && { active: promotionData.active }),
+    };
     
-    console.log("Creating promotion with data:", JSON.stringify(promotionData, null, 2));
-    console.log("Access token available:", !!accessToken);
-    console.log("User:", user);
-    console.log("User role:", (user as any)?.role || (user as any)?.user_type);
-
-    if (!accessToken) {
-      return rejectWithValue({
-        message: "Authentication required. Please log in again.",
-      });
-    }
-
-    const response = await fetch(`${env.API_BASE_URL}/promotions`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${accessToken}`,
-      },
-      body: JSON.stringify(promotionData),
-    });
-
-    console.log("Promotion creation response status:", response.status);
-    console.log("Promotion creation response headers:", Object.fromEntries(response.headers.entries()));
-
-    if (!response.ok) {
-      let errorData;
-      try {
-        const text = await response.text();
-        console.log("Promotion creation error response text:", text);
-        errorData = text ? JSON.parse(text) : {};
-      } catch (e) {
-        errorData = { message: `HTTP ${response.status}: ${response.statusText}` };
-      }
-      console.log("Promotion creation error data:", errorData);
-      return rejectWithValue({
-        message: errorData.message || errorData.error || `Create promotion failed (${response.status})`,
-      });
-    }
-
-    const result = await response.json();
-    console.log("Promotion creation successful:", result);
-    return result;
-  } catch (error) {
-    console.log("Promotion creation catch error:", error);
+    const result = await promotionsApi.createPromotion(apiData);
+    
+    // Map API response to feature Promotion format
+    // PromotionResponseDto: startsAt is string (ISO 8601), endsAt is string | null, no createdAt/updatedAt
+    return {
+      id: result.id,
+      title: result.title,
+      type: result.type, // Keep as string (e.g., "PERCENTAGE")
+      description: result.description || "",
+      startsAt: typeof result.startsAt === "string" ? result.startsAt : new Date(result.startsAt).toISOString(),
+      endsAt: result.endsAt ? (typeof result.endsAt === "string" ? result.endsAt : new Date(result.endsAt).toISOString()) : null,
+      active: result.active,
+      discount: result.discount,
+      productId: result.productId ?? null, // Nullable per server.json
+    };
+  } catch (error: any) {
     return rejectWithValue({
-      message:
-        error instanceof Error ? error.message : "An unknown error occured",
+      message: error?.message || "Create promotion failed",
     });
   }
 });
@@ -781,46 +386,33 @@ export const updatePromotion = createAsyncThunk<
   Promotion,
   { id: number } & UpdatePromotionDTO,
   { rejectValue: { message: string }; state: RootState }
->("store/updatePromotion", async ({ id, ...updateData }, { rejectWithValue, getState }) => {
+>("store/updatePromotion", async ({ id, ...updateData }, { rejectWithValue }) => {
   try {
-    const { accessToken } = getState().auth;
+    // Map feature DTO to API DTO format
+    // Use API UpdatePromotionDTO which matches server.json
+    const apiData: UpdatePromotionDTO = {
+      ...updateData,
+      ...(updateData.endsAt !== undefined && { endsAt: updateData.endsAt }),
+    };
     
-    console.log("Updating promotion with data:", { id, ...updateData });
-    console.log("Access token available:", !!accessToken);
-
-    if (!accessToken) {
-      return rejectWithValue({
-        message: "Authentication required. Please log in again.",
-      });
-    }
-
-    const response = await fetch(`${env.API_BASE_URL}/promotions/${id}`, {
-      method: "PATCH",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${accessToken}`,
-      },
-      body: JSON.stringify(updateData),
-    });
-
-    console.log("Promotion update response status:", response.status);
-
-    if (!response.ok) {
-      const error = await response.json().catch(() => ({}));
-      console.log("Promotion update error:", error);
-      return rejectWithValue({
-        message: error.message || "Update promotion failed",
-      });
-    }
-
-    const result = await response.json();
-    console.log("Promotion update successful:", result);
-    return result;
-  } catch (error) {
-    console.log("Promotion update catch error:", error);
+    const result = await promotionsApi.updatePromotion(id, apiData);
+    
+    // Map API response to feature Promotion format
+    // PromotionResponseDto: startsAt is string (ISO 8601), endsAt is string | null, no createdAt/updatedAt
+    return {
+      id: result.id,
+      title: result.title,
+      type: result.type, // Keep as string (e.g., "PERCENTAGE")
+      description: result.description || "",
+      startsAt: typeof result.startsAt === "string" ? result.startsAt : new Date(result.startsAt).toISOString(),
+      endsAt: result.endsAt ? (typeof result.endsAt === "string" ? result.endsAt : new Date(result.endsAt).toISOString()) : null,
+      active: result.active,
+      discount: result.discount,
+      productId: result.productId ?? null, // Nullable per server.json
+    };
+  } catch (error: any) {
     return rejectWithValue({
-      message:
-        error instanceof Error ? error.message : "An unknown error occured",
+      message: error?.message || "Update promotion failed",
     });
   }
 });
@@ -829,127 +421,46 @@ export const deletePromotion = createAsyncThunk<
   { id: number },
   number,
   { rejectValue: { message: string }; state: RootState }
->("store/deletePromotion", async (promotionId, { rejectWithValue, getState }) => {
+>("store/deletePromotion", async (promotionId, { rejectWithValue }) => {
   try {
-    const { accessToken } = getState().auth;
-    
-    console.log("Deleting promotion with id:", promotionId);
-    console.log("Access token available:", !!accessToken);
-
-    if (!accessToken) {
-      return rejectWithValue({
-        message: "Authentication required. Please log in again.",
-      });
-    }
-
-    const response = await fetch(`${env.API_BASE_URL}/promotions/${promotionId}`, {
-      method: "DELETE",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${accessToken}`,
-      },
-    });
-
-    console.log("Promotion deletion response status:", response.status);
-
-    if (!response.ok) {
-      const error = await response.json().catch(() => ({}));
-      console.log("Promotion deletion error:", error);
-      return rejectWithValue({
-        message: error.message || "Delete promotion failed",
-      });
-    }
-
-    const result = await response.json().catch(() => ({ id: promotionId }));
-    console.log("Promotion deletion successful:", result);
-    return result;
-  } catch (error) {
-    console.log("Promotion deletion catch error:", error);
+    await promotionsApi.deletePromotion(promotionId);
+    return { id: promotionId };
+  } catch (error: any) {
     return rejectWithValue({
-      message:
-        error instanceof Error ? error.message : "An unknown error occured",
+      message: error?.message || "Delete promotion failed",
     });
   }
 });
 
 // Subscription thunks
 export const getActiveSubscription = createAsyncThunk<
-  Subscription | null,
+  UserSubscription | null,
   number,
   { rejectValue: { message: string }; state: RootState }
->("store/getActiveSubscription", async (userId, { rejectWithValue, getState }) => {
+>("store/getActiveSubscription", async (userId, { rejectWithValue }) => {
   try {
-    const { accessToken } = getState().auth;
-
-    if (!accessToken) {
-      return rejectWithValue({
-        message: "Authentication required. Please log in again.",
-      });
+    return await subscriptionsApi.getActiveSubscription(userId);
+  } catch (error: any) {
+    // If 404, user has no active subscription (return null, not an error)
+    if (error?.status === 404) {
+      return null;
     }
-
-    const response = await fetch(`${env.API_BASE_URL}/subscription/user/${userId}/active`, {
-      method: "GET",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${accessToken}`,
-      },
-    });
-
-    if (!response.ok) {
-      // If 404, user has no active subscription (return null, not an error)
-      if (response.status === 404) {
-        return null;
-      }
-      const error = await response.json().catch(() => ({}));
-      return rejectWithValue({
-        message: error.message || "Get active subscription failed",
-      });
-    }
-
-    return response.json();
-  } catch (error) {
     return rejectWithValue({
-      message:
-        error instanceof Error ? error.message : "An unknown error occured",
+      message: error?.message || "Get active subscription failed",
     });
   }
 });
 
 export const joinSubscription = createAsyncThunk<
-  Subscription,
+  UserSubscription,
   JoinSubscriptionDTO,
   { rejectValue: { message: string }; state: RootState }
->("store/joinSubscription", async (data, { rejectWithValue, getState }) => {
+>("store/joinSubscription", async (data, { rejectWithValue }) => {
   try {
-    const { accessToken } = getState().auth;
-
-    if (!accessToken) {
-      return rejectWithValue({
-        message: "Authentication required. Please log in again.",
-      });
-    }
-
-    const response = await fetch(`${env.API_BASE_URL}/subscription/retailer/join`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${accessToken}`,
-      },
-      body: JSON.stringify(data),
-    });
-
-    if (!response.ok) {
-      const error = await response.json().catch(() => ({}));
-      return rejectWithValue({
-        message: error.message || "Join subscription failed",
-      });
-    }
-
-    return response.json();
-  } catch (error) {
+    return await subscriptionsApi.joinSubscription(data);
+  } catch (error: any) {
     return rejectWithValue({
-      message:
-        error instanceof Error ? error.message : "An unknown error occured",
+      message: error?.message || "Join subscription failed",
     });
   }
 });
@@ -964,122 +475,46 @@ export const findSubscriptions = createAsyncThunk<
     take?: number;
   },
   { rejectValue: { message: string }; state: RootState }
->("store/findSubscriptions", async ({ plan, isActive, search, skip, take }, { rejectWithValue, getState }) => {
+>("store/findSubscriptions", async ({ plan, isActive, search, skip, take }, { rejectWithValue }) => {
   try {
-    const { accessToken } = getState().auth;
-
-    if (!accessToken) {
-      return rejectWithValue({
-        message: "Authentication required. Please log in again.",
-      });
-    }
-
-    const params = new URLSearchParams();
-    if (plan) params.append("plan", plan);
-    if (typeof isActive === "boolean") params.append("isActive", String(isActive));
-    if (search) params.append("search", search);
-    if (typeof skip === "number") params.append("skip", String(skip));
-    if (typeof take === "number") params.append("take", String(take));
-
-    const queryString = params.toString();
-
-    const response = await fetch(`${env.API_BASE_URL}/subscription${queryString ? `?${queryString}` : ""}`, {
-      method: "GET",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${accessToken}`,
-      },
+    return await subscriptionsApi.findSubscriptions({
+      plan,
+      isActive,
+      search,
+      skip,
+      take,
     });
-
-    if (!response.ok) {
-      const error = await response.json().catch(() => ({}));
-      return rejectWithValue({
-        message: error.message || "Find subscriptions failed",
-      });
-    }
-
-    return response.json();
-  } catch (error) {
+  } catch (error: any) {
     return rejectWithValue({
-      message:
-        error instanceof Error ? error.message : "An unknown error occured",
+      message: error?.message || "Find subscriptions failed",
     });
   }
 });
 
 export const cancelRetailerSubscription = createAsyncThunk<
-  Subscription,
+  UserSubscription,
   void,
   { rejectValue: { message: string }; state: RootState }
->("store/cancelRetailerSubscription", async (_, { rejectWithValue, getState }) => {
+>("store/cancelRetailerSubscription", async (_, { rejectWithValue }) => {
   try {
-    const { accessToken } = getState().auth;
-
-    if (!accessToken) {
-      return rejectWithValue({
-        message: "Authentication required. Please log in again.",
-      });
-    }
-
-    const response = await fetch(`${env.API_BASE_URL}/subscription/retailer/cancel`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${accessToken}`,
-      },
-    });
-
-    if (!response.ok) {
-      const error = await response.json().catch(() => ({}));
-      return rejectWithValue({
-        message: error.message || "Cancel subscription failed",
-      });
-    }
-
-    return response.json();
-  } catch (error) {
+    return await subscriptionsApi.cancelRetailerSubscription();
+  } catch (error: any) {
     return rejectWithValue({
-      message:
-        error instanceof Error ? error.message : "An unknown error occured",
+      message: error?.message || "Cancel subscription failed",
     });
   }
 });
 
 export const updateRetailerSubscription = createAsyncThunk<
-  Subscription,
+  UserSubscription,
   JoinSubscriptionDTO,
   { rejectValue: { message: string }; state: RootState }
->("store/updateRetailerSubscription", async (data, { rejectWithValue, getState }) => {
+>("store/updateRetailerSubscription", async (data, { rejectWithValue }) => {
   try {
-    const { accessToken } = getState().auth;
-
-    if (!accessToken) {
-      return rejectWithValue({
-        message: "Authentication required. Please log in again.",
-      });
-    }
-
-    const response = await fetch(`${env.API_BASE_URL}/subscription/retailer/update`, {
-      method: "PATCH",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${accessToken}`,
-      },
-      body: JSON.stringify(data),
-    });
-
-    if (!response.ok) {
-      const error = await response.json().catch(() => ({}));
-      return rejectWithValue({
-        message: error.message || "Update subscription failed",
-      });
-    }
-
-    return response.json();
-  } catch (error) {
+    return await subscriptionsApi.updateRetailerSubscription(data);
+  } catch (error: any) {
     return rejectWithValue({
-      message:
-        error instanceof Error ? error.message : "An unknown error occured",
+      message: error?.message || "Update subscription failed",
     });
   }
 });
@@ -1089,37 +524,17 @@ export const createSubscription = createAsyncThunk<
   Subscription,
   CreateSubscriptionDTO,
   { rejectValue: { message: string }; state: RootState }
->("store/createSubscription", async (data, { rejectWithValue, getState }) => {
+>("store/createSubscription", async (data, { rejectWithValue }) => {
   try {
-    const { accessToken } = getState().auth;
-
-    if (!accessToken) {
-      return rejectWithValue({
-        message: "Authentication required. Please log in again.",
-      });
-    }
-
-    const response = await fetch(`${env.API_BASE_URL}/subscription`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${accessToken}`,
-      },
-      body: JSON.stringify(data),
-    });
-
-    if (!response.ok) {
-      const error = await response.json().catch(() => ({}));
-      return rejectWithValue({
-        message: error.message || "Create subscription failed",
-      });
-    }
-
-    return response.json();
-  } catch (error) {
+    // Convert price from number to string for API
+    const apiData = {
+      ...data,
+      price: String(data.price),
+    } as any;
+    return await subscriptionsApi.createSubscription(apiData);
+  } catch (error: any) {
     return rejectWithValue({
-      message:
-        error instanceof Error ? error.message : "An unknown error occured",
+      message: error?.message || "Create subscription failed",
     });
   }
 });
@@ -1128,37 +543,17 @@ export const updateSubscription = createAsyncThunk<
   Subscription,
   { id: number } & UpdateSubscriptionDTO,
   { rejectValue: { message: string }; state: RootState }
->("store/updateSubscription", async ({ id, ...data }, { rejectWithValue, getState }) => {
+>("store/updateSubscription", async ({ id, ...data }, { rejectWithValue }) => {
   try {
-    const { accessToken } = getState().auth;
-
-    if (!accessToken) {
-      return rejectWithValue({
-        message: "Authentication required. Please log in again.",
-      });
-    }
-
-    const response = await fetch(`${env.API_BASE_URL}/subscription/${id}`, {
-      method: "PATCH",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${accessToken}`,
-      },
-      body: JSON.stringify(data),
-    });
-
-    if (!response.ok) {
-      const error = await response.json().catch(() => ({}));
-      return rejectWithValue({
-        message: error.message || "Update subscription failed",
-      });
-    }
-
-    return response.json();
-  } catch (error) {
+    // Convert price from number to string for API if present
+    const apiData = {
+      ...data,
+      ...(data.price !== undefined && { price: String(data.price) }),
+    } as any;
+    return await subscriptionsApi.updateSubscription(id, apiData);
+  } catch (error: any) {
     return rejectWithValue({
-      message:
-        error instanceof Error ? error.message : "An unknown error occured",
+      message: error?.message || "Update subscription failed",
     });
   }
 });
@@ -1167,36 +562,13 @@ export const deleteSubscription = createAsyncThunk<
   { id: number },
   number,
   { rejectValue: { message: string }; state: RootState }
->("store/deleteSubscription", async (id, { rejectWithValue, getState }) => {
+>("store/deleteSubscription", async (id, { rejectWithValue }) => {
   try {
-    const { accessToken } = getState().auth;
-
-    if (!accessToken) {
-      return rejectWithValue({
-        message: "Authentication required. Please log in again.",
-      });
-    }
-
-    const response = await fetch(`${env.API_BASE_URL}/subscription/${id}`, {
-      method: "DELETE",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${accessToken}`,
-      },
-    });
-
-    if (!response.ok) {
-      const error = await response.json().catch(() => ({}));
-      return rejectWithValue({
-        message: error.message || "Delete subscription failed",
-      });
-    }
-
+    await subscriptionsApi.deleteSubscription(id);
     return { id };
-  } catch (error) {
+  } catch (error: any) {
     return rejectWithValue({
-      message:
-        error instanceof Error ? error.message : "An unknown error occured",
+      message: error?.message || "Delete subscription failed",
     });
   }
 });
@@ -1205,36 +577,12 @@ export const getSubscriptionAnalytics = createAsyncThunk<
   SubscriptionAnalytics,
   void,
   { rejectValue: { message: string }; state: RootState }
->("store/getSubscriptionAnalytics", async (_, { rejectWithValue, getState }) => {
+>("store/getSubscriptionAnalytics", async (_, { rejectWithValue }) => {
   try {
-    const { accessToken } = getState().auth;
-
-    if (!accessToken) {
-      return rejectWithValue({
-        message: "Authentication required. Please log in again.",
-      });
-    }
-
-    const response = await fetch(`${env.API_BASE_URL}/subscription/admin/analytics`, {
-      method: "GET",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${accessToken}`,
-      },
-    });
-
-    if (!response.ok) {
-      const error = await response.json().catch(() => ({}));
-      return rejectWithValue({
-        message: error.message || "Get subscription analytics failed",
-      });
-    }
-
-    return response.json();
-  } catch (error) {
+    return await subscriptionsApi.getSubscriptionAnalytics();
+  } catch (error: any) {
     return rejectWithValue({
-      message:
-        error instanceof Error ? error.message : "An unknown error occured",
+      message: error?.message || "Get subscription analytics failed",
     });
   }
 });

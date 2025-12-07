@@ -47,12 +47,17 @@ export const findNearbyStores = createAsyncThunk<
 });
 
 export const findStoreById = createAsyncThunk<
-  Store,
+  Store | null,
   number,
   { rejectValue: { message: string }; state: RootState }
 >("stores/findStoreById", async (storeId, { rejectWithValue }) => {
   try {
-    return await storesApi.findStoreById(storeId);
+    const store = await storesApi.findStoreById(storeId);
+    // If 404 or null, return null (not an error)
+    if (store === null) {
+      return null;
+    }
+    return store;
   } catch (error) {
     return rejectWithValue({
       message:
@@ -75,9 +80,7 @@ export const findUserStore = createAsyncThunk<
       stores.find(
         (store) =>
           store.ownerId === userId ||
-          store.userId === userId ||
-          (store as any).owner_id === userId ||
-          (store as any).user_id === userId
+          (store as any).owner_id === userId
       ) || null;
     return userStore;
   } catch (error) {

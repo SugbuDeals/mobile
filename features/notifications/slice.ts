@@ -50,7 +50,7 @@ const notificationSlice = createSlice({
       })
       .addCase(getNotifications.rejected, (state, action) => {
         state.loading = false;
-        state.error = action.payload?.message || "Get notifications failed";
+        state.error = (action.payload as { message?: string })?.message || "Get notifications failed";
       })
       /**
        * [GET] notifications/getUnreadCount
