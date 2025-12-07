@@ -2,7 +2,7 @@ import React from "react";
 import { StyleSheet, ScrollView, Text, TouchableOpacity, View, Image } from "react-native";
 import { useRouter } from "expo-router";
 import { colors, spacing, borderRadius, typography } from "@/styles/theme";
-import { SectionHeader } from "@/components/shared";
+import SectionHeader from "@/components/SectionHeader";
 import type { Product } from "@/features/catalog/types";
 import type { Promotion } from "@/features/store/promotions/types";
 

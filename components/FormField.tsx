@@ -2,15 +2,45 @@ import React, { ReactNode } from "react";
 import { StyleSheet, Text, View, ViewStyle } from "react-native";
 import { colors, spacing, typography } from "@/styles/theme";
 
-interface FormFieldProps {
+/**
+ * Props for the FormField component
+ */
+export interface FormFieldProps {
+  /** Field label */
   label?: string;
+  /** Show required indicator */
   required?: boolean;
+  /** Error message */
   error?: string;
+  /** Helper text */
   helperText?: string;
+  /** Form input element */
   children: ReactNode;
+  /** Custom container style */
   containerStyle?: ViewStyle;
 }
 
+/**
+ * A form field wrapper component that provides consistent label, error, and helper text styling.
+ * 
+ * Wraps form inputs with label, required indicator, error messages, and helper text.
+ * 
+ * @component
+ * @example
+ * ```tsx
+ * <FormField
+ *   label="Email"
+ *   required
+ *   error={errors.email}
+ *   helperText="Enter your email address"
+ * >
+ *   <TextInput value={email} onChangeText={setEmail} />
+ * </FormField>
+ * ```
+ * 
+ * @param {FormFieldProps} props - FormField component props
+ * @returns {JSX.Element} FormField component
+ */
 export default function FormField({
   label,
   required = false,

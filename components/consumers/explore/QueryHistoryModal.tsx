@@ -6,7 +6,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import { Modal } from "@/components/shared";
+import { Modal } from "@/components/Modal";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { colors, spacing, borderRadius, typography } from "@/styles/theme";
 
@@ -33,7 +33,7 @@ export default function QueryHistoryModal({
 }: QueryHistoryModalProps) {
   return (
     <Modal
-      visible={visible}
+      isOpen={visible}
       onClose={onClose}
       title="Query History"
       size="md"

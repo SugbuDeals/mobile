@@ -1,8 +1,10 @@
 import env from "@/config/env";
+import { SearchBar } from "@/components/SearchBar";
+import { TabSelector } from "@/components/TabSelector";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { useRouter } from "expo-router";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { Image, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
 import { useBookmarks } from "@/features/bookmarks";
 import { useCatalog } from "@/features/catalog";
@@ -21,9 +23,8 @@ type SavedItem = {
 
 export default function Save() {
   const router = useRouter();
-  const [activeTab, setActiveTab] = useState<"products" | "stores">("products");
-  const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<string>("all");
+  const [filteredItems, setFilteredItems] = useState<SavedItem[]>([]);
   const { action: bookmarkAction, state: bookmarkState } = useBookmarks();
   const { state: catalogState, action: catalogAction } = useCatalog();
   const { state: storeState, action: storeAction } = useStore();
@@ -120,21 +121,21 @@ export default function Save() {
     return ["all", ...Array.from(categories).sort()];
   }, [savedProducts]);
 
+  // Get current items based on active tab (will be managed by TabSelector)
+  const [activeTab, setActiveTab] = useState<"products" | "stores">("products");
   const currentItems = activeTab === "products" ? savedProducts : savedStores;
 
-  const filteredItems = useMemo(() => {
+  // Update filtered items when current items or category changes
+  useEffect(() => {
     let items = currentItems.filter((item) => {
-    const matchesSearch = item.name
-      .toLowerCase()
-      .includes(searchQuery.toLowerCase());
       if (activeTab === "stores") {
-        return matchesSearch;
+        return true; // SearchBar will handle search filtering
       }
-      // For products, also filter by category
-    const matchesCategory =
-      selectedCategory === "all" || item.category === selectedCategory;
-    return matchesSearch && matchesCategory;
-  });
+      // For products, filter by category
+      const matchesCategory =
+        selectedCategory === "all" || item.category === selectedCategory;
+      return matchesCategory;
+    });
 
     // Sort products by category
     if (activeTab === "products") {
@@ -153,8 +154,8 @@ export default function Save() {
       items = [...items].sort((a, b) => a.name.localeCompare(b.name));
     }
 
-    return items;
-  }, [currentItems, searchQuery, selectedCategory, activeTab]);
+    setFilteredItems(items);
+  }, [currentItems, selectedCategory, activeTab]);
 
   const renderEmptyState = () => (
     <View style={styles.emptyState}>
@@ -285,57 +286,43 @@ export default function Save() {
     <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
       {/* Search Bar */}
       <View style={styles.searchContainer}>
-        <View style={styles.searchBox}>
-          <Ionicons
-            name="search"
-            size={20}
-            color="#6b7280"
-            style={styles.searchIcon}
-          />
-          <TextInput
-            style={styles.searchInput}
-            placeholder={`Search saved ${activeTab}...`}
-            placeholderTextColor="#6b7280"
-            value={searchQuery}
-            onChangeText={setSearchQuery}
-          />
-        </View>
+        <SearchBar
+          items={filteredItems}
+          placeholder={`Search saved ${activeTab}...`}
+          filterFn={(item, query) => {
+            if (!query.trim()) return true;
+            const q = query.toLowerCase();
+            return item.name.toLowerCase().includes(q);
+          }}
+          onSearchChange={(query, filtered) => {
+            // Update filtered items based on search
+            if (!query.trim()) {
+              // If no search query, show all items (category filtered)
+              let items = currentItems.filter((item) => {
+                if (activeTab === "stores") return true;
+                return selectedCategory === "all" || item.category === selectedCategory;
+              });
+              setFilteredItems(items);
+            } else {
+              setFilteredItems(filtered);
+            }
+          }}
+        />
       </View>
 
       {/* Category Tabs */}
       <View style={styles.tabContainer}>
-        <TouchableOpacity
-          style={[styles.tab, activeTab === "products" && styles.activeTab]}
-          onPress={() => {
-            setActiveTab("products");
+        <TabSelector
+          tabs={[
+            { key: "products", label: "Products", badge: savedProducts.length },
+            { key: "stores", label: "Stores", badge: savedStores.length },
+          ]}
+          initialTab="products"
+          onTabChange={(tab) => {
+            setActiveTab(tab as "products" | "stores");
             setSelectedCategory("all");
           }}
-        >
-          <Text
-            style={[
-              styles.tabText,
-              activeTab === "products" && styles.activeTabText,
-            ]}
-          >
-            Products
-          </Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.tab, activeTab === "stores" && styles.activeTab]}
-          onPress={() => {
-            setActiveTab("stores");
-            setSelectedCategory("all");
-          }}
-        >
-          <Text
-            style={[
-              styles.tabText,
-              activeTab === "stores" && styles.activeTabText,
-            ]}
-          >
-            Stores
-          </Text>
-        </TouchableOpacity>
+        />
       </View>
 
       {/* Category Filter - Only show for products */}
@@ -386,46 +373,9 @@ const styles = StyleSheet.create({
     paddingTop: 10,
     paddingBottom: 15,
   },
-  searchBox: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "#E5E7EB",
-    borderRadius: 12,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-  },
-  searchIcon: {
-    marginRight: 10,
-  },
-  searchInput: {
-    flex: 1,
-    fontSize: 16,
-    color: "#374151",
-  },
   tabContainer: {
-    flexDirection: "row",
     marginHorizontal: 20,
     marginBottom: 15,
-    backgroundColor: "#f3f4f6",
-    borderRadius: 30,
-    padding: 4,
-  },
-  tab: {
-    flex: 1,
-    paddingVertical: 12,
-    alignItems: "center",
-    borderRadius: 30,
-  },
-  activeTab: {
-    backgroundColor: "#277874",
-  },
-  tabText: {
-    fontSize: 16,
-    fontWeight: "600",
-    color: "#6b7280",
-  },
-  activeTabText: {
-    color: "#ffffff",
   },
   categoryContainer: {
     paddingHorizontal: 20,

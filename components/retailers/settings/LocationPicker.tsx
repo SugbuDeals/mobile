@@ -10,7 +10,7 @@ import {
 import * as Location from "expo-location";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { colors, spacing, borderRadius, typography } from "@/styles/theme";
-import { TextField } from "@/components/shared";
+import TextField from "@/components/TextField";
 
 interface LocationPickerProps {
   address: string;

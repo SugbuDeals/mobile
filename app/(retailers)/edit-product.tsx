@@ -1,3 +1,4 @@
+import TextField from "@/components/TextField";
 import { useLogin } from "@/features/auth";
 import { useCatalog } from "@/features/catalog";
 import { useStore } from "@/features/store";
@@ -15,7 +16,6 @@ import {
     StatusBar,
     StyleSheet,
     Text,
-    TextInput,
     TouchableOpacity,
     View
 } from "react-native";
@@ -304,56 +304,43 @@ export default function EditProduct() {
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
         <View style={styles.formCard}>
           {/* Product Name */}
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>Product Name</Text>
-            <TextInput
-              style={styles.textInput}
-              placeholder="Enter product name"
-              value={productName}
-              onChangeText={setProductName}
-              placeholderTextColor="#9CA3AF"
-            />
-          </View>
+          <TextField
+            label="Product Name"
+            placeholder="Enter product name"
+            value={productName}
+            onChangeText={setProductName}
+          />
 
           {/* Description */}
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>Description</Text>
-            <TextInput
-              style={[styles.textInput, styles.multilineInput]}
-              placeholder="Enter product description"
-              value={description}
-              onChangeText={setDescription}
-              placeholderTextColor="#9CA3AF"
-              multiline
-              numberOfLines={3}
-            />
-          </View>
+          <TextField
+            label="Description"
+            placeholder="Enter product description"
+            value={description}
+            onChangeText={setDescription}
+            multiline
+            numberOfLines={3}
+            style={{ minHeight: 80 }}
+          />
 
           {/* Price & Stock */}
-          <View style={styles.inputGroup}>
-            <View style={styles.rowContainer}>
-              <View style={styles.halfInput}>
-                <Text style={styles.label}>Price</Text>
-                <TextInput
-                  style={styles.textInput}
-                  placeholder="Enter price"
-                  value={price}
-                  onChangeText={setPrice}
-                  placeholderTextColor="#9CA3AF"
-                  keyboardType="numeric"
-                />
-              </View>
-              <View style={styles.halfInput}>
-                <Text style={styles.label}>Stock Quantity</Text>
-                <TextInput
-                  style={styles.textInput}
-                  placeholder="Enter quantity"
-                  value={stock}
-                  onChangeText={setStock}
-                  placeholderTextColor="#9CA3AF"
-                  keyboardType="numeric"
-                />
-              </View>
+          <View style={styles.rowContainer}>
+            <View style={styles.halfInput}>
+              <TextField
+                label="Price"
+                placeholder="Enter price"
+                value={price}
+                onChangeText={setPrice}
+                keyboardType="numeric"
+              />
+            </View>
+            <View style={styles.halfInput}>
+              <TextField
+                label="Stock Quantity"
+                placeholder="Enter quantity"
+                value={stock}
+                onChangeText={setStock}
+                keyboardType="numeric"
+              />
             </View>
           </View>
 

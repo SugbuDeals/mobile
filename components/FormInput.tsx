@@ -8,15 +8,45 @@ import {
 import { colors, spacing, borderRadius, typography } from "@/styles/theme";
 import FormField from "./FormField";
 
-interface FormInputProps extends TextInputProps {
+/**
+ * Props for the FormInput component
+ */
+export interface FormInputProps extends TextInputProps {
+  /** Input label */
   label?: string;
+  /** Show required indicator */
   required?: boolean;
+  /** Error message */
   error?: string;
+  /** Helper text */
   helperText?: string;
+  /** Left icon component */
   leftIcon?: React.ReactNode;
+  /** Right icon component */
   rightIcon?: React.ReactNode;
 }
 
+/**
+ * A form input component with built-in FormField wrapper.
+ * 
+ * Provides consistent styling, error handling, and icon support.
+ * 
+ * @component
+ * @example
+ * ```tsx
+ * <FormInput
+ *   label="Email"
+ *   required
+ *   error={errors.email}
+ *   placeholder="Enter your email"
+ *   keyboardType="email-address"
+ *   leftIcon={<Ionicons name="mail" />}
+ * />
+ * ```
+ * 
+ * @param {FormInputProps} props - FormInput component props
+ * @returns {JSX.Element} FormInput component
+ */
 export default function FormInput({
   label,
   required,

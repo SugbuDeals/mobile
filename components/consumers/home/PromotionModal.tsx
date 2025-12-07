@@ -8,7 +8,7 @@ import {
   Image,
 } from "react-native";
 import { useRouter } from "expo-router";
-import { Modal } from "@/components/shared";
+import { Modal } from "@/components/Modal";
 import { colors, spacing, borderRadius, typography } from "@/styles/theme";
 import type { Product } from "@/features/catalog/types";
 import type { Promotion } from "@/features/store/promotions/types";
@@ -78,7 +78,7 @@ export default function PromotionModal({
 
   return (
     <Modal
-      visible={true}
+      isOpen={true}
       onClose={onClose}
       title={promotion.title}
       size="lg"
