@@ -1,5 +1,6 @@
 import { useCatalog } from "@/features/catalog";
 import { useStore } from "@/features/store";
+import type { Product } from "@/features/store/products/types";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import React, { useEffect, useMemo, useState } from "react";
@@ -144,13 +145,14 @@ export default function DealsAnalytics() {
     const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
     const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
     
+    // Use startsAt as proxy for creation date (PromotionResponseDto doesn't have createdAt)
     const dealsLast7Days = storeState.promotions.filter(p => {
-      const created = new Date(p.createdAt || p.created_at || 0);
+      const created = new Date(p.startsAt || 0);
       return created >= sevenDaysAgo;
     }).length;
     
     const dealsLast30Days = storeState.promotions.filter(p => {
-      const created = new Date(p.createdAt || p.created_at || 0);
+      const created = new Date(p.startsAt || 0);
       return created >= thirtyDaysAgo;
     }).length;
     
@@ -186,8 +188,8 @@ export default function DealsAnalytics() {
 
     // Count products by category
     const categoryCounts = new Map<number, number>();
-    storeState.products.forEach((product) => {
-      const rawCategoryId = (product as any)?.categoryId ?? (product as any)?.category?.id;
+    storeState.products.forEach((product: Product) => {
+      const rawCategoryId = product.categoryId;
       if (rawCategoryId === null || rawCategoryId === undefined) {
         return;
       }
@@ -271,7 +273,7 @@ export default function DealsAnalytics() {
           <Text style={styles.sectionTitle}>Deal Statistics</Text>
           <View style={styles.analyticsGrid}>
             <View style={styles.analyticsCard}>
-              <Ionicons name="percent" size={24} color="#3B82F6" />
+              <Ionicons name="stats-chart-outline" size={24} color="#3B82F6" />
               <Text style={styles.analyticsValue}>{metrics.percentageDeals}</Text>
               <Text style={styles.analyticsLabel}>Percentage Deals</Text>
             </View>
@@ -475,6 +477,11 @@ const styles = StyleSheet.create({
   legendContainer: {
     flex: 1,
     marginLeft: 0,
+  },
+  legendItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 8,
   },
   legendBullet: {
     width: 12,

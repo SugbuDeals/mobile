@@ -57,8 +57,8 @@ export default function AddProduct() {
 
   // Get product limit based on subscription
   const getMaxProducts = () => {
-    if (!activeSubscription) return MAX_PRODUCTS_FREE;
-    switch (activeSubscription.plan) {
+    if (!activeSubscription || !activeSubscription.subscription) return MAX_PRODUCTS_FREE;
+    switch (activeSubscription.subscription.plan) {
       case "PREMIUM":
         return MAX_PRODUCTS_PREMIUM;
       case "BASIC":
@@ -561,7 +561,7 @@ export default function AddProduct() {
         maxCount={maxProducts}
         onDismiss={() => setShowSubscriptionOverlay(false)}
         onUpgrade={handleUpgrade}
-        upgradePrice={activeSubscription?.plan === "FREE" ? "$100" : "$200"}
+        upgradePrice={activeSubscription?.subscription?.plan === "FREE" ? "$100" : "$200"}
         validityDays={7}
         isLoading={isUpgrading}
       />

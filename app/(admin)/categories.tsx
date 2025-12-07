@@ -634,14 +634,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "600",
   },
-  deleteButton: {
-    backgroundColor: "#DC2626",
-  },
-  deleteButtonText: {
-    color: "#ffffff",
-    fontSize: 16,
-    fontWeight: "600",
-  },
   warningIcon: {
     alignItems: "center",
     marginBottom: 16,

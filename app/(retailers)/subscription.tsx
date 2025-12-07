@@ -5,14 +5,14 @@ import { LinearGradient } from "expo-linear-gradient";
 import { useFocusEffect } from "expo-router";
 import React, { useCallback, useState } from "react";
 import {
-  Alert,
-  Platform,
-  ScrollView,
-  StatusBar,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
+    Alert,
+    Platform,
+    ScrollView,
+    StatusBar,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View,
 } from "react-native";
 
 export default function Subscription() {
@@ -33,8 +33,8 @@ export default function Subscription() {
   // Fetch subscriptions on mount and when focused
   useFocusEffect(
     useCallback(() => {
-      if (user && (user as any).id) {
-        getActiveSubscription(Number((user as any).id));
+      if (user?.id) {
+        getActiveSubscription(Number(user.id));
         // Fetch available active subscription plans defined by admin
         findSubscriptions({ isActive: true });
       }
@@ -47,8 +47,8 @@ export default function Subscription() {
       await joinSubscription({ subscriptionId }).unwrap();
       
       // Refresh active subscription
-      if (user && (user as any).id) {
-        await getActiveSubscription(Number((user as any).id));
+      if (user?.id) {
+        await getActiveSubscription(Number(user.id));
       }
       
       Alert.alert("Success", "Subscription joined successfully!");
@@ -65,8 +65,8 @@ export default function Subscription() {
       await updateRetailerSubscription({ subscriptionId }).unwrap();
       
       // Refresh active subscription
-      if (user && (user as any).id) {
-        await getActiveSubscription(Number((user as any).id));
+      if (user?.id) {
+        await getActiveSubscription(Number(user.id));
       }
       
       Alert.alert("Success", "Subscription updated successfully!");
@@ -165,18 +165,18 @@ export default function Subscription() {
             <View
               style={[
                 styles.subscriptionCard,
-                { borderColor: getPlanColor(activeSubscription.plan || "FREE") },
+                { borderColor: getPlanColor(activeSubscription.subscription?.plan || "FREE") },
               ]}
             >
               <View style={styles.subscriptionHeader}>
                 <View
                   style={[
                     styles.planBadge,
-                    { backgroundColor: getPlanColor(activeSubscription.plan || "FREE") },
+                    { backgroundColor: getPlanColor(activeSubscription.subscription?.plan || "FREE") },
                   ]}
                 >
                   <Text style={styles.planBadgeText}>
-                    {activeSubscription.plan || "FREE"}
+                    {activeSubscription.subscription?.plan || "FREE"}
                   </Text>
                 </View>
                 <View

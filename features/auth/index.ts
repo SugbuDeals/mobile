@@ -6,6 +6,11 @@ export const useLogin = () => {
   const dispatch = useAppDispatch();
   const state = useAppSelector((state) => state.auth);
 
+  // Derived state: showError is true when there's an error and not loading
+  const showError = useAppSelector(
+    (state) => !!state.auth.error && !state.auth.loading
+  );
+
   const login = (credentials: LoginCredentials) =>
     dispatch(thunk.login(credentials));
 
@@ -36,6 +41,9 @@ export const useLogin = () => {
       deleteUserByAdmin,
       approveRetailer,
     },
-    state,
+    state: {
+      ...state,
+      showError,
+    },
   };
 };

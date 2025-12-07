@@ -7,7 +7,7 @@ import { yupResolver } from "@hookform/resolvers/yup";
 import * as Haptics from "expo-haptics";
 import { LinearGradient } from "expo-linear-gradient";
 import { Link, router } from "expo-router";
-import React from "react";
+import React, { useEffect } from "react";
 import { Controller, useForm } from "react-hook-form";
 import {
   Dimensions,
@@ -27,7 +27,7 @@ const schema = yup.object().shape({
   password: yup
     .string()
     .required("Password is required")
-    .min(8, "Password must contain at least 8 characters"),
+    .min(6, "Password must contain at least 6 characters"),
 });
 
 const ROLE_OPTIONS = [
@@ -55,12 +55,12 @@ type RoleKey = (typeof ROLE_OPTIONS)[number]["key"];
 
 export default function Register() {
   const {
-    action: { register, login },
+    action: { register },
+    state: { registering, accessToken, user },
   } = useLogin();
   const {
     action: { createStore },
   } = useStore();
-  const [submitting, setSubmitting] = React.useState(false);
   const {
     control,
     handleSubmit,
@@ -82,51 +82,65 @@ export default function Register() {
     Haptics.selectionAsync();
   }, []);
 
-  const onCreate = async (formData: yup.InferType<typeof schema>) => {
-    try {
-      setSubmitting(true);
+  // Handle navigation after successful registration
+  useEffect(() => {
+    if (!registering && accessToken && user) {
+      // Get role from user object and normalize to lowercase
+      const userType = String((user as any).user_type ?? (user as any).userType ?? "").trim().toLowerCase();
+      const role = String((user as any).role ?? "").trim().toLowerCase();
       
-      // Register the user
-      const result = await register({ 
-        name: formData.name, 
-        email: formData.email, 
-        password: formData.password, 
-        role: selectedRole
-      }).unwrap();
+      // Check for retailer role
+      const isRetailerUser = 
+        userType === "retailer" || 
+        role === "retailer" ||
+        String((user as any).user_type ?? "").toUpperCase() === "RETAILER" ||
+        String((user as any).role ?? "").toUpperCase() === "RETAILER";
       
-      // Automatically log in the user after successful registration
-      try {
-        await login({
-          email: formData.email,
-          password: formData.password,
-        }).unwrap();
-        
-        if (isRetailer) {
+      // Small delay to ensure state is fully updated before navigation
+      const timeoutId = setTimeout(() => {
+        if (isRetailerUser) {
           // Redirect retailers to setup page - store will be created during setup
           router.replace("/auth/setup");
         } else {
           // Redirect consumers to their dashboard
           router.replace("/(consumers)");
         }
-      } catch (loginError) {
-        console.error("Auto-login failed:", loginError);
-        // If auto-login fails, redirect to login page
-        alert("Registration successful! Please log in to continue.");
-        router.replace("/auth/login");
-      }
+      }, 100);
+      
+      // Cleanup timeout on unmount
+      return () => clearTimeout(timeoutId);
+    }
+  }, [accessToken, registering, user]);
+
+  const onCreate = async (formData: yup.InferType<typeof schema>) => {
+    try {
+      // Register the user - register endpoint already returns access_token and user
+      await register({ 
+        name: formData.name, 
+        email: formData.email, 
+        password: formData.password, 
+        role: selectedRole
+      }).unwrap();
+      
+      // Navigation will be handled by useEffect watching accessToken and user state
     } catch (e: any) {
       // Extract error message from various possible error structures
       // RTK unwrap() throws errors with payload property, or direct message
-      const errorMessage = 
+      let errorMessage = 
         e?.payload?.message || 
         e?.message || 
         e?.error?.message || 
         "";
       
+      // Handle array messages (validation errors from server)
+      if (Array.isArray(errorMessage)) {
+        errorMessage = errorMessage.join('\n');
+      }
+      
       const errorMessageLower = errorMessage.toLowerCase();
       
       // Check if the error is related to duplicate email
-      // This handles various error formats: 500 status, duplicate email messages, etc.
+      // This handles various error formats: 400/500 status, duplicate email messages, etc.
       const isDuplicateEmail = 
         errorMessageLower.includes("email") && 
         (errorMessageLower.includes("already") || 
@@ -134,8 +148,11 @@ export default function Register() {
          errorMessageLower.includes("duplicate") ||
          errorMessageLower.includes("taken") ||
          errorMessageLower.includes("registered")) ||
+        e?.status === 400 ||
         e?.status === 500 || 
+        e?.statusCode === 400 ||
         e?.statusCode === 500 ||
+        e?.payload?.status === 400 ||
         e?.payload?.status === 500;
       
       if (isDuplicateEmail) {
@@ -145,11 +162,9 @@ export default function Register() {
           message: "This email is already registered. Please use a different email or try logging in.",
         });
       } else {
-        // For other errors, show an alert
+        // For other errors, show an alert with the full message
         alert(errorMessage || "Registration failed. Please try again.");
       }
-    } finally {
-      setSubmitting(false);
     }
   };
 
@@ -316,8 +331,8 @@ export default function Register() {
               </View>
             </View>
 
-            <Button onPress={handleSubmit(onCreate)} disabled={submitting}>
-              <Text style={styles.primaryButtonText}>{submitting ? "Creating..." : "Create Account"}</Text>
+            <Button onPress={handleSubmit(onCreate)} disabled={registering}>
+              <Text style={styles.primaryButtonText}>{registering ? "Creating..." : "Create Account"}</Text>
             </Button>
 
             <View style={styles.loginRow}>

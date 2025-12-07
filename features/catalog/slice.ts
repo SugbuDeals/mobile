@@ -44,7 +44,7 @@ const catalogSlice = createSlice({
       })
       .addCase(findProducts.rejected, (state, action) => {
         state.loading = false;
-        state.error = action.payload?.message || "Find products failed";
+        state.error = (action.payload as { message?: string })?.message || "Find products failed";
       })
       // Create category
       .addCase(createCategory.pending, (state) => {

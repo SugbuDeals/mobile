@@ -1,300 +1,47 @@
-import env from "@/config/env";
 import { useStore } from "@/features/store";
-import { useAppSelector } from "@/store/hooks";
 import Ionicons from "@expo/vector-icons/Ionicons";
-import { LinearGradient } from "expo-linear-gradient";
-
 import { useRouter } from "expo-router";
-import React, { useCallback, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
-  Image,
-  Modal,
   ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   TouchableOpacity,
   View
 } from "react-native";
+import { useRecommendations } from "@/hooks/useRecommendations";
+import { useTabs } from "@/hooks/useTabs";
+import { useModal } from "@/hooks/useModal";
+import { useQueryHistory } from "@/hooks/useQueryHistory";
+import {
+  SearchPrompt,
+  InsightsPanel,
+  RecommendationTabs,
+  RecommendationCard,
+  QueryHistoryModal,
+  type RecommendationTab,
+} from "@/components/consumers/explore";
 
 const DEFAULT_DISTANCE_KM = 1.3;
 
-// Component to format AI response with highlights and styled statements
-const FormattedInsightText = ({ 
-  text, 
-  highlight, 
-  elaboration 
-}: { 
-  text: string | null; 
-  highlight?: string | null; 
-  elaboration?: string | null; 
-}) => {
-  // Build the full content including highlight and elaboration, avoiding duplicates
-  const contentParts: { type: 'highlight' | 'elaboration' | 'text'; content: string }[] = [];
-  const seen = new Set<string>();
-  const norm = (val?: string | null) => (val || "").trim();
-  
-  if (highlight && !seen.has(norm(highlight))) {
-    seen.add(norm(highlight));
-    contentParts.push({ type: 'highlight', content: highlight });
-  }
-  
-  if (elaboration && !seen.has(norm(elaboration))) {
-    seen.add(norm(elaboration));
-    contentParts.push({ type: 'elaboration', content: elaboration });
-  }
-  
-  if (text && !seen.has(norm(text))) {
-    seen.add(norm(text));
-    contentParts.push({ type: 'text', content: text });
-  }
-  
-  if (contentParts.length === 0) return null;
-
-  return (
-    <View>
-      {contentParts.map((part, partIdx) => {
-        if (part.type === 'highlight') {
-          // Render highlight with special styling
-          return (
-            <View key={`highlight-${partIdx}`} style={styles.highlightContainer}>
-              <View style={styles.highlightIconContainer}>
-                <Ionicons name="star" size={16} color="#F59E0B" />
-              </View>
-              <View style={styles.highlightContent}>
-                <Text style={styles.highlightLabel}>Key Highlight</Text>
-                <FormattedText text={part.content} styleType="highlight" />
-              </View>
-            </View>
-          );
-        }
-        
-        if (part.type === 'elaboration') {
-          // Render elaboration with special styling
-          return (
-            <View key={`elaboration-${partIdx}`} style={styles.elaborationContainer}>
-              <View style={styles.elaborationIconContainer}>
-                <Ionicons name="information-circle" size={16} color="#277874" />
-              </View>
-              <View style={styles.elaborationContent}>
-                <Text style={styles.elaborationLabel}>More Details</Text>
-                <FormattedText text={part.content} styleType="elaboration" />
-              </View>
-            </View>
-          );
-        }
-        
-        // Regular text content
-        return (
-          <View key={`text-${partIdx}`} style={partIdx > 0 ? styles.insightParagraph : null}>
-            <FormattedText text={part.content} styleType="text" />
-          </View>
-        );
-      })}
-    </View>
-  );
-};
-
-// Helper component to format text with highlights
-const FormattedText = ({ text, styleType }: { text: string; styleType: 'highlight' | 'elaboration' | 'text' }) => {
-  // Split text into paragraphs
-  const paragraphs = text.split(/\n\n+/).filter(p => p.trim());
-  
-  // Get base text style based on type
-  const getBaseTextStyle = () => {
-    if (styleType === 'highlight') return styles.highlightText;
-    if (styleType === 'elaboration') return styles.elaborationText;
-    return styles.insightsText;
-  };
-  
-  const getBoldTextStyle = () => {
-    if (styleType === 'highlight') return styles.highlightTextBold;
-    if (styleType === 'elaboration') return styles.elaborationTextBold;
-    return styles.insightsTextBold;
-  };
-  
-  const getHighlightStyle = () => {
-    if (styleType === 'highlight') return styles.highlightTextHighlight;
-    if (styleType === 'elaboration') return styles.elaborationTextHighlight;
-    return styles.insightsTextHighlight;
-  };
-  
-  return (
-    <View>
-      {paragraphs.map((paragraph, idx) => {
-        const trimmed = paragraph.trim();
-        if (!trimmed) return null;
-
-        // Check if it's a heading (starts with number, bullet, or is short and bold-like)
-        const isHeading = /^(\d+\.|[-•*]|\*\*)/.test(trimmed) || 
-                         (trimmed.length < 60 && trimmed.endsWith(':'));
-        
-        // Check for key phrases to highlight
-        const highlightPatterns = [
-          /\*\*(.*?)\*\*/g, // Bold markdown
-          /(best|top|recommended|excellent|great|perfect|ideal|affordable|budget|premium|quality)/gi,
-          /(₱\d+|\$\d+|\d+%|\d+ pesos)/g, // Prices
-          /(\d+\s*(km|kilometers?|meters?|miles?))/gi, // Distances
-        ];
-
-        // Process text with highlights and formatting
-        const processText = (text: string) => {
-          const parts: { text: string; style: any }[] = [];
-          
-          // First, handle markdown bold (**text**)
-          let processed = text;
-          const boldRegex = /\*\*(.*?)\*\*/g;
-          const boldMatches = Array.from(processed.matchAll(boldRegex));
-          
-          if (boldMatches.length > 0) {
-            let lastIndex = 0;
-            boldMatches.forEach((match) => {
-              if (match.index !== undefined) {
-                // Add text before bold
-                if (match.index > lastIndex) {
-                  const beforeText = processed.substring(lastIndex, match.index);
-                  if (beforeText) {
-                    parts.push({ text: beforeText, style: getBaseTextStyle() });
-                  }
-                }
-                // Add bold text
-                parts.push({ text: match[1], style: getBoldTextStyle() });
-                lastIndex = match.index + match[0].length;
-              }
-            });
-            // Add remaining text after last bold
-            if (lastIndex < processed.length) {
-              const remaining = processed.substring(lastIndex);
-              if (remaining) {
-                parts.push({ text: remaining, style: getBaseTextStyle() });
-              }
-            }
-          } else {
-            // No markdown bold, process normally with highlights
-            parts.push({ text: processed, style: getBaseTextStyle() });
-          }
-          
-          // Now process highlights on each part (except already bold parts)
-          const finalParts: { text: string; style: any }[] = [];
-          const boldStyle = getBoldTextStyle();
-          
-          parts.forEach((part) => {
-            if (part.style === boldStyle) {
-              // Keep bold parts as-is
-              finalParts.push(part);
-            } else {
-              // Apply highlights to regular text
-              const text = part.text;
-              const highlights: { start: number; end: number }[] = [];
-              
-              // Find all highlight matches
-              highlightPatterns.slice(1).forEach((pattern) => {
-                const matches = Array.from(text.matchAll(pattern));
-                matches.forEach((match) => {
-                  if (match.index !== undefined) {
-                    highlights.push({
-                      start: match.index,
-                      end: match.index + match[0].length,
-                    });
-                  }
-                });
-              });
-              
-              // Sort and merge overlapping highlights
-              highlights.sort((a, b) => a.start - b.start);
-              const merged: { start: number; end: number }[] = [];
-              highlights.forEach((hl) => {
-                const last = merged[merged.length - 1];
-                if (last && hl.start <= last.end) {
-                  last.end = Math.max(last.end, hl.end);
-                } else {
-                  merged.push({ ...hl });
-                }
-              });
-              
-              // Build final parts with highlights
-              let currentIndex = 0;
-              merged.forEach((hl) => {
-                if (hl.start > currentIndex) {
-                  finalParts.push({
-                    text: text.substring(currentIndex, hl.start),
-                    style: getBaseTextStyle(),
-                  });
-                }
-                finalParts.push({
-                  text: text.substring(hl.start, hl.end),
-                  style: getHighlightStyle(),
-                });
-                currentIndex = hl.end;
-              });
-              
-              if (currentIndex < text.length) {
-                finalParts.push({
-                  text: text.substring(currentIndex),
-                  style: getBaseTextStyle(),
-                });
-              }
-              
-              if (merged.length === 0) {
-                finalParts.push(part);
-              }
-            }
-          });
-          
-          return finalParts.length > 0 ? finalParts : [{ text, style: getBaseTextStyle() }];
-        };
-
-        const textParts = processText(trimmed);
-
-        return (
-          <View key={idx} style={idx > 0 ? styles.insightParagraph : null}>
-            {isHeading ? (
-              <Text style={styles.insightsHeading}>
-                {trimmed.replace(/^\d+\.|[-•*]|\*\*/g, '').trim()}
-              </Text>
-            ) : (
-              <Text style={styleType === 'highlight' ? styles.highlightTextContainer : styleType === 'elaboration' ? styles.elaborationTextContainer : styles.insightsTextContainer}>
-                {textParts.map((part, partIdx) => (
-                  <Text key={partIdx} style={part.style}>
-                    {part.text}
-                  </Text>
-                ))}
-              </Text>
-            )}
-          </View>
-        );
-      })}
-    </View>
-  );
-};
-
 export default function Explore() {
   const [searchQuery, setSearchQuery] = useState("");
-  const [loading, setLoading] = useState(false);
   const [insightsExpanded, setInsightsExpanded] = useState(false);
-  const [aiResponse, setAiResponse] = useState<string | null>(null);
-  const [insightsSummary, setInsightsSummary] = useState<string | null>(null);
-  const [recommendations, setRecommendations] = useState<any[]>([]);
-  const [highlight, setHighlight] = useState<string | null>(null);
-  const [elaboration, setElaboration] = useState<string | null>(null);
-  const accessToken = useAppSelector((s) => s.auth.accessToken);
   const [isEditingPrompt, setIsEditingPrompt] = useState(true);
   const [lastSubmittedQuery, setLastSubmittedQuery] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<"best" | "cheapest" | "closest">("best");
-  const [showHistoryModal, setShowHistoryModal] = useState(false);
-  const [queryHistory, setQueryHistory] = useState<{
-    id: number;
-    query: string;
-    response: string;
-    timestamp: Date;
-    resultsCount: number;
-  }[]>([]);
-  const [isScrollingInsight, setIsScrollingInsight] = useState(false);
   const router = useRouter();
   const {
     state: { nearbyStores },
   } = useStore();
+
+  // Hooks for state management
+  const { loading, response, fetchRecommendations } = useRecommendations();
+  const { activeTab, setActiveTab } = useTabs<RecommendationTab>("best");
+  const { isOpen: showHistoryModal, open: openHistoryModal, close: closeHistoryModal } = useModal();
+  const { history: queryHistory, addEntry } = useQueryHistory();
+
+  const { aiResponse, insightsSummary, recommendations, highlight, elaboration } = response;
 
   const normalizeDistance = useCallback((raw: any) => {
     if (typeof raw === "number" && Number.isFinite(raw)) return raw;
@@ -376,256 +123,58 @@ export default function Explore() {
     return items.sort((a, b) => (Number(b?.discount ?? 0) as number) - (Number(a?.discount ?? 0) as number));
   }, [recommendations, activeTab, enrichDistance, extractDistanceFromItem]);
 
-  const extractPrimaryProduct = useCallback((text: string | null | undefined) => {
-    if (!text) return null;
-    // Try a few common phrasings
-    const patterns = [
-      /I\s*recommend\s*the\s*([^,\.]+?)(?:,|\.|$)/i,
-      /Primary\s*product\s*is\s*([^,\.]+?)(?:,|\.|$)/i,
-      /best\s*deals\s*(?:on|for)\s*([^,\.]+?)(?:,|\.|$)/i,
-    ];
-    for (const pattern of patterns) {
-      const match = text.match(pattern);
-      if (match && match[1]) return match[1].trim();
-    }
-    return null;
-  }, []);
-
   const submitSearch = useCallback(async () => {
     const query = searchQuery.trim();
     if (!query || loading) return;
-    setLoading(true);
-    setAiResponse(null);
-    setInsightsSummary(null);
-    setRecommendations([]);
-    setHighlight(null);
-    setElaboration(null);
+    
+    setLastSubmittedQuery(query);
     setInsightsExpanded(false);
-    try {
-      setLastSubmittedQuery(query);
-      // Call AI recommendations endpoint - following routes.json FreeformRecommendationDto schema
-      // query (required), count (optional, 1-50)
-      const requestBody: { query: string; count?: number } = { 
-        query,
-        count: 10 // Default to 10 if not specified, within valid range 1-50
-      };
-      
-      const recRes = await fetch(`${env.API_BASE_URL}/ai/recommendations`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
-        },
-        body: JSON.stringify(requestBody),
-      });
+    
+    await fetchRecommendations(query, enrichDistance);
+    
+    setIsEditingPrompt(false);
+  }, [searchQuery, loading, fetchRecommendations, enrichDistance]);
 
-      // Handle 201 status code as per routes.json
-      if (!recRes.ok) {
-        throw new Error(`API returned status ${recRes.status}`);
-      }
-
-      // Parse body as JSON if possible, else as text
-      const rawText = await recRes.text();
-      let recJson: any = {};
-      try {
-        recJson = rawText ? JSON.parse(rawText) : {};
-      } catch {
-        recJson = { content: rawText };
-      }
-
-      // Handle response body structure - extract products/recommendations and text content
-      // Response may contain: products array, recommendations array, items array, or content/message fields
-      const directAssistantText =
-        typeof recJson?.content === "string" && recJson?.role === "assistant"
-          ? recJson.content
-          : null;
-      const fromMessages = Array.isArray(recJson?.messages)
-        ? recJson.messages.find((m: any) => m?.role === "assistant" && typeof m?.content === "string")?.content
-        : null;
-      const insightText =
-        directAssistantText ||
-        fromMessages ||
-        recJson?.recommendation ||
-        recJson?.recommendationText ||
-        recJson?.insight ||
-        recJson?.summary ||
-        recJson?.message ||
-        recJson?.content ||
-        null;
-      
-      // Extract highlight and elaboration fields
-      const highlightText = recJson?.highlight || null;
-      const elaborationText = recJson?.elaboration || null;
-      
-      // Extract product recommendations array from response
-      const items = recJson?.products || recJson?.recommendations || recJson?.items || [];
-      const hasProducts = Array.isArray(items) && items.length > 0;
-      
-      // Check if response indicates no products found
-      const responseText = insightText || highlightText || "";
-      const noProductsFound = 
-        !hasProducts || 
-        /(cannot find|no products|not found|unable to find|no results|no matches|sorry.*find|unfortunately.*find)/i.test(responseText);
-      
-      if (insightText && !/^unauthorized$/i.test(String(insightText).trim())) {
-        setAiResponse(insightText);
-        if (noProductsFound) {
-          setInsightsSummary("I cannot find the product you looking for");
-        } else {
-          const product = extractPrimaryProduct(insightText);
-          if (product) {
-            setInsightsSummary(`I found the best deals for ${product}`);
-          } else if (hasProducts) {
-            setInsightsSummary(`I found the best deals for ${query}`);
-          }
-        }
-      } else if (noProductsFound) {
-        setInsightsSummary("I cannot find the product you looking for");
-      }
-      
-      // Set highlight and elaboration if present
-      if (highlightText) {
-        setHighlight(highlightText);
-      }
-      if (elaborationText) {
-        setElaboration(elaborationText);
-      }
-      
-      if (hasProducts) {
-        const normalized = items.map((item: any) => enrichDistance(item));
-        setRecommendations(normalized);
-      } else {
-        setRecommendations([]);
-      }
-      
-      // Add to query history
-      const historyEntry = {
-        id: Date.now(),
-        query: query,
-        response: insightText || "No response received",
-        timestamp: new Date(),
-        resultsCount: Array.isArray(items) ? items.length : 0
-      };
-      setQueryHistory(prev => [historyEntry, ...prev.slice(0, 9)]); // Keep last 10 entries
-      
-      setInsightsExpanded(false);
-      setIsEditingPrompt(false);
-    } catch (e) {
-      const errorMessage = e instanceof Error ? e.message : "Unknown error";
-      setAiResponse(`Sorry, I couldn't fetch recommendations right now. ${errorMessage}`);
-      setRecommendations([]);
-    } finally {
-      setLoading(false);
+  // Add to query history when response is received
+  useEffect(() => {
+    if (lastSubmittedQuery && (aiResponse || recommendations.length > 0)) {
+      addEntry(
+        lastSubmittedQuery,
+        aiResponse || "No response received",
+        recommendations.length
+      );
     }
-  }, [searchQuery, loading, accessToken, extractPrimaryProduct, enrichDistance]);
+  }, [lastSubmittedQuery, aiResponse, recommendations.length, addEntry]);
 
   return (
     <>
       <ScrollView 
         style={styles.container} 
         showsVerticalScrollIndicator={false}
-        scrollEnabled={!isScrollingInsight}
       >
         <View style={styles.content}>
           {/* Show prompt/insights panel at TOP only when results are displayed */}
           {hasResults && (
             <View style={styles.searchContainer}>
-            {isEditingPrompt ? (
-            <View style={styles.searchBox}>
-              <View style={styles.topRow}>
-                <LinearGradient
-                  colors={["#FFBE5D", "#277874"]}
-                  style={styles.searchIconContainer}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 1 }}
-                >
-                  <Ionicons name="logo-android" size={24} color="#ffffff" />
-                </LinearGradient>
-                <TextInput
-                  style={styles.searchInput}
-                  placeholder="Searching for something?"
-                  placeholderTextColor="#6B7280"
-                  value={searchQuery}
-                  onChangeText={setSearchQuery}
-                  returnKeyType="search"
-                  onSubmitEditing={submitSearch}
+              {isEditingPrompt ? (
+                <SearchPrompt
+                  searchQuery={searchQuery}
+                  onSearchChange={setSearchQuery}
+                  onSubmit={submitSearch}
                 />
-                <TouchableOpacity style={styles.sendButton} onPress={submitSearch} accessibilityRole="button">
-                  <Ionicons name="send" size={20} color="#ffffff" />
-                </TouchableOpacity>
-              </View>
-              <View style={styles.bottomRow}>
-                <View style={styles.progressLines}>
-                  <View style={styles.progressLine1} />
-                  <View style={styles.progressLine2} />
-                </View>
-              </View>
-            </View>
-          ) : (
-            <TouchableOpacity activeOpacity={0.9} onPress={() => setIsEditingPrompt(true)} accessibilityRole="button">
-              <View style={styles.searchBox}>
-                <View style={styles.topRow}>
-                  <LinearGradient
-                    colors={["#FFBE5D", "#277874"]}
-                    style={styles.searchIconContainer}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 1 }}
-                  >
-                    <Ionicons name="logo-android" size={24} color="#ffffff" />
-                  </LinearGradient>
-                  <View style={styles.insightHeadlineContainer}>
-                    <Text style={styles.insightHeadline}>
-                      {insightsSummary || 
-                       (lastSubmittedQuery && recommendations.length > 0 
-                         ? `I found the best deals for ${lastSubmittedQuery}`
-                         : lastSubmittedQuery && recommendations.length === 0
-                         ? "I cannot find the product you looking for"
-                         : null) ||
-                       aiResponse || 
-                       "I found the best deals near you"}
-                    </Text>
-                  </View>
-                  <TouchableOpacity style={styles.expandPill} onPress={() => setInsightsExpanded((v) => !v)} accessibilityRole="button">
-                    <Text style={styles.expandPillText}>{insightsExpanded ? "Hide" : "Details"}</Text>
-                  </TouchableOpacity>
-                </View>
-                <View style={styles.bottomRow}>
-                  <View style={styles.progressLines}>
-                    <View style={styles.progressLine1} />
-                    <View style={styles.progressLine2} />
-                  </View>
-                  <Ionicons name={insightsExpanded ? "chevron-up" : "chevron-down"} size={20} color="#E7A748" />
-                </View>
-                {insightsExpanded && (
-                  <View style={styles.insightsBody}>
-                    <ScrollView 
-                      style={styles.insightsScrollView}
-                      contentContainerStyle={styles.insightsScrollContent}
-                      nestedScrollEnabled={true}
-                      showsVerticalScrollIndicator={true}
-                      bounces={true}
-                      scrollEnabled={true}
-                      onTouchStart={() => setIsScrollingInsight(true)}
-                      onTouchEnd={() => setIsScrollingInsight(false)}
-                      onScrollBeginDrag={() => setIsScrollingInsight(true)}
-                      onScrollEndDrag={() => setIsScrollingInsight(false)}
-                      onMomentumScrollEnd={() => setIsScrollingInsight(false)}
-                    >
-                      {(highlight || elaboration) ? (
-                        <FormattedInsightText 
-                          text={null}
-                          highlight={highlight}
-                          elaboration={elaboration}
-                        />
-                      ) : (
-                        <Text style={styles.insightsTextMuted}>Sorry, we couldn’t find the product you’re looking for.</Text>
-                      )}
-                    </ScrollView>
-                  </View>
-                )}
-              </View>
-            </TouchableOpacity>
-            )}
+              ) : (
+                <InsightsPanel
+                  summary={insightsSummary}
+                  text={aiResponse}
+                  highlight={highlight}
+                  elaboration={elaboration}
+                  isExpanded={insightsExpanded}
+                  onToggleExpand={() => setInsightsExpanded((v) => !v)}
+                  onEditPrompt={() => setIsEditingPrompt(true)}
+                  lastSubmittedQuery={lastSubmittedQuery}
+                  recommendationsCount={recommendations.length}
+                />
+              )}
             </View>
           )}
 
@@ -639,20 +188,11 @@ export default function Explore() {
         {/* Results list with tabs and shimmer while loading */}
         {(hasResults || loading) && (
           <View>
-            <View style={styles.tabsRow}>
-              <TouchableOpacity onPress={() => setActiveTab("best")} style={[styles.tabBtn, activeTab === "best" && styles.tabBtnActive]} accessibilityRole="button">
-                <Text style={[styles.tabText, activeTab === "best" && styles.tabTextActive]}>Best Match</Text>
-              </TouchableOpacity>
-              <TouchableOpacity onPress={() => setActiveTab("cheapest")} style={[styles.tabBtn, activeTab === "cheapest" && styles.tabBtnActive]} accessibilityRole="button">
-                <Text style={[styles.tabText, activeTab === "cheapest" && styles.tabTextActive]}>Cheapest</Text>
-              </TouchableOpacity>
-              <TouchableOpacity onPress={() => setActiveTab("closest")} style={[styles.tabBtn, activeTab === "closest" && styles.tabBtnActive]} accessibilityRole="button">
-                <Text style={[styles.tabText, activeTab === "closest" && styles.tabTextActive]}>Closest</Text>
-              </TouchableOpacity>
-            </View>
-            {!!displayedRecommendations?.length && !loading && (
-              <Text style={styles.resultsCount}>{displayedRecommendations.length} results found</Text>
-            )}
+            <RecommendationTabs
+              activeTab={activeTab}
+              onTabChange={setActiveTab}
+              resultsCount={displayedRecommendations?.length}
+            />
             {loading ? (
               <View style={styles.resultsList}>
                 {Array.from({ length: 5 }).map((_, i) => (
@@ -679,50 +219,15 @@ export default function Explore() {
                     typeof item?.distance === "number"
                       ? item.distance
                       : extractDistanceFromItem(item);
-                  const displayDistance =
-                    distanceValue != null && Number.isFinite(distanceValue)
-                      ? distanceValue
-                      : DEFAULT_DISTANCE_KM;
-                  const formattedDistance = `${displayDistance.toFixed(2)} km`;
                   return (
-                  <View key={item?.id ?? idx} style={styles.resultCard}>
-                    <View style={styles.resultHeaderRow}>
-                      <View style={[styles.badge, activeTab === "best" ? styles.badgeGreen : activeTab === "cheapest" ? styles.badgeYellow : styles.badgeTeal]}>
-                        <Text style={styles.badgeText}>{activeTab === "best" ? "Best Deal" : activeTab === "cheapest" ? "Cheapest" : "Closest"}</Text>
-                      </View>
-                      {!!item?.discount && (
-                        <View style={styles.badgeOff}><Text style={styles.badgeOffText}>{`${item.discount}% OFF`}</Text></View>
-                      )}
-                    </View>
-                    <View style={styles.cardBodyRow}>
-                      {item?.imageUrl ? (
-                        <Image
-                          source={{ uri: item.imageUrl }}
-                          style={styles.resultImage}
-                        />
-                      ) : (
-                        <View style={styles.placeholderImage} />
-                      )}
-                      <View style={styles.cardInfo}>
-                        <Text style={styles.cardTitle} numberOfLines={2}>{item?.name || item?.title || "Product"}</Text>
-                        <Text style={styles.cardMeta}>{item?.store?.name || item?.storeName || "Store"}</Text>
-                        <Text style={styles.cardMeta}>• {formattedDistance}</Text>
-                        {typeof item?.price !== "undefined" && (
-                          <Text style={styles.cardPrice}>{`₱ ${Number(item.price).toFixed(2)}`}</Text>
-                        )}
-                      </View>
-                    </View>
-                    <View style={styles.cardActions}>
-                      <TouchableOpacity
-                        style={styles.detailsBtn}
-                        accessibilityRole="button"
-                        onPress={() => router.push({ pathname: "/(consumers)/product", params: { name: item?.name || item?.title, storeId: item?.storeId || item?.store?.id, price: item?.price, description: item?.description, productId: item?.id, imageUrl: item?.imageUrl || "" } })}
-                      >
-                        <Text style={styles.detailsBtnText}>Details</Text>
-                      </TouchableOpacity>
-                    </View>
-                  </View>
-                )})}
+                    <RecommendationCard
+                      key={item?.id ?? idx}
+                      item={item}
+                      activeTab={activeTab}
+                      distance={distanceValue ?? DEFAULT_DISTANCE_KM}
+                    />
+                  );
+                })}
               </View>
             ) : (
               <View style={styles.emptyResultsContainer}>
@@ -740,176 +245,44 @@ export default function Explore() {
         {!hasResults && !loading && (
           <View style={styles.searchContainerBottom}>
             {isEditingPrompt ? (
-              <View style={styles.searchBox}>
-                <View style={styles.topRow}>
-                  <LinearGradient
-                    colors={["#FFBE5D", "#277874"]}
-                    style={styles.searchIconContainer}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 1 }}
-                  >
-                    <Ionicons name="logo-android" size={24} color="#ffffff" />
-                  </LinearGradient>
-                  <TextInput
-                    style={styles.searchInput}
-                    placeholder="Searching for something?"
-                    placeholderTextColor="#6B7280"
-                    value={searchQuery}
-                    onChangeText={setSearchQuery}
-                    returnKeyType="search"
-                    onSubmitEditing={submitSearch}
-                  />
-                  <TouchableOpacity style={styles.sendButton} onPress={submitSearch} accessibilityRole="button">
-                    <Ionicons name="send" size={20} color="#ffffff" />
-                  </TouchableOpacity>
-                </View>
-                <View style={styles.bottomRow}>
-                  <View style={styles.progressLines}>
-                    <View style={styles.progressLine1} />
-                    <View style={styles.progressLine2} />
-                  </View>
-                </View>
-              </View>
+              <SearchPrompt
+                searchQuery={searchQuery}
+                onSearchChange={setSearchQuery}
+                onSubmit={submitSearch}
+              />
             ) : (
-              <TouchableOpacity activeOpacity={0.9} onPress={() => setIsEditingPrompt(true)} accessibilityRole="button">
-                <View style={styles.searchBox}>
-                  <View style={styles.topRow}>
-                    <LinearGradient
-                      colors={["#FFBE5D", "#277874"]}
-                      style={styles.searchIconContainer}
-                      start={{ x: 0, y: 0 }}
-                      end={{ x: 1, y: 1 }}
-                    >
-                      <Ionicons name="logo-android" size={24} color="#ffffff" />
-                    </LinearGradient>
-                    <View style={styles.insightHeadlineContainer}>
-                      <Text style={styles.insightHeadline}>
-                        {insightsSummary || 
-                         (lastSubmittedQuery && recommendations.length > 0 
-                           ? `I found the best deals for ${lastSubmittedQuery}`
-                           : lastSubmittedQuery && recommendations.length === 0
-                           ? "I cannot find the product you looking for"
-                           : null) ||
-                         aiResponse || 
-                         "I found the best deals near you"}
-                      </Text>
-                    </View>
-                    <TouchableOpacity style={styles.expandPill} onPress={() => setInsightsExpanded((v) => !v)} accessibilityRole="button">
-                      <Text style={styles.expandPillText}>{insightsExpanded ? "Hide" : "Details"}</Text>
-                    </TouchableOpacity>
-                  </View>
-                  <View style={styles.bottomRow}>
-                    <View style={styles.progressLines}>
-                      <View style={styles.progressLine1} />
-                      <View style={styles.progressLine2} />
-                    </View>
-                    <Ionicons name={insightsExpanded ? "chevron-up" : "chevron-down"} size={20} color="#E7A748" />
-                  </View>
-                  {insightsExpanded && (
-                    <View style={styles.insightsBody}>
-                      <ScrollView 
-                        style={styles.insightsScrollView}
-                        contentContainerStyle={styles.insightsScrollContent}
-                        nestedScrollEnabled={true}
-                        showsVerticalScrollIndicator={true}
-                        bounces={true}
-                        scrollEnabled={true}
-                        onTouchStart={() => setIsScrollingInsight(true)}
-                        onTouchEnd={() => setIsScrollingInsight(false)}
-                        onScrollBeginDrag={() => setIsScrollingInsight(true)}
-                        onScrollEndDrag={() => setIsScrollingInsight(false)}
-                        onMomentumScrollEnd={() => setIsScrollingInsight(false)}
-                      >
-                        {(aiResponse || highlight || elaboration) ? (
-                          <FormattedInsightText 
-                            text={aiResponse} 
-                            highlight={highlight}
-                            elaboration={elaboration}
-                          />
-                        ) : (
-                          <Text style={styles.insightsTextMuted}>Sorry, we couldn’t find the product you’re looking for.</Text>
-                        )}
-                      </ScrollView>
-                    </View>
-                  )}
-                </View>
-              </TouchableOpacity>
+              <InsightsPanel
+                summary={insightsSummary}
+                text={aiResponse}
+                highlight={highlight}
+                elaboration={elaboration}
+                isExpanded={insightsExpanded}
+                onToggleExpand={() => setInsightsExpanded((v) => !v)}
+                onEditPrompt={() => setIsEditingPrompt(true)}
+                lastSubmittedQuery={lastSubmittedQuery}
+                recommendationsCount={recommendations.length}
+              />
             )}
           </View>
         )}
       </View>
 
       {/* Query History Modal */}
-      <Modal
+      <QueryHistoryModal
         visible={showHistoryModal}
-        transparent={true}
-        animationType="slide"
-        onRequestClose={() => setShowHistoryModal(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Query History</Text>
-              <TouchableOpacity
-                onPress={() => setShowHistoryModal(false)}
-                style={styles.closeButton}
-              >
-                <Ionicons name="close" size={24} color="#6B7280" />
-              </TouchableOpacity>
-            </View>
-
-            <ScrollView style={styles.historyList}>
-              {queryHistory.length > 0 ? (
-                queryHistory.map((entry) => (
-                  <View key={entry.id} style={styles.historyCard}>
-                    <View style={styles.historyHeader}>
-                      <Text style={styles.historyQuery} numberOfLines={2}>
-                        {entry.query}
-                      </Text>
-                      <Text style={styles.historyTimestamp}>
-                        {entry.timestamp.toLocaleDateString()} {entry.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                      </Text>
-                    </View>
-                    <Text style={styles.historyResponse} numberOfLines={3}>
-                      {entry.response}
-                    </Text>
-                    <View style={styles.historyFooter}>
-                      <View style={styles.resultsBadge}>
-                        <Ionicons name="list-outline" size={14} color="#277874" />
-                        <Text style={styles.resultsText}>{entry.resultsCount} results</Text>
-                      </View>
-                      <TouchableOpacity 
-                        style={styles.reuseButton}
-                        onPress={() => {
-                          setSearchQuery(entry.query);
-                          setShowHistoryModal(false);
-                        }}
-                      >
-                        <Ionicons name="refresh-outline" size={16} color="#277874" />
-                        <Text style={styles.reuseButtonText}>Reuse</Text>
-                      </TouchableOpacity>
-                    </View>
-                  </View>
-                ))
-              ) : (
-                <View style={styles.emptyHistoryState}>
-                  <Ionicons name="time-outline" size={48} color="#9CA3AF" />
-                  <Text style={styles.emptyHistoryText}>No queries yet</Text>
-                  <Text style={styles.emptyHistorySubtext}>
-                    Your AI recommendation queries will appear here
-                  </Text>
-                </View>
-              )}
-            </ScrollView>
-          </View>
-        </View>
-      </Modal>
+        onClose={closeHistoryModal}
+        history={queryHistory}
+        onReuseQuery={(query) => {
+          setSearchQuery(query);
+          closeHistoryModal();
+        }}
+      />
     </ScrollView>
     
     {/* History Button - positioned outside the prompt panel */}
     <TouchableOpacity 
       style={styles.historyButton} 
-      onPress={() => setShowHistoryModal(true)} 
+      onPress={openHistoryModal} 
       accessibilityRole="button"
     >
       <Ionicons name="time-outline" size={20} color="#ffffff" />

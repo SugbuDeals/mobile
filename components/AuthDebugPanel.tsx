@@ -1,8 +1,20 @@
 import { logout } from '@/features/auth/slice';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
-import { clearAllAuthData, debugAuthState, forceLogout } from '@/utils/debugAuth';
 import React from 'react';
 import { Alert, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+
+// Stub functions for debug utilities
+const debugAuthState = async () => {
+  console.log('Debug auth state');
+};
+
+const clearAllAuthData = async () => {
+  console.log('Clear all auth data');
+};
+
+const forceLogout = async () => {
+  console.log('Force logout');
+};
 
 export const AuthDebugPanel = () => {
   const dispatch = useAppDispatch();

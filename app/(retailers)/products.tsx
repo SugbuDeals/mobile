@@ -1,32 +1,50 @@
+import { PaginationControls } from "@/components/PaginationControls";
 import { useLogin } from "@/features/auth";
 import { useStore } from "@/features/store";
+import { selectIsDeletingProduct } from "@/features/store/products/slice";
+import type { Product } from "@/features/store/products/types";
+import { useModal } from "@/hooks/useModal";
+import { usePagination } from "@/hooks/usePagination";
+import { useSearch } from "@/hooks/useSearch";
+import { useAppSelector } from "@/store/hooks";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { LinearGradient } from "expo-linear-gradient";
 import { router, useFocusEffect } from "expo-router";
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef } from "react";
 import {
-    Dimensions,
-    Image,
-    Platform,
-    ScrollView,
-    StatusBar,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View
+  Image,
+  Platform,
+  ScrollView,
+  StatusBar,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View
 } from "react-native";
 
 export default function Products() {
   const { state: { user } } = useLogin();
   const { action: { findProducts, deleteProduct }, state: { products, loading, userStore } } = useStore();
-  const [searchQuery, setSearchQuery] = useState("");
-  const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage, setItemsPerPage] = useState(2);
-  const [deleteModalVisible, setDeleteModalVisible] = useState(false);
-  const [productToDelete, setProductToDelete] = useState<any | null>(null);
-  const [selectedProductId, setSelectedProductId] = useState<string | null>(null);
-  const [isDeleting, setIsDeleting] = useState(false);
+  const { query: searchQuery, filteredItems: filteredProducts, setQuery: setSearchQuery } = useSearch(products, {
+    filterFn: (product, query) => {
+      if (!query.trim()) return true;
+      const q = query.toLowerCase();
+      return !!(product.name.toLowerCase().includes(q) || 
+             (product.description && product.description.toLowerCase().includes(q)));
+    },
+  });
+  const { currentPage, itemsPerPage, totalPages, startIndex, setCurrentPage, setItemsPerPage } = usePagination(filteredProducts.length, {
+    initialPage: 1,
+    initialItemsPerPage: 2,
+    autoCalculateItemsPerPage: true,
+    reservedHeight: 345,
+    itemHeight: 112,
+  });
+  const { isOpen: deleteModalVisible, data: productToDelete, open: openDeleteModal, close: closeDeleteModal } = useModal<Product>();
+  const isDeleting = useAppSelector((state) => 
+    productToDelete ? selectIsDeletingProduct(state, productToDelete.id) : false
+  );
   const scrollViewRef = useRef<ScrollView>(null);
   const lastFetchedStoreId = useRef<number | null>(null);
 
@@ -35,11 +53,11 @@ export default function Products() {
     if (userStore?.id && lastFetchedStoreId.current !== userStore.id) {
       lastFetchedStoreId.current = userStore.id;
       findProducts({ storeId: userStore.id });
-    } else if (user && (user as any).id && !userStore?.id) {
+    } else if (user?.id && !userStore?.id) {
       // Fallback: if userStore is not available yet, try using user ID directly
       // This handles the timing issue when navigating directly to inventory
       console.log("Products page - userStore not available, using user ID as fallback");
-      findProducts({ storeId: Number((user as any).id) });
+      findProducts({ storeId: Number(user.id) });
     }
   }, [userStore?.id, user]);
 
@@ -49,53 +67,19 @@ export default function Products() {
       console.log("Products page - Refreshing products on focus...");
       if (userStore?.id) {
         findProducts({ storeId: userStore.id });
-      } else if (user && (user as any).id) {
+      } else if (user?.id) {
         console.log("Products page - userStore not available on focus, using user ID");
-        findProducts({ storeId: Number((user as any).id) });
+        findProducts({ storeId: Number(user.id) });
       }
     }, [userStore?.id, user, findProducts])
   );
 
-  // Calculate optimal items per page based on screen height
-  useEffect(() => {
-    const calculateItemsPerPage = () => {
-      const windowHeight = Dimensions.get('window').height;
-      
-      // Calculate available height for product list
-      // Header: ~120px, Search: ~80px, Pagination: ~80px, Tab bar: ~65px
-      const reservedHeight = 120 + 80 + 80 + 65;
-      const availableHeight = windowHeight - reservedHeight;
-      
-      // Each product card is approximately 112px (80px image + 32px padding)
-      const cardHeight = 112;
-      const maxItems = Math.floor(availableHeight / cardHeight);
-      
-      // Ensure at least 1 item per page, but not more than total products
-      const optimalItems = Math.max(1, Math.min(maxItems, products.length));
-      setItemsPerPage(optimalItems);
-    };
-
-    calculateItemsPerPage();
-    
-    // Listen for orientation changes
-    const subscription = Dimensions.addEventListener('change', calculateItemsPerPage);
-    
-    return () => subscription?.remove();
-  }, [products.length]);
-
-  const filteredProducts = products.filter(product =>
-    product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    (product.description && product.description.toLowerCase().includes(searchQuery.toLowerCase()))
-  );
-
-  const totalPages = Math.ceil(filteredProducts.length / itemsPerPage);
-  const startIndex = (currentPage - 1) * itemsPerPage;
-  const currentProducts = filteredProducts.slice(startIndex, startIndex + itemsPerPage);
-
   // Reset to page 1 when search query changes
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchQuery]);
+  }, [searchQuery, setCurrentPage]);
+
+  const currentProducts = filteredProducts.slice(startIndex, startIndex + itemsPerPage);
 
   const getStockStatusColor = (stock: number) => {
     if (stock > 10) return "#10B981"; // In Stock
@@ -113,15 +97,12 @@ export default function Products() {
     router.push(`/(retailers)/edit-product?productId=${productId}`);
   };
 
-  const handleDelete = (product: any) => {
-    setProductToDelete(product);
-    setSelectedProductId(product.id.toString());
-    setDeleteModalVisible(true);
+  const handleDelete = (product: Product) => {
+    openDeleteModal(product);
   };
 
   const confirmDelete = async () => {
     if (productToDelete) {
-      setIsDeleting(true);
       try {
         console.log("Deleting product:", productToDelete.id);
         await deleteProduct(Number(productToDelete.id));
@@ -149,22 +130,16 @@ export default function Products() {
           setCurrentPage(1);
         }
         
-        setDeleteModalVisible(false);
-        setProductToDelete(null);
-        setSelectedProductId(null);
+        closeDeleteModal();
       } catch (error) {
         console.error("Error deleting product:", error);
         // Keep modal open on error so user can try again
-      } finally {
-        setIsDeleting(false);
       }
     }
   };
 
   const cancelDelete = () => {
-    setDeleteModalVisible(false);
-    setProductToDelete(null);
-    setSelectedProductId(null);
+    closeDeleteModal();
   };
 
   const handleAddProduct = () => {
@@ -207,7 +182,10 @@ export default function Products() {
             style={styles.searchInput}
             placeholder="Search products..."
             value={searchQuery}
-            onChangeText={setSearchQuery}
+            onChangeText={(text) => {
+              setSearchQuery(text);
+              setCurrentPage(1);
+            }}
             placeholderTextColor="#9CA3AF"
           />
         </View>
@@ -226,7 +204,7 @@ export default function Products() {
         ) : currentProducts.length > 0 ? (
           currentProducts.map((product) => (
             <View key={product.id} style={styles.productCard}>
-              {selectedProductId === product.id.toString() && deleteModalVisible ? (
+              {productToDelete && productToDelete.id === product.id && deleteModalVisible ? (
                 <View style={styles.deleteModalOverlay}>
                   <View style={styles.modalContent}>
                     <Text style={styles.modalTitle}>Are you sure to remove this product?</Text>
@@ -317,28 +295,13 @@ export default function Products() {
         )}
       </ScrollView>
 
-      {/* Pagination - Only show if there are multiple pages */}
-      {totalPages > 1 && (
-        <View style={styles.pagination}>
-          {Array.from({ length: totalPages }, (_, index) => (
-            <TouchableOpacity
-              key={index + 1}
-              style={[
-                styles.pageButton,
-                currentPage === index + 1 && styles.activePageButton
-              ]}
-              onPress={() => setCurrentPage(index + 1)}
-            >
-              <Text style={[
-                styles.pageButtonText,
-                currentPage === index + 1 && styles.activePageButtonText
-              ]}>
-                {index + 1}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-      )}
+      {/* Pagination */}
+      <PaginationControls
+        totalItems={filteredProducts.length}
+        initialPage={currentPage}
+        initialItemsPerPage={itemsPerPage}
+        onPageChange={setCurrentPage}
+      />
 
     </View>
   );
