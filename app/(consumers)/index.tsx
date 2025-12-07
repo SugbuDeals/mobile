@@ -3,7 +3,7 @@ import { useLogin } from "@/features/auth";
 import { useCatalog } from "@/features/catalog";
 import type { Category, Product } from "@/features/catalog/types";
 import { useStore } from "@/features/store";
-import type { Promotion } from "@/features/store/types";
+import type { Promotion } from "@/features/store/promotions/types";
 import { LinearGradient } from "expo-linear-gradient";
 import * as Location from "expo-location";
 import { useFocusEffect, useRouter } from "expo-router";
@@ -34,7 +34,7 @@ export default function Home() {
   } = useLogin();
   const {
     state: { nearbyStores, loading, activePromotions },
-    action: { findStores, findNearbyStores, findActivePromotions },
+    action: { findNearbyStores, findActivePromotions },
   } = useStore();
   const {
     state: { categories, products },
@@ -43,7 +43,7 @@ export default function Home() {
 
   const [selectedPromotion, setSelectedPromotion] = useState<{
     promotion: Promotion;
-    productPromotions: Array<{ product: Product; promotion: Promotion }>;
+    productPromotions: { product: Product; promotion: Promotion }[];
   } | null>(null);
 
   useEffect(() => {
@@ -152,7 +152,7 @@ function PromotionModal({
   router,
 }: {
   promotion: Promotion;
-  productPromotions: Array<{ product: Product; promotion: Promotion }>;
+  productPromotions: { product: Product; promotion: Promotion }[];
   onClose: () => void;
   router: any;
 }) {
@@ -314,7 +314,7 @@ function Recommendations({
 }: {
   products: Product[];
   promotions: Promotion[];
-  onPromotionPress: (promotion: Promotion, productPromotions: Array<{ product: Product; promotion: Promotion }>) => void;
+  onPromotionPress: (promotion: Promotion, productPromotions: { product: Product; promotion: Promotion }[]) => void;
   router: any;
 }) {
   const [activeTab, setActiveTab] = useState<"products" | "deals">("products");
@@ -329,7 +329,7 @@ function Recommendations({
     const groups: {
       [key: string]: {
         promotion: Promotion;
-        products: Array<{ product: Product; promotion: Promotion }>;
+        products: { product: Product; promotion: Promotion }[];
       };
     } = {};
 

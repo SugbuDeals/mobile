@@ -29,14 +29,14 @@ export default function Settings() {
   const [storeName, setStoreName] = useState("");
   const [storeDescription, setStoreDescription] = useState("");
   // Get user information
-  const defaultName = (user as any)?.fullname || (user as any)?.name || "";
-  const defaultEmail = (user as any)?.email || "";
+  const defaultName = user?.fullname || user?.name || "";
+  const defaultEmail = user?.email || "";
   const role = useMemo(() => {
-    const r = (user as any)?.user_type || (user as any)?.role;
+    const r = user?.user_type || user?.role;
     if (typeof r === "string") return r.toString();
     return "";
   }, [user]);
-  const createdAt = (user as any)?.createdAt ?? "";
+  const createdAt = user?.createdAt ?? "";
   
   const [fullName, setName] = useState(defaultName);
   const [email, setEmail] = useState(defaultEmail);
@@ -64,8 +64,7 @@ export default function Settings() {
       setStoreDescription(userStore.description || "");
       setStoreLogoUrl(userStore.imageUrl || undefined);
       // Banner is optional and may not exist on older stores
-      // @ts-ignore - backend may or may not already expose this field
-      setStoreBannerUrl((userStore as any).bannerUrl || undefined);
+      setStoreBannerUrl(userStore.bannerUrl || undefined);
       setAddress(userStore.address || "");
       setLatitude(userStore.latitude);
       setLongitude(userStore.longitude);
@@ -86,8 +85,7 @@ export default function Settings() {
       setStoreName(userStore.name || "");
       setStoreDescription(userStore.description || "");
       setStoreLogoUrl(userStore.imageUrl || undefined);
-      // @ts-ignore
-      setStoreBannerUrl((userStore as any).bannerUrl || undefined);
+      setStoreBannerUrl(userStore.bannerUrl || undefined);
     }
     setIsEditingStore(false);
   };
@@ -113,7 +111,7 @@ export default function Settings() {
       return;
     }
     
-    if (!userStore?.id || !user || !(user as any).id) {
+    if (!userStore?.id || !user?.id) {
       Alert.alert("Error", "Unable to update store. Please try again later.");
       return;
     }
@@ -143,8 +141,7 @@ export default function Settings() {
         storeUpdateData.imageUrl = storeLogoUrl;
       }
       // Only send bannerUrl if it has changed
-      // @ts-ignore - allow reading potential bannerUrl field even if not on typings yet on backend
-      const currentBanner = (userStore as any).bannerUrl || undefined;
+      const currentBanner = userStore.bannerUrl || undefined;
       if (typeof storeBannerUrl === 'string' && storeBannerUrl.length > 0 && storeBannerUrl !== currentBanner) {
         storeUpdateData.bannerUrl = storeBannerUrl;
       }
@@ -173,7 +170,7 @@ export default function Settings() {
         console.log("=== STORE UPDATE DEBUG ===");
         console.log("Final storeUpdateData:", JSON.stringify(storeUpdateData, null, 2));
         console.log("Store ID (from userStore):", userStore.id);
-        console.log("User ID (from user):", user ? (user as any).id : "N/A");
+        console.log("User ID (from user):", user?.id ?? "N/A");
         console.log("Store name:", storeUpdateData.name);
         console.log("Store description:", storeUpdateData.description);
         console.log("==========================");
@@ -309,11 +306,11 @@ export default function Settings() {
       
       // Update user if there are user changes
       if (Object.keys(userUpdateData).length > 0) {
-        if (!user || !(user as any).id) {
+        if (!user?.id) {
           Alert.alert("Error", "User information not available. Please try logging in again.");
           return;
         }
-        await updateUser(Number((user as any).id), userUpdateData).unwrap();
+        await updateUser(Number(user.id), userUpdateData).unwrap();
         
         // Show success message
         Alert.alert(
@@ -366,8 +363,8 @@ export default function Settings() {
                   style: "destructive",
                   onPress: async () => {
                     try {
-                      if (!user || !(user as any).id) return;
-                      const id = Number((user as any).id);
+                      if (!user?.id) return;
+                      const id = Number(user.id);
                       await deleteUser(id).unwrap();
                       Alert.alert("Account Deleted", "Your account has been permanently deleted.");
                       router.replace("/auth/login");

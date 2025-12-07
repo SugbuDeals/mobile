@@ -1,6 +1,6 @@
 import { useCatalog } from "@/features/catalog";
 import { useStore } from "@/features/store";
-import type { Promotion } from "@/features/store/types";
+import type { Promotion } from "@/features/store/promotions/types";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { useRouter } from "expo-router";
 import React, { useEffect, useMemo } from "react";
@@ -135,10 +135,10 @@ export default function AllRecommendations() {
                   </View>
                   <View style={{ flex: 1 }}>
                     <Text style={styles.storeName}>
-                      {product.storeName ?? "SugbuDeals"}
+                      {"SugbuDeals"}
                     </Text>
                     <Text style={styles.storeDesc}>
-                      {product.storeDesc ?? "Local Store"}
+                      {"Local Store"}
                     </Text>
                   </View>
                   <View style={styles.activePill}>

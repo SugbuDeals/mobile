@@ -129,7 +129,7 @@ export default function Users() {
   const [addName, setAddName] = useState("");
   const [addEmail, setAddEmail] = useState("");
   const [addPassword, setAddPassword] = useState("");
-  const [addRole, setAddRole] = useState("CONSUMER");
+  const [addRole, setAddRole] = useState<"CONSUMER" | "RETAILER" | "ADMIN">("CONSUMER");
   const [isAdding, setIsAdding] = useState(false);
   
   // Get current logged-in user ID
@@ -568,7 +568,7 @@ export default function Users() {
                         styles.roleButton,
                         addRole === role && styles.roleButtonSelected
                       ]}
-                      onPress={() => setAddRole(role)}
+                      onPress={() => setAddRole(role as "CONSUMER" | "RETAILER" | "ADMIN")}
                     >
                       <Text
                         style={[

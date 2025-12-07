@@ -56,11 +56,11 @@ type RoleKey = (typeof ROLE_OPTIONS)[number]["key"];
 export default function Register() {
   const {
     action: { register, login },
+    state: { registering },
   } = useLogin();
   const {
     action: { createStore },
   } = useStore();
-  const [submitting, setSubmitting] = React.useState(false);
   const {
     control,
     handleSubmit,
@@ -84,8 +84,6 @@ export default function Register() {
 
   const onCreate = async (formData: yup.InferType<typeof schema>) => {
     try {
-      setSubmitting(true);
-      
       // Register the user
       const result = await register({ 
         name: formData.name, 
@@ -148,8 +146,6 @@ export default function Register() {
         // For other errors, show an alert
         alert(errorMessage || "Registration failed. Please try again.");
       }
-    } finally {
-      setSubmitting(false);
     }
   };
 
@@ -316,8 +312,8 @@ export default function Register() {
               </View>
             </View>
 
-            <Button onPress={handleSubmit(onCreate)} disabled={submitting}>
-              <Text style={styles.primaryButtonText}>{submitting ? "Creating..." : "Create Account"}</Text>
+            <Button onPress={handleSubmit(onCreate)} disabled={registering}>
+              <Text style={styles.primaryButtonText}>{registering ? "Creating..." : "Create Account"}</Text>
             </Button>
 
             <View style={styles.loginRow}>

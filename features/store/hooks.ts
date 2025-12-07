@@ -1,133 +1,249 @@
+/**
+ * Store feature hooks - domain-specific and combined
+ */
+
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
-import { useEffect, useRef } from "react";
-import { clearStore, setUserStore } from "./slice";
-import { findStoreById, findUserStore } from "./thunk";
 
-export const useStoreManagement = () => {
+// Store domain hooks
+import * as storesThunks from "./stores/thunks";
+import * as storesSelectors from "./stores/selectors";
+
+// Product domain hooks
+import * as productsThunks from "./products/thunks";
+import * as productsSelectors from "./products/selectors";
+
+// Promotion domain hooks
+import * as promotionsThunks from "./promotions/thunks";
+import * as promotionsSelectors from "./promotions/selectors";
+
+// Subscription domain hooks
+import * as subscriptionsThunks from "./subscriptions/thunks";
+import * as subscriptionsSelectors from "./subscriptions/selectors";
+
+/**
+ * Hook for store operations
+ */
+export function useStores() {
   const dispatch = useAppDispatch();
-  const { user, accessToken, loading: authLoading } = useAppSelector((state) => state.auth);
-  const { userStore, loading: storeLoading } = useAppSelector((state) => state.store);
-  const hasAttemptedLoad = useRef(false);
-  const lastUserId = useRef<number | null>(null);
-
-  // Clear store when user logs out
-  useEffect(() => {
-    if (!user && !authLoading) {
-      dispatch(clearStore());
-      hasAttemptedLoad.current = false; // Reset the flag when user logs out
-      lastUserId.current = null;
-    }
-  }, [user, authLoading, dispatch]);
-
-  // Reset the flag when user changes or when userStore becomes null
-  useEffect(() => {
-    if (user && Number(user.id) !== lastUserId.current) {
-      console.log("User changed, resetting load flag");
-      hasAttemptedLoad.current = false;
-      lastUserId.current = Number(user.id);
-    } else if (user && !userStore && hasAttemptedLoad.current) {
-      console.log("UserStore became null, resetting load flag to allow retry");
-      hasAttemptedLoad.current = false;
-    }
-  }, [user, userStore]);
-
-  // Load user store when user logs in and is a retailer
-  useEffect(() => {
-    const loadUserStore = async () => {
-      if (user && accessToken && !authLoading && !storeLoading && !hasAttemptedLoad.current) {
-        const normalizedRole = String((user as any).user_type ?? (user as any).role ?? "").toLowerCase();
-        
-        if (normalizedRole === "retailer") {
-          // If we already have a userStore, don't try to load it again
-          if (userStore) {
-            console.log("UserStore already exists, skipping load:", userStore);
-            hasAttemptedLoad.current = true;
-            return;
-          }
-          
-          hasAttemptedLoad.current = true; // Mark that we've attempted to load
-          console.log("Loading store data for retailer:", user.id);
-          
-          // Check if user has storeId in their data
-          const storeId = (user as any).storeId;
-          if (storeId) {
-            console.log("User has storeId:", storeId);
-            try {
-              // Get the store directly by ID
-              const result = await dispatch(findStoreById(Number(storeId))).unwrap();
-              console.log("Store data loaded by ID:", result);
-              if (result) {
-                dispatch(setUserStore(result));
-                console.log("Store set in state:", result);
-              } else {
-                console.log("No store found for storeId:", storeId);
-              }
-            } catch (error) {
-              console.error("Error loading store by ID:", error);
-              // Fallback to the old method
-              try {
-                const result = await dispatch(findUserStore(Number((user as any).id))).unwrap();
-                console.log("Store data loaded by user ID (fallback):", result);
-                if (result) {
-                  dispatch(setUserStore(result));
-                  console.log("Store set in state (fallback):", result);
-                }
-              } catch (fallbackError) {
-                console.error("Fallback store loading also failed:", fallbackError);
-                hasAttemptedLoad.current = false;
-              }
-            }
-          } else {
-            console.log("No storeId found in user data for user:", user.id);
-            // Fallback to the old method
-            try {
-              const result = await dispatch(findUserStore(Number((user as any).id))).unwrap();
-              console.log("Store data loaded by user ID (no storeId):", result);
-              if (result) {
-                dispatch(setUserStore(result));
-                console.log("Store set in state (no storeId):", result);
-              }
-            } catch (error) {
-              console.error("Error loading store data (no storeId):", error);
-              hasAttemptedLoad.current = false;
-            }
-          }
-        }
-      }
-    };
-
-    loadUserStore();
-  }, [user, accessToken, authLoading, storeLoading, dispatch]);
-
-  // Manual refresh function
-  const refreshStore = async () => {
-    if (user && accessToken && !authLoading && !storeLoading) {
-      console.log("Manually refreshing store data for user:", user.id);
-      
-      const normalizedRole = String((user as any).user_type ?? (user as any).role ?? "").toLowerCase();
-      if (normalizedRole === "retailer") {
-        try {
-          // Try to find user store, but don't fail if it doesn't work
-          const result = await dispatch(findUserStore(Number((user as any).id))).unwrap();
-          console.log("Store data refreshed:", result);
-          if (result) {
-            dispatch(setUserStore(result));
-          } else {
-            console.log("No store found during refresh - this is normal for new users");
-          }
-        } catch (error) {
-          console.error("Error refreshing store data:", error);
-          // Don't throw error - this is expected if user doesn't have a store yet
-        }
-      }
-    }
-  };
+  const storesState = useAppSelector((state) => state.store.stores);
 
   return {
-    userStore,
-    storeLoading,
-    isStoreLoaded: !!userStore,
-    refreshStore,
+    state: {
+      stores: storesSelectors.selectAllStores(useAppSelector((s) => s)),
+      selectedStore: storesSelectors.selectSelectedStore(useAppSelector((s) => s)),
+      userStore: storesSelectors.selectUserStore(useAppSelector((s) => s)),
+      nearbyStores: storesSelectors.selectNearbyStores(useAppSelector((s) => s)),
+      loading: storesState.loading,
+      error: storesState.error,
+    },
+    actions: {
+      findStores: () => dispatch(storesThunks.findStores()),
+      findNearbyStores: (params: {
+        latitude: number;
+        longitude: number;
+        radiusKm?: number;
+      }) => dispatch(storesThunks.findNearbyStores(params)),
+      findStoreById: (storeId: number) =>
+        dispatch(storesThunks.findStoreById(storeId)),
+      findUserStore: (userId: number) =>
+        dispatch(storesThunks.findUserStore(userId)),
+      createStore: (data: Parameters<typeof storesThunks.createStore>[0]) =>
+        dispatch(storesThunks.createStore(data)),
+      updateStore: (data: Parameters<typeof storesThunks.updateStore>[0]) =>
+        dispatch(storesThunks.updateStore(data)),
+      updateStoreAdminStatus: (
+        data: Parameters<typeof storesThunks.updateStoreAdminStatus>[0]
+      ) => dispatch(storesThunks.updateStoreAdminStatus(data)),
+      deleteStore: (storeId: number) =>
+        dispatch(storesThunks.deleteStore(storeId)),
+    },
   };
-};
+}
 
+/**
+ * Hook for product operations
+ */
+export function useProducts() {
+  const dispatch = useAppDispatch();
+  const productsState = useAppSelector((state) => state.store.products);
+
+  return {
+    state: {
+      products: productsSelectors.selectAllProducts(useAppSelector((s) => s)),
+      loading: productsState.loading,
+      error: productsState.error,
+    },
+    actions: {
+      findProducts: (filters?: { storeId?: number; isActive?: boolean }) =>
+        dispatch(productsThunks.findProducts(filters || {})),
+      findProductById: (productId: number) =>
+        dispatch(productsThunks.findProductById(productId)),
+      createProduct: (data: Parameters<typeof productsThunks.createProduct>[0]) =>
+        dispatch(productsThunks.createProduct(data)),
+      updateProduct: (data: Parameters<typeof productsThunks.updateProduct>[0]) =>
+        dispatch(productsThunks.updateProduct(data)),
+      updateProductAdminStatus: (
+        data: Parameters<typeof productsThunks.updateProductAdminStatus>[0]
+      ) => dispatch(productsThunks.updateProductAdminStatus(data)),
+      deleteProduct: (productId: number) =>
+        dispatch(productsThunks.deleteProduct(productId)),
+    },
+  };
+}
+
+/**
+ * Hook for promotion operations
+ */
+export function usePromotions() {
+  const dispatch = useAppDispatch();
+  const promotionsState = useAppSelector((state) => state.store.promotions);
+
+  return {
+    state: {
+      promotions: promotionsSelectors.selectAllPromotions(
+        useAppSelector((s) => s)
+      ),
+      activePromotions: promotionsSelectors.selectActivePromotions(
+        useAppSelector((s) => s)
+      ),
+      loading: promotionsState.loading,
+      error: promotionsState.error,
+    },
+    actions: {
+      findPromotions: () => dispatch(promotionsThunks.findPromotions()),
+      findActivePromotions: (storeId?: number) =>
+        dispatch(promotionsThunks.findActivePromotions({ storeId })),
+      createPromotion: (
+        data: Parameters<typeof promotionsThunks.createPromotion>[0]
+      ) => dispatch(promotionsThunks.createPromotion(data)),
+      updatePromotion: (
+        data: Parameters<typeof promotionsThunks.updatePromotion>[0]
+      ) => dispatch(promotionsThunks.updatePromotion(data)),
+      deletePromotion: (promotionId: number) =>
+        dispatch(promotionsThunks.deletePromotion(promotionId)),
+    },
+  };
+}
+
+/**
+ * Hook for subscription operations
+ */
+export function useSubscriptions() {
+  const dispatch = useAppDispatch();
+  const subscriptionsState = useAppSelector(
+    (state) => state.store.subscriptions
+  );
+
+  return {
+    state: {
+      activeSubscription:
+        subscriptionsSelectors.selectActiveSubscription(useAppSelector((s) => s)),
+      subscriptions: subscriptionsSelectors.selectAllSubscriptions(
+        useAppSelector((s) => s)
+      ),
+      subscriptionAnalytics:
+        subscriptionsSelectors.selectSubscriptionAnalytics(useAppSelector((s) => s)),
+      loading: subscriptionsState.loading,
+      error: subscriptionsState.error,
+    },
+    actions: {
+      getActiveSubscription: (userId: number) =>
+        dispatch(subscriptionsThunks.getActiveSubscription(userId)),
+      joinSubscription: (
+        data: Parameters<typeof subscriptionsThunks.joinSubscription>[0]
+      ) => dispatch(subscriptionsThunks.joinSubscription(data)),
+      findSubscriptions: (
+        filters?: Parameters<typeof subscriptionsThunks.findSubscriptions>[0]
+      ) => dispatch(subscriptionsThunks.findSubscriptions(filters || {})),
+      cancelRetailerSubscription: () =>
+        dispatch(subscriptionsThunks.cancelRetailerSubscription()),
+      updateRetailerSubscription: (
+        data: Parameters<typeof subscriptionsThunks.updateRetailerSubscription>[0]
+      ) => dispatch(subscriptionsThunks.updateRetailerSubscription(data)),
+      createSubscription: (
+        data: Parameters<typeof subscriptionsThunks.createSubscription>[0]
+      ) => dispatch(subscriptionsThunks.createSubscription(data)),
+      updateSubscription: (
+        data: Parameters<typeof subscriptionsThunks.updateSubscription>[0]
+      ) => dispatch(subscriptionsThunks.updateSubscription(data)),
+      deleteSubscription: (id: number) =>
+        dispatch(subscriptionsThunks.deleteSubscription(id)),
+      getSubscriptionAnalytics: () =>
+        dispatch(subscriptionsThunks.getSubscriptionAnalytics()),
+    },
+  };
+}
+
+/**
+ * Combined hook for all store operations (backward compatibility)
+ */
+export function useStore() {
+  const stores = useStores();
+  const products = useProducts();
+  const promotions = usePromotions();
+  const subscriptions = useSubscriptions();
+
+  return {
+    state: {
+      stores: stores.state.stores,
+      selectedStore: stores.state.selectedStore,
+      userStore: stores.state.userStore,
+      nearbyStores: stores.state.nearbyStores,
+      products: products.state.products,
+      promotions: promotions.state.promotions,
+      activePromotions: promotions.state.activePromotions,
+      activeSubscription: subscriptions.state.activeSubscription,
+      subscriptions: subscriptions.state.subscriptions,
+      subscriptionAnalytics: subscriptions.state.subscriptionAnalytics,
+      loading:
+        stores.state.loading ||
+        products.state.loading ||
+        promotions.state.loading ||
+        subscriptions.state.loading,
+      error:
+        stores.state.error ||
+        products.state.error ||
+        promotions.state.error ||
+        subscriptions.state.error,
+    },
+    action: {
+      // Store actions
+      findStores: stores.actions.findStores,
+      findUserStore: stores.actions.findUserStore,
+      findNearbyStores: stores.actions.findNearbyStores,
+      findStoreById: stores.actions.findStoreById,
+      createStore: stores.actions.createStore,
+      updateStore: stores.actions.updateStore,
+      updateStoreAdminStatus: stores.actions.updateStoreAdminStatus,
+      deleteStore: stores.actions.deleteStore,
+      // Product actions
+      findProducts: products.actions.findProducts,
+      findProductById: products.actions.findProductById,
+      createProduct: products.actions.createProduct,
+      updateProduct: products.actions.updateProduct,
+      updateProductAdminStatus: products.actions.updateProductAdminStatus,
+      deleteProduct: products.actions.deleteProduct,
+      // Promotion actions
+      findPromotions: promotions.actions.findPromotions,
+      findActivePromotions: promotions.actions.findActivePromotions,
+      createPromotion: promotions.actions.createPromotion,
+      updatePromotion: promotions.actions.updatePromotion,
+      deletePromotion: promotions.actions.deletePromotion,
+      // Subscription actions
+      getActiveSubscription: subscriptions.actions.getActiveSubscription,
+      joinSubscription: subscriptions.actions.joinSubscription,
+      findSubscriptions: subscriptions.actions.findSubscriptions,
+      cancelRetailerSubscription:
+        subscriptions.actions.cancelRetailerSubscription,
+      updateRetailerSubscription:
+        subscriptions.actions.updateRetailerSubscription,
+      createSubscription: subscriptions.actions.createSubscription,
+      updateSubscription: subscriptions.actions.updateSubscription,
+      deleteSubscription: subscriptions.actions.deleteSubscription,
+      getSubscriptionAnalytics: subscriptions.actions.getSubscriptionAnalytics,
+    },
+  };
+}
+
+// Store management hook
+export { useStoreManagement } from "./storeManagement";

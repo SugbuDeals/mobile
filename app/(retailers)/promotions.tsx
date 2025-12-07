@@ -1,18 +1,19 @@
 import { useLogin } from "@/features/auth";
 import { useStore } from "@/features/store";
+import type { Promotion } from "@/features/store/promotions/types";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { LinearGradient } from "expo-linear-gradient";
 import React, { useEffect, useState } from "react";
 import {
-    Platform,
-    ScrollView,
-    StatusBar,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View
+  Platform,
+  ScrollView,
+  StatusBar,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View
 } from "react-native";
 
 export default function Promotions() {
@@ -35,8 +36,8 @@ export default function Promotions() {
   const [showEditEndPicker, setShowEditEndPicker] = useState(false);
 
   useEffect(() => {
-    if ((user as any)?.id && !userStore) {
-      findUserStore(Number((user as any).id));
+    if (user?.id && !userStore) {
+      findUserStore(Number(user.id));
     }
   }, [user, userStore, findUserStore]);
 
@@ -263,8 +264,9 @@ export default function Promotions() {
           alert(`Product not found. Please refresh and try again.`);
           return;
         }
-        if (discount >= product.price) {
-          alert(`Fixed discount ($${discount.toFixed(2)}) cannot exceed or equal the product price ($${product.price.toFixed(2)})`);
+        const productPrice = typeof product.price === "string" ? parseFloat(product.price) : product.price;
+        if (discount >= productPrice) {
+          alert(`Fixed discount ($${discount.toFixed(2)}) cannot exceed or equal the product price ($${productPrice.toFixed(2)})`);
           return;
         }
         // Also check for unreasonably large fixed discounts (max $10,000)
@@ -304,7 +306,7 @@ export default function Promotions() {
     }
 
     // Verify user is a retailer
-    const userRole = (user as any)?.role || (user as any)?.user_type;
+    const userRole = user?.role || user?.user_type;
     if (userRole !== 'RETAILER') {
       alert("Only retailers can create promotions. Please check your account type.");
       setIsCreating(false);
@@ -312,8 +314,8 @@ export default function Promotions() {
     }
 
     // Verify store ownership
-    const userId = (user as any)?.id;
-    if (userStore.ownerId !== userId) {
+    const userId = user?.id ? Number(user.id) : undefined;
+    if (!userId || userStore.ownerId !== userId) {
       alert("You do not own this store. Cannot create promotions.");
       setIsCreating(false);
       return;
@@ -357,7 +359,7 @@ export default function Promotions() {
     try {
       // Log validation info for debugging
       console.log("Creating promotions with validation:");
-      console.log("User ID:", (user as any)?.id);
+      console.log("User ID:", user?.id);
       console.log("Store ID:", storeId);
       console.log("Store ownerId:", userStore.ownerId);
       console.log("Store verificationStatus:", userStore.verificationStatus);
@@ -612,7 +614,7 @@ export default function Promotions() {
                                 <Text style={styles.discountHelperText}>
                                   {isSelected.type === 'percentage' 
                                     ? "Enter 0-100% (e.g., 20 for 20% off)"
-                                    : `Enter amount less than product price ($${product.price.toFixed(2)}), max $10,000`}
+                                    : `Enter amount less than product price ($${(typeof product.price === "string" ? parseFloat(product.price) : product.price).toFixed(2)}), max $10,000`}
                                 </Text>
                               </View>
                             </View>
@@ -684,9 +686,10 @@ export default function Promotions() {
                   const discount = parseFloat(productData.discount);
                   if (isNaN(discount)) return null;
                   
+                  const productPrice = typeof product.price === "string" ? parseFloat(product.price) : product.price;
                   const discountedPrice = productData.type === 'percentage' 
-                    ? product.price * (1 - discount / 100)
-                    : Math.max(0, product.price - discount);
+                    ? productPrice * (1 - discount / 100)
+                    : Math.max(0, productPrice - discount);
                   
                   return (
                     <View key={productId} style={styles.discountPreviewItem}>
@@ -722,8 +725,8 @@ export default function Promotions() {
               <Text style={styles.sectionSubtitle}>Active Promotions</Text>
               {(() => {
                 // Group promotions by title + dates
-                const groups: { [key: string]: { promos: any[]; sample: any } } = {};
-                for (const promo of activePromotions as any[]) {
+                const groups: { [key: string]: { promos: Promotion[]; sample: Promotion } } = {};
+                for (const promo of activePromotions) {
                   const key = makeGroupKey(promo);
                   if (!groups[key]) groups[key] = { promos: [], sample: promo };
                   groups[key].promos.push(promo);

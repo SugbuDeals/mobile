@@ -3,7 +3,7 @@ import { useCatalog } from "@/features/catalog";
 import { useStore } from "@/features/store";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo } from "react";
 import {
     ActivityIndicator,
     Dimensions,
@@ -22,8 +22,6 @@ export default function AdminDashboard() {
   const { action: storeActions, state: { promotions, products, stores, subscriptions, subscriptionAnalytics, loading: storeLoading } } = useStore();
   const { state: catalogState, action: catalogActions } = useCatalog();
   const router = useRouter();
-  
-  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     // Fetch all data needed for dashboard
@@ -37,10 +35,6 @@ export default function AdminDashboard() {
     storeActions.findSubscriptions();
     storeActions.getSubscriptionAnalytics();
     catalogActions.loadCategories();
-    
-    // Set loading to false after a short delay
-    const timer = setTimeout(() => setIsLoading(false), 500);
-    return () => clearTimeout(timer);
   }, []);
 
   // Calculate today's date for filtering
@@ -135,7 +129,7 @@ export default function AdminDashboard() {
     return num.toLocaleString('en-US');
   };
 
-  if (isLoading || authState.usersLoading || storeLoading) {
+  if (authState.usersLoading || storeLoading) {
     return (
       <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color="#1B6F5D" />

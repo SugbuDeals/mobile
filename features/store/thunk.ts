@@ -452,7 +452,9 @@ export const findActivePromotions = createAsyncThunk<
 >("store/findActivePromotions", async ({ storeId }, { rejectWithValue, getState }) => {
   try {
     const { accessToken, user } = getState().auth;
-    const { userStore, products } = getState().store;
+    const { stores, products } = getState().store;
+    const userStore = stores.userStore;
+    const productsList = products.products;
 
     console.log("findActivePromotions - Making API call to:", `${env.API_BASE_URL}/promotions`);
     console.log("findActivePromotions - Using access token:", accessToken ? "Present" : "Missing");
@@ -488,9 +490,9 @@ export const findActivePromotions = createAsyncThunk<
     // If storeId is provided, filter promotions by store ownership
     if (storeId) {
       // Get product IDs that belong to the specified store
-      const storeProductIds = products
-        .filter(product => product.storeId === storeId)
-        .map(product => product.id);
+      const storeProductIds = productsList
+        .filter((product: any) => product.storeId === storeId)
+        .map((product: any) => product.id);
       
       console.log("findActivePromotions - Store product IDs:", storeProductIds);
       

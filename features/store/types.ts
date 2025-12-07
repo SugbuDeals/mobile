@@ -145,7 +145,6 @@ export type Subscription = {
   startsAt?: string;
   endsAt?: string;
   cancelledAt?: string;
-  cancelledAt?: string;
   createdAt?: string;
   updatedAt?: string;
   /**
@@ -200,10 +199,7 @@ export type UpdateSubscriptionDTO = {
   price?: string;
   benefits?: string;
   isActive?: boolean;
-  plan?: "FREE" | "BASIC" | "PREMIUM";
   status?: "ACTIVE" | "CANCELLED" | "EXPIRED" | "PENDING";
-  billingCycle?: "MONTHLY" | "YEARLY";
-  price?: string;
   startsAt?: string;
   endsAt?: string;
   cancelledAt?: string;
