@@ -11,9 +11,9 @@ export const findStores = createAsyncThunk<
 >("store/findStores", async (_, { rejectWithValue }) => {
   try {
     return await storesApi.findStores();
-  } catch (error: any) {
+  } catch (error: unknown) {
     return rejectWithValue({
-      message: error?.message || "Find stores failed",
+      message: error instanceof Error ? error.message : "Find stores failed",
     });
   }
 });
@@ -29,9 +29,9 @@ export const findNearbyStores = createAsyncThunk<
       longitude,
       radiusKm,
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     return rejectWithValue({
-      message: error?.message || "Find nearby stores failed",
+      message: error instanceof Error ? error.message : "Find nearby stores failed",
     });
   }
 });
@@ -56,11 +56,8 @@ export const findUserStore = createAsyncThunk<
     console.log("Looking for store with userId:", userId);
     
     // Find the store owned by this user
-    const userStore = stores.find((store: any) => 
-      store.ownerId === userId || 
-      store.userId === userId || 
-      store.owner_id === userId ||
-      store.user_id === userId
+    const userStore = stores.find((store: Store) => 
+      store.ownerId === userId
     );
     
     console.log("Found user store:", userStore);
@@ -94,14 +91,14 @@ export const findProducts = createAsyncThunk<
     const products = await productsApi.findProducts({ storeId, isActive });
     
     // Return products as-is - price is string per server.json
-    return products.map((product: any) => ({
+    return products.map((product: Product) => ({
       ...product,
       // Ensure stock is number (API should return number)
       stock: typeof product.stock === 'string' ? parseInt(product.stock) : product.stock,
     }));
-  } catch (error: any) {
+  } catch (error: unknown) {
     return rejectWithValue({
-      message: error?.message || "Find products failed",
+      message: error instanceof Error ? error.message : "Find products failed",
     });
   }
 });
@@ -120,9 +117,9 @@ export const findProductById = createAsyncThunk<
       // Ensure stock is number (API should return number)
       stock: typeof product.stock === 'string' ? parseInt(product.stock) : product.stock,
     };
-  } catch (error: any) {
+  } catch (error: unknown) {
     return rejectWithValue({
-      message: error?.message || "Find product by ID failed",
+      message: error instanceof Error ? error.message : "Find product by ID failed",
     });
   }
 });
@@ -139,9 +136,9 @@ export const createProduct = createAsyncThunk<
       categoryId: productData.categoryId ?? undefined,
     };
     return await productsApi.createProduct(apiData);
-  } catch (error: any) {
+  } catch (error: unknown) {
     return rejectWithValue({
-      message: error?.message || "Create product failed",
+      message: error instanceof Error ? error.message : "Create product failed",
     });
   }
 });
@@ -158,9 +155,9 @@ export const updateProduct = createAsyncThunk<
       categoryId: updateData.categoryId ?? undefined,
     };
     return await productsApi.updateProduct(id, apiData);
-  } catch (error: any) {
+  } catch (error: unknown) {
     return rejectWithValue({
-      message: error?.message || "Update product failed",
+      message: error instanceof Error ? error.message : "Update product failed",
     });
   }
 });
@@ -178,9 +175,9 @@ export const updateProductAdminStatus = createAsyncThunk<
       // Ensure stock is number (API should return number)
       stock: typeof result.stock === "string" ? parseInt(result.stock, 10) : result.stock,
     };
-  } catch (error: any) {
+  } catch (error: unknown) {
     return rejectWithValue({
-      message: error?.message || "Update product status failed",
+      message: error instanceof Error ? error.message : "Update product status failed",
     });
   }
 });
@@ -193,9 +190,9 @@ export const deleteProduct = createAsyncThunk<
   try {
     await productsApi.deleteProduct(productId);
     return { id: productId };
-  } catch (error: any) {
+  } catch (error: unknown) {
     return rejectWithValue({
-      message: error?.message || "Delete product failed",
+      message: error instanceof Error ? error.message : "Delete product failed",
     });
   }
 });
@@ -210,7 +207,7 @@ export const findPromotions = createAsyncThunk<
     const apiPromotions = await promotionsApi.findPromotions();
     // Map API promotions to feature Promotion format
     // PromotionResponseDto: startsAt is string (ISO 8601), endsAt is string | null, no createdAt/updatedAt
-    return apiPromotions.map((p: any) => ({
+    return apiPromotions.map((p: Promotion) => ({
       id: p.id,
       title: p.title,
       type: p.type, // Keep as string (e.g., "PERCENTAGE")
@@ -221,9 +218,9 @@ export const findPromotions = createAsyncThunk<
       discount: p.discount,
       productId: p.productId ?? null, // Nullable per server.json
     }));
-  } catch (error: any) {
+  } catch (error: unknown) {
     return rejectWithValue({
-      message: error?.message || "Find promotions failed",
+      message: error instanceof Error ? error.message : "Find promotions failed",
     });
   }
 });
@@ -242,7 +239,7 @@ export const findActivePromotions = createAsyncThunk<
     
     // Map API promotions to feature Promotion format
     // PromotionResponseDto: startsAt is string (ISO 8601), endsAt is string | null, no createdAt/updatedAt
-    let activePromotions = apiPromotions.map((p: any) => ({
+    let activePromotions = apiPromotions.map((p: Promotion) => ({
       id: p.id,
       title: p.title,
       type: p.type, // Keep as string (e.g., "PERCENTAGE")
@@ -258,19 +255,19 @@ export const findActivePromotions = createAsyncThunk<
     if (storeId) {
       // Get product IDs that belong to the specified store
       const storeProductIds = productsList
-        .filter((product: any) => product.storeId === storeId)
-        .map((product: any) => product.id);
+        .filter((product: Product) => product.storeId === storeId)
+        .map((product: Product) => product.id);
       
       // Filter promotions to only include those for products owned by the store
-      activePromotions = activePromotions.filter((promotion: any) => 
-        storeProductIds.includes(promotion.productId)
+      activePromotions = activePromotions.filter((promotion: Promotion) => 
+        storeProductIds.includes(promotion.productId ?? -1)
       );
     }
     
     return activePromotions;
-  } catch (error: any) {
+  } catch (error: unknown) {
     return rejectWithValue({
-      message: error?.message || "Find active promotions failed",
+      message: error instanceof Error ? error.message : "Find active promotions failed",
     });
   }
 });
@@ -283,9 +280,9 @@ export const createStore = createAsyncThunk<
 >("store/createStore", async (storeData, { rejectWithValue }) => {
   try {
     return await storesApi.createStore(storeData);
-  } catch (error: any) {
+  } catch (error: unknown) {
     return rejectWithValue({
-      message: error?.message || "Create store failed",
+      message: error instanceof Error ? error.message : "Create store failed",
     });
   }
 });
@@ -299,9 +296,9 @@ export const updateStoreAdminStatus = createAsyncThunk<
 >("store/updateStoreAdminStatus", async ({ id, ...payload }, { rejectWithValue }) => {
   try {
     return await storesApi.updateStoreAdminStatus(id, payload);
-  } catch (error: any) {
+  } catch (error: unknown) {
     return rejectWithValue({
-      message: error?.message || "Update store status failed",
+      message: error instanceof Error ? error.message : "Update store status failed",
     });
   }
 });
@@ -314,9 +311,9 @@ export const deleteStore = createAsyncThunk<
   try {
     await storesApi.deleteStore(storeId);
     return { id: storeId };
-  } catch (error: any) {
+  } catch (error: unknown) {
     return rejectWithValue({
-      message: error?.message || "Delete store failed",
+      message: error instanceof Error ? error.message : "Delete store failed",
     });
   }
 });
@@ -333,9 +330,9 @@ export const findStoreById = createAsyncThunk<
       return null;
     }
     return store;
-  } catch (error: any) {
+  } catch (error: unknown) {
     return rejectWithValue({
-      message: error?.message || "Find store by ID failed",
+      message: error instanceof Error ? error.message : "Find store by ID failed",
     });
   }
 });
@@ -375,9 +372,9 @@ export const createPromotion = createAsyncThunk<
       discount: result.discount,
       productId: result.productId ?? null, // Nullable per server.json
     };
-  } catch (error: any) {
+  } catch (error: unknown) {
     return rejectWithValue({
-      message: error?.message || "Create promotion failed",
+      message: error instanceof Error ? error.message : "Create promotion failed",
     });
   }
 });
@@ -410,9 +407,9 @@ export const updatePromotion = createAsyncThunk<
       discount: result.discount,
       productId: result.productId ?? null, // Nullable per server.json
     };
-  } catch (error: any) {
+  } catch (error: unknown) {
     return rejectWithValue({
-      message: error?.message || "Update promotion failed",
+      message: error instanceof Error ? error.message : "Update promotion failed",
     });
   }
 });
@@ -425,9 +422,9 @@ export const deletePromotion = createAsyncThunk<
   try {
     await promotionsApi.deletePromotion(promotionId);
     return { id: promotionId };
-  } catch (error: any) {
+  } catch (error: unknown) {
     return rejectWithValue({
-      message: error?.message || "Delete promotion failed",
+      message: error instanceof Error ? error.message : "Delete promotion failed",
     });
   }
 });
@@ -440,13 +437,13 @@ export const getActiveSubscription = createAsyncThunk<
 >("store/getActiveSubscription", async (userId, { rejectWithValue }) => {
   try {
     return await subscriptionsApi.getActiveSubscription(userId);
-  } catch (error: any) {
+  } catch (error: unknown) {
     // If 404, user has no active subscription (return null, not an error)
-    if (error?.status === 404) {
+    if (error && typeof error === 'object' && 'status' in error && error.status === 404) {
       return null;
     }
     return rejectWithValue({
-      message: error?.message || "Get active subscription failed",
+      message: error instanceof Error ? error.message : "Get active subscription failed",
     });
   }
 });
@@ -458,9 +455,9 @@ export const joinSubscription = createAsyncThunk<
 >("store/joinSubscription", async (data, { rejectWithValue }) => {
   try {
     return await subscriptionsApi.joinSubscription(data);
-  } catch (error: any) {
+  } catch (error: unknown) {
     return rejectWithValue({
-      message: error?.message || "Join subscription failed",
+      message: error instanceof Error ? error.message : "Join subscription failed",
     });
   }
 });
@@ -484,9 +481,9 @@ export const findSubscriptions = createAsyncThunk<
       skip,
       take,
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     return rejectWithValue({
-      message: error?.message || "Find subscriptions failed",
+      message: error instanceof Error ? error.message : "Find subscriptions failed",
     });
   }
 });
@@ -498,9 +495,9 @@ export const cancelRetailerSubscription = createAsyncThunk<
 >("store/cancelRetailerSubscription", async (_, { rejectWithValue }) => {
   try {
     return await subscriptionsApi.cancelRetailerSubscription();
-  } catch (error: any) {
+  } catch (error: unknown) {
     return rejectWithValue({
-      message: error?.message || "Cancel subscription failed",
+      message: error instanceof Error ? error.message : "Cancel subscription failed",
     });
   }
 });
@@ -512,9 +509,9 @@ export const updateRetailerSubscription = createAsyncThunk<
 >("store/updateRetailerSubscription", async (data, { rejectWithValue }) => {
   try {
     return await subscriptionsApi.updateRetailerSubscription(data);
-  } catch (error: any) {
+  } catch (error: unknown) {
     return rejectWithValue({
-      message: error?.message || "Update subscription failed",
+      message: error instanceof Error ? error.message : "Update subscription failed",
     });
   }
 });
@@ -529,12 +526,12 @@ export const createSubscription = createAsyncThunk<
     // Convert price from number to string for API
     const apiData = {
       ...data,
-      price: String(data.price),
-    } as any;
+      price: data.price ? String(data.price) : undefined,
+    };
     return await subscriptionsApi.createSubscription(apiData);
-  } catch (error: any) {
+  } catch (error: unknown) {
     return rejectWithValue({
-      message: error?.message || "Create subscription failed",
+      message: error instanceof Error ? error.message : "Create subscription failed",
     });
   }
 });
@@ -549,11 +546,11 @@ export const updateSubscription = createAsyncThunk<
     const apiData = {
       ...data,
       ...(data.price !== undefined && { price: String(data.price) }),
-    } as any;
+    };
     return await subscriptionsApi.updateSubscription(id, apiData);
-  } catch (error: any) {
+  } catch (error: unknown) {
     return rejectWithValue({
-      message: error?.message || "Update subscription failed",
+      message: error instanceof Error ? error.message : "Update subscription failed",
     });
   }
 });
@@ -566,9 +563,9 @@ export const deleteSubscription = createAsyncThunk<
   try {
     await subscriptionsApi.deleteSubscription(id);
     return { id };
-  } catch (error: any) {
+  } catch (error: unknown) {
     return rejectWithValue({
-      message: error?.message || "Delete subscription failed",
+      message: error instanceof Error ? error.message : "Delete subscription failed",
     });
   }
 });
@@ -580,9 +577,9 @@ export const getSubscriptionAnalytics = createAsyncThunk<
 >("store/getSubscriptionAnalytics", async (_, { rejectWithValue }) => {
   try {
     return await subscriptionsApi.getSubscriptionAnalytics();
-  } catch (error: any) {
+  } catch (error: unknown) {
     return rejectWithValue({
-      message: error?.message || "Get subscription analytics failed",
+      message: error instanceof Error ? error.message : "Get subscription analytics failed",
     });
   }
 });

@@ -1,4 +1,5 @@
 import { useLogin } from "@/features/auth";
+import type { UserResponseDto } from "@/features/auth/types";
 import { Ionicons } from "@expo/vector-icons";
 import React, { useEffect, useState } from "react";
 import {
@@ -29,7 +30,7 @@ const MetricsCard = ({ label, value, icon, color, bgColor }: {
     <View style={styles.metricHeader}>
       <Text style={styles.metricLabel}>{label}</Text>
       <View style={[styles.metricIcon, { backgroundColor: bgColor }]}>
-        <Ionicons name={icon as any} size={20} color={color} />
+        <Ionicons name={icon as keyof typeof Ionicons.glyphMap} size={20} color={color} />
       </View>
     </View>
     <Text style={[styles.metricValue, { color }]}>{value}</Text>
@@ -38,9 +39,9 @@ const MetricsCard = ({ label, value, icon, color, bgColor }: {
 
 // User Card Component
 const UserCard = ({ user, onDelete, onEdit }: { 
-  user: any; 
+  user: UserResponseDto; 
   onDelete: (id: number) => void;
-  onEdit: (user: any) => void;
+  onEdit: (user: UserResponseDto) => void;
 }) => {
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -59,7 +60,7 @@ const UserCard = ({ user, onDelete, onEdit }: {
   const statusColors = getStatusColor(status);
 
   // Get user's avatar (you might need to adjust this based on your user model)
-  const avatarUrl = user.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(user.name || user.email)}&background=random`;
+  const avatarUrl = user.imageUrl || `https://ui-avatars.com/api/?name=${encodeURIComponent(user.name || user.email)}&background=random`;
 
   return (
     <View style={styles.userCard}>

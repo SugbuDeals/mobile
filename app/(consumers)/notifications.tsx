@@ -1,3 +1,9 @@
+import { useNotifications } from "@/features/notifications";
+import type { Notification } from "@/features/notifications/types";
+import {
+  formatNotificationTime,
+  getNotificationColor,
+} from "@/utils/notifications";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
@@ -13,11 +19,6 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import { useNotifications } from "@/features/notifications";
-import {
-  formatNotificationTime,
-  getNotificationColor,
-} from "@/utils/notifications";
 
 export default function Notifications() {
   const router = useRouter();
@@ -29,7 +30,7 @@ export default function Notifications() {
     // Fetch notifications when component mounts
     action.getNotifications({ skip: 0, take: 50 });
     action.getUnreadCount();
-  }, []);
+  }, [action]);
 
   const handleMarkAsRead = async (id: number) => {
     try {
@@ -57,7 +58,7 @@ export default function Notifications() {
     }
   };
 
-  const handleNotificationPress = (notification: any) => {
+  const handleNotificationPress = (notification: Notification) => {
     // Mark as read when pressed
     if (!notification.read) {
       handleMarkAsRead(notification.id);

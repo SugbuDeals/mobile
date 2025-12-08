@@ -1,12 +1,27 @@
 import env from "@/config/env";
 import { useBookmarks } from "@/features/bookmarks";
 import { useCatalog } from "@/features/catalog";
+import type { Product } from "@/features/catalog/types";
 import { useStore } from "@/features/store";
+import type { Store } from "@/features/store/stores/types";
+import type { Promotion } from "@/features/store/promotions/types";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Location from "expo-location";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import React, { useMemo, useState } from "react";
-import { Dimensions, Image, Linking, Modal, Platform, SafeAreaView, ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import {
+  Image,
+  Linking,
+  Modal,
+  Platform,
+  SafeAreaView,
+  ScrollView,
+  StatusBar,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from "react-native";
 import MapView, { Marker } from "react-native-maps";
 
 export default function ProductDetailScreen() {
@@ -20,25 +35,40 @@ export default function ProductDetailScreen() {
   } = useCatalog();
   const router = useRouter();
 
-  const productId = params.productId ? Number(params.productId) : undefined;
-  
+  // Validate productId to ensure it's a valid number (not NaN, not null string, not empty)
+  const productId = (() => {
+    const raw = params.productId;
+    if (!raw || raw === "null" || raw === "undefined" || raw === "") return undefined;
+    const num = Number(raw);
+    return Number.isFinite(num) && num > 0 ? num : undefined;
+  })();
+
   // Get the actual product data if productId is available
   const actualProduct = useMemo(() => {
     if (productId && products) {
-      return products.find((p: any) => p.id === productId);
+      return products.find((p: Product) => p.id === productId) || null;
     }
     return null;
   }, [productId, products]);
 
   // Ensure we fetch product details if missing or lacking storeId
   React.useEffect(() => {
-    if (productId && (!actualProduct || !(actualProduct as any)?.storeId)) {
+    // Only call API if productId is a valid positive number
+    if (
+      productId &&
+      Number.isFinite(productId) &&
+      productId > 0 &&
+      (!actualProduct || !actualProduct?.storeId)
+    ) {
       findProductById(productId);
     }
   }, [productId, actualProduct, findProductById]);
 
-  const productName = (params.name as string) || actualProduct?.name || "Product";
-  const productStoreId = params.storeId ? Number(params.storeId) : (actualProduct as any)?.storeId;
+  const productName =
+    (params.name as string) || actualProduct?.name || "Product";
+  const productStoreId = params.storeId
+    ? Number(params.storeId)
+    : actualProduct?.storeId;
 
   // Ensure we fetch store info if missing in list
   React.useEffect(() => {
@@ -46,12 +76,14 @@ export default function ProductDetailScreen() {
       findStoreById(productStoreId);
     }
   }, [productStoreId, findStoreById]);
-  const storeFromList = stores.find((s: any) => s.id === productStoreId);
+  const storeFromList = stores.find((s: Store) => s.id === productStoreId);
   const storeFromSelected =
-    selectedStore && selectedStore.id === productStoreId ? selectedStore : undefined;
+    selectedStore && selectedStore.id === productStoreId
+      ? selectedStore
+      : undefined;
   const resolvedStore = storeFromSelected || storeFromList;
   const productStore =
-    (params.store as string) || ((resolvedStore as any)?.name ?? "Store");
+    (params.store as string) || (resolvedStore?.name ?? "Store");
   const productPrice =
     typeof params.price === "number"
       ? (params.price as unknown as number)
@@ -61,36 +93,50 @@ export default function ProductDetailScreen() {
       ? (params.distance as unknown as number)
       : Number(params.distance || 0);
   const productDiscount = (params.discount as string) || "";
-  const productImageUrl = (params.imageUrl as string) || actualProduct?.imageUrl || "";
+  const productImageUrl =
+    (params.imageUrl as string) || actualProduct?.imageUrl || "";
   const productDescription = actualProduct?.description || "";
 
-  const rawLogo = (resolvedStore as any)?.imageUrl as string | undefined;
+  const rawLogo = resolvedStore?.imageUrl ?? undefined;
   const logoUrl = (() => {
     if (!rawLogo) return undefined;
     if (/^https?:\/\//i.test(rawLogo)) return rawLogo;
-    if (rawLogo.startsWith('/')) return `${env.API_BASE_URL}${rawLogo}`;
+    if (rawLogo.startsWith("/")) return `${env.API_BASE_URL}${rawLogo}`;
     return `${env.API_BASE_URL}/files/${rawLogo}`;
   })();
 
   // Compute store banner for this product's store (used in header)
-  const rawBanner = (resolvedStore as any)?.bannerUrl as string | undefined;
+  const rawBanner = resolvedStore?.bannerUrl ?? undefined;
   const bannerUrl = (() => {
     if (!rawBanner) return undefined;
     if (/^https?:\/\//i.test(rawBanner)) return rawBanner;
-    if (rawBanner.startsWith('/')) return `${env.API_BASE_URL}${rawBanner}`;
+    if (rawBanner.startsWith("/")) return `${env.API_BASE_URL}${rawBanner}`;
     return `${env.API_BASE_URL}/files/${rawBanner}`;
   })();
   // If this product exists but was disabled by administrators, hide details from consumers
-  if (actualProduct && (actualProduct as any)?.isActive === false) {
+  if (actualProduct && actualProduct.isActive === false) {
     return (
       <SafeAreaView style={styles.safeArea}>
         <StatusBar barStyle="dark-content" backgroundColor="#fff" />
-        <View style={[styles.scrollViewContent, { alignItems: "center", justifyContent: "center" }]}>
-          <Text style={{ fontSize: 18, fontWeight: "700", color: "#B91C1C", marginBottom: 8 }}>
+        <View
+          style={[
+            styles.scrollViewContent,
+            { alignItems: "center", justifyContent: "center" },
+          ]}
+        >
+          <Text
+            style={{
+              fontSize: 18,
+              fontWeight: "700",
+              color: "#B91C1C",
+              marginBottom: 8,
+            }}
+          >
             This product is not available
           </Text>
           <Text style={{ fontSize: 14, color: "#6B7280", textAlign: "center" }}>
-            This item has been disabled by the store administrators and is currently hidden from shoppers.
+            This item has been disabled by the store administrators and is
+            currently hidden from shoppers.
           </Text>
         </View>
       </SafeAreaView>
@@ -157,7 +203,6 @@ const styles = StyleSheet.create({
 });
 
 // Location Card (inline)
-const screen = Dimensions.get("window");
 function LocationCard({
   storeName,
   storeId,
@@ -170,36 +215,63 @@ function LocationCard({
   const {
     state: { stores, selectedStore },
   } = useStore();
-  const store = stores.find((s: any) => s.id === storeId) || (selectedStore && selectedStore.id === storeId ? selectedStore : undefined);
-  const latitude = (store as any)?.latitude;
-  const longitude = (store as any)?.longitude;
-  const address = (store as any)?.address || "";
-  const [region, setRegion] = React.useState<any | null>(null);
+  const store =
+    stores.find((s: Store) => s.id === storeId) ||
+    (selectedStore && selectedStore.id === storeId ? selectedStore : undefined);
+  const latitude = store?.latitude ?? null;
+  const longitude = store?.longitude ?? null;
+  const address = store?.address || "";
+  const [region, setRegion] = React.useState<{
+    latitude: number;
+    longitude: number;
+    latitudeDelta: number;
+    longitudeDelta: number;
+  } | null>(null);
 
   React.useEffect(() => {
     (async () => {
       try {
         const { status } = await Location.requestForegroundPermissionsAsync();
-        if (status === "granted" && typeof latitude === 'number' && typeof longitude === 'number') {
-          const pos = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+        if (
+          status === "granted" &&
+          typeof latitude === "number" &&
+          typeof longitude === "number"
+        ) {
+          const pos = await Location.getCurrentPositionAsync({
+            accuracy: Location.Accuracy.Balanced,
+          });
           setRegion({
             latitude: latitude,
             longitude: longitude,
             latitudeDelta: Math.abs(latitude - pos.coords.latitude) + 0.02,
             longitudeDelta: Math.abs(longitude - pos.coords.longitude) + 0.02,
           });
-        } else if (typeof latitude === 'number' && typeof longitude === 'number') {
-          setRegion({ latitude, longitude, latitudeDelta: 0.02, longitudeDelta: 0.02 });
+        } else if (
+          typeof latitude === "number" &&
+          typeof longitude === "number"
+        ) {
+          setRegion({
+            latitude,
+            longitude,
+            latitudeDelta: 0.02,
+            longitudeDelta: 0.02,
+          });
         }
       } catch {}
     })();
   }, [latitude, longitude]);
 
   const openExternalDirections = () => {
-    if (typeof latitude === 'number' && typeof longitude === 'number') {
-      Linking.openURL(`https://www.google.com/maps/dir/?api=1&destination=${latitude},${longitude}`);
+    if (typeof latitude === "number" && typeof longitude === "number") {
+      Linking.openURL(
+        `https://www.google.com/maps/dir/?api=1&destination=${latitude},${longitude}`
+      );
     } else if (address) {
-      Linking.openURL(`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(address)}`);
+      Linking.openURL(
+        `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(
+          address
+        )}`
+      );
     } else {
       onNavigate();
     }
@@ -211,12 +283,19 @@ function LocationCard({
       <View style={locStyles.card}>
         {region ? (
           <MapView style={locStyles.mapImage} initialRegion={region}>
-            {typeof latitude === 'number' && typeof longitude === 'number' && (
-              <Marker coordinate={{ latitude, longitude }} title={storeName} description={address} />
+            {typeof latitude === "number" && typeof longitude === "number" && (
+              <Marker
+                coordinate={{ latitude, longitude }}
+                title={storeName}
+                description={address}
+              />
             )}
           </MapView>
         ) : (
-          <Image source={require("../../assets/images/partial-react-logo.png")} style={locStyles.mapImage} />
+          <Image
+            source={require("../../assets/images/partial-react-logo.png")}
+            style={locStyles.mapImage}
+          />
         )}
         <View style={locStyles.detailsRow}>
           <View style={locStyles.locationDetails}>
@@ -224,8 +303,18 @@ function LocationCard({
             <Text style={locStyles.distance}>Navigate to destination</Text>
           </View>
           <View style={locStyles.buttonContainer}>
-            <TouchableOpacity style={locStyles.navigateButton} activeOpacity={0.85} onPress={openExternalDirections}>
-              <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "center" }}>
+            <TouchableOpacity
+              style={locStyles.navigateButton}
+              activeOpacity={0.85}
+              onPress={openExternalDirections}
+            >
+              <View
+                style={{
+                  flexDirection: "row",
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
                 <Ionicons name="navigate" size={16} color="#ffffff" />
                 <Text style={locStyles.buttonTitle}> Navigate</Text>
               </View>
@@ -277,7 +366,12 @@ const locStyles = StyleSheet.create({
     paddingVertical: 10,
     paddingHorizontal: 16,
   },
-  buttonTitle: { fontSize: 14, fontWeight: "600", color: "#ffffff", marginLeft: 6 },
+  buttonTitle: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#ffffff",
+    marginLeft: 6,
+  },
 });
 
 // Product Card (inline)
@@ -298,22 +392,32 @@ function ProductCard({
   imageUrl?: string;
   description?: string;
 }) {
-  const { state: { activePromotions } } = useStore();
+  const {
+    state: { activePromotions },
+  } = useStore();
   const params = useLocalSearchParams() as Record<string, string | undefined>;
-  const productId = params.productId ? Number(params.productId) : undefined;
+  // Validate productId to ensure it's a valid number (not NaN, not null string, not empty)
+  const productId = (() => {
+    const raw = params.productId;
+    if (!raw || raw === "null" || raw === "undefined" || raw === "") return undefined;
+    const num = Number(raw);
+    return Number.isFinite(num) && num > 0 ? num : undefined;
+  })();
   const [showDescription, setShowDescription] = useState(false);
   const hasDescription = description && description.trim().length > 0;
 
   const computedDiscountedPrice = React.useMemo(() => {
     if (!productId) return undefined;
-    const promo = (activePromotions || []).find((p: any) => p.productId === productId && p.active === true);
+    const promo = (activePromotions || []).find(
+      (p: Promotion) => p.productId === productId && p.active === true
+    );
     if (!promo) return undefined;
     const p = Number(price);
     if (!isFinite(p)) return undefined;
-    const type = String(promo.type || '').toLowerCase();
+    const type = String(promo.type || "").toLowerCase();
     const value = Number(promo.discount || 0);
-    if (type === 'percentage') return Math.max(0, p * (1 - value / 100));
-    if (type === 'fixed') return Math.max(0, p - value);
+    if (type === "percentage") return Math.max(0, p * (1 - value / 100));
+    if (type === "fixed") return Math.max(0, p - value);
     return undefined;
   }, [activePromotions, productId, price]);
 
@@ -349,27 +453,38 @@ function ProductCard({
               <View style={prodStyles.priceRow}>
                 {computedDiscountedPrice !== undefined ? (
                   <>
-                    <Text style={prodStyles.priceOld}>₱ {Number(price).toFixed(2)}</Text>
-                    <Text style={prodStyles.priceNew}>₱ {computedDiscountedPrice.toFixed(2)}</Text>
+                    <Text style={prodStyles.priceOld}>
+                      ₱ {Number(price).toFixed(2)}
+                    </Text>
+                    <Text style={prodStyles.priceNew}>
+                      ₱ {computedDiscountedPrice.toFixed(2)}
+                    </Text>
                   </>
                 ) : (
-                  <Text style={prodStyles.priceNew}>₱ {Number(price).toFixed(2)}</Text>
+                  <Text style={prodStyles.priceNew}>
+                    ₱ {Number(price).toFixed(2)}
+                  </Text>
                 )}
               </View>
               <TouchableOpacity
                 style={[
                   prodStyles.descriptionButton,
-                  !hasDescription && prodStyles.descriptionButtonDisabled
+                  !hasDescription && prodStyles.descriptionButtonDisabled,
                 ]}
                 activeOpacity={0.85}
                 onPress={() => setShowDescription(true)}
                 disabled={!hasDescription}
               >
-                <Text style={[
-                  prodStyles.descriptionButtonTitle,
-                  !hasDescription && prodStyles.descriptionButtonTitleDisabled
-                ]}>
-                  {hasDescription ? "View Description" : "No Description Available"}
+                <Text
+                  style={[
+                    prodStyles.descriptionButtonTitle,
+                    !hasDescription &&
+                      prodStyles.descriptionButtonTitleDisabled,
+                  ]}
+                >
+                  {hasDescription
+                    ? "View Description"
+                    : "No Description Available"}
                 </Text>
               </TouchableOpacity>
             </View>
@@ -489,10 +604,25 @@ const prodStyles = StyleSheet.create({
   descriptionButtonDisabled: {
     backgroundColor: "#E5E7EB",
   },
-  descriptionButtonTitle: { fontSize: 16, fontWeight: "600", color: "#ffffff", textAlign: "center" },
+  descriptionButtonTitle: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#ffffff",
+    textAlign: "center",
+  },
   descriptionButtonTitleDisabled: { color: "#9CA3AF", textAlign: "center" },
-  priceOld: { fontSize: 16, color: "#9CA3AF", textDecorationLine: "line-through", marginRight: 8 },
-  priceNew: { fontSize: 18, fontWeight: "900", color: "#1B6F5D", marginLeft: 8 },
+  priceOld: {
+    fontSize: 16,
+    color: "#9CA3AF",
+    textDecorationLine: "line-through",
+    marginRight: 8,
+  },
+  priceNew: {
+    fontSize: 18,
+    fontWeight: "900",
+    color: "#1B6F5D",
+    marginLeft: 8,
+  },
   // Modal styles
   modalOverlay: {
     flex: 1,
@@ -565,7 +695,13 @@ function StoreHeader({
   onOpenStore?: () => void;
 }) {
   const params = useLocalSearchParams() as Record<string, string | undefined>;
-  const productId = params.productId ? Number(params.productId) : undefined;
+  // Validate productId to ensure it's a valid number (not NaN, not null string, not empty)
+  const productId = (() => {
+    const raw = params.productId;
+    if (!raw || raw === "null" || raw === "undefined" || raw === "") return undefined;
+    const num = Number(raw);
+    return Number.isFinite(num) && num > 0 ? num : undefined;
+  })();
   const { helpers, action } = useBookmarks();
   const isSaved = helpers.isProductBookmarked(productId);
   const toggle = () => {
@@ -574,17 +710,18 @@ function StoreHeader({
       action.removeProductBookmark(productId);
     else action.addProductBookmark(productId);
   };
-  const { state: { stores, selectedStore } } = useStore();
-  const store = stores.find((s: any) => s.id === storeId) || (selectedStore && selectedStore.id === storeId ? selectedStore : undefined);
-  const description = (store as any)?.description || "";
+  const {
+    state: { stores, selectedStore },
+  } = useStore();
+  const store =
+    stores.find((s: Store) => s.id === storeId) ||
+    (selectedStore && selectedStore.id === storeId ? selectedStore : undefined);
+  const description = store?.description || "";
   return (
     <View style={hdrStyles.container}>
       <View style={hdrStyles.bannerWrapper}>
         {bannerUrl ? (
-          <Image
-            source={{ uri: bannerUrl }}
-            style={hdrStyles.bannerImage}
-          />
+          <Image source={{ uri: bannerUrl }} style={hdrStyles.bannerImage} />
         ) : (
           <Image
             source={require("../../assets/images/partial-react-logo.png")}
@@ -596,7 +733,11 @@ function StoreHeader({
         <View style={hdrStyles.logoAndName}>
           <View style={hdrStyles.logoWrapper}>
             <Image
-              source={typeof logoUrl === 'string' && logoUrl.length > 0 ? { uri: logoUrl } : require("../../assets/images/partial-react-logo.png")}
+              source={
+                typeof logoUrl === "string" && logoUrl.length > 0
+                  ? { uri: logoUrl }
+                  : require("../../assets/images/partial-react-logo.png")
+              }
               style={hdrStyles.logoImage}
             />
           </View>

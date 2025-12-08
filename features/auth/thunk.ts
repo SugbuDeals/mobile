@@ -173,17 +173,18 @@ export const login = createAsyncThunk<
     };
     
     return result;
-  } catch (error: any) {
+  } catch (error: unknown) {
     // Extract error message with proper handling
     let errorMessage = "Login failed";
-    const errorStatus = error?.status;
+    const errorStatus = error && typeof error === 'object' && 'status' in error ? (error as { status?: number }).status : undefined;
     
     // Handle ApiError objects (from API client)
     if (error && typeof error === 'object') {
-      if (error.message && typeof error.message === 'string') {
-        errorMessage = error.message;
-      } else if (error.details?.message && typeof error.details.message === 'string') {
-        errorMessage = error.details.message;
+      const errorObj = error as { message?: string; details?: { message?: string } };
+      if (errorObj.message && typeof errorObj.message === 'string') {
+        errorMessage = errorObj.message;
+      } else if (errorObj.details?.message && typeof errorObj.details.message === 'string') {
+        errorMessage = errorObj.details.message;
       }
     } else if (error instanceof Error) {
       errorMessage = error.message;
@@ -203,7 +204,7 @@ export const login = createAsyncThunk<
     console[logLevel](logMessage, {
       message: errorMessage,
       status: errorStatus,
-      hasDetails: !!error?.details,
+      hasDetails: error && typeof error === 'object' && 'details' in error,
       errorType: error instanceof Error ? 'Error' : typeof error,
       ...(process.env.NODE_ENV === 'development' && {
         errorKeys: error && typeof error === 'object' ? Object.keys(error) : undefined,
@@ -221,15 +222,16 @@ export const login = createAsyncThunk<
  * Fetch user details by id using the current access token
  */
 export const fetchUserById = createAsyncThunk<
-  any,
+  LoginResponse['user'],
   number,
   { rejectValue: LoginError; state: RootState }
 >("auth/fetchUserById", async (id, { rejectWithValue }) => {
   try {
-    return await usersApi.findUserById(id);
-  } catch (error: any) {
+    const user = await usersApi.findUserById(id);
+    return user as LoginResponse['user'];
+  } catch (error: unknown) {
     return rejectWithValue({
-      message: error?.message || "Failed to fetch user",
+      message: error instanceof Error ? error.message : "Failed to fetch user",
     });
   }
 });
@@ -238,15 +240,16 @@ export const fetchUserById = createAsyncThunk<
  * Update user details by id (name/email)
  */
 export const updateUser = createAsyncThunk<
-  any,
+  LoginResponse['user'],
   { id: number; data: { name?: string; email?: string; imageUrl?: string | null } },
   { rejectValue: LoginError; state: RootState }
 >("auth/updateUser", async ({ id, data }, { rejectWithValue }) => {
   try {
-    return await usersApi.updateUser(id, data);
-  } catch (error: any) {
+    const user = await usersApi.updateUser(id, data);
+    return user as LoginResponse['user'];
+  } catch (error: unknown) {
     return rejectWithValue({
-      message: error?.message || "Failed to update user",
+      message: error instanceof Error ? error.message : "Failed to update user",
     });
   }
 });
@@ -396,21 +399,22 @@ export const register = createAsyncThunk<
     };
     
     return result;
-  } catch (error: any) {
+  } catch (error: unknown) {
     // Extract error message with proper handling
     let errorMessage = "Registration failed";
-    const errorStatus = error?.status;
+    const errorStatus = error && typeof error === 'object' && 'status' in error ? (error as { status?: number }).status : undefined;
     
     // Handle ApiError objects (from API client)
     if (error && typeof error === 'object') {
-      if (error.message && typeof error.message === 'string') {
-        errorMessage = error.message;
-      } else if (error.details?.message) {
+      const errorObj = error as { message?: string; details?: { message?: string | string[] } };
+      if (errorObj.message && typeof errorObj.message === 'string') {
+        errorMessage = errorObj.message;
+      } else if (errorObj.details?.message) {
         // Handle array messages (validation errors from server)
-        if (Array.isArray(error.details.message)) {
-          errorMessage = error.details.message.join('\n');
-        } else if (typeof error.details.message === 'string') {
-          errorMessage = error.details.message;
+        if (Array.isArray(errorObj.details.message)) {
+          errorMessage = errorObj.details.message.join('\n');
+        } else if (typeof errorObj.details.message === 'string') {
+          errorMessage = errorObj.details.message;
         }
       }
     } else if (error instanceof Error) {
@@ -431,7 +435,7 @@ export const register = createAsyncThunk<
     console[logLevel](logMessage, {
       message: errorMessage,
       status: errorStatus,
-      hasDetails: !!error?.details,
+      hasDetails: error && typeof error === 'object' && 'details' in error,
       errorType: error instanceof Error ? 'Error' : typeof error,
       ...(process.env.NODE_ENV === 'development' && {
         errorKeys: error && typeof error === 'object' ? Object.keys(error) : undefined,
@@ -456,9 +460,9 @@ export const deleteUser = createAsyncThunk<
   try {
     await usersApi.deleteUser(id);
     return { success: true };
-  } catch (error: any) {
+  } catch (error: unknown) {
     return rejectWithValue({
-      message: error?.message || "Failed to delete user account",
+      message: error instanceof Error ? error.message : "Failed to delete user account",
     });
   }
 });
@@ -467,15 +471,16 @@ export const deleteUser = createAsyncThunk<
  * Fetch all users with optional filters
  */
 export const fetchAllUsers = createAsyncThunk<
-  any[],
+  LoginResponse['user'][],
   { name?: string; email?: string; skip?: number; take?: number } | void,
   { rejectValue: LoginError; state: RootState }
 >("auth/fetchAllUsers", async (params, { rejectWithValue }) => {
   try {
-    return await usersApi.findUsers(params || undefined);
-  } catch (error: any) {
+    const users = await usersApi.findUsers(params || undefined);
+    return users as LoginResponse['user'][];
+  } catch (error: unknown) {
     return rejectWithValue({
-      message: error?.message || "Failed to fetch users",
+      message: error instanceof Error ? error.message : "Failed to fetch users",
     });
   }
 });
@@ -491,9 +496,9 @@ export const deleteUserByAdmin = createAsyncThunk<
   try {
     await usersApi.deleteUser(id);
     return { success: true };
-  } catch (error: any) {
+  } catch (error: unknown) {
     return rejectWithValue({
-      message: error?.message || "Failed to delete user",
+      message: error instanceof Error ? error.message : "Failed to delete user",
     });
   }
 });
@@ -502,15 +507,16 @@ export const deleteUserByAdmin = createAsyncThunk<
  * Approve retailer account (admin only)
  */
 export const approveRetailer = createAsyncThunk<
-  any,
+  LoginResponse['user'],
   number,
   { rejectValue: LoginError; state: RootState }
 >("auth/approveRetailer", async (id, { rejectWithValue }) => {
   try {
-    return await usersApi.approveRetailer(id);
-  } catch (error: any) {
+    const user = await usersApi.approveRetailer(id);
+    return user as LoginResponse['user'];
+  } catch (error: unknown) {
     return rejectWithValue({
-      message: error?.message || "Failed to approve retailer",
+      message: error instanceof Error ? error.message : "Failed to approve retailer",
     });
   }
 });

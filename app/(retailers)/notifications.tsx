@@ -1,4 +1,5 @@
 import { useNotifications } from "@/features/notifications";
+import type { Notification as NotificationType } from "@/features/notifications/types";
 import {
   formatNotificationTime,
   getNotificationColor,
@@ -39,7 +40,7 @@ export default function Notifications() {
     action.getUnreadCount();
   };
 
-  const handleNotificationPress = (notification: any) => {
+  const handleNotificationPress = (notification: NotificationType) => {
     // Mark as read when pressed
     if (!notification.read) {
       handleMarkAsRead(notification.id);

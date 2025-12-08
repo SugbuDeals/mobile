@@ -245,5 +245,3 @@ export function useStore() {
   };
 }
 
-// Store management hook
-export { useStoreManagement } from "./storeManagement";

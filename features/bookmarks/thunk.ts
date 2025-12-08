@@ -21,9 +21,9 @@ export const listStoreBookmarks = createAsyncThunk<
         storeId: item.storeId,
         name: item.store?.name,
       }));
-    } catch (error: any) {
+    } catch (error: unknown) {
       return rejectWithValue({
-        message: error?.message || "Failed to list store bookmarks",
+        message: error instanceof Error ? error.message : "Failed to list store bookmarks",
       });
     }
   }
@@ -47,9 +47,9 @@ export const listProductBookmarks = createAsyncThunk<
         productId: item.productId,
         name: item.product?.name,
       }));
-    } catch (error: any) {
+    } catch (error: unknown) {
       return rejectWithValue({
-        message: error?.message || "Failed to list product bookmarks",
+        message: error instanceof Error ? error.message : "Failed to list product bookmarks",
       });
     }
   }
@@ -63,9 +63,9 @@ export const bookmarkStore = createAsyncThunk<
   try {
     await bookmarksApi.bookmarkStore({ storeId });
     return { storeId };
-  } catch (error: any) {
+  } catch (error: unknown) {
     return rejectWithValue({
-      message: error?.message || "Failed to bookmark store",
+      message: error instanceof Error ? error.message : "Failed to bookmark store",
     });
   }
 });
@@ -78,9 +78,9 @@ export const unbookmarkStore = createAsyncThunk<
   try {
     await bookmarksApi.unbookmarkStore({ storeId });
     return { storeId };
-  } catch (error: any) {
+  } catch (error: unknown) {
     return rejectWithValue({
-      message: error?.message || "Failed to remove store bookmark",
+      message: error instanceof Error ? error.message : "Failed to remove store bookmark",
     });
   }
 });
@@ -93,9 +93,9 @@ export const bookmarkProduct = createAsyncThunk<
   try {
     await bookmarksApi.bookmarkProduct({ productId });
     return { productId };
-  } catch (error: any) {
+  } catch (error: unknown) {
     return rejectWithValue({
-      message: error?.message || "Failed to bookmark product",
+      message: error instanceof Error ? error.message : "Failed to bookmark product",
     });
   }
 });
@@ -108,9 +108,9 @@ export const unbookmarkProduct = createAsyncThunk<
   try {
     await bookmarksApi.unbookmarkProduct({ productId });
     return { productId };
-  } catch (error: any) {
+  } catch (error: unknown) {
     return rejectWithValue({
-      message: error?.message || "Failed to remove product bookmark",
+      message: error instanceof Error ? error.message : "Failed to remove product bookmark",
     });
   }
 });

@@ -19,6 +19,7 @@ export * from "./subscriptions";
 
 // Hooks
 export * from "./hooks";
+export { useStoreManagement } from "./storeManagement";
 
 // Types (re-export from domains for convenience)
 export type { Store, CreateStoreDTO, UpdateStoreDTO } from "./stores/types";

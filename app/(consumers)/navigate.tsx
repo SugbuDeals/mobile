@@ -3,18 +3,15 @@ import * as Location from "expo-location";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import React from "react";
 import {
-    Dimensions,
-    Linking,
-    SafeAreaView,
-    StatusBar,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View
+  Linking,
+  SafeAreaView,
+  StatusBar,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View
 } from "react-native";
 import MapView, { Marker } from "react-native-maps";
-
-const screen = Dimensions.get("window");
 
 export default function NavigateStore() {
   const router = useRouter();
@@ -25,7 +22,12 @@ export default function NavigateStore() {
   const latParam = params.latitude ? Number(params.latitude) : undefined;
   const lngParam = params.longitude ? Number(params.longitude) : undefined;
 
-  const [region, setRegion] = React.useState<any | null>(null);
+  const [region, setRegion] = React.useState<{
+    latitude: number;
+    longitude: number;
+    latitudeDelta: number;
+    longitudeDelta: number;
+  } | null>(null);
   React.useEffect(() => {
     (async () => {
       try {

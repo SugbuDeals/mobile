@@ -121,23 +121,23 @@ export default function Promotions() {
     });
   };
 
-  const handleStartDateChange = (event: any, selectedDate?: Date) => {
+  const handleStartDateChange = (_event: unknown, selectedDate?: Date) => {
     setShowStartDatePicker(false);
     if (selectedDate) {
       setStartDate(selectedDate);
     }
   };
 
-  const handleEndDateChange = (event: any, selectedDate?: Date) => {
+  const handleEndDateChange = (_event: unknown, selectedDate?: Date) => {
     setShowEndDatePicker(false);
     if (selectedDate) {
       setEndDate(selectedDate);
     }
   };
 
-  const makeGroupKey = (p: any) => `${p.title || ''}|${p.startsAt || ''}|${p.endsAt || ''}`;
+  const makeGroupKey = (p: Promotion) => `${p.title || ''}|${p.startsAt || ''}|${p.endsAt || ''}`;
 
-  const beginEdit = (groupSample: any) => {
+  const beginEdit = (groupSample: Promotion) => {
     const key = makeGroupKey(groupSample);
     setEditingKey(key);
     setEditForm({
@@ -153,12 +153,12 @@ export default function Promotions() {
     setEditingKey(null);
   };
 
-  const handleEditStartChange = (event: any, selectedDate?: Date) => {
+  const handleEditStartChange = (_event: unknown, selectedDate?: Date) => {
     setShowEditStartPicker(false);
     if (selectedDate) setEditForm(prev => ({ ...prev, startsAt: selectedDate }));
   };
 
-  const handleEditEndChange = (event: any, selectedDate?: Date) => {
+  const handleEditEndChange = (_event: unknown, selectedDate?: Date) => {
     setShowEditEndPicker(false);
     if (selectedDate) setEditForm(prev => ({ ...prev, endsAt: selectedDate }));
   };
@@ -182,9 +182,9 @@ export default function Promotions() {
     }
     try {
       // Update all promotions in the same group (same title/period)
-      const groupPromos = activePromotions.filter((p: any) => makeGroupKey(p) === editingKey);
+      const groupPromos = activePromotions.filter((p: Promotion) => makeGroupKey(p) === editingKey);
       await Promise.all(
-        groupPromos.map((p: any) =>
+        groupPromos.map((p: Promotion) =>
           updatePromotion({
             id: p.id,
             title: editForm.title,
@@ -406,10 +406,10 @@ export default function Promotions() {
       setDescription("");
       
       alert("Promotion created successfully!");
-    } catch (error: any) {
-      console.error("Error creating promotion:", error);
-      const errorMessage = error?.message || "Failed to create promotion. Please try again.";
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : "Failed to create promotion. Please try again.";
       alert(errorMessage);
+      console.error("Error creating promotion:", error);
     } finally {
       setIsCreating(false);
     }

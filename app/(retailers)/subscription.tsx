@@ -52,8 +52,9 @@ export default function Subscription() {
       }
       
       Alert.alert("Success", "Subscription joined successfully!");
-    } catch (error: any) {
-      Alert.alert("Error", error?.message || "Failed to join subscription. Please try again.");
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : "Failed to join subscription. Please try again.";
+      Alert.alert("Error", errorMessage);
     } finally {
       setIsProcessing(false);
     }
@@ -70,8 +71,9 @@ export default function Subscription() {
       }
       
       Alert.alert("Success", "Subscription updated successfully!");
-    } catch (error: any) {
-      Alert.alert("Error", error?.message || "Failed to update subscription. Please try again.");
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : "Failed to update subscription. Please try again.";
+      Alert.alert("Error", errorMessage);
     } finally {
       setIsProcessing(false);
     }

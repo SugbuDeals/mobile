@@ -1,3 +1,4 @@
+import TextField from "@/components/TextField";
 import { useLogin } from "@/features/auth";
 import { useCatalog } from "@/features/catalog";
 import { useStore } from "@/features/store";
@@ -15,7 +16,6 @@ import {
     StatusBar,
     StyleSheet,
     Text,
-    TextInput,
     TouchableOpacity,
     View
 } from "react-native";
@@ -66,10 +66,10 @@ export default function EditProduct() {
         // First try to find the product in the current products list
         if (userStore?.id && products.length === 0) {
           await findProducts({ storeId: userStore.id });
-        } else if (user && (user as any).id && !userStore?.id && products.length === 0) {
+        } else if (user && user.id && !userStore?.id && products.length === 0) {
           // Fallback: if userStore is not available yet, try using user ID directly
           console.log("Edit product - userStore not available, using user ID as fallback");
-          await findProducts({ storeId: Number((user as any).id) });
+          await findProducts({ storeId: Number(user.id) });
         }
         
         // Find the product in the current products list from Redux store
@@ -82,7 +82,7 @@ export default function EditProduct() {
           setPrice(productToEdit.price?.toString() || "");
           setStock(productToEdit.stock?.toString() || "");
           setIsActive(productToEdit.isActive !== false);
-          const categoryId = (productToEdit as any)?.categoryId ?? (productToEdit as any)?.category?.id ?? null;
+          const categoryId = productToEdit.categoryId ?? null;
           setSelectedCategoryId(typeof categoryId === "number" ? categoryId : categoryId ? Number(categoryId) : null);
           // Set existing image URL if available
           if (productToEdit.imageUrl) {
@@ -122,7 +122,7 @@ export default function EditProduct() {
           setPrice(updatedProduct.price?.toString() || "");
           setStock(updatedProduct.stock?.toString() || "");
           setIsActive(updatedProduct.isActive !== false);
-          const categoryId = (updatedProduct as any)?.categoryId ?? (updatedProduct as any)?.category?.id ?? null;
+          const categoryId = updatedProduct.categoryId ?? null;
           setSelectedCategoryId(typeof categoryId === "number" ? categoryId : categoryId ? Number(categoryId) : null);
           if (updatedProduct.imageUrl) {
             setImageUrl(updatedProduct.imageUrl);
@@ -304,56 +304,43 @@ export default function EditProduct() {
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
         <View style={styles.formCard}>
           {/* Product Name */}
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>Product Name</Text>
-            <TextInput
-              style={styles.textInput}
-              placeholder="Enter product name"
-              value={productName}
-              onChangeText={setProductName}
-              placeholderTextColor="#9CA3AF"
-            />
-          </View>
+          <TextField
+            label="Product Name"
+            placeholder="Enter product name"
+            value={productName}
+            onChangeText={setProductName}
+          />
 
           {/* Description */}
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>Description</Text>
-            <TextInput
-              style={[styles.textInput, styles.multilineInput]}
-              placeholder="Enter product description"
-              value={description}
-              onChangeText={setDescription}
-              placeholderTextColor="#9CA3AF"
-              multiline
-              numberOfLines={3}
-            />
-          </View>
+          <TextField
+            label="Description"
+            placeholder="Enter product description"
+            value={description}
+            onChangeText={setDescription}
+            multiline
+            numberOfLines={3}
+            style={{ minHeight: 80 }}
+          />
 
           {/* Price & Stock */}
-          <View style={styles.inputGroup}>
-            <View style={styles.rowContainer}>
-              <View style={styles.halfInput}>
-                <Text style={styles.label}>Price</Text>
-                <TextInput
-                  style={styles.textInput}
-                  placeholder="Enter price"
-                  value={price}
-                  onChangeText={setPrice}
-                  placeholderTextColor="#9CA3AF"
-                  keyboardType="numeric"
-                />
-              </View>
-              <View style={styles.halfInput}>
-                <Text style={styles.label}>Stock Quantity</Text>
-                <TextInput
-                  style={styles.textInput}
-                  placeholder="Enter quantity"
-                  value={stock}
-                  onChangeText={setStock}
-                  placeholderTextColor="#9CA3AF"
-                  keyboardType="numeric"
-                />
-              </View>
+          <View style={styles.rowContainer}>
+            <View style={styles.halfInput}>
+              <TextField
+                label="Price"
+                placeholder="Enter price"
+                value={price}
+                onChangeText={setPrice}
+                keyboardType="numeric"
+              />
+            </View>
+            <View style={styles.halfInput}>
+              <TextField
+                label="Stock Quantity"
+                placeholder="Enter quantity"
+                value={stock}
+                onChangeText={setStock}
+                keyboardType="numeric"
+              />
             </View>
           </View>
 

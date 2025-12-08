@@ -3,8 +3,8 @@ import { StyleSheet, ScrollView, Text, TouchableOpacity, View, Image } from "rea
 import { useRouter } from "expo-router";
 import { ActivityIndicator } from "react-native";
 import { colors, spacing, borderRadius, typography } from "@/styles/theme";
-import { SectionHeader } from "@/components/shared";
-import { EmptyState } from "@/components/shared";
+import SectionHeader from "@/components/SectionHeader";
+import EmptyState from "@/components/EmptyState";
 import type { Store } from "@/features/store/stores/types";
 
 interface NearbyStoresProps {

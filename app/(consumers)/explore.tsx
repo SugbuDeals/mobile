@@ -1,6 +1,17 @@
+import {
+  InsightsPanel,
+  QueryHistoryModal,
+  RecommendationCard,
+  RecommendationTabs,
+  SearchPrompt,
+  type RecommendationTab,
+} from "@/components/consumers/explore";
 import { useStore } from "@/features/store";
+import { useModal } from "@/hooks/useModal";
+import { useQueryHistory } from "@/hooks/useQueryHistory";
+import { useRecommendations } from "@/hooks/useRecommendations";
+import { useTabs } from "@/hooks/useTabs";
 import Ionicons from "@expo/vector-icons/Ionicons";
-import { useRouter } from "expo-router";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
@@ -10,18 +21,20 @@ import {
   TouchableOpacity,
   View
 } from "react-native";
-import { useRecommendations } from "@/hooks/useRecommendations";
-import { useTabs } from "@/hooks/useTabs";
-import { useModal } from "@/hooks/useModal";
-import { useQueryHistory } from "@/hooks/useQueryHistory";
-import {
-  SearchPrompt,
-  InsightsPanel,
-  RecommendationTabs,
-  RecommendationCard,
-  QueryHistoryModal,
-  type RecommendationTab,
-} from "@/components/consumers/explore";
+
+interface RecommendationItem {
+  id?: number;
+  name?: string;
+  title?: string;
+  price?: number | string;
+  discount?: number;
+  imageUrl?: string;
+  storeId?: number;
+  store?: { id?: number; name?: string };
+  storeName?: string;
+  description?: string;
+  distance?: number;
+}
 
 const DEFAULT_DISTANCE_KM = 1.3;
 
@@ -30,7 +43,6 @@ export default function Explore() {
   const [insightsExpanded, setInsightsExpanded] = useState(false);
   const [isEditingPrompt, setIsEditingPrompt] = useState(true);
   const [lastSubmittedQuery, setLastSubmittedQuery] = useState<string | null>(null);
-  const router = useRouter();
   const {
     state: { nearbyStores },
   } = useStore();
@@ -43,7 +55,7 @@ export default function Explore() {
 
   const { aiResponse, insightsSummary, recommendations, highlight, elaboration } = response;
 
-  const normalizeDistance = useCallback((raw: any) => {
+  const normalizeDistance = useCallback((raw: unknown) => {
     if (typeof raw === "number" && Number.isFinite(raw)) return raw;
     if (typeof raw === "string") {
       const parsed = parseFloat(raw);
@@ -52,17 +64,18 @@ export default function Explore() {
     return null;
   }, []);
 
-  const extractDistanceFromItem = useCallback((item: any) => {
+  const extractDistanceFromItem = useCallback((item: Record<string, unknown> | RecommendationItem) => {
     if (!item) return null;
+    const itemRecord = item as Record<string, unknown>;
     const candidates = [
-      item.distance,
-      item.distanceKm,
-      item.distance_km,
-      item.storeDistance,
-      item.store_distance,
-      item.store?.distance,
-      item.store?.distanceKm,
-      item.store?.distance_km,
+      itemRecord.distance,
+      itemRecord.distanceKm,
+      itemRecord.distance_km,
+      itemRecord.storeDistance,
+      itemRecord.store_distance,
+      (itemRecord.store as Record<string, unknown>)?.distance,
+      (itemRecord.store as Record<string, unknown>)?.distanceKm,
+      (itemRecord.store as Record<string, unknown>)?.distance_km,
     ];
     for (const candidate of candidates) {
       const normalized = normalizeDistance(candidate);
@@ -74,7 +87,7 @@ export default function Explore() {
   const storeDistanceMap = useMemo(() => {
     const map = new Map<number, number>();
     (nearbyStores || []).forEach((store) => {
-      const normalized = normalizeDistance((store as any)?.distance);
+      const normalized = normalizeDistance((store as { distance?: unknown })?.distance);
       if (normalized != null && typeof store?.id === "number") {
         map.set(store.id, normalized);
       }
@@ -83,14 +96,14 @@ export default function Explore() {
   }, [nearbyStores, normalizeDistance]);
 
   const enrichDistance = useCallback(
-    (item: any) => {
+    (item: RecommendationItem): RecommendationItem => {
       if (!item) return item;
-      const inferred = extractDistanceFromItem(item);
+      const inferred = extractDistanceFromItem(item as Record<string, unknown>);
       if (inferred != null) return { ...item, distance: inferred };
 
       const storeId = item?.storeId || item?.store?.id;
-      if (storeId && storeDistanceMap.has(storeId)) {
-        return { ...item, distance: storeDistanceMap.get(storeId) };
+      if (storeId && typeof storeId === 'number' && storeDistanceMap.has(storeId)) {
+        return { ...item, distance: storeDistanceMap.get(storeId) ?? undefined };
       }
 
       return item;

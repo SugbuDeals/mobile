@@ -1,4 +1,5 @@
 import { useLogin } from "@/features/auth";
+import type { UserResponseDto } from "@/features/auth/types";
 import { logout } from "@/features/auth/slice";
 import { fetchUserById } from "@/features/auth/thunk";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
@@ -23,38 +24,50 @@ import Toggle from "../../components/Toggle";
 export default function Profile() {
   const dispatch = useAppDispatch();
   const { user, accessToken } = useAppSelector((state) => state.auth);
-  const { action: { deleteUser } } = useLogin();
+  const {
+    action: { deleteUser },
+  } = useLogin();
 
-  const defaultName = (user as any)?.fullname || (user as any)?.name || "";
-  const defaultEmail = (user as any)?.email || "";
+  const defaultName = user?.name || "";
+  const defaultEmail = user?.email || "";
 
   const [name, setName] = useState(defaultName);
   const [email, setEmail] = useState(defaultEmail);
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
   const [uploadingImage, setUploadingImage] = useState(false);
-  const currentImageUrl = (user as any)?.imageUrl as string | undefined;
+  const currentImageUrl = user?.imageUrl ?? undefined;
   const normalizedInitialUrl =
     typeof currentImageUrl === "string" && currentImageUrl.length
-      ? (currentImageUrl.startsWith("http") ? currentImageUrl : getFileUrl(currentImageUrl))
+      ? currentImageUrl.startsWith("http")
+        ? currentImageUrl
+        : getFileUrl(currentImageUrl)
       : undefined;
-  const [imageUrl, setImageUrl] = useState<string | undefined>(normalizedInitialUrl);
+  const [imageUrl, setImageUrl] = useState<string | undefined>(
+    normalizedInitialUrl
+  );
   const [isEditing, setIsEditing] = useState(false);
 
   useEffect(() => {
-    if (user && (user as any).id) {
-      dispatch(fetchUserById(Number((user as any).id)));
+    if (user && user.id) {
+      dispatch(fetchUserById(Number(user.id)));
     }
   }, [dispatch, user]);
 
   const handleSave = async () => {
     try {
-      if (!user || !(user as any).id) return;
-      const id = Number((user as any).id);
+      if (!user || !user.id) return;
+      const id = Number(user.id);
       await dispatch(
         require("@/features/auth/thunk").updateUser({
           id,
-          data: { name, email, ...(typeof imageUrl === "string" && imageUrl.length ? { imageUrl } : {}) },
-        }) as any
+          data: {
+            name,
+            email,
+            ...(typeof imageUrl === "string" && imageUrl.length
+              ? { imageUrl }
+              : {}),
+          },
+        })
       ).unwrap();
       Alert.alert("Success", "Profile updated successfully!");
       setIsEditing(false);
@@ -65,33 +78,43 @@ export default function Profile() {
 
   const pickProfileImage = async () => {
     try {
-      const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
-      if (permission.status !== 'granted') {
-        Alert.alert('Permission required', 'Please allow access to your photos.');
+      const permission =
+        await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (permission.status !== "granted") {
+        Alert.alert(
+          "Permission required",
+          "Please allow access to your photos."
+        );
         return;
       }
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ImagePicker.MediaTypeOptions.Images,
         allowsEditing: true,
-        aspect: [1,1],
+        aspect: [1, 1],
         quality: 0.8,
       });
       if (result.canceled || !result.assets?.[0]?.uri) return;
       // Immediately show local preview
       setImageUrl(result.assets[0].uri);
       if (!accessToken) {
-        Alert.alert('Error', 'You must be logged in to upload an image.');
+        Alert.alert("Error", "You must be logged in to upload an image.");
         return;
       }
       setUploadingImage(true);
       const upload = await uploadFile(result.assets[0].uri, accessToken);
-      const uploadedUrl = upload.url || (upload.filename ? getFileUrl(upload.filename) : undefined);
+      const uploadedUrl =
+        upload.url ||
+        (upload.filename ? getFileUrl(upload.filename) : undefined);
       if (uploadedUrl) {
         setImageUrl(uploadedUrl);
       }
-      Alert.alert('Success', 'Profile photo uploaded. Remember to Save Changes.');
-    } catch (err: any) {
-      Alert.alert('Upload Error', err?.message || 'Failed to upload image');
+      Alert.alert(
+        "Success",
+        "Profile photo uploaded. Remember to Save Changes."
+      );
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : "Failed to upload image";
+      Alert.alert("Upload Error", errorMessage);
     } finally {
       setUploadingImage(false);
     }
@@ -139,13 +162,19 @@ export default function Profile() {
                   style: "destructive",
                   onPress: async () => {
                     try {
-                      if (!user || !(user as any).id) return;
-                      const id = Number((user as any).id);
+                      if (!user || !user.id) return;
+                      const id = Number(user.id);
                       await deleteUser(id).unwrap();
-                      Alert.alert("Account Deleted", "Your account has been permanently deleted.");
+                      Alert.alert(
+                        "Account Deleted",
+                        "Your account has been permanently deleted."
+                      );
                       router.replace("/auth/login");
-                    } catch (error: any) {
-                      Alert.alert("Error", error?.message || "Failed to delete account. Please try again.");
+                    } catch (error: unknown) {
+                      const errorMessage = error instanceof Error 
+                        ? error.message 
+                        : "Failed to delete account. Please try again.";
+                      Alert.alert("Error", errorMessage);
                     }
                   },
                 },
@@ -176,23 +205,36 @@ export default function Profile() {
           <View style={styles.profilePictureRow}>
             <View style={styles.profilePicture}>
               {imageUrl ? (
-                <Image source={{ uri: imageUrl }} style={styles.profilePictureImage} />
+                <Image
+                  source={{ uri: imageUrl }}
+                  style={styles.profilePictureImage}
+                />
               ) : (
                 <Ionicons name="person" size={72} color="#277874" />
               )}
             </View>
             <TouchableOpacity
-              style={[styles.editPhotoButton, !isEditing && styles.editPhotoButtonDisabled]}
+              style={[
+                styles.editPhotoButton,
+                !isEditing && styles.editPhotoButtonDisabled,
+              ]}
               onPress={() => {
                 if (!isEditing) {
-                  Alert.alert("Edit required", "Tap Edit Profile first to change your photo.");
+                  Alert.alert(
+                    "Edit required",
+                    "Tap Edit Profile first to change your photo."
+                  );
                   return;
                 }
                 pickProfileImage();
               }}
               disabled={uploadingImage || !isEditing}
             >
-              <Ionicons name={uploadingImage ? "time" : "add"} size={16} color="#ffffff" />
+              <Ionicons
+                name={uploadingImage ? "time" : "add"}
+                size={16}
+                color="#ffffff"
+              />
               <Text style={styles.editPhotoButtonText}>
                 {uploadingImage ? "Uploading..." : "Update"}
               </Text>
@@ -211,7 +253,9 @@ export default function Profile() {
               placeholder="e.g. Juan Dela Cruz"
               value={name}
               onChangeText={setName}
-              iconComponent={<Ionicons name="person-outline" size={18} color="#277874" />}
+              iconComponent={
+                <Ionicons name="person-outline" size={18} color="#277874" />
+              }
               editable={isEditing}
             />
 
@@ -219,7 +263,9 @@ export default function Profile() {
               placeholder="e.g. juandelacruz@email.com"
               value={email}
               onChangeText={setEmail}
-              iconComponent={<Ionicons name="mail-outline" size={18} color="#277874" />}
+              iconComponent={
+                <Ionicons name="mail-outline" size={18} color="#277874" />
+              }
               editable={isEditing}
               keyboardType="email-address"
             />
@@ -227,15 +273,27 @@ export default function Profile() {
 
           <View style={styles.inlineActions}>
             {!isEditing ? (
-              <Button variant="success" style={styles.inlineActionButton} onPress={handleEditProfile}>
+              <Button
+                variant="success"
+                style={styles.inlineActionButton}
+                onPress={handleEditProfile}
+              >
                 <Text style={styles.buttonTextLight}>Edit Details</Text>
               </Button>
             ) : (
               <>
-                <Button variant="outline" style={styles.inlineActionButton} onPress={handleCancel}>
+                <Button
+                  variant="outline"
+                  style={styles.inlineActionButton}
+                  onPress={handleCancel}
+                >
                   <Text style={styles.buttonTextDark}>Cancel</Text>
                 </Button>
-                <Button variant="success" style={styles.inlineActionButton} onPress={handleSave}>
+                <Button
+                  variant="success"
+                  style={styles.inlineActionButton}
+                  onPress={handleSave}
+                >
                   <Text style={styles.buttonTextLight}>Save</Text>
                 </Button>
               </>
@@ -253,7 +311,13 @@ export default function Profile() {
               value={notificationsEnabled}
               onValueChange={setNotificationsEnabled}
               label="Receive Notifications"
-              icon={<Ionicons name="notifications-outline" size={18} color="#277874" />}
+              icon={
+                <Ionicons
+                  name="notifications-outline"
+                  size={18}
+                  color="#277874"
+                />
+              }
             />
           </View>
         </View>
@@ -261,10 +325,18 @@ export default function Profile() {
         <View style={styles.dangerCard}>
           <Text style={styles.sectionTitle}>Account Actions</Text>
           <View style={styles.buttonContainer}>
-            <Button variant="danger" style={styles.logoutButton} onPress={handleLogout}>
+            <Button
+              variant="danger"
+              style={styles.logoutButton}
+              onPress={handleLogout}
+            >
               <Text style={styles.buttonTextLight}>Logout Account</Text>
             </Button>
-            <Button variant="danger" style={styles.deleteButton} onPress={handleDeleteAccount}>
+            <Button
+              variant="danger"
+              style={styles.deleteButton}
+              onPress={handleDeleteAccount}
+            >
               <Text style={styles.buttonTextLight}>Delete Account</Text>
             </Button>
           </View>

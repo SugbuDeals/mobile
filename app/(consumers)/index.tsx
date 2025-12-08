@@ -4,6 +4,7 @@ import { useCatalog } from "@/features/catalog";
 import type { Category, Product } from "@/features/catalog/types";
 import { useStore } from "@/features/store";
 import type { Promotion } from "@/features/store/promotions/types";
+import type { Store } from "@/features/store/stores/types";
 import { LinearGradient } from "expo-linear-gradient";
 import * as Location from "expo-location";
 import { useFocusEffect, useRouter } from "expo-router";
@@ -17,6 +18,8 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+
+type Router = ReturnType<typeof useRouter>;
 
 const STATIC_CATEGORIES: Category[] = [
   { id: 1001, name: "Groceries" },
@@ -55,7 +58,7 @@ export default function Home() {
         const { status } = await Location.requestForegroundPermissionsAsync();
         if (status === "granted") {
           const pos = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
-          await (findNearbyStores({ latitude: pos.coords.latitude, longitude: pos.coords.longitude, radiusKm: 10 }) as any);
+          await findNearbyStores({ latitude: pos.coords.latitude, longitude: pos.coords.longitude, radiusKm: 10 });
         } else {
           // fallback: no nearby if no permission
         }
@@ -72,7 +75,7 @@ export default function Home() {
   );
 
   const displayName =
-    (user as any)?.name || (user as any)?.fullname || (user as any)?.email || "there";
+    user?.name || user?.email || "there";
   const displayCategories =
     categories?.length > 0 ? categories : STATIC_CATEGORIES;
 
@@ -116,7 +119,7 @@ function Greeting({ name }: { name: string }) {
   );
 }
 
-function Categories({ categories, router }: { categories: Category[]; router: any }) {
+function Categories({ categories, router }: { categories: Category[]; router: Router }) {
   return (
     <View style={styles.section}>
       <SectionHeader 
@@ -154,7 +157,7 @@ function PromotionModal({
   promotion: Promotion;
   productPromotions: { product: Product; promotion: Promotion }[];
   onClose: () => void;
-  router: any;
+  router: Router;
 }) {
   const handleProductPress = (item: { product: Product; promotion: Promotion }) => {
     router.push({
@@ -181,13 +184,8 @@ function PromotionModal({
   };
 
   const primaryProduct = productPromotions[0]?.product;
-  const primaryStoreId =
-    (primaryProduct as any)?.store?.id ??
-    primaryProduct?.storeId;
-  const primaryStoreName =
-    (primaryProduct as any)?.store?.name ??
-    (primaryProduct as any)?.storeName ??
-    "Store";
+  const primaryStoreId = primaryProduct?.storeId;
+  const primaryStoreName = "Store";
 
   const handleStorePress = () => {
     if (!primaryStoreId) return;
@@ -315,12 +313,12 @@ function Recommendations({
   products: Product[];
   promotions: Promotion[];
   onPromotionPress: (promotion: Promotion, productPromotions: { product: Product; promotion: Promotion }[]) => void;
-  router: any;
+  router: Router;
 }) {
   const [activeTab, setActiveTab] = useState<"products" | "deals">("products");
 
   const visibleProducts = useMemo(
-    () => (products || []).filter((p: any) => (p as any)?.isActive !== false),
+    () => (products || []).filter((p: Product) => p.isActive !== false),
     [products]
   );
 
@@ -401,7 +399,7 @@ function Recommendations({
           contentContainerStyle={styles.row}
         >
           {visibleProducts.map((p) => {
-            const promo = promotions.find(pr => pr.productId === p.id && (pr as any).active === true);
+            const promo = promotions.find(pr => pr.productId === p.id && pr.active === true);
             const basePrice = Number(p.price);
             const discounted = promo
               ? (promo.type === 'percentage'
@@ -521,13 +519,13 @@ function NearbyStores({
   loading,
   router,
 }: {
-  stores: any[];
+  stores: Store[];
   loading: boolean;
-  router: any;
+  router: Router;
 }) {
   if (loading) return null;
 
-  const handleStorePress = (store: any) => {
+  const handleStorePress = (store: Store) => {
     router.push({
       pathname: "/(consumers)/storedetails",
       params: { store: store.name, storeId: store.id },
@@ -563,13 +561,12 @@ function NearbyStores({
             )}
             <Text style={styles.text}>
               {(() => {
-                const d = (s as any)?.distance;
+                const d = s.distance;
                 if (typeof d === 'number' && isFinite(d)) return `${d.toFixed(2)} km`;
-                if (typeof d === 'string' && d.trim().length > 0 && !isNaN(Number(d))) return `${Number(d).toFixed(2)} km`;
                 return "~1.20 km";
               })()}
             </Text>
-            <Text style={styles.text}>{s.rating ?? "4.5 ★"}</Text>
+            <Text style={styles.text}>{"4.5 ★"}</Text>
           </View>
         </TouchableOpacity>
       ))}

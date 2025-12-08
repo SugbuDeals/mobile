@@ -1,11 +1,11 @@
 import { PaginationControls } from "@/components/PaginationControls";
+import { SearchBar } from "@/components/SearchBar";
+import { Modal } from "@/components/Modal";
 import { useLogin } from "@/features/auth";
 import { useStore } from "@/features/store";
 import { selectIsDeletingProduct } from "@/features/store/products/slice";
 import type { Product } from "@/features/store/products/types";
 import { useModal } from "@/hooks/useModal";
-import { usePagination } from "@/hooks/usePagination";
-import { useSearch } from "@/hooks/useSearch";
 import { useAppSelector } from "@/store/hooks";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { LinearGradient } from "expo-linear-gradient";
@@ -18,7 +18,6 @@ import {
   StatusBar,
   StyleSheet,
   Text,
-  TextInput,
   TouchableOpacity,
   View
 } from "react-native";
@@ -26,27 +25,13 @@ import {
 export default function Products() {
   const { state: { user } } = useLogin();
   const { action: { findProducts, deleteProduct }, state: { products, loading, userStore } } = useStore();
-  const { query: searchQuery, filteredItems: filteredProducts, setQuery: setSearchQuery } = useSearch(products, {
-    filterFn: (product, query) => {
-      if (!query.trim()) return true;
-      const q = query.toLowerCase();
-      return !!(product.name.toLowerCase().includes(q) || 
-             (product.description && product.description.toLowerCase().includes(q)));
-    },
-  });
-  const { currentPage, itemsPerPage, totalPages, startIndex, setCurrentPage, setItemsPerPage } = usePagination(filteredProducts.length, {
-    initialPage: 1,
-    initialItemsPerPage: 2,
-    autoCalculateItemsPerPage: true,
-    reservedHeight: 345,
-    itemHeight: 112,
-  });
   const { isOpen: deleteModalVisible, data: productToDelete, open: openDeleteModal, close: closeDeleteModal } = useModal<Product>();
   const isDeleting = useAppSelector((state) => 
     productToDelete ? selectIsDeletingProduct(state, productToDelete.id) : false
   );
   const scrollViewRef = useRef<ScrollView>(null);
   const lastFetchedStoreId = useRef<number | null>(null);
+  const [filteredProducts, setFilteredProducts] = React.useState<Product[]>(products);
 
   useEffect(() => {
     // Fetch products for the current user's store
@@ -74,12 +59,10 @@ export default function Products() {
     }, [userStore?.id, user, findProducts])
   );
 
-  // Reset to page 1 when search query changes
+  // Update filtered products when products change
   useEffect(() => {
-    setCurrentPage(1);
-  }, [searchQuery, setCurrentPage]);
-
-  const currentProducts = filteredProducts.slice(startIndex, startIndex + itemsPerPage);
+    setFilteredProducts(products);
+  }, [products]);
 
   const getStockStatusColor = (stock: number) => {
     if (stock > 10) return "#10B981"; // In Stock
@@ -110,24 +93,6 @@ export default function Products() {
         // Refresh the products list after successful deletion
         if (userStore?.id) {
           await findProducts({ storeId: userStore.id });
-        }
-        
-        // Adjust current page if necessary after deletion
-        const remainingProducts = products.filter(p => p.id !== productToDelete.id);
-        const remainingFilteredProducts = remainingProducts.filter(product =>
-          product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          (product.description && product.description.toLowerCase().includes(searchQuery.toLowerCase()))
-        );
-        
-        const newTotalPages = Math.ceil(remainingFilteredProducts.length / itemsPerPage);
-        
-        // If current page is beyond the new total pages, go to the last available page
-        if (currentPage > newTotalPages && newTotalPages > 0) {
-          setCurrentPage(newTotalPages);
-        }
-        // If no products left, reset to page 1
-        else if (newTotalPages === 0) {
-          setCurrentPage(1);
         }
         
         closeDeleteModal();
@@ -176,63 +141,44 @@ export default function Products() {
 
       {/* Search Bar */}
       <View style={styles.searchContainer}>
-        <View style={styles.searchBar}>
-          <Ionicons name="search" size={20} color="#9CA3AF" style={styles.searchIcon} />
-          <TextInput
-            style={styles.searchInput}
-            placeholder="Search products..."
-            value={searchQuery}
-            onChangeText={(text) => {
-              setSearchQuery(text);
-              setCurrentPage(1);
-            }}
-            placeholderTextColor="#9CA3AF"
-          />
-        </View>
+        <SearchBar
+          items={products}
+          placeholder="Search products..."
+          filterFn={(product, query) => {
+            if (!query.trim()) return true;
+            const q = query.toLowerCase();
+            return !!(product.name.toLowerCase().includes(q) || 
+                   (product.description && product.description.toLowerCase().includes(q)));
+          }}
+          onSearchChange={(query, filtered) => {
+            setFilteredProducts(filtered);
+          }}
+        />
       </View>
 
-      {/* Product List */}
-      <ScrollView 
-        ref={scrollViewRef}
-        style={styles.content} 
-        showsVerticalScrollIndicator={false}
+      {/* Product List with Pagination */}
+      <PaginationControls
+        totalItems={filteredProducts.length}
+        items={filteredProducts}
+        initialPage={1}
+        initialItemsPerPage={2}
+        autoCalculateItemsPerPage={true}
+        reservedHeight={345}
+        itemHeight={112}
       >
-        {loading ? (
-          <View style={styles.loadingContainer}>
-            <Text style={styles.loadingText}>Loading products...</Text>
-          </View>
-        ) : currentProducts.length > 0 ? (
-          currentProducts.map((product) => (
-            <View key={product.id} style={styles.productCard}>
-              {productToDelete && productToDelete.id === product.id && deleteModalVisible ? (
-                <View style={styles.deleteModalOverlay}>
-                  <View style={styles.modalContent}>
-                    <Text style={styles.modalTitle}>Are you sure to remove this product?</Text>
-                    <Text style={styles.modalProductName}>{product.name}</Text>
-                    
-                    <View style={styles.modalButtons}>
-                      <TouchableOpacity 
-                        style={[styles.removeButton, isDeleting && styles.removeButtonDisabled]}
-                        onPress={confirmDelete}
-                        disabled={isDeleting}
-                      >
-                        <Text style={styles.removeButtonText}>
-                          {isDeleting ? "REMOVING..." : "REMOVE"}
-                        </Text>
-                      </TouchableOpacity>
-                      
-                      <TouchableOpacity 
-                        style={[styles.cancelButton, isDeleting && styles.cancelButtonDisabled]}
-                        onPress={cancelDelete}
-                        disabled={isDeleting}
-                      >
-                        <Text style={styles.cancelButtonText}>Cancel</Text>
-                      </TouchableOpacity>
-                    </View>
-                  </View>
-                </View>
-              ) : (
-                <>
+        {(paginatedProducts) => (
+          <ScrollView 
+            ref={scrollViewRef}
+            style={styles.content} 
+            showsVerticalScrollIndicator={false}
+          >
+            {loading ? (
+              <View style={styles.loadingContainer}>
+                <Text style={styles.loadingText}>Loading products...</Text>
+              </View>
+            ) : paginatedProducts.length > 0 ? (
+              paginatedProducts.map((product) => (
+                <View key={product.id} style={styles.productCard}>
                   {product.imageUrl ? (
                     <Image
                       source={{ uri: product.imageUrl }}
@@ -280,27 +226,45 @@ export default function Products() {
                       </View>
                     </View>
                   </View>
-                </>
-              )}
-            </View>
-          ))
-        ) : (
-          <View style={styles.emptyContainer}>
-            <Ionicons name="cube-outline" size={64} color="#9CA3AF" />
-            <Text style={styles.emptyText}>No products found</Text>
-            <Text style={styles.emptySubtext}>
-              {searchQuery ? 'Try adjusting your search terms' : 'Add your first product to get started'}
-            </Text>
-          </View>
+                </View>
+              ))
+            ) : (
+              <View style={styles.emptyContainer}>
+                <Ionicons name="cube-outline" size={64} color="#9CA3AF" />
+                <Text style={styles.emptyText}>No products found</Text>
+                <Text style={styles.emptySubtext}>
+                  Try adjusting your search terms or add your first product to get started
+                </Text>
+              </View>
+            )}
+          </ScrollView>
         )}
-      </ScrollView>
+      </PaginationControls>
 
-      {/* Pagination */}
-      <PaginationControls
-        totalItems={filteredProducts.length}
-        initialPage={currentPage}
-        initialItemsPerPage={itemsPerPage}
-        onPageChange={setCurrentPage}
+      {/* Delete Confirmation Modal */}
+      <Modal
+        isOpen={deleteModalVisible}
+        onClose={closeDeleteModal}
+        variant="confirmation"
+        size="small"
+        title="Remove Product"
+        message={productToDelete ? `Are you sure you want to remove "${productToDelete.name}"?` : ""}
+        icon="trash-outline"
+        iconColor="#EF4444"
+        actions={[
+          {
+            label: "Cancel",
+            onPress: cancelDelete,
+            variant: "outline",
+            loading: false,
+          },
+          {
+            label: isDeleting ? "Removing..." : "Remove",
+            onPress: confirmDelete,
+            variant: "danger",
+            loading: isDeleting,
+          },
+        ]}
       />
 
     </View>
@@ -368,24 +332,6 @@ const styles = StyleSheet.create({
   searchContainer: {
     paddingHorizontal: 20,
     paddingVertical: 16,
-  },
-  searchBar: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "#F9FAFB",
-    borderWidth: 1,
-    borderColor: "#E5E7EB",
-    borderRadius: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-  },
-  searchIcon: {
-    marginRight: 12,
-  },
-  searchInput: {
-    flex: 1,
-    fontSize: 16,
-    color: "#374151",
   },
   content: {
     flex: 1,
@@ -522,96 +468,6 @@ const styles = StyleSheet.create({
   },
   activePageButtonText: {
     color: "#ffffff",
-  },
-  deleteModalOverlay: {
-    position: "absolute",
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: "#ffffff",
-    borderRadius: 12,
-    padding: 16,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.25,
-    shadowRadius: 8,
-    elevation: 8,
-    justifyContent: "center",
-    alignItems: "center",
-    zIndex: 10,
-    // Ensure it maintains the same dimensions as the product card
-   
-    
-  },
-  modalContent: {
-    alignItems: "center",
-    justifyContent: "center",
-    flex: 1,
-    paddingHorizontal: 8,
-    width: "100%",
-    height: "100%",
-  },
-  modalTitle: {
-    fontSize: 17,
-    fontWeight: "600",
-    color: "#374151",
-    textAlign: "center",
-    marginBottom: 6,
-    fontFamily: Platform.OS === "ios" ? "Georgia" : "serif",
-    lineHeight: 20,
-  },
-  modalProductName: {
-    fontSize: 16,
-    fontWeight: "bold",
-    color: "#374151",
-    textAlign: "center",
-    marginBottom: 16,
-    lineHeight: 18,
-  },
-  modalButtons: {
-    flexDirection: "row",
-    gap: 8,
-    justifyContent: "space-between",
-  },
-  removeButton: {
-    backgroundColor: "#FFBE5D",
-    borderRadius: 6,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    minWidth: 120,
-    height: 40,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  removeButtonText: {
-    color: "#ffffff",
-    fontSize: 15,
-    fontWeight: "600",
-    textTransform: "uppercase",
-  },
-  removeButtonDisabled: {
-    backgroundColor: "#9CA3AF",
-    opacity: 0.6,
-  },
-  cancelButton: {
-    backgroundColor: "#277874",
-    borderRadius: 6,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    minWidth: 120,
-    height: 40,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  cancelButtonText: {
-    color: "#ffffff",
-    fontSize: 15,
-    fontWeight: "600",
-  },
-  cancelButtonDisabled: {
-    backgroundColor: "#9CA3AF",
-    opacity: 0.6,
   },
   loadingContainer: {
     backgroundColor: "#ffffff",

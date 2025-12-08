@@ -20,7 +20,7 @@ export const findProducts = createAsyncThunk<
   try {
     const products = await productsApi.findProducts(filters);
     // Return products as-is - price is string per server.json
-    return products.map((product: any) => ({
+    return products.map((product) => ({
       ...product,
       // Ensure stock is number (API should return number)
       stock:

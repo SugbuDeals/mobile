@@ -1,5 +1,6 @@
 import { useLogin } from "@/features/auth";
 import { useStore } from "@/features/store";
+import type { Promotion } from "@/features/store/promotions/types";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { router, useFocusEffect } from "expo-router";
 import React, { useCallback, useEffect } from "react";
@@ -21,7 +22,7 @@ export default function RetailerDashboard() {
 
   // Group promotions by title to show as single promotions with multiple products
   const groupedPromotions = React.useMemo(() => {
-    const groups: { [key: string]: any[] } = {};
+    const groups: { [key: string]: Promotion[] } = {};
     
     activePromotions.forEach(promotion => {
       // Group by title only, since products can have different discounts
@@ -43,7 +44,11 @@ export default function RetailerDashboard() {
         discount: p.discount,
         type: p.type
       }))
-    })).sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
+    })).sort((a, b) => {
+      const aDate = typeof a.startsAt === 'string' ? new Date(a.startsAt).getTime() : 0;
+      const bDate = typeof b.startsAt === 'string' ? new Date(b.startsAt).getTime() : 0;
+      return bDate - aDate;
+    });
   }, [activePromotions]);
 
   // Debug: Log userStore changes

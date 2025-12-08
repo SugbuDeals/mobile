@@ -17,20 +17,21 @@ export function useStoreManagement() {
   useEffect(() => {
     if (
       user &&
-      (user as any).user_type === "retailer" &&
+      user.user_type === "retailer" &&
       !hasLoadedRef.current &&
       !stores.state.loading &&
-      !stores.state.userStore
+      !stores.state.userStore &&
+      user.id
     ) {
       hasLoadedRef.current = true;
-      stores.actions.findUserStore((user as any).id);
+      stores.actions.findUserStore(Number(user.id));
     }
-  }, [user, stores.state.userStore, stores.state.loading]);
+  }, [user, stores.state.userStore, stores.state.loading, stores.actions]);
 
   const refreshStore = () => {
-    if (user && (user as any).user_type === "retailer") {
+    if (user && user.user_type === "retailer" && user.id) {
       hasLoadedRef.current = false;
-      stores.actions.findUserStore((user as any).id);
+      stores.actions.findUserStore(Number(user.id));
     }
   };
 

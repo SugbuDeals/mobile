@@ -3,17 +3,17 @@ import { createSlice, PayloadAction } from "@reduxjs/toolkit";
 interface ModalState {
   [key: string]: {
     isOpen: boolean;
-    data: any;
+    data: unknown;
   };
 }
 
 interface UIState {
   modals: ModalState;
   selectedItems: {
-    [key: string]: any;
+    [key: string]: unknown;
   };
   activeFilters: {
-    [key: string]: any;
+    [key: string]: unknown;
   };
   componentLoading: {
     [key: string]: boolean;
@@ -33,7 +33,7 @@ const uiSlice = createSlice({
   reducers: {
     openModal: (
       state,
-      action: PayloadAction<{ key: string; data?: any }>
+      action: PayloadAction<{ key: string; data?: unknown }>
     ) => {
       state.modals[action.payload.key] = {
         isOpen: true,
@@ -47,7 +47,7 @@ const uiSlice = createSlice({
     },
     setModalData: (
       state,
-      action: PayloadAction<{ key: string; data: any }>
+      action: PayloadAction<{ key: string; data: unknown }>
     ) => {
       if (state.modals[action.payload.key]) {
         state.modals[action.payload.key].data = action.payload.data;
@@ -55,7 +55,7 @@ const uiSlice = createSlice({
     },
     setSelectedItem: (
       state,
-      action: PayloadAction<{ key: string; item: any }>
+      action: PayloadAction<{ key: string; item: unknown }>
     ) => {
       state.selectedItems[action.payload.key] = action.payload.item;
     },
@@ -64,7 +64,7 @@ const uiSlice = createSlice({
     },
     setActiveFilter: (
       state,
-      action: PayloadAction<{ key: string; filter: any }>
+      action: PayloadAction<{ key: string; filter: unknown }>
     ) => {
       state.activeFilters[action.payload.key] = action.payload.filter;
     },

@@ -7,7 +7,7 @@ interface AuthState {
   user: LoginResponse['user'] | null;
   loading: boolean;
   error: string | null;
-  allUsers: any[];
+  allUsers: LoginResponse['user'][];
   usersLoading: boolean;
   registering: boolean;
 }
@@ -78,9 +78,9 @@ const authSlice = createSlice({
       .addCase(fetchUserById.fulfilled, (state, action) => {
         state.loading = false;
         state.user = {
-          ...(state.user || {} as any),
+          ...(state.user || {}),
           ...action.payload,
-        } as any;
+        } as LoginResponse['user'];
       })
       .addCase(fetchUserById.rejected, (state, action) => {
         state.loading = false;
@@ -93,18 +93,18 @@ const authSlice = createSlice({
       })
       .addCase(updateUser.fulfilled, (state, action) => {
         state.loading = false;
-        const merged: any = {
-          ...(state.user || {} as any),
+        const merged: LoginResponse['user'] = {
+          ...(state.user || {}),
           ...action.payload,
-        };
+        } as LoginResponse['user'];
         // Ensure imageUrl is retained if server omits it but client updated it
         try {
-          const requestedImageUrl = (action as any)?.meta?.arg?.data?.imageUrl;
+          const requestedImageUrl = action.meta?.arg?.data?.imageUrl;
           if (requestedImageUrl && typeof merged.imageUrl !== 'string') {
             merged.imageUrl = requestedImageUrl;
           }
         } catch {}
-        state.user = merged as any;
+        state.user = merged;
       })
       .addCase(updateUser.rejected, (state, action) => {
         state.loading = false;

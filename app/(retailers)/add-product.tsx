@@ -1,4 +1,5 @@
 import SubscriptionOverlay from "@/components/SubscriptionOverlay";
+import TextField from "@/components/TextField";
 import { useLogin } from "@/features/auth";
 import { useCatalog } from "@/features/catalog";
 import { useStore } from "@/features/store";
@@ -16,7 +17,6 @@ import {
     StatusBar,
     StyleSheet,
     Text,
-    TextInput,
     TouchableOpacity,
     View
 } from "react-native";
@@ -84,15 +84,15 @@ export default function AddProduct() {
     loadCategories();
     
     // Fetch active subscription
-    if (user && (user as any).id) {
-      getActiveSubscription(Number((user as any).id));
+    if (user && user.id) {
+      getActiveSubscription(Number(user.id));
     }
     
     // Fetch products to check limit
     if (userStore?.id) {
       findProducts({ storeId: userStore.id });
-    } else if (user && (user as any).id) {
-      findProducts({ storeId: Number((user as any).id) });
+    } else if (user && user.id) {
+      findProducts({ storeId: Number(user.id) });
     }
   }, [user, userStore, findProducts, loadCategories, getActiveSubscription]);
 
@@ -242,7 +242,15 @@ export default function AddProduct() {
         }
       }
 
-      const productData: any = {
+      const productData: {
+        name: string;
+        description: string;
+        price: number;
+        stock: number;
+        storeId: number;
+        imageUrl?: string;
+        categoryId?: number;
+      } = {
         name: productName.trim(),
         description: description.trim(),
         price: Number(price),
@@ -280,8 +288,8 @@ export default function AddProduct() {
       );
     } catch (err) {
       console.error("Error creating product:", err);
-      const message = (err && typeof err === "object" && 'message' in (err as any))
-        ? (err as any).message
+      const message = (err && typeof err === "object" && 'message' in err)
+        ? (err as { message?: string }).message
         : "Failed to create product. Please try again.";
       Alert.alert("Error", message);
     } finally {
@@ -306,14 +314,15 @@ export default function AddProduct() {
       await joinSubscription({ subscriptionId }).unwrap();
       
       // Refresh subscription status
-      if (user && (user as any).id) {
-        await getActiveSubscription(Number((user as any).id));
+      if (user && user.id) {
+        await getActiveSubscription(Number(user.id));
       }
       
       setShowSubscriptionOverlay(false);
       Alert.alert("Success", "Subscription upgraded successfully! You can now add more products.");
-    } catch (error: any) {
-      Alert.alert("Error", error?.message || "Failed to upgrade subscription. Please try again.");
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : "Failed to upgrade subscription. Please try again.";
+      Alert.alert("Error", errorMessage);
     } finally {
       setIsUpgrading(false);
     }
@@ -351,89 +360,67 @@ export default function AddProduct() {
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
         <View style={styles.formCard}>
           {/* Product Name */}
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>Product Name <Text style={styles.required}>*</Text></Text>
-            <TextInput
-              style={[
-                styles.textInput,
-                validationErrors.productName && styles.textInputError
-              ]}
-              placeholder="Enter product name"
-              value={productName}
-              onChangeText={(text) => {
-                setProductName(text);
-                if (validationErrors.productName) {
-                  setValidationErrors(prev => ({ ...prev, productName: false }));
-                }
-              }}
-              placeholderTextColor="#9CA3AF"
-            />
-          </View>
+          <TextField
+            label="Product Name"
+            placeholder="Enter product name"
+            value={productName}
+            onChangeText={(text) => {
+              setProductName(text);
+              if (validationErrors.productName) {
+                setValidationErrors(prev => ({ ...prev, productName: false }));
+              }
+            }}
+            error={validationErrors.productName ? "Product name is required" : undefined}
+          />
 
           {/* Description */}
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>Description <Text style={styles.required}>*</Text></Text>
-            <TextInput
-              style={[
-                styles.textInput, 
-                styles.multilineInput,
-                validationErrors.description && styles.textInputError
-              ]}
-              placeholder="Enter product description"
-              value={description}
-              onChangeText={(text) => {
-                setDescription(text);
-                if (validationErrors.description) {
-                  setValidationErrors(prev => ({ ...prev, description: false }));
-                }
-              }}
-              placeholderTextColor="#9CA3AF"
-              multiline
-              numberOfLines={3}
-            />
-          </View>
+          <TextField
+            label="Description"
+            placeholder="Enter product description"
+            value={description}
+            onChangeText={(text) => {
+              setDescription(text);
+              if (validationErrors.description) {
+                setValidationErrors(prev => ({ ...prev, description: false }));
+              }
+            }}
+            error={validationErrors.description ? "Description is required" : undefined}
+            multiline
+            numberOfLines={3}
+            style={{ minHeight: 80 }}
+          />
 
           {/* Price & Stock */}
-          <View style={styles.inputGroup}>
-            <View style={styles.rowContainer}>
-              <View style={styles.halfInput}>
-                <Text style={styles.label}>Price <Text style={styles.required}>*</Text></Text>
-                <TextInput
-                  style={[
-                    styles.textInput,
-                    validationErrors.price && styles.textInputError
-                  ]}
-                  placeholder="Enter price"
-                  value={price}
-                  onChangeText={(text) => {
-                    setPrice(text);
-                    if (validationErrors.price) {
-                      setValidationErrors(prev => ({ ...prev, price: false }));
-                    }
-                  }}
-                  placeholderTextColor="#9CA3AF"
-                  keyboardType="numeric"
-                />
-              </View>
-              <View style={styles.halfInput}>
-                <Text style={styles.label}>Stock Quantity <Text style={styles.required}>*</Text></Text>
-                <TextInput
-                  style={[
-                    styles.textInput,
-                    validationErrors.stock && styles.textInputError
-                  ]}
-                  placeholder="Enter quantity"
-                  value={stock}
-                  onChangeText={(text) => {
-                    setStock(text);
-                    if (validationErrors.stock) {
-                      setValidationErrors(prev => ({ ...prev, stock: false }));
-                    }
-                  }}
-                  placeholderTextColor="#9CA3AF"
-                  keyboardType="numeric"
-                />
-              </View>
+          <View style={styles.rowContainer}>
+            <View style={styles.halfInput}>
+              <TextField
+                label="Price"
+                placeholder="Enter price"
+                value={price}
+                onChangeText={(text) => {
+                  setPrice(text);
+                  if (validationErrors.price) {
+                    setValidationErrors(prev => ({ ...prev, price: false }));
+                  }
+                }}
+                error={validationErrors.price ? "Price is required" : undefined}
+                keyboardType="numeric"
+              />
+            </View>
+            <View style={styles.halfInput}>
+              <TextField
+                label="Stock Quantity"
+                placeholder="Enter quantity"
+                value={stock}
+                onChangeText={(text) => {
+                  setStock(text);
+                  if (validationErrors.stock) {
+                    setValidationErrors(prev => ({ ...prev, stock: false }));
+                  }
+                }}
+                error={validationErrors.stock ? "Stock quantity is required" : undefined}
+                keyboardType="numeric"
+              />
             </View>
           </View>
 

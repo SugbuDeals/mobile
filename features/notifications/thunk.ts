@@ -21,7 +21,7 @@ export const getNotifications = createAsyncThunk<
     try {
       const apiNotifications = await notificationsApi.getNotifications(params);
       // Map API notifications to feature Notification format
-      return apiNotifications.map((n: any) => ({
+      return apiNotifications.map((n) => ({
         id: n.id,
         userId: 0, // Not returned by API, will need to be set from context
         type: n.type as NotificationType,
@@ -34,9 +34,9 @@ export const getNotifications = createAsyncThunk<
         storeId: null, // Not returned by API
         promotionId: null, // Not returned by API
       }));
-    } catch (error: any) {
+    } catch (error: unknown) {
       return rejectWithValue({
-        message: error?.message || "Get notifications failed",
+        message: error instanceof Error ? error.message : "Get notifications failed",
       });
     }
   }
@@ -53,9 +53,9 @@ export const getUnreadCount = createAsyncThunk<
   try {
     const result = await notificationsApi.getUnreadCount();
     return result.count || 0;
-  } catch (error: any) {
+  } catch (error: unknown) {
     return rejectWithValue({
-      message: error?.message || "Get unread count failed",
+      message: error instanceof Error ? error.message : "Get unread count failed",
     });
   }
 });
@@ -74,7 +74,7 @@ export const markAsRead = createAsyncThunk<
     return {
       id: result.id,
       userId: 0, // Not returned by API
-      type: "PRODUCT_CREATED" as any, // Not returned by API
+      type: "PRODUCT_CREATED" as NotificationType, // Not returned by API
       title: "",
       message: "",
       read: result.read,
@@ -172,9 +172,9 @@ export const createNotification = createAsyncThunk<
         storeId: notificationData.storeId || null,
         promotionId: notificationData.promotionId || null,
       };
-    } catch (error: any) {
+    } catch (error: unknown) {
       return rejectWithValue({
-        message: error?.message || "Create notification failed",
+        message: error instanceof Error ? error.message : "Create notification failed",
       });
     }
   }

@@ -84,7 +84,7 @@ export default function AdminDashboard() {
     
     // Recent users today
     const recentUsersToday = authState.allUsers.filter(user => {
-      const createdAt = user.createdAt || user.created_at;
+      const createdAt = user.createdAt;
       if (!createdAt) return false;
       return isCreatedToday(createdAt);
     });
@@ -294,8 +294,8 @@ export default function AdminDashboard() {
           ) : (
           <View style={styles.usersList}>
               {metrics.recentUsersToday.slice(0, 5).map((user) => {
-                const createdAt = user.createdAt || user.created_at;
-                const avatarUrl = user.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(user.name || user.email || 'U')}&background=random`;
+                const createdAt = user.createdAt;
+                const avatarUrl = user.imageUrl || `https://ui-avatars.com/api/?name=${encodeURIComponent(user.name || user.email || 'U')}&background=random`;
                 
                 return (
               <View key={user.id} style={styles.userCard}>

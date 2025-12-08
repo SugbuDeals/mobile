@@ -3,14 +3,41 @@ import { StyleSheet, Text, View } from "react-native";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { colors, spacing, typography } from "@/styles/theme";
 
-interface EmptyStateProps {
+/**
+ * Props for the EmptyState component
+ */
+export interface EmptyStateProps {
+  /** Icon name from Ionicons */
   icon?: keyof typeof Ionicons.glyphMap;
+  /** Icon color */
   iconColor?: string;
+  /** Empty state title */
   title: string;
+  /** Empty state message */
   message?: string;
+  /** Optional action button or element */
   action?: ReactNode;
 }
 
+/**
+ * An empty state component for displaying when there's no content.
+ * 
+ * Provides a consistent way to show empty states with icon, title, message, and optional action.
+ * 
+ * @component
+ * @example
+ * ```tsx
+ * <EmptyState
+ *   icon="bag-outline"
+ *   title="No Products"
+ *   message="Start adding products to see them here"
+ *   action={<Button onPress={handleAdd}>Add Product</Button>}
+ * />
+ * ```
+ * 
+ * @param {EmptyStateProps} props - EmptyState component props
+ * @returns {JSX.Element} EmptyState component
+ */
 export default function EmptyState({
   icon = "document-outline",
   iconColor = colors.gray400,

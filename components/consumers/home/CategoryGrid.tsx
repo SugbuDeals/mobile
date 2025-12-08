@@ -3,7 +3,7 @@ import { StyleSheet, Text, TouchableOpacity, View, Image } from "react-native";
 import { useRouter } from "expo-router";
 import { colors, spacing, borderRadius, typography } from "@/styles/theme";
 import type { Category } from "@/features/catalog/types";
-import { SectionHeader } from "@/components/shared";
+import SectionHeader from "@/components/SectionHeader";
 
 interface CategoryGridProps {
   categories: Category[];

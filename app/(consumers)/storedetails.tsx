@@ -1,7 +1,12 @@
 import env from "@/config/env";
 import { useBookmarks } from "@/features/bookmarks";
 import { useCatalog } from "@/features/catalog";
+import type { Category } from "@/features/catalog/types";
+import type { Product as CatalogProduct } from "@/features/catalog/types";
 import { useStore } from "@/features/store";
+import type { Product as StoreProduct } from "@/features/store/types";
+import type { Store } from "@/features/store/stores/types";
+import type { Promotion } from "@/features/store/promotions/types";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
 import React, { useCallback } from "react";
@@ -33,12 +38,12 @@ export default function StoreDetailsScreen() {
   const [activeCategory, setActiveCategory] = React.useState("All");
   const [query, setQuery] = React.useState("");
 
-  const storeFromList = stores?.find?.((s: any) => s.id === storeId);
+  const storeFromList = stores?.find?.((s: Store) => s.id === storeId);
   const storeFromSelected =
     selectedStore && selectedStore.id === storeId ? selectedStore : undefined;
   const resolvedStore = storeFromList || storeFromSelected;
   const storeName =
-    (params.store as string) || ((resolvedStore as any)?.name ?? "Store");
+    (params.store as string) || (resolvedStore?.name ?? "Store");
 
   React.useEffect(() => {
     if (!products || products.length === 0) loadProducts();
@@ -96,16 +101,11 @@ export default function StoreDetailsScreen() {
   );
 
   const getProductCategoryName = React.useCallback(
-    (product: any): string => {
-      const directCategory =
-        (product as any)?.category?.name ||
-        (product as any)?.categoryName ||
-        (product as any)?.category;
-      if (directCategory) return String(directCategory);
-      const categoryId =
-        (product as any)?.category?.id ?? (product as any)?.categoryId;
+    (product: CatalogProduct | StoreProduct): string => {
+      const categoryId = 'categoryId' in product ? product.categoryId : null;
+      if (categoryId == null) return "";
       const match = (catalogCategories || []).find(
-        (cat: any) => String(cat.id) === String(categoryId)
+        (cat: Category) => String(cat.id) === String(categoryId)
       );
       return match?.name ? String(match.name) : "";
     },
@@ -113,11 +113,11 @@ export default function StoreDetailsScreen() {
   );
 
   const storeCategories = React.useMemo(() => {
-    const source = (products || []).filter((p: any) =>
+    const source = (products || []).filter((p: CatalogProduct) =>
       storeId == null ? true : p.storeId === storeId
     );
     const unique = new Set<string>();
-    source.forEach((p: any) => {
+    source.forEach((p: CatalogProduct) => {
       const categoryName = getProductCategoryName(p);
       if (categoryName) unique.add(categoryName);
     });
@@ -132,10 +132,10 @@ export default function StoreDetailsScreen() {
   const storePromotions = React.useMemo(() => {
     if (storeId == null) return [];
     const promoList = Array.isArray(activePromotions) ? activePromotions : [];
-    return promoList.reduce<Array<{ promotion: any; product: any }>>(
-      (acc, promo: any) => {
+    return promoList.reduce<Array<{ promotion: Promotion; product: CatalogProduct }>>(
+      (acc, promo: Promotion) => {
         if (!promo?.active) return acc;
-        const product = (products || []).find((p: any) => p.id === promo.productId);
+        const product = (products || []).find((p: CatalogProduct) => p.id === promo.productId);
         if (!product || product.isActive === false) return acc;
         if (product.storeId !== storeId) return acc;
         acc.push({ promotion: promo, product });
@@ -233,13 +233,13 @@ function DealsGrid({
   storeId?: number;
   query?: string;
   category?: string;
-  products?: any[];
-  getProductCategoryName: (product: any) => string;
+  products?: CatalogProduct[];
+  getProductCategoryName: (product: CatalogProduct | StoreProduct) => string;
 }) {
   const router = useRouter();
   const { state: { activePromotions } } = useStore();
-  const getDiscounted = React.useCallback((p: any) => {
-    const promo = (activePromotions as any[])?.find?.((ap: any) => ap.productId === p.id && ap.active === true);
+  const getDiscounted = React.useCallback((p: CatalogProduct) => {
+    const promo = (activePromotions as Promotion[])?.find?.((ap: Promotion) => ap.productId === p.id && ap.active === true);
     if (!promo) return undefined;
     const base = Number(p.price);
     if (!isFinite(base)) return undefined;
@@ -251,10 +251,10 @@ function DealsGrid({
   }, [activePromotions]);
   const filtered = React.useMemo(() => {
     const q = query.trim().toLowerCase();
-    const source = (products || []).filter((p: any) =>
+    const source = (products || []).filter((p: CatalogProduct) =>
       storeId == null ? true : p.storeId === storeId
     );
-    return source.filter((p: any) => {
+    return source.filter((p: CatalogProduct) => {
       const matchesQuery =
         q.length === 0 || String(p.name).toLowerCase().includes(q);
       const productCategoryName = getProductCategoryName(p);
@@ -265,7 +265,7 @@ function DealsGrid({
     });
   }, [products, storeId, query, category, getProductCategoryName]);
 
-  const handleProductPress = (p: any) => {
+  const handleProductPress = (p: CatalogProduct) => {
     router.push({
       pathname: "/(consumers)/product",
       params: {
@@ -280,7 +280,7 @@ function DealsGrid({
 
   return (
     <View style={gridStyles.grid}>
-      {filtered.map((p: any) => (
+      {filtered.map((p: CatalogProduct) => (
         <TouchableOpacity
           key={p.id}
           style={gridStyles.card}
@@ -322,13 +322,13 @@ function StorePromotions({
 }: {
   storeName: string;
   storeId?: number;
-  promotions: Array<{ promotion: any; product: any }>;
+  promotions: Array<{ promotion: Promotion; product: CatalogProduct }>;
 }) {
   const router = useRouter();
   if (storeId == null) return null;
   const hasPromotions = promotions.length > 0;
 
-  const getDiscountedPrice = (price: any, promo: any) => {
+  const getDiscountedPrice = (price: number | string, promo: Promotion) => {
     const base = Number(price);
     if (!isFinite(base)) return undefined;
     const type = String(promo?.type || "").toLowerCase();
@@ -338,7 +338,7 @@ function StorePromotions({
     return undefined;
   };
 
-  const handleProductPress = (product: any, promo: any) => {
+  const handleProductPress = (product: CatalogProduct, promo: Promotion) => {
     router.push({
       pathname: "/(consumers)/product",
       params: {
@@ -368,7 +368,7 @@ function StorePromotions({
           contentContainerStyle={storePromoStyles.row}
         >
           {promotions.map(({ promotion, product }) => {
-            const discounted = getDiscountedPrice(product.price, promotion);
+            const discounted = getDiscountedPrice(product.price ?? "0", promotion);
             const basePrice = Number(product.price);
             const hasBasePrice = Number.isFinite(basePrice);
             const promoType = String(promotion.type || "").toLowerCase();
@@ -445,9 +445,9 @@ function StoreHero({ storeName }: { storeName: string }) {
   React.useEffect(() => {
     if (storeId) findStoreById(storeId);
   }, [storeId]);
-  const storeFromList = stores?.find((s: any) => s.id === storeId);
-  const rawLogo = ((selectedStore && selectedStore.id === storeId) ? (selectedStore as any).imageUrl : undefined) || (storeFromList as any)?.imageUrl;
-  const rawBanner = ((selectedStore && selectedStore.id === storeId) ? (selectedStore as any).bannerUrl : undefined) || (storeFromList as any)?.bannerUrl;
+  const storeFromList = stores?.find((s: Store) => s.id === storeId);
+  const rawLogo = ((selectedStore && selectedStore.id === storeId) ? selectedStore.imageUrl : undefined) || storeFromList?.imageUrl;
+  const rawBanner = ((selectedStore && selectedStore.id === storeId) ? selectedStore.bannerUrl : undefined) || storeFromList?.bannerUrl;
   const logoUrl = (() => {
     if (!rawLogo) return undefined;
     if (/^https?:\/\//i.test(rawLogo)) return rawLogo;
@@ -460,7 +460,7 @@ function StoreHero({ storeName }: { storeName: string }) {
     if (rawBanner.startsWith('/')) return `${env.API_BASE_URL}${rawBanner}`;
     return `${env.API_BASE_URL}/files/${rawBanner}`;
   })();
-  const description = (selectedStore && selectedStore.id === storeId ? (selectedStore as any)?.description : undefined) || (storeFromList as any)?.description || "";
+  const description = (selectedStore && selectedStore.id === storeId ? selectedStore?.description : undefined) || storeFromList?.description || "";
   const isSaved = helpers.isStoreBookmarked(storeId);
   const toggle = () => {
     if (storeId == null) return;

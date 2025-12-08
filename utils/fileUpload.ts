@@ -35,7 +35,7 @@ export async function uploadFile(
       uri: fileUri,
       type: mimeType,
       name: filename,
-    } as any);
+    } as FormData);
 
     const response = await fetch(`${env.API_BASE_URL}/files`, {
       method: 'POST',

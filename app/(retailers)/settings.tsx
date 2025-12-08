@@ -189,13 +189,14 @@ export default function Settings() {
       } else {
         Alert.alert("Info", "No changes detected in store details.");
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Failed to save store changes:", error);
       
       // Show error message
+      const errorMessage = error instanceof Error ? error.message : "Failed to update store details. Please try again.";
       Alert.alert(
         "Error",
-        error?.message || "Failed to update store details. Please try again.",
+        errorMessage,
         [{ text: "OK" }]
       );
     } finally {
@@ -224,8 +225,9 @@ export default function Settings() {
         setAddress(line);
       }
       Alert.alert("Location captured", "Coordinates and address have been filled. Save Store to apply.");
-    } catch (e: any) {
-      Alert.alert("Location Error", e?.message || "Failed to get current location");
+    } catch (e: unknown) {
+      const errorMessage = e instanceof Error ? e.message : "Failed to get current location";
+      Alert.alert("Location Error", errorMessage);
     } finally {
       setIsGettingLocation(false);
     }
@@ -250,8 +252,9 @@ export default function Settings() {
       const uploaded = await uploadFile(result.assets[0].uri, accessToken);
       setStoreLogoUrl(uploaded.url || uploaded.filename);
       Alert.alert('Success', 'Logo uploaded. Save Store to apply.');
-    } catch (e: any) {
-      Alert.alert('Upload Error', e?.message || 'Failed to upload logo');
+    } catch (e: unknown) {
+      const errorMessage = e instanceof Error ? e.message : 'Failed to upload logo';
+      Alert.alert('Upload Error', errorMessage);
     } finally {
       setUploadingLogo(false);
     }
@@ -277,8 +280,9 @@ export default function Settings() {
       const uploaded = await uploadFile(result.assets[0].uri, accessToken);
       setStoreBannerUrl(uploaded.url || uploaded.filename);
       Alert.alert('Success', 'Banner uploaded. Save Store to apply.');
-    } catch (e: any) {
-      Alert.alert('Upload Error', e?.message || 'Failed to upload banner');
+    } catch (e: unknown) {
+      const errorMessage = e instanceof Error ? e.message : 'Failed to upload banner';
+      Alert.alert('Upload Error', errorMessage);
     } finally {
       setUploadingBanner(false);
     }
@@ -294,7 +298,11 @@ export default function Settings() {
         email: email.trim(),
       });
       
-      const userUpdateData: any = {};
+      const userUpdateData: {
+        name?: string;
+        email?: string;
+        imageUrl?: string | null;
+      } = {};
       
       // Only include user fields that are different from current values
       if (fullName.trim() !== defaultName) {
@@ -310,7 +318,10 @@ export default function Settings() {
           Alert.alert("Error", "User information not available. Please try logging in again.");
           return;
         }
-        await updateUser(Number(user.id), userUpdateData).unwrap();
+        await updateUser(Number(user.id), {
+          ...userUpdateData,
+          imageUrl: userUpdateData.imageUrl ?? undefined,
+        }).unwrap();
         
         // Show success message
         Alert.alert(
@@ -323,13 +334,14 @@ export default function Settings() {
       } else {
         Alert.alert("Info", "No changes detected in user details.");
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Failed to save user changes:", error);
       
       // Show error message
+      const errorMessage = error instanceof Error ? error.message : "Failed to update user details. Please try again.";
       Alert.alert(
         "Error",
-        error?.message || "Failed to update user details. Please try again.",
+        errorMessage,
         [{ text: "OK" }]
       );
     } finally {
@@ -368,8 +380,9 @@ export default function Settings() {
                       await deleteUser(id).unwrap();
                       Alert.alert("Account Deleted", "Your account has been permanently deleted.");
                       router.replace("/auth/login");
-                    } catch (error: any) {
-                      Alert.alert("Error", error?.message || "Failed to delete account. Please try again.");
+                    } catch (error: unknown) {
+                      const errorMessage = error instanceof Error ? error.message : "Failed to delete account. Please try again.";
+                      Alert.alert("Error", errorMessage);
                     }
                   },
                 },
