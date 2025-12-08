@@ -1,83 +1,80 @@
 /**
  * Promotion API endpoints
+ * 
+ * Aligned with server.json OpenAPI specification:
+ * - GET /promotions (operationId: PromotionController_findAll)
+ * - GET /promotions/active (operationId: PromotionController_findActive)
+ * - GET /promotions/{id} (operationId: PromotionController_findOne)
+ * - POST /promotions (operationId: PromotionController_create)
+ * - PATCH /promotions/{id} (operationId: PromotionController_update)
+ * - DELETE /promotions/{id} (operationId: PromotionController_remove)
  */
 
 import { getApiClient } from "../client";
-import type { Promotion } from "@/features/store/promotions/types";
+import type {
+  PromotionResponseDto,
+  CreatePromotionDto,
+  UpdatePromotionDto,
+} from "../types/swagger";
 
-export interface FindPromotionsParams {
-  storeId?: number;
-  isActive?: boolean;
-  skip?: number;
-  take?: number;
-  [key: string]: unknown;
-}
+// Re-export Swagger types for convenience
+export type {
+  PromotionResponseDto,
+  CreatePromotionDto,
+  UpdatePromotionDto,
+};
 
-/**
- * CreatePromotionDto matching server.json CreatePromotionDto
- */
-export interface CreatePromotionDTO {
-  title: string;
-  type: string; // Promotion type (e.g., "percentage", "fixed")
-  description: string;
-  discount: number;
-  productId: number;
-  startsAt?: string; // ISO 8601 format date-time, defaults to current time if not provided
-  endsAt?: string; // ISO 8601 format date-time, nullable (if not provided, promotion has no end date)
-  active?: boolean; // Defaults to true if not provided
-}
-
-/**
- * UpdatePromotionDto matching server.json UpdatePromotionDto
- */
-export interface UpdatePromotionDTO {
-  title?: string;
-  type?: string; // Promotion type (e.g., "percentage", "fixed")
-  description?: string;
-  discount?: number;
-  productId?: number;
-  startsAt?: string; // ISO 8601 format date-time
-  endsAt?: string; // ISO 8601 format date-time, nullable
-  active?: boolean;
-}
+// Alias for consistency with existing code
+export type CreatePromotionDTO = CreatePromotionDto;
+export type UpdatePromotionDTO = UpdatePromotionDto;
 
 export const promotionsApi = {
   /**
-   * Find all promotions
+   * Find all promotions (including inactive and expired)
+   * Operation: PromotionController_findAll
+   * Endpoint: GET /promotions
    */
-  findPromotions: (params?: FindPromotionsParams): Promise<Promotion[]> => {
-    return getApiClient().get<Promotion[]>("/promotions", params);
+  findPromotions: (): Promise<PromotionResponseDto[]> => {
+    return getApiClient().get<PromotionResponseDto[]>("/promotions");
   },
 
   /**
-   * Find active promotions
+   * Find active promotions only (based on start/end dates and active status)
+   * Operation: PromotionController_findActive
+   * Endpoint: GET /promotions/active
    */
-  findActivePromotions: (): Promise<Promotion[]> => {
-    return getApiClient().get<Promotion[]>("/promotions/active");
+  findActivePromotions: (): Promise<PromotionResponseDto[]> => {
+    return getApiClient().get<PromotionResponseDto[]>("/promotions/active");
   },
 
   /**
    * Find promotion by ID
+   * Operation: PromotionController_findOne
+   * Endpoint: GET /promotions/{id}
    */
-  findPromotionById: (promotionId: number): Promise<Promotion> => {
-    return getApiClient().get<Promotion>(`/promotions/${promotionId}`);
+  findPromotionById: (promotionId: number): Promise<PromotionResponseDto> => {
+    return getApiClient().get<PromotionResponseDto>(`/promotions/${promotionId}`);
   },
 
   /**
    * Create a new promotion
+   * Operation: PromotionController_create
+   * Endpoint: POST /promotions
    */
-  createPromotion: (data: CreatePromotionDTO): Promise<Promotion> => {
-    return getApiClient().post<Promotion>("/promotions", data);
+  createPromotion: (data: CreatePromotionDto): Promise<PromotionResponseDto> => {
+    return getApiClient().post<PromotionResponseDto>("/promotions", data);
   },
 
   /**
    * Update a promotion
+   * Operation: PromotionController_update
+   * Endpoint: PATCH /promotions/{id}
    */
   updatePromotion: (
     promotionId: number,
-    data: UpdatePromotionDTO
-  ): Promise<Promotion> => {
-    return getApiClient().patch<Promotion>(
+    data: UpdatePromotionDto
+  ): Promise<PromotionResponseDto> => {
+    return getApiClient().patch<PromotionResponseDto>(
       `/promotions/${promotionId}`,
       data
     );
@@ -85,10 +82,11 @@ export const promotionsApi = {
 
   /**
    * Delete a promotion
-   * Returns PromotionResponseDto per server.json (not partial)
+   * Operation: PromotionController_remove
+   * Endpoint: DELETE /promotions/{id}
    */
-  deletePromotion: (promotionId: number): Promise<Promotion> => {
-    return getApiClient().delete<Promotion>(`/promotions/${promotionId}`);
+  deletePromotion: (promotionId: number): Promise<PromotionResponseDto> => {
+    return getApiClient().delete<PromotionResponseDto>(`/promotions/${promotionId}`);
   },
 };
 

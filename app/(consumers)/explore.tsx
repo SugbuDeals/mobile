@@ -12,7 +12,7 @@ import { useQueryHistory } from "@/hooks/useQueryHistory";
 import { useRecommendations } from "@/hooks/useRecommendations";
 import { useTabs } from "@/hooks/useTabs";
 import Ionicons from "@expo/vector-icons/Ionicons";
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   ScrollView,
@@ -116,15 +116,26 @@ export default function Explore() {
     [aiResponse, recommendations]
   );
 
+  // Memoize displayed recommendations with stable dependencies
   const displayedRecommendations = useMemo(() => {
-    const items = Array.isArray(recommendations)
-      ? recommendations.map((item) => enrichDistance(item))
-      : [];
-    if (activeTab === "cheapest") {
-      return items.sort((a, b) => (Number(a?.price ?? Infinity) as number) - (Number(b?.price ?? Infinity) as number));
+    if (!Array.isArray(recommendations) || recommendations.length === 0) {
+      return [];
     }
+    
+    // Enrich all items with distance first
+    const enrichedItems = recommendations.map((item) => enrichDistance(item));
+    
+    // Sort based on active tab
+    if (activeTab === "cheapest") {
+      return enrichedItems.sort((a, b) => {
+        const priceA = Number(a?.price ?? Infinity);
+        const priceB = Number(b?.price ?? Infinity);
+        return priceA - priceB;
+      });
+    }
+    
     if (activeTab === "closest") {
-      return items.sort((a, b) => {
+      return enrichedItems.sort((a, b) => {
         const distanceA = typeof a?.distance === "number" ? a.distance : extractDistanceFromItem(a);
         const distanceB = typeof b?.distance === "number" ? b.distance : extractDistanceFromItem(b);
         if (distanceA == null && distanceB == null) return 0;
@@ -133,7 +144,13 @@ export default function Explore() {
         return distanceA - distanceB;
       });
     }
-    return items.sort((a, b) => (Number(b?.discount ?? 0) as number) - (Number(a?.discount ?? 0) as number));
+    
+    // Default: sort by discount (best deals)
+    return enrichedItems.sort((a, b) => {
+      const discountA = Number(a?.discount ?? 0);
+      const discountB = Number(b?.discount ?? 0);
+      return discountB - discountA;
+    });
   }, [recommendations, activeTab, enrichDistance, extractDistanceFromItem]);
 
   const submitSearch = useCallback(async () => {
@@ -148,16 +165,22 @@ export default function Explore() {
     setIsEditingPrompt(false);
   }, [searchQuery, loading, fetchRecommendations, enrichDistance]);
 
-  // Add to query history when response is received
+  // Add to query history when response is received (only once per query)
+  const lastAddedQueryRef = useRef<string | null>(null);
   useEffect(() => {
-    if (lastSubmittedQuery && (aiResponse || recommendations.length > 0)) {
+    if (
+      lastSubmittedQuery &&
+      lastSubmittedQuery !== lastAddedQueryRef.current &&
+      (aiResponse || (recommendations && recommendations.length > 0))
+    ) {
+      lastAddedQueryRef.current = lastSubmittedQuery;
       addEntry(
         lastSubmittedQuery,
         aiResponse || "No response received",
-        recommendations.length
+        recommendations?.length || 0
       );
     }
-  }, [lastSubmittedQuery, aiResponse, recommendations.length, addEntry]);
+  }, [lastSubmittedQuery, aiResponse, recommendations, addEntry]);
 
   return (
     <>

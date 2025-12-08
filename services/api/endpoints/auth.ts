@@ -2,45 +2,30 @@
  * Authentication API endpoints
  * 
  * Aligned with server.json OpenAPI specification:
- * - Login: POST /auth/login
- * - Register: POST /auth/register
+ * - Login: POST /auth/login (operationId: AuthController_login)
+ * - Register: POST /auth/register (operationId: AuthController_register)
  */
 
 import { getApiClient } from "../client";
+import type {
+  LoginDTO,
+  RegisterDTO,
+  AuthResponseDto,
+  UserResponseDto,
+} from "../types/swagger";
 
-export interface LoginCredentials {
-  email: string;
-  password: string;
-}
-
-export interface RegisterPayload {
-  name: string;
-  email: string;
-  password: string;
-  role: "CONSUMER" | "RETAILER";
-}
+// Re-export Swagger types for convenience
+export type { LoginDTO, RegisterDTO, AuthResponseDto, UserResponseDto };
 
 /**
- * UserResponseDto matching server.json UserResponseDto
- * Exact structure from server.json schema
+ * LoginCredentials - alias for LoginDTO from Swagger
  */
-export interface UserResponseDto {
-  id: number;
-  email: string;
-  name: string;
-  createdAt: string; // ISO 8601 format date-time
-  role: "CONSUMER" | "RETAILER" | "ADMIN";
-  imageUrl: string | null; // Nullable per server.json
-}
+export type LoginCredentials = LoginDTO;
 
 /**
- * AuthResponseDto matching server.json AuthResponseDto
- * Used for login and register responses
+ * RegisterPayload - alias for RegisterDTO from Swagger
  */
-export interface AuthResponseDto {
-  access_token: string;
-  user: UserResponseDto;
-}
+export type RegisterPayload = RegisterDTO;
 
 /**
  * LoginResponse - using AuthResponseDto
@@ -160,11 +145,14 @@ export const authApi = {
    * Login with email and password
    * Returns JWT access token and user data
    * 
-   * @param credentials - Email and password
+   * Operation: AuthController_login
+   * Endpoint: POST /auth/login
+   * 
+   * @param credentials - Email and password (LoginDTO)
    * @returns Promise with access token and user data
    * @throws {ApiError} On invalid credentials (401) or server error
    */
-  login: async (credentials: LoginCredentials): Promise<LoginResponse> => {
+  login: async (credentials: LoginDTO): Promise<LoginResponse> => {
     const response = await getApiClient().post<AuthResponseDto>(
       "/auth/login",
       credentials,
@@ -197,11 +185,14 @@ export const authApi = {
    * Register a new user account
    * Returns JWT access token and user data
    * 
-   * @param payload - User registration data
+   * Operation: AuthController_register
+   * Endpoint: POST /auth/register
+   * 
+   * @param payload - User registration data (RegisterDTO)
    * @returns Promise with access token and user data
    * @throws {ApiError} On validation error (400) or server error
    */
-  register: async (payload: RegisterPayload): Promise<LoginResponse> => {
+  register: async (payload: RegisterDTO): Promise<LoginResponse> => {
     const response = await getApiClient().post<AuthResponseDto>(
       "/auth/register", 
       payload, 

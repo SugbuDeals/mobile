@@ -18,7 +18,7 @@ export interface AsyncReducerConfig<TState, TPayload, TArg = unknown> {
  */
 export function createAsyncReducer<TState, TPayload, TArg = unknown>(
   builder: ActionReducerMapBuilder<TState>,
-  thunk: AsyncThunk<TPayload, TArg, { rejectValue: { message: string } }>,
+  thunk: AsyncThunk<TPayload, TArg, { rejectValue: { message: string }; [key: string]: unknown }>,
   config: AsyncReducerConfig<TState, TPayload, TArg> = {}
 ) {
   const {

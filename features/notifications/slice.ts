@@ -90,7 +90,9 @@ const notificationSlice = createSlice({
       })
       .addCase(markAsRead.rejected, (state, action) => {
         state.loading = false;
-        state.error = action.payload?.message || "Mark as read failed";
+        state.error = (action.payload && typeof action.payload === 'object' && 'message' in action.payload)
+          ? String(action.payload.message)
+          : "Mark as read failed";
       })
       /**
        * [PATCH] notifications/markAllAsRead

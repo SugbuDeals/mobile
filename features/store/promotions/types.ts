@@ -1,37 +1,23 @@
 /**
- * Promotion domain types matching server.json PromotionResponseDto
+ * Promotion domain types
+ * Uses Swagger-generated types from services/api/types/swagger
  */
-export type Promotion = {
-  id: number;
-  title: string;
-  type: string; // Promotion type (e.g., "PERCENTAGE")
-  description: string;
-  startsAt: string; // ISO 8601 format date-time
-  endsAt: string | null; // Nullable per server.json
-  active: boolean;
-  discount: number;
-  productId: number | null; // Nullable per server.json
+
+import type {
+  PromotionResponseDto,
+  CreatePromotionDto,
+  UpdatePromotionDto,
+} from "@/services/api/types/swagger";
+
+// Re-export Swagger types
+export type {
+  PromotionResponseDto,
+  CreatePromotionDto,
+  UpdatePromotionDto,
 };
 
-export type CreatePromotionDTO = {
-  title: string;
-  type: "percentage" | "fixed";
-  description: string;
-  startsAt: string;
-  endsAt: string;
-  discount: number;
-  productId: number;
-  active?: boolean;
-};
-
-export type UpdatePromotionDTO = {
-  title?: string;
-  type?: "percentage" | "fixed";
-  description?: string;
-  startsAt?: string;
-  endsAt?: string;
-  discount?: number;
-  productId?: number;
-  active?: boolean;
-};
+// Aliases for backward compatibility
+export type Promotion = PromotionResponseDto;
+export type CreatePromotionDTO = CreatePromotionDto;
+export type UpdatePromotionDTO = UpdatePromotionDto;
 

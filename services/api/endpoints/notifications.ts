@@ -1,65 +1,37 @@
 /**
  * Notification API endpoints
+ * 
+ * Aligned with server.json OpenAPI specification:
+ * - GET /notifications (operationId: NotificationController_getUserNotifications)
+ * - GET /notifications/unread-count (operationId: NotificationController_getUnreadCount)
+ * - POST /notifications (operationId: NotificationController_createNotification)
+ * - PATCH /notifications/{id}/read (operationId: NotificationController_markAsRead)
+ * - PATCH /notifications/mark-all-read (operationId: NotificationController_markAllAsRead)
+ * - DELETE /notifications/{id} (operationId: NotificationController_deleteNotification)
  */
 
 import { getApiClient } from "../client";
+import type {
+  NotificationResponseDto,
+  CreateNotificationDto,
+  NotificationType,
+} from "../types/swagger";
 
-export type NotificationType =
-  | "PRODUCT_CREATED"
-  | "PRODUCT_PRICE_CHANGED"
-  | "PRODUCT_STOCK_CHANGED"
-  | "PRODUCT_STATUS_CHANGED"
-  | "PROMOTION_CREATED"
-  | "PROMOTION_STARTED"
-  | "PROMOTION_ENDING_SOON"
-  | "PROMOTION_ENDED"
-  | "STORE_VERIFIED"
-  | "STORE_CREATED"
-  | "STORE_UNDER_REVIEW"
-  | "SUBSCRIPTION_JOINED"
-  | "SUBSCRIPTION_CANCELLED"
-  | "SUBSCRIPTION_EXPIRED"
-  | "SUBSCRIPTION_RENEWED"
-  | "SUBSCRIPTION_ENDING_SOON"
-  | "SUBSCRIPTION_AVAILABLE"
-  | "CONSUMER_WELCOME"
-  | "PROMOTION_NEARBY"
-  | "GPS_REMINDER"
-  | "QUESTIONABLE_PRICING_PRODUCT"
-  | "QUESTIONABLE_PRICING_PROMOTION";
+// Re-export Swagger types for convenience
+export type {
+  NotificationResponseDto,
+  CreateNotificationDto,
+  NotificationType,
+};
 
-/**
- * NotificationResponseDto matching server.json NotificationResponseDto
- */
-export interface Notification {
-  id: number;
-  userId: number;
-  type: NotificationType;
-  title: string;
-  message: string;
-  read: boolean;
-  createdAt: string; // ISO 8601 format date-time (required per server.json)
-  readAt: string | null; // ISO 8601 format date-time, nullable per server.json
-  productId: number | null; // Nullable per server.json
-  storeId: number | null; // Nullable per server.json
-  promotionId: number | null; // Nullable per server.json
-}
-
-export interface CreateNotificationDto {
-  userId: number;
-  type: NotificationType;
-  title: string;
-  message: string;
-  productId?: number;
-  storeId?: number;
-  promotionId?: number;
-}
+// Alias for backward compatibility
+export type Notification = NotificationResponseDto;
 
 export interface GetNotificationsParams {
   skip?: number;
   take?: number;
   read?: boolean;
-  [key: string]: unknown;
+  [key: string]: string | number | boolean | undefined;
 }
 
 export interface UnreadCountResponse {
@@ -72,16 +44,20 @@ export interface MarkAllAsReadResponse {
 
 export const notificationsApi = {
   /**
-   * Get user notifications with optional filters
+   * Get user notifications with optional filters and pagination
+   * Operation: NotificationController_getUserNotifications
+   * Endpoint: GET /notifications
    */
   getNotifications: (
     params?: GetNotificationsParams
-  ): Promise<Notification[]> => {
-    return getApiClient().get<Notification[]>("/notifications", params);
+  ): Promise<NotificationResponseDto[]> => {
+    return getApiClient().get<NotificationResponseDto[]>("/notifications", params);
   },
 
   /**
    * Get unread notification count
+   * Operation: NotificationController_getUnreadCount
+   * Endpoint: GET /notifications/unread-count
    */
   getUnreadCount: (): Promise<UnreadCountResponse> => {
     return getApiClient().get<UnreadCountResponse>(
@@ -91,18 +67,21 @@ export const notificationsApi = {
 
   /**
    * Mark a notification as read
-   * Returns NotificationResponseDto per server.json
+   * Operation: NotificationController_markAsRead
+   * Endpoint: PATCH /notifications/{id}/read
    */
   markAsRead: (
     notificationId: number
-  ): Promise<Notification> => {
-    return getApiClient().patch<Notification>(
+  ): Promise<NotificationResponseDto> => {
+    return getApiClient().patch<NotificationResponseDto>(
       `/notifications/${notificationId}/read`
     );
   },
 
   /**
    * Mark all notifications as read
+   * Operation: NotificationController_markAllAsRead
+   * Endpoint: PATCH /notifications/mark-all-read
    */
   markAllAsRead: (): Promise<MarkAllAsReadResponse> => {
     return getApiClient().patch<MarkAllAsReadResponse>(
@@ -112,22 +91,24 @@ export const notificationsApi = {
 
   /**
    * Create a notification
-   * Returns NotificationResponseDto per server.json
+   * Operation: NotificationController_createNotification
+   * Endpoint: POST /notifications
    */
   createNotification: (
     data: CreateNotificationDto
-  ): Promise<Notification> => {
-    return getApiClient().post<Notification>("/notifications", data);
+  ): Promise<NotificationResponseDto> => {
+    return getApiClient().post<NotificationResponseDto>("/notifications", data);
   },
 
   /**
    * Delete a notification
-   * Returns NotificationResponseDto per server.json (not partial)
+   * Operation: NotificationController_deleteNotification
+   * Endpoint: DELETE /notifications/{id}
    */
   deleteNotification: (
     notificationId: number
-  ): Promise<Notification> => {
-    return getApiClient().delete<Notification>(
+  ): Promise<NotificationResponseDto> => {
+    return getApiClient().delete<NotificationResponseDto>(
       `/notifications/${notificationId}`
     );
   },

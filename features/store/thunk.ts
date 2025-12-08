@@ -110,6 +110,11 @@ export const findProductById = createAsyncThunk<
 >("store/findProductById", async (productId, { rejectWithValue }) => {
   try {
     const product = await productsApi.findProductById(productId);
+    if (!product) {
+      return rejectWithValue({
+        message: "Product not found",
+      });
+    }
     
     // Return product as-is - price is string per server.json
     return {

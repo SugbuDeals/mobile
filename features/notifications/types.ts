@@ -1,41 +1,23 @@
-export type NotificationType =
-  | "PRODUCT_CREATED"
-  | "PRODUCT_PRICE_CHANGED"
-  | "PRODUCT_STOCK_CHANGED"
-  | "PRODUCT_STATUS_CHANGED"
-  | "PROMOTION_CREATED"
-  | "PROMOTION_STARTED"
-  | "PROMOTION_ENDING_SOON"
-  | "STORE_VERIFIED"
-  | "STORE_CREATED"
-  | "SUBSCRIPTION_JOINED"
-  | "SUBSCRIPTION_CANCELLED"
-  | "SUBSCRIPTION_EXPIRED"
-  | "SUBSCRIPTION_RENEWED";
+/**
+ * Notification domain types
+ * Uses Swagger-generated types from services/api/types/swagger
+ */
 
-export type Notification = {
-  id: number;
-  userId: number;
-  type: NotificationType;
-  title: string;
-  message: string;
-  read: boolean;
-  createdAt: string | Date;
-  readAt: string | Date | null;
-  productId: number | null;
-  storeId: number | null;
-  promotionId: number | null;
+import type {
+  NotificationResponseDto,
+  CreateNotificationDto,
+  NotificationType,
+} from "@/services/api/types/swagger";
+
+// Re-export Swagger types
+export type {
+  NotificationResponseDto,
+  CreateNotificationDto,
+  NotificationType,
 };
 
-export type CreateNotificationDto = {
-  userId: number;
-  type: NotificationType;
-  title: string;
-  message: string;
-  productId?: number;
-  storeId?: number;
-  promotionId?: number;
-};
+// Alias for backward compatibility
+export type Notification = NotificationResponseDto;
 
 export type GetNotificationsParams = {
   skip?: number;

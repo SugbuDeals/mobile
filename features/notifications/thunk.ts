@@ -70,23 +70,13 @@ export const markAsRead = createAsyncThunk<
 >("notifications/markAsRead", async (id, { rejectWithValue }) => {
   try {
     const result = await notificationsApi.markAsRead(id);
-    // Map API response to Notification format
-    return {
-      id: result.id,
-      userId: 0, // Not returned by API
-      type: "PRODUCT_CREATED" as NotificationType, // Not returned by API
-      title: "",
-      message: "",
-      read: result.read,
-      createdAt: result.readAt || new Date().toISOString(),
-      readAt: result.readAt ? new Date(result.readAt) : null,
-      productId: null,
-      storeId: null,
-      promotionId: null,
-    };
-  } catch (error: any) {
+    // Return NotificationResponseDto as-is (Notification is alias)
+    return result;
+  } catch (error: unknown) {
     return rejectWithValue({
-      message: error?.message || "Mark as read failed",
+      message: error && typeof error === "object" && "message" in error
+        ? String(error.message)
+        : "Mark as read failed",
     });
   }
 });

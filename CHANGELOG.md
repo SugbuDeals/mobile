@@ -4,7 +4,7 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
-## [0.7.0] - 2025-01-XX
+## [0.8.0] - 2025-12-07
 
 ### Added
 - Complete admin panel with dashboard, user management, and analytics

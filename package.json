@@ -1,14 +1,16 @@
 {
   "name": "sugbudeals",
   "main": "expo-router/entry",
-  "version": "0.7.0",
+  "version": "0.8.0",
   "scripts": {
     "start": "expo start",
     "reset-project": "node ./scripts/reset-project.js",
     "android": "expo run:android",
     "ios": "expo run:ios",
     "web": "expo start --web",
-    "lint": "expo lint"
+    "lint": "expo lint",
+    "type-check": "tsc --noEmit",
+    "type-check:watch": "tsc --noEmit --watch"
   },
   "dependencies": {
     "@expo/metro-runtime": "~6.1.2",

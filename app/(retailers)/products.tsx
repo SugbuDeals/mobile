@@ -5,12 +5,13 @@ import { useLogin } from "@/features/auth";
 import { useStore } from "@/features/store";
 import { selectIsDeletingProduct } from "@/features/store/products/slice";
 import type { Product } from "@/features/store/products/types";
+import { useStableThunk } from "@/hooks/useStableCallback";
 import { useModal } from "@/hooks/useModal";
 import { useAppSelector } from "@/store/hooks";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { LinearGradient } from "expo-linear-gradient";
 import { router, useFocusEffect } from "expo-router";
-import React, { useCallback, useEffect, useRef } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Image,
   Platform,
@@ -30,39 +31,61 @@ export default function Products() {
     productToDelete ? selectIsDeletingProduct(state, productToDelete.id) : false
   );
   const scrollViewRef = useRef<ScrollView>(null);
-  const lastFetchedStoreId = useRef<number | null>(null);
-  const [filteredProducts, setFilteredProducts] = React.useState<Product[]>(products);
+  const lastFetchedStoreIdRef = useRef<number | null>(null);
+  const lastFetchedUserIdRef = useRef<number | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
+
+  // Stable thunk references
+  const stableFindProducts = useStableThunk(findProducts);
+
+  // Derived state: filtered products based on search query
+  const filteredProducts = useMemo(() => {
+    if (!searchQuery.trim()) {
+      return products;
+    }
+    const query = searchQuery.toLowerCase();
+    return products.filter(
+      (product) =>
+        product.name.toLowerCase().includes(query) ||
+        product.description?.toLowerCase().includes(query)
+    );
+  }, [products, searchQuery]);
 
   useEffect(() => {
-    // Fetch products for the current user's store
-    if (userStore?.id && lastFetchedStoreId.current !== userStore.id) {
-      lastFetchedStoreId.current = userStore.id;
-      findProducts({ storeId: userStore.id });
-    } else if (user?.id && !userStore?.id) {
-      // Fallback: if userStore is not available yet, try using user ID directly
-      // This handles the timing issue when navigating directly to inventory
-      console.log("Products page - userStore not available, using user ID as fallback");
-      findProducts({ storeId: Number(user.id) });
+    const storeId = userStore?.id;
+    const userId = user?.id ? Number(user.id) : null;
+
+    // Skip if we've already fetched for this store
+    if (storeId && lastFetchedStoreIdRef.current === storeId) {
+      return;
     }
-  }, [userStore?.id, user]);
+    // Skip if we've already fetched for this user (fallback case)
+    if (userId && !storeId && lastFetchedUserIdRef.current === userId) {
+      return;
+    }
+
+    if (storeId) {
+      lastFetchedStoreIdRef.current = storeId;
+      stableFindProducts({ storeId });
+    } else if (userId) {
+      lastFetchedUserIdRef.current = userId;
+      stableFindProducts({ storeId: userId });
+    }
+  }, [userStore?.id, user?.id, stableFindProducts]);
 
   // Refresh products when component comes into focus
   useFocusEffect(
     useCallback(() => {
-      console.log("Products page - Refreshing products on focus...");
-      if (userStore?.id) {
-        findProducts({ storeId: userStore.id });
-      } else if (user?.id) {
-        console.log("Products page - userStore not available on focus, using user ID");
-        findProducts({ storeId: Number(user.id) });
-      }
-    }, [userStore?.id, user, findProducts])
-  );
+      const storeId = userStore?.id;
+      const userId = user?.id ? Number(user.id) : null;
 
-  // Update filtered products when products change
-  useEffect(() => {
-    setFilteredProducts(products);
-  }, [products]);
+      if (storeId) {
+        stableFindProducts({ storeId });
+      } else if (userId) {
+        stableFindProducts({ storeId: userId });
+      }
+    }, [userStore?.id, user?.id, stableFindProducts])
+  );
 
   const getStockStatusColor = (stock: number) => {
     if (stock > 10) return "#10B981"; // In Stock
@@ -150,8 +173,8 @@ export default function Products() {
             return !!(product.name.toLowerCase().includes(q) || 
                    (product.description && product.description.toLowerCase().includes(q)));
           }}
-          onSearchChange={(query, filtered) => {
-            setFilteredProducts(filtered);
+          onSearchChange={(query) => {
+            setSearchQuery(query);
           }}
         />
       </View>

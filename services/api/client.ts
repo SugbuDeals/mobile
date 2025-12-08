@@ -3,7 +3,7 @@
  */
 
 import env from "@/config/env";
-import { ApiError, ApiResponse } from "./types/common";
+import { ApiError, ApiResponse, ErrorResponse } from "./types/common";
 
 export interface RequestConfig extends RequestInit {
   skipAuth?: boolean;
@@ -101,18 +101,24 @@ class ApiClient {
     let errorData: ApiError = {
       message: `HTTP ${response.status}: ${response.statusText}`,
       status: response.status,
+      statusCode: response.status,
     };
 
     try {
       const text = await response.text();
       if (text) {
-        const parsed = JSON.parse(text);
+        const parsed: ErrorResponse = JSON.parse(text);
         
-        // Handle message that can be string or array (e.g., validation errors)
+        // Handle Swagger error response format: { statusCode: number, message: string | string[] }
         let message = errorData.message;
+        if (parsed.statusCode !== undefined) {
+          errorData.statusCode = parsed.statusCode;
+          errorData.status = parsed.statusCode;
+        }
+        
         if (parsed.message) {
           if (Array.isArray(parsed.message)) {
-            // Join array messages with newlines for readability
+            // Join array messages with newlines for readability (validation errors)
             message = parsed.message.join('\n');
           } else if (typeof parsed.message === 'string') {
             message = parsed.message;
@@ -123,8 +129,9 @@ class ApiClient {
         
         errorData = {
           message,
-          status: response.status,
-          code: parsed.code,
+          status: parsed.statusCode || response.status,
+          statusCode: parsed.statusCode || response.status,
+          code: 'code' in parsed && typeof parsed.code === 'string' ? parsed.code : undefined,
           details: parsed,
         };
       }

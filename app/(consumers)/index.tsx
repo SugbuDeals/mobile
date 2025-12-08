@@ -5,10 +5,12 @@ import type { Category, Product } from "@/features/catalog/types";
 import { useStore } from "@/features/store";
 import type { Promotion } from "@/features/store/promotions/types";
 import type { Store } from "@/features/store/stores/types";
+import { useAsyncEffect } from "@/hooks/useAsyncEffect";
+import { useStableThunk } from "@/hooks/useStableCallback";
 import { LinearGradient } from "expo-linear-gradient";
 import * as Location from "expo-location";
 import { useFocusEffect, useRouter } from "expo-router";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import {
   Image,
   Modal,
@@ -22,12 +24,12 @@ import {
 type Router = ReturnType<typeof useRouter>;
 
 const STATIC_CATEGORIES: Category[] = [
-  { id: 1001, name: "Groceries" },
-  { id: 1002, name: "Electronics" },
-  { id: 1003, name: "Fashion" },
-  { id: 1004, name: "Home" },
-  { id: 1005, name: "Furniture" },
-  { id: 1006, name: "Decor" },
+  { id: 1001, name: "Groceries", createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
+  { id: 1002, name: "Electronics", createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
+  { id: 1003, name: "Fashion", createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
+  { id: 1004, name: "Home", createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
+  { id: 1005, name: "Furniture", createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
+  { id: 1006, name: "Decor", createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
 ];
 
 export default function Home() {
@@ -44,34 +46,40 @@ export default function Home() {
     action: { loadCategories, loadProducts },
   } = useCatalog();
 
+  // Stable thunk references
+  const stableFindNearbyStores = useStableThunk(findNearbyStores);
+  const stableFindActivePromotions = useStableThunk(findActivePromotions);
+  const stableLoadCategories = useStableThunk(loadCategories);
+  const stableLoadProducts = useStableThunk(loadProducts);
+
   const [selectedPromotion, setSelectedPromotion] = useState<{
     promotion: Promotion;
     productPromotions: { product: Product; promotion: Promotion }[];
   } | null>(null);
 
-  useEffect(() => {
-    (async () => {
-      loadCategories();
-      loadProducts();
-      findActivePromotions();
-      try {
-        const { status } = await Location.requestForegroundPermissionsAsync();
-        if (status === "granted") {
-          const pos = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
-          await findNearbyStores({ latitude: pos.coords.latitude, longitude: pos.coords.longitude, radiusKm: 10 });
-        } else {
-          // fallback: no nearby if no permission
-        }
-      } catch {}
-    })();
-  }, [findNearbyStores, loadCategories, loadProducts, findActivePromotions]);
+  // Load initial data
+  useAsyncEffect(async () => {
+    stableLoadCategories();
+    stableLoadProducts();
+    stableFindActivePromotions();
+    
+    try {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status === "granted") {
+        const pos = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+        await stableFindNearbyStores({ latitude: pos.coords.latitude, longitude: pos.coords.longitude, radiusKm: 10 });
+      }
+    } catch (error) {
+      // Silently handle location errors
+      console.warn("Location permission error:", error);
+    }
+  }, [stableLoadCategories, stableLoadProducts, stableFindActivePromotions, stableFindNearbyStores]);
 
-  // Refresh promotions when screen comes into focus (e.g., when navigating back)
+  // Refresh promotions when screen comes into focus
   useFocusEffect(
     useCallback(() => {
-      // Reload all promotions when returning to home screen
-      findActivePromotions();
-    }, [findActivePromotions])
+      stableFindActivePromotions();
+    }, [stableFindActivePromotions])
   );
 
   const displayName =
@@ -175,11 +183,12 @@ function PromotionModal({
     onClose();
   };
 
-  const getDiscountedPrice = (originalPrice: number, promo: Promotion) => {
+  const getDiscountedPrice = (originalPrice: number | string, promo: Promotion) => {
+    const price = typeof originalPrice === 'string' ? parseFloat(originalPrice) : originalPrice;
     if (promo.type === 'percentage') {
-      return originalPrice * (1 - promo.discount / 100);
+      return price * (1 - promo.discount / 100);
     } else {
-      return Math.max(0, originalPrice - promo.discount);
+      return Math.max(0, price - promo.discount);
     }
   };
 
@@ -519,7 +528,7 @@ function NearbyStores({
   loading,
   router,
 }: {
-  stores: Store[];
+  stores: (Store & { distance?: number })[];
   loading: boolean;
   router: Router;
 }) {
