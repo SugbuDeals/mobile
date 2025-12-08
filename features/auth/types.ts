@@ -1,32 +1,21 @@
 /**
- * Login credentials matching server.json LoginDTO
+ * Auth feature types
+ * Uses Swagger-generated types from services/api/types/swagger
  */
-export interface LoginCredentials {
-  email: string;
-  password: string;
-}
 
-/**
- * UserResponseDto matching server.json UserResponseDto
- * Exact structure from server.json schema
- */
-export interface UserResponseDto {
-  id: number;
-  email: string;
-  name: string;
-  createdAt: string; // ISO 8601 format date-time
-  role: "CONSUMER" | "RETAILER" | "ADMIN";
-  imageUrl: string | null; // Nullable per server.json
-}
+import type {
+  LoginDTO,
+  RegisterDTO,
+  UserResponseDto,
+  AuthResponseDto,
+} from "@/services/api/types/swagger";
 
-/**
- * AuthResponseDto matching server.json AuthResponseDto
- * Used for login and register responses
- */
-export interface AuthResponseDto {
-  access_token: string;
-  user: UserResponseDto;
-}
+// Re-export Swagger types
+export type { UserResponseDto, AuthResponseDto };
+
+// Alias for backward compatibility
+export type LoginCredentials = LoginDTO;
+export type { RegisterDTO as RegisterPayload };
 
 /**
  * Login/Register response - using AuthResponseDto
@@ -57,16 +46,6 @@ export interface AuthState {
   error: string | null;
 }
 
-/**
- * Register payload matching server.json RegisterDTO
- * Note: ADMIN role cannot be assigned via registration
- */
-export interface RegisterPayload {
-  name: string;
-  email: string;
-  password: string;
-  role: 'CONSUMER' | 'RETAILER';
-}
 
 /**
  * Register error response

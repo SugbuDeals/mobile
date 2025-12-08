@@ -1,23 +1,24 @@
-export type Category = {
-  id: number;
-  name: string;
+/**
+ * Catalog domain types
+ * Uses Swagger-generated types from services/api/types/swagger
+ */
+
+import type {
+  CategoryResponseDto,
+  CreateCategoryDTO,
+  UpdateCategoryDTO,
+  ProductResponseDto,
+} from "@/services/api/types/swagger";
+
+// Re-export Swagger types
+export type {
+  CategoryResponseDto,
+  CreateCategoryDTO,
+  UpdateCategoryDTO,
+  ProductResponseDto,
 };
 
-export type CreateCategoryDTO = {
-  name: string;
-};
-
-export type UpdateCategoryDTO = {
-  name?: string;
-};
-
-export type Product = {
-  id: number;
-  name: string;
-  description?: string;
-  price?: number;
-  storeId?: number;
-  isActive?: boolean;
-  imageUrl?: string;
-};
+// Aliases for backward compatibility
+export type Category = CategoryResponseDto;
+export type Product = ProductResponseDto;
 

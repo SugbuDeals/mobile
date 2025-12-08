@@ -7,9 +7,11 @@ import { useStore } from "@/features/store";
 import type { Product as StoreProduct } from "@/features/store/types";
 import type { Store } from "@/features/store/stores/types";
 import type { Promotion } from "@/features/store/promotions/types";
+import { useStableThunk } from "@/hooks/useStableCallback";
+import { useAsyncEffect } from "@/hooks/useAsyncEffect";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
-import React, { useCallback } from "react";
+import React, { useCallback, useEffect, useMemo, useRef } from "react";
 import {
     Image,
     SafeAreaView,
@@ -33,6 +35,17 @@ export default function StoreDetailsScreen() {
     state: { activePromotions, stores, selectedStore },
     action: { findActivePromotions, findProducts: findStoreProducts, findStoreById },
   } = useStore();
+  
+  // Stable thunk references
+  const stableFindStoreById = useStableThunk(findStoreById);
+  const stableFindStoreProducts = useStableThunk(findStoreProducts);
+  const stableFindActivePromotions = useStableThunk(findActivePromotions);
+  const stableLoadProducts = useStableThunk(loadProducts);
+  const stableLoadCategories = useStableThunk(loadCategories);
+  
+  // Track last loaded store ID to prevent duplicate loads
+  const lastLoadedStoreIdRef = useRef<number | null>(null);
+  
   // keep bookmarks store ready for hero toggle
   useBookmarks();
   const [activeCategory, setActiveCategory] = React.useState("All");
@@ -45,59 +58,42 @@ export default function StoreDetailsScreen() {
   const storeName =
     (params.store as string) || (resolvedStore?.name ?? "Store");
 
-  React.useEffect(() => {
-    if (!products || products.length === 0) loadProducts();
-    if (!catalogCategories || catalogCategories.length === 0) loadCategories();
-  }, [products, catalogCategories, loadProducts, loadCategories]);
-
-  React.useEffect(() => {
-    if (storeId) {
-      findStoreById(storeId);
+  // Load categories and products if not already loaded
+  useEffect(() => {
+    if (!products || products.length === 0) {
+      stableLoadProducts();
     }
-  }, [storeId, findStoreById]);
-
-  // Load products for this store into the store state before filtering promotions
-  React.useEffect(() => {
-    if (storeId != null) {
-      // Load products for this store first, then filter promotions
-      const loadData = async () => {
-        try {
-          // Wait for products to be loaded and state updated
-          const result = await findStoreProducts({ storeId });
-          // Only proceed if the action was fulfilled (not rejected)
-          if (result.type.endsWith('/fulfilled')) {
-            // After products are loaded, filter promotions for this store
-            findActivePromotions(storeId);
-          }
-        } catch (error) {
-          console.error("Error loading store products:", error);
-        }
-      };
-      loadData();
+    if (!catalogCategories || catalogCategories.length === 0) {
+      stableLoadCategories();
     }
-  }, [storeId, findStoreProducts, findActivePromotions]);
+  }, [products, catalogCategories, stableLoadProducts, stableLoadCategories]);
 
-  // Refresh promotions when screen comes into focus
+  // Load store details
+  useEffect(() => {
+    if (storeId && lastLoadedStoreIdRef.current !== storeId) {
+      stableFindStoreById(storeId);
+    }
+  }, [storeId, stableFindStoreById]);
+
+  // Load store products and promotions (chained via Redux state, not async/await)
+  useEffect(() => {
+    if (storeId != null && lastLoadedStoreIdRef.current !== storeId) {
+      lastLoadedStoreIdRef.current = storeId;
+      // Dispatch both actions - they will update Redux state independently
+      // No need to await or chain them
+      stableFindStoreProducts({ storeId });
+      stableFindActivePromotions(storeId);
+    }
+  }, [storeId, stableFindStoreProducts, stableFindActivePromotions]);
+
+  // Refresh data when screen comes into focus
   useFocusEffect(
     useCallback(() => {
       if (storeId != null) {
-        // Reload products and promotions when screen comes into focus
-        const loadData = async () => {
-          try {
-            // Wait for products to be loaded and state updated
-            const result = await findStoreProducts({ storeId });
-            // Only proceed if the action was fulfilled (not rejected)
-            if (result.type.endsWith('/fulfilled')) {
-              // After products are loaded, filter promotions for this store
-              findActivePromotions(storeId);
-            }
-          } catch (error) {
-            console.error("Error loading store products on focus:", error);
-          }
-        };
-        loadData();
+        stableFindStoreProducts({ storeId });
+        stableFindActivePromotions(storeId);
       }
-    }, [storeId, findStoreProducts, findActivePromotions])
+    }, [storeId, stableFindStoreProducts, stableFindActivePromotions])
   );
 
   const getProductCategoryName = React.useCallback(

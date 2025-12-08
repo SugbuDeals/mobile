@@ -1,52 +1,47 @@
 /**
  * Bookmark API endpoints
+ * 
+ * Aligned with server.json OpenAPI specification:
+ * - POST /bookmarks/stores/list (operationId: BookmarkController_listMyStoreBookmarks)
+ * - POST /bookmarks/stores (operationId: BookmarkController_bookmarkStore)
+ * - DELETE /bookmarks/stores (operationId: BookmarkController_unbookmarkStore)
+ * - POST /bookmarks/products/list (operationId: BookmarkController_listMyProductBookmarks)
+ * - POST /bookmarks/products (operationId: BookmarkController_bookmarkProduct)
+ * - DELETE /bookmarks/products (operationId: BookmarkController_unbookmarkProduct)
  */
 
 import { getApiClient } from "../client";
+import type {
+  StoreBookmarkResponseDto,
+  ProductBookmarkResponseDto,
+  StoreBookmarkDto,
+  ProductBookmarkDto,
+  ListBookmarksDto,
+} from "../types/swagger";
 
-export interface StoreBookmarkDto {
-  storeId: number;
-}
+// Re-export Swagger types for convenience
+export type {
+  StoreBookmarkResponseDto,
+  ProductBookmarkResponseDto,
+  StoreBookmarkDto,
+  ProductBookmarkDto,
+  ListBookmarksDto,
+};
 
-export interface ProductBookmarkDto {
-  productId: number;
-}
-
-export interface ListBookmarksDto {
-  take?: number;
-  skip?: number;
-}
-
-/**
- * StoreBookmarkResponseDto matching server.json StoreBookmarkResponseDto
- */
-export interface StoreBookmark {
-  id: number;
-  userId: number;
-  storeId: number;
-  createdAt: string; // ISO 8601 format date-time (required per server.json)
-  store?: import("@/features/store/types").Store; // Nested StoreResponseDto per server.json
-}
-
-/**
- * ProductBookmarkResponseDto matching server.json ProductBookmarkResponseDto
- */
-export interface ProductBookmark {
-  id: number;
-  userId: number;
-  productId: number;
-  createdAt: string; // ISO 8601 format date-time (required per server.json)
-  product?: import("@/features/store/types").Product; // Nested ProductResponseDto per server.json
-}
+// Aliases for backward compatibility
+export type StoreBookmark = StoreBookmarkResponseDto;
+export type ProductBookmark = ProductBookmarkResponseDto;
 
 export const bookmarksApi = {
   /**
-   * List store bookmarks (POST method per schema)
+   * List store bookmarks for authenticated user
+   * Operation: BookmarkController_listMyStoreBookmarks
+   * Endpoint: POST /bookmarks/stores/list
    */
   listStoreBookmarks: (
     params: ListBookmarksDto
-  ): Promise<StoreBookmark[]> => {
-    return getApiClient().post<StoreBookmark[]>(
+  ): Promise<StoreBookmarkResponseDto[]> => {
+    return getApiClient().post<StoreBookmarkResponseDto[]>(
       "/bookmarks/stores/list",
       params
     );
@@ -54,21 +49,24 @@ export const bookmarksApi = {
 
   /**
    * Bookmark a store
+   * Operation: BookmarkController_bookmarkStore
+   * Endpoint: POST /bookmarks/stores
    */
-  bookmarkStore: (data: StoreBookmarkDto): Promise<StoreBookmark> => {
-    return getApiClient().post<StoreBookmark>("/bookmarks/stores", data);
+  bookmarkStore: (data: StoreBookmarkDto): Promise<StoreBookmarkResponseDto> => {
+    return getApiClient().post<StoreBookmarkResponseDto>("/bookmarks/stores", data);
   },
 
   /**
    * Unbookmark a store
-   * Returns StoreBookmarkResponseDto per server.json (not partial)
+   * Operation: BookmarkController_unbookmarkStore
+   * Endpoint: DELETE /bookmarks/stores
    */
   unbookmarkStore: (
     data: StoreBookmarkDto
-  ): Promise<StoreBookmark> => {
+  ): Promise<StoreBookmarkResponseDto> => {
     const client = getApiClient();
     // DELETE with body - use request method directly
-    return client.request<StoreBookmark>(
+    return client.request<StoreBookmarkResponseDto>(
       "/bookmarks/stores",
       {
         method: "DELETE",
@@ -78,12 +76,14 @@ export const bookmarksApi = {
   },
 
   /**
-   * List product bookmarks (POST method per schema)
+   * List product bookmarks for authenticated user
+   * Operation: BookmarkController_listMyProductBookmarks
+   * Endpoint: POST /bookmarks/products/list
    */
   listProductBookmarks: (
     params: ListBookmarksDto
-  ): Promise<ProductBookmark[]> => {
-    return getApiClient().post<ProductBookmark[]>(
+  ): Promise<ProductBookmarkResponseDto[]> => {
+    return getApiClient().post<ProductBookmarkResponseDto[]>(
       "/bookmarks/products/list",
       params
     );
@@ -91,21 +91,24 @@ export const bookmarksApi = {
 
   /**
    * Bookmark a product
+   * Operation: BookmarkController_bookmarkProduct
+   * Endpoint: POST /bookmarks/products
    */
-  bookmarkProduct: (data: ProductBookmarkDto): Promise<ProductBookmark> => {
-    return getApiClient().post<ProductBookmark>("/bookmarks/products", data);
+  bookmarkProduct: (data: ProductBookmarkDto): Promise<ProductBookmarkResponseDto> => {
+    return getApiClient().post<ProductBookmarkResponseDto>("/bookmarks/products", data);
   },
 
   /**
    * Unbookmark a product
-   * Returns ProductBookmarkResponseDto per server.json (not partial)
+   * Operation: BookmarkController_unbookmarkProduct
+   * Endpoint: DELETE /bookmarks/products
    */
   unbookmarkProduct: (
     data: ProductBookmarkDto
-  ): Promise<ProductBookmark> => {
+  ): Promise<ProductBookmarkResponseDto> => {
     const client = getApiClient();
     // DELETE with body - use request method directly
-    return client.request<ProductBookmark>(
+    return client.request<ProductBookmarkResponseDto>(
       "/bookmarks/products",
       {
         method: "DELETE",

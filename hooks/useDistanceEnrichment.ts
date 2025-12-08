@@ -46,7 +46,7 @@ export function useDistanceEnrichment(nearbyStores: Store[] = []) {
   const storeDistanceMap = useMemo(() => {
     const map = new Map<number, number>();
     nearbyStores.forEach((store) => {
-      const normalized = normalizeDistance(store?.distance);
+      const normalized = normalizeDistance(('distance' in store ? store.distance : undefined));
       if (normalized != null && typeof store?.id === "number") {
         map.set(store.id, normalized);
       }

@@ -1,9 +1,10 @@
 import { useLogin } from "@/features/auth";
 import { useStore } from "@/features/store";
 import type { Promotion } from "@/features/store/promotions/types";
+import { useStableThunk } from "@/hooks/useStableCallback";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { router, useFocusEffect } from "expo-router";
-import React, { useCallback, useEffect } from "react";
+import React, { useCallback, useEffect, useMemo, useRef } from "react";
 import {
     ImageBackground,
     ScrollView,
@@ -20,8 +21,16 @@ export default function RetailerDashboard() {
   const { state: { user } } = useLogin();
   const { action: { findActivePromotions, findProducts }, state: { userStore, activePromotions, loading, products } } = useStore();
 
+  // Stable thunk references to prevent unnecessary re-renders
+  const stableFindActivePromotions = useStableThunk(findActivePromotions);
+  const stableFindProducts = useStableThunk(findProducts);
+
+  // Track last fetched store ID to prevent duplicate fetches
+  const lastFetchedStoreIdRef = useRef<number | null>(null);
+  const lastFetchedUserIdRef = useRef<number | null>(null);
+
   // Group promotions by title to show as single promotions with multiple products
-  const groupedPromotions = React.useMemo(() => {
+  const groupedPromotions = useMemo(() => {
     const groups: { [key: string]: Promotion[] } = {};
     
     activePromotions.forEach(promotion => {
@@ -51,57 +60,48 @@ export default function RetailerDashboard() {
     });
   }, [activePromotions]);
 
-  // Debug: Log userStore changes
-  React.useEffect(() => {
-    console.log("Dashboard - userStore state:", userStore);
-  }, [userStore]);
-
-  // Debug: Log activePromotions changes
-  React.useEffect(() => {
-    console.log("Dashboard - activePromotions state:", activePromotions);
-    console.log("Dashboard - activePromotions length:", activePromotions.length);
-    console.log("Dashboard - groupedPromotions:", groupedPromotions);
-  }, [activePromotions, groupedPromotions]);
-
-  // Debug: Log products changes
-  React.useEffect(() => {
-    console.log("Dashboard - products state:", products);
-    console.log("Dashboard - products length:", products.length);
-  }, [products]);
-
+  // Fetch data when user or userStore changes
   useEffect(() => {
-    // Fetch active promotions and products
-    console.log("Dashboard - Fetching active promotions...");
-    
-    // Also fetch products so we can show product details in promotions
-    if (user && userStore) {
-      console.log("Dashboard - Fetching products for store:", userStore.id);
-      findProducts({ storeId: userStore.id });
-      // Fetch promotions only for this store
-      findActivePromotions(userStore.id);
-    } else if (user && (user as any).id) {
-      console.log("Dashboard - No userStore, trying with user ID:", (user as any).id);
-      findProducts({ storeId: Number((user as any).id) });
-      // Fetch promotions only for this store
-      findActivePromotions(Number((user as any).id));
-    } else {
-      // If no store info available, fetch all promotions (fallback)
-      findActivePromotions();
+    const storeId = userStore?.id;
+    const userId = user?.id ? Number(user.id) : null;
+
+    // Skip if we've already fetched for this store/user
+    if (storeId && lastFetchedStoreIdRef.current === storeId) {
+      return;
     }
-  }, [user, userStore]);
+    if (userId && !storeId && lastFetchedUserIdRef.current === userId) {
+      return;
+    }
+
+    // Fetch products and promotions
+    if (storeId) {
+      lastFetchedStoreIdRef.current = storeId;
+      stableFindProducts({ storeId });
+      stableFindActivePromotions(storeId);
+    } else if (userId) {
+      lastFetchedUserIdRef.current = userId;
+      stableFindProducts({ storeId: userId });
+      stableFindActivePromotions(userId);
+    } else {
+      // Fallback: fetch all promotions
+      stableFindActivePromotions();
+    }
+  }, [user?.id, userStore?.id, stableFindProducts, stableFindActivePromotions]);
 
   // Refresh promotions when component comes into focus
   useFocusEffect(
     useCallback(() => {
-      console.log("Dashboard - Refreshing promotions on focus...");
-      if (userStore) {
-        findActivePromotions(userStore.id);
-      } else if (user && (user as any).id) {
-        findActivePromotions(Number((user as any).id));
+      const storeId = userStore?.id;
+      const userId = user?.id ? Number(user.id) : null;
+
+      if (storeId) {
+        stableFindActivePromotions(storeId);
+      } else if (userId) {
+        stableFindActivePromotions(userId);
       } else {
-        findActivePromotions();
+        stableFindActivePromotions();
       }
-    }, [findActivePromotions, userStore, user])
+    }, [userStore?.id, user?.id, stableFindActivePromotions])
   );
 
   const getStoreInitial = (storeName: string) => {

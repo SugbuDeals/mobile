@@ -69,7 +69,7 @@ export default function NearbyStores({ stores, loading }: NearbyStoresProps) {
               <Text style={styles.storeName} numberOfLines={2}>
                 {store.name}
               </Text>
-              {store.distance && (
+              {('distance' in store && typeof store.distance === 'number') && (
                 <Text style={styles.distance}>
                   {store.distance.toFixed(2)} km away
                 </Text>

@@ -23,17 +23,8 @@ export const findProducts = createAsyncThunk<
   { rejectValue: { message: string }; state: RootState }
 >("catalog/findProducts", async (_, { rejectWithValue }) => {
   try {
-    const products = await productsApi.findProducts();
-    // Map API products to catalog Product format
-    return products.map((p) => ({
-      id: p.id,
-      name: p.name,
-      description: p.description,
-      price: typeof p.price === "string" ? parseFloat(p.price) : (p.price as number | undefined),
-      storeId: p.storeId,
-      isActive: p.isActive,
-      imageUrl: p.imageUrl ?? undefined,
-    }));
+    // ProductResponseDto[] is already compatible with Product[] (Product is alias)
+    return await productsApi.findProducts();
   } catch (error: unknown) {
     return rejectWithValue({
       message: error instanceof Error ? error.message : "Find products failed",

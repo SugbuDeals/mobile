@@ -41,11 +41,12 @@ export default function AllRecommendations() {
   }, [activePromotions]);
 
   // Calculate discounted price
-  const getDiscountedPrice = (originalPrice: number, promotion: Promotion) => {
+  const getDiscountedPrice = (originalPrice: number | string, promotion: Promotion) => {
+    const price = typeof originalPrice === 'string' ? parseFloat(originalPrice) : originalPrice;
     if (promotion.type === 'percentage') {
-      return originalPrice * (1 - promotion.discount / 100);
+      return price * (1 - promotion.discount / 100);
     } else {
-      return Math.max(0, originalPrice - promotion.discount);
+      return Math.max(0, price - promotion.discount);
     }
   };
 
