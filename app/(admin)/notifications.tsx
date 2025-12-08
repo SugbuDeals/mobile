@@ -1,4 +1,5 @@
 import { useNotifications } from "@/features/notifications";
+import type { Notification as NotificationType } from "@/features/notifications/types";
 import { useStore } from "@/features/store";
 import {
     formatNotificationTime,
@@ -49,7 +50,7 @@ export default function AdminNotifications() {
     action.getUnreadCount();
   };
 
-  const handleNotificationPress = (notification: any) => {
+  const handleNotificationPress = (notification: NotificationType) => {
     // Mark as read when pressed
     if (!notification.read) {
       handleMarkAsRead(notification.id);
@@ -59,12 +60,12 @@ export default function AdminNotifications() {
     if (notification.productId) {
       // Find the product to determine its store for deep linking
       const product = storeState.products.find(
-        (p: any) => String(p.id) === String(notification.productId)
+        (p) => String(p.id) === String(notification.productId)
       );
 
       if (product?.storeId) {
         const store = storeState.stores.find(
-          (s: any) => String(s.id) === String(product.storeId)
+          (s) => String(s.id) === String(product.storeId)
         );
 
         router.push({
@@ -73,7 +74,6 @@ export default function AdminNotifications() {
             storeId: String(product.storeId),
             storeName:
               store?.name ||
-              notification.storeName ||
               notification.title ||
               undefined,
           },
@@ -88,7 +88,7 @@ export default function AdminNotifications() {
         pathname: "/(admin)/store-details",
         params: {
           storeId: String(notification.storeId),
-          storeName: notification.storeName || notification.title || undefined,
+          storeName: notification.title || undefined,
         },
       });
     } else if (notification.promotionId) {
@@ -144,8 +144,8 @@ const NotificationList = ({
   notifications,
   onNotificationPress,
 }: {
-  notifications: any[];
-  onNotificationPress: (notification: any) => void;
+  notifications: NotificationType[];
+  onNotificationPress: (notification: NotificationType) => void;
 }) => (
   <>
     {notifications.map((notification) => (

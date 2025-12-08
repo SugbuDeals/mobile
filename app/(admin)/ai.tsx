@@ -81,7 +81,7 @@ export default function AITesting() {
       });
       
       const rawText = await response.text();
-      let jsonData: any = {};
+      let jsonData: Record<string, unknown> = {};
       
       try {
         jsonData = rawText ? JSON.parse(rawText) : {};
@@ -90,11 +90,11 @@ export default function AITesting() {
       }
       
       // Extract content from various response formats
-      const responseText =
-        jsonData?.content ||
-        jsonData?.message ||
-        jsonData?.response ||
-        rawText ||
+      const responseText: string =
+        (typeof jsonData?.content === 'string' ? jsonData.content : undefined) ||
+        (typeof jsonData?.message === 'string' ? jsonData.message : undefined) ||
+        (typeof jsonData?.response === 'string' ? jsonData.response : undefined) ||
+        (typeof rawText === 'string' ? rawText : undefined) ||
         "No response received";
       
       setChatResponse(responseText);
@@ -142,7 +142,7 @@ export default function AITesting() {
       });
       
       const rawText = await response.text();
-      let jsonData: any = {};
+      let jsonData: Record<string, unknown> = {};
       
       try {
         jsonData = rawText ? JSON.parse(rawText) : {};
@@ -151,11 +151,11 @@ export default function AITesting() {
       }
       
       // Extract content from various response formats
-      const responseText =
-        jsonData?.content ||
-        jsonData?.message ||
-        jsonData?.response ||
-        rawText ||
+      const responseText: string =
+        (typeof jsonData?.content === 'string' ? jsonData.content : undefined) ||
+        (typeof jsonData?.message === 'string' ? jsonData.message : undefined) ||
+        (typeof jsonData?.response === 'string' ? jsonData.response : undefined) ||
+        (typeof rawText === 'string' ? rawText : undefined) ||
         "No response received";
       
       setGenerateResponse(responseText);
@@ -219,7 +219,7 @@ export default function AITesting() {
       }
       
       const rawText = await response.text();
-      let jsonData: any = {};
+      let jsonData: Record<string, unknown> = {};
       
       try {
         jsonData = rawText ? JSON.parse(rawText) : {};

@@ -8,6 +8,7 @@ import {
   View,
   ActivityIndicator,
   ScrollView,
+  type ViewStyle,
 } from "react-native";
 import Button from "./Button";
 
@@ -56,11 +57,11 @@ export interface ModalProps {
   /** Animation type */
   animationType?: "none" | "slide" | "fade";
   /** Custom style for overlay */
-  style?: any;
+  style?: Record<string, unknown>;
   /** Custom style for content container */
-  contentStyle?: any;
+  contentStyle?: Record<string, unknown>;
   /** Custom style for header */
-  headerStyle?: any;
+  headerStyle?: Record<string, unknown>;
   /** Visual variant */
   variant?: ModalVariant;
   /** Size of modal */
@@ -151,7 +152,7 @@ export function Modal({
   const isConfirmation = variant === "confirmation" || variant === "alert";
   const showActions = actions && actions.length > 0;
 
-  const getSizeStyles = () => {
+  const getSizeStyles = (): ViewStyle => {
     switch (size) {
       case "small":
       case "sm":

@@ -8,7 +8,7 @@ export default function CategoriesScreen() {
 
   useEffect(() => {
     loadCategories();
-  }, []);
+  }, [loadCategories]);
 
   return (
     <View style={styles.container}>

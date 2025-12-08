@@ -37,7 +37,7 @@ export const findActivePromotions = createAsyncThunk<
       
       // Filter for active promotions
       let activePromotions = allPromotions.filter(
-        (promotion: any) => promotion.active === true
+        (promotion: Promotion) => promotion.active === true
       );
       
       // If storeId is provided, filter promotions by store ownership
@@ -46,8 +46,8 @@ export const findActivePromotions = createAsyncThunk<
         const storeProductIds = products.map((product) => product.id);
         
         // Filter promotions to only include those for products owned by the store
-        activePromotions = activePromotions.filter((promotion: any) =>
-          storeProductIds.includes(promotion.productId)
+        activePromotions = activePromotions.filter((promotion: Promotion) =>
+          storeProductIds.includes(promotion.productId ?? -1)
         );
       }
       

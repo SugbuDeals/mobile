@@ -27,7 +27,7 @@ export default function ViewMap() {
             latitudeDelta: 0.05,
             longitudeDelta: 0.05,
           });
-          await (findNearbyStores({ latitude: pos.coords.latitude, longitude: pos.coords.longitude, radiusKm: 10 }) as any);
+          await findNearbyStores({ latitude: pos.coords.latitude, longitude: pos.coords.longitude, radiusKm: 10 });
         } else {
           setInitialRegion({ latitude: 10.3157, longitude: 123.8854, latitudeDelta: 0.2, longitudeDelta: 0.2 });
         }
@@ -38,7 +38,7 @@ export default function ViewMap() {
     load();
   }, [findNearbyStores]);
 
-  const handleOpenInMaps = (store: any) => {
+  const handleOpenInMaps = (store: { latitude?: number | null; longitude?: number | null; address?: string | null }) => {
     const hasCoords = typeof store?.latitude === 'number' && typeof store?.longitude === 'number';
     const url = hasCoords
       ? `https://www.google.com/maps/search/?api=1&query=${store.latitude},${store.longitude}`
@@ -69,11 +69,14 @@ export default function ViewMap() {
             showsUserLocation
           >
             {(nearbyStores || [])
-              .filter((s: any) => typeof s.latitude === 'number' && typeof s.longitude === 'number')
-              .map((s: any) => (
+              .filter((s) => typeof s.latitude === 'number' && typeof s.longitude === 'number')
+              .map((s) => (
                 <Marker
                   key={s.id}
-                  coordinate={{ latitude: s.latitude, longitude: s.longitude }}
+                  coordinate={{ 
+                    latitude: s.latitude ?? 0, 
+                    longitude: s.longitude ?? 0 
+                  }}
                   title={s.name}
                   description={s.address || s.description}
                   onCalloutPress={() => handleOpenInMaps(s)}

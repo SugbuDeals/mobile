@@ -12,7 +12,7 @@ const ConsumerHeader = () => {
   useEffect(() => {
     // Fetch unread count when header mounts
     action.getUnreadCount();
-  }, []);
+  }, [action]);
 
   return (
     <View style={styles.headerShadowContainer}>

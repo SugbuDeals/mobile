@@ -1,4 +1,7 @@
 import { useStore } from "@/features/store";
+import { selectIsUpdatingPromotion } from "@/features/store/promotions/slice";
+import { useModal } from "@/hooks/useModal";
+import { useAppSelector } from "@/store/hooks";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import React, { useEffect, useState } from "react";
 import {
@@ -8,9 +11,6 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import { useModal } from "@/hooks/useModal";
-import { selectIsUpdatingPromotion } from "@/features/store/promotions/slice";
-import { useAppSelector } from "@/store/hooks";
 
 interface PromotionCardProps {
   promotion: any;
@@ -18,9 +18,14 @@ interface PromotionCardProps {
 }
 
 export function PromotionCard({ promotion, activePromotions }: PromotionCardProps) {
+  // Early return if promotion is invalid
+  if (!promotion || !promotion.id) {
+    return null;
+  }
+
   const { action: { updatePromotion, deletePromotion, findProducts, findProductById }, state: { products } } = useStore();
   const isUpdating = useAppSelector((state) => 
-    selectIsUpdatingPromotion(state, promotion.id)
+    selectIsUpdatingPromotion(state, promotion?.id)
   );
   const { isOpen: showProductDetails, open: openProductDetails, close: closeProductDetails } = useModal();
   const [promotionProducts, setPromotionProducts] = useState<any[]>([]);
@@ -162,7 +167,7 @@ export function PromotionCard({ promotion, activePromotions }: PromotionCardProp
               {promotionProducts.length > 0 ? (
                 promotionProducts.map((product, index) => {
                   // Find the specific discount for this product
-                  const productDiscount = promotion.productDiscounts?.find((pd: {productId: number, discount: number, type: string}) => pd.productId === product.id) || 
+                  const productDiscount = promotion.productDiscounts?.find((pd: { productId: number; discount: number; type: string }) => pd.productId === product.id) || 
                                         { discount: promotion.discount, type: promotion.type };
                   
                   return (
@@ -437,4 +442,6 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
 });
+
+export default PromotionCard;
 

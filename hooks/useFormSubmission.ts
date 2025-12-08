@@ -25,9 +25,14 @@ export function useFormSubmission(): UseFormSubmissionReturn {
       const result = await asyncFn();
       setIsSubmitting(false);
       return result;
-    } catch (err: any) {
-      const errorMessage =
-        err?.message || err?.payload?.message || "An error occurred";
+    } catch (err: unknown) {
+      let errorMessage = "An error occurred";
+      if (err instanceof Error) {
+        errorMessage = err.message;
+      } else if (err && typeof err === 'object' && 'payload' in err) {
+        const payload = (err as { payload?: { message?: string } }).payload;
+        errorMessage = payload?.message || errorMessage;
+      }
       setError(errorMessage);
       setIsSubmitting(false);
       return null;

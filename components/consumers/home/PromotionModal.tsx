@@ -51,12 +51,8 @@ export default function PromotionModal({
   };
 
   const primaryProduct = productPromotions[0]?.product;
-  const primaryStoreId =
-    (primaryProduct as any)?.store?.id ?? primaryProduct?.storeId;
-  const primaryStoreName =
-    (primaryProduct as any)?.store?.name ??
-    (primaryProduct as any)?.storeName ??
-    "Store";
+  const primaryStoreId = primaryProduct?.storeId;
+  const primaryStoreName = "Store";
 
   const handleStorePress = () => {
     if (!primaryStoreId) return;

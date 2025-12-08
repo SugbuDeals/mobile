@@ -66,10 +66,10 @@ export default function EditProduct() {
         // First try to find the product in the current products list
         if (userStore?.id && products.length === 0) {
           await findProducts({ storeId: userStore.id });
-        } else if (user && (user as any).id && !userStore?.id && products.length === 0) {
+        } else if (user && user.id && !userStore?.id && products.length === 0) {
           // Fallback: if userStore is not available yet, try using user ID directly
           console.log("Edit product - userStore not available, using user ID as fallback");
-          await findProducts({ storeId: Number((user as any).id) });
+          await findProducts({ storeId: Number(user.id) });
         }
         
         // Find the product in the current products list from Redux store
@@ -82,7 +82,7 @@ export default function EditProduct() {
           setPrice(productToEdit.price?.toString() || "");
           setStock(productToEdit.stock?.toString() || "");
           setIsActive(productToEdit.isActive !== false);
-          const categoryId = (productToEdit as any)?.categoryId ?? (productToEdit as any)?.category?.id ?? null;
+          const categoryId = productToEdit.categoryId ?? null;
           setSelectedCategoryId(typeof categoryId === "number" ? categoryId : categoryId ? Number(categoryId) : null);
           // Set existing image URL if available
           if (productToEdit.imageUrl) {
@@ -122,7 +122,7 @@ export default function EditProduct() {
           setPrice(updatedProduct.price?.toString() || "");
           setStock(updatedProduct.stock?.toString() || "");
           setIsActive(updatedProduct.isActive !== false);
-          const categoryId = (updatedProduct as any)?.categoryId ?? (updatedProduct as any)?.category?.id ?? null;
+          const categoryId = updatedProduct.categoryId ?? null;
           setSelectedCategoryId(typeof categoryId === "number" ? categoryId : categoryId ? Number(categoryId) : null);
           if (updatedProduct.imageUrl) {
             setImageUrl(updatedProduct.imageUrl);

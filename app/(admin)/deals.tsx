@@ -99,7 +99,7 @@ const MetricsCard = ({ label, value, icon, color, bgColor }: {
     <View style={styles.metricHeader}>
       <Text style={styles.metricLabel}>{label}</Text>
       <View style={[styles.metricIcon, { backgroundColor: bgColor }]}>
-        <Ionicons name={icon as any} size={20} color={color} />
+        <Ionicons name={icon as keyof typeof Ionicons.glyphMap} size={20} color={color} />
       </View>
     </View>
     <Text style={[styles.metricValue, { color }]}>{value}</Text>

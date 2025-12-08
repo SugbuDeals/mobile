@@ -123,12 +123,12 @@ export const createSubscription = createAsyncThunk<
     // Convert price from number to string for API
     const apiData = {
       ...data,
-      price: String(data.price),
-    } as any;
+      price: data.price ? String(data.price) : undefined,
+    };
     return await subscriptionsApi.createSubscription(apiData);
-  } catch (error: any) {
+  } catch (error: unknown) {
     return rejectWithValue({
-      message: error?.message || "Create subscription failed",
+      message: error instanceof Error ? error.message : "Create subscription failed",
     });
   }
 });
@@ -143,11 +143,11 @@ export const updateSubscription = createAsyncThunk<
     const apiData = {
       ...data,
       ...(data.price !== undefined && { price: String(data.price) }),
-    } as any;
+    };
     return await subscriptionsApi.updateSubscription(id, apiData);
-  } catch (error: any) {
+  } catch (error: unknown) {
     return rejectWithValue({
-      message: error?.message || "Update subscription failed",
+      message: error instanceof Error ? error.message : "Update subscription failed",
     });
   }
 });

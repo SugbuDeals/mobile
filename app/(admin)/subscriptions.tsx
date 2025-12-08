@@ -1,5 +1,6 @@
 import { useLogin } from "@/features/auth";
 import { useStore } from "@/features/store";
+import type { Subscription } from "@/types/prisma";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import { useFocusEffect } from "expo-router";
@@ -79,8 +80,9 @@ export default function AdminSubscriptions() {
       findSubscriptions();
       getSubscriptionAnalytics();
       Alert.alert("Success", "Subscription created successfully!");
-    } catch (error: any) {
-      Alert.alert("Error", error?.message || "Failed to create subscription.");
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : "Failed to create subscription.";
+      Alert.alert("Error", errorMessage);
     } finally {
       setIsProcessing(false);
     }
@@ -105,8 +107,9 @@ export default function AdminSubscriptions() {
       findSubscriptions();
       getSubscriptionAnalytics();
       Alert.alert("Success", "Subscription updated successfully!");
-    } catch (error: any) {
-      Alert.alert("Error", error?.message || "Failed to update subscription.");
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : "Failed to update subscription.";
+      Alert.alert("Error", errorMessage);
     } finally {
       setIsProcessing(false);
     }
@@ -128,8 +131,9 @@ export default function AdminSubscriptions() {
               findSubscriptions();
               getSubscriptionAnalytics();
               Alert.alert("Success", "Subscription deleted successfully!");
-            } catch (error: any) {
-              Alert.alert("Error", error?.message || "Failed to delete subscription.");
+            } catch (error: unknown) {
+              const errorMessage = error instanceof Error ? error.message : "Failed to delete subscription.";
+              Alert.alert("Error", errorMessage);
             } finally {
               setIsProcessing(false);
             }
@@ -139,14 +143,14 @@ export default function AdminSubscriptions() {
     );
   };
 
-  const openEditModal = (subscription: any) => {
+  const openEditModal = (subscription: Subscription) => {
     setSelectedSubscription(subscription);
     setFormData({
       name: subscription.name || "",
       description: subscription.description || "",
       plan: subscription.plan || "FREE",
       billingCycle: subscription.billingCycle || "MONTHLY",
-      price: subscription.price || "",
+      price: typeof subscription.price === 'string' ? subscription.price : String(subscription.price || ""),
       benefits: subscription.benefits || "",
       isActive: typeof subscription.isActive === "boolean" ? subscription.isActive : true,
       startsAt: subscription.startsAt ? new Date(subscription.startsAt).toISOString().split("T")[0] : "",
@@ -178,7 +182,7 @@ export default function AdminSubscriptions() {
     });
   };
 
-  const handleStartDateChange = (_event: any, selectedDate?: Date) => {
+  const handleStartDateChange = (_event: unknown, selectedDate?: Date) => {
     setShowStartDatePicker(false);
     if (selectedDate) {
       const isoDate = selectedDate.toISOString().split("T")[0];
@@ -195,7 +199,7 @@ export default function AdminSubscriptions() {
     }
   };
 
-  const handleEndDateChange = (_event: any, selectedDate?: Date) => {
+  const handleEndDateChange = (_event: unknown, selectedDate?: Date) => {
     setShowEndDatePicker(false);
     if (selectedDate) {
       setFormData((prev) => ({

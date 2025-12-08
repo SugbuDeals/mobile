@@ -1,5 +1,6 @@
 import { useCatalog } from "@/features/catalog";
 import { useStore } from "@/features/store";
+import type { Product } from "@/features/store/products/types";
 import { Ionicons } from "@expo/vector-icons";
 import React, { useEffect, useMemo, useState } from "react";
 import { ActivityIndicator, Alert, Dimensions, Image, Modal, ScrollView, StyleSheet, Switch, Text, TextInput, TouchableOpacity, View } from "react-native";
@@ -52,21 +53,22 @@ export default function AdminViewProducts() {
     try {
       await storeActions.updateProductAdminStatus({ id: productId, isActive: nextValue }).unwrap();
       Alert.alert("Success", `Product has been ${nextValue ? "enabled" : "disabled"}.`);
-    } catch (error: any) {
-      Alert.alert("Error", error?.message || "Failed to update product visibility.");
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : "Failed to update product visibility.";
+      Alert.alert("Error", errorMessage);
     } finally {
       setProductStatusLoading((prev) => ({ ...prev, [productId]: false }));
     }
   };
 
-  const getCategoryLabel = (product: any) => {
+  const getCategoryLabel = (product: Product) => {
     if (!product.categoryId) {
       return "Uncategorized";
     }
     return categoryMap[product.categoryId] || `Category #${product.categoryId}`;
   };
 
-  const handleEditProduct = (product: any) => {
+  const handleEditProduct = (product: Product) => {
     setProductToEdit(product);
     setEditName(product.name || "");
     setEditDescription(product.description || "");

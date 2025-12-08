@@ -84,15 +84,15 @@ export default function AddProduct() {
     loadCategories();
     
     // Fetch active subscription
-    if (user && (user as any).id) {
-      getActiveSubscription(Number((user as any).id));
+    if (user && user.id) {
+      getActiveSubscription(Number(user.id));
     }
     
     // Fetch products to check limit
     if (userStore?.id) {
       findProducts({ storeId: userStore.id });
-    } else if (user && (user as any).id) {
-      findProducts({ storeId: Number((user as any).id) });
+    } else if (user && user.id) {
+      findProducts({ storeId: Number(user.id) });
     }
   }, [user, userStore, findProducts, loadCategories, getActiveSubscription]);
 
@@ -242,7 +242,15 @@ export default function AddProduct() {
         }
       }
 
-      const productData: any = {
+      const productData: {
+        name: string;
+        description: string;
+        price: number;
+        stock: number;
+        storeId: number;
+        imageUrl?: string;
+        categoryId?: number;
+      } = {
         name: productName.trim(),
         description: description.trim(),
         price: Number(price),
@@ -280,8 +288,8 @@ export default function AddProduct() {
       );
     } catch (err) {
       console.error("Error creating product:", err);
-      const message = (err && typeof err === "object" && 'message' in (err as any))
-        ? (err as any).message
+      const message = (err && typeof err === "object" && 'message' in err)
+        ? (err as { message?: string }).message
         : "Failed to create product. Please try again.";
       Alert.alert("Error", message);
     } finally {
@@ -306,14 +314,15 @@ export default function AddProduct() {
       await joinSubscription({ subscriptionId }).unwrap();
       
       // Refresh subscription status
-      if (user && (user as any).id) {
-        await getActiveSubscription(Number((user as any).id));
+      if (user && user.id) {
+        await getActiveSubscription(Number(user.id));
       }
       
       setShowSubscriptionOverlay(false);
       Alert.alert("Success", "Subscription upgraded successfully! You can now add more products.");
-    } catch (error: any) {
-      Alert.alert("Error", error?.message || "Failed to upgrade subscription. Please try again.");
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : "Failed to upgrade subscription. Please try again.";
+      Alert.alert("Error", errorMessage);
     } finally {
       setIsUpgrading(false);
     }

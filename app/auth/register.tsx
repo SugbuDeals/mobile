@@ -86,15 +86,15 @@ export default function Register() {
   useEffect(() => {
     if (!registering && accessToken && user) {
       // Get role from user object and normalize to lowercase
-      const userType = String((user as any).user_type ?? (user as any).userType ?? "").trim().toLowerCase();
-      const role = String((user as any).role ?? "").trim().toLowerCase();
+      const userType = String(user.user_type ?? "").trim().toLowerCase();
+      const role = String(user.role ?? "").trim().toLowerCase();
       
       // Check for retailer role
       const isRetailerUser = 
         userType === "retailer" || 
         role === "retailer" ||
-        String((user as any).user_type ?? "").toUpperCase() === "RETAILER" ||
-        String((user as any).role ?? "").toUpperCase() === "RETAILER";
+        String(user.user_type ?? "").toUpperCase() === "RETAILER" ||
+        String(user.role ?? "").toUpperCase() === "RETAILER";
       
       // Small delay to ensure state is fully updated before navigation
       const timeoutId = setTimeout(() => {
@@ -123,14 +123,24 @@ export default function Register() {
       }).unwrap();
       
       // Navigation will be handled by useEffect watching accessToken and user state
-    } catch (e: any) {
+    } catch (e: unknown) {
       // Extract error message from various possible error structures
       // RTK unwrap() throws errors with payload property, or direct message
-      let errorMessage = 
-        e?.payload?.message || 
-        e?.message || 
-        e?.error?.message || 
-        "";
+      let errorMessage = "";
+      if (e && typeof e === 'object') {
+        const errorObj = e as { payload?: { message?: string | string[] }; message?: string; error?: { message?: string } };
+        if (errorObj.payload?.message) {
+          errorMessage = Array.isArray(errorObj.payload.message) 
+            ? errorObj.payload.message.join('\n')
+            : errorObj.payload.message;
+        } else if (errorObj.message) {
+          errorMessage = errorObj.message;
+        } else if (errorObj.error?.message) {
+          errorMessage = errorObj.error.message;
+        }
+      } else if (e instanceof Error) {
+        errorMessage = e.message;
+      }
       
       // Handle array messages (validation errors from server)
       if (Array.isArray(errorMessage)) {
@@ -148,12 +158,12 @@ export default function Register() {
          errorMessageLower.includes("duplicate") ||
          errorMessageLower.includes("taken") ||
          errorMessageLower.includes("registered")) ||
-        e?.status === 400 ||
-        e?.status === 500 || 
-        e?.statusCode === 400 ||
-        e?.statusCode === 500 ||
-        e?.payload?.status === 400 ||
-        e?.payload?.status === 500;
+        (e && typeof e === 'object' && 'status' in e && (e as { status?: number }).status === 400) ||
+        (e && typeof e === 'object' && 'status' in e && (e as { status?: number }).status === 500) || 
+        (e && typeof e === 'object' && 'statusCode' in e && (e as { statusCode?: number }).statusCode === 400) ||
+        (e && typeof e === 'object' && 'statusCode' in e && (e as { statusCode?: number }).statusCode === 500) ||
+        (e && typeof e === 'object' && 'payload' in e && typeof (e as { payload?: { status?: number } }).payload === 'object' && (e as { payload?: { status?: number } }).payload?.status === 400) ||
+        (e && typeof e === 'object' && 'payload' in e && typeof (e as { payload?: { status?: number } }).payload === 'object' && (e as { payload?: { status?: number } }).payload?.status === 500);
       
       if (isDuplicateEmail) {
         // Set error on the email field with a user-friendly message
@@ -180,7 +190,7 @@ export default function Register() {
 
 
   const renderRoleCard = React.useCallback(
-    (roleOption: (typeof ROLE_OPTIONS)[number], extraWrapperStyles?: any) => {
+    (roleOption: (typeof ROLE_OPTIONS)[number], extraWrapperStyles?: Record<string, unknown>) => {
       const isActive = roleOption.key === selectedRole;
       return (
         <TouchableOpacity

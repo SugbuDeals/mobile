@@ -1,6 +1,6 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
 import React, { useState, useEffect } from "react";
-import { StyleSheet, Text, TextInput, TouchableOpacity, View, Modal, ScrollView } from "react-native";
+import { StyleSheet, Text, TextInput, TouchableOpacity, View, Modal, ScrollView, ViewStyle } from "react-native";
 import { usePagination } from "@/hooks/usePagination";
 
 /**
@@ -51,7 +51,7 @@ export interface PaginationControlsProps<T = any> {
   /** Show jump to page functionality */
   showJumpToPage?: boolean;
   /** Custom style for container */
-  style?: any;
+  style?: ViewStyle;
   /** Render prop function that receives paginated items and state */
   children?: (paginatedItems: T[], paginationState: PaginationState) => React.ReactNode;
 }

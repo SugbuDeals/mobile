@@ -1,19 +1,22 @@
 import env from "@/config/env";
 import { useCatalog } from "@/features/catalog";
+import type { Category, Product as CatalogProduct } from "@/features/catalog/types";
 import { useStore } from "@/features/store";
+import type { Product as StoreProduct } from "@/features/store/types";
+import type { Store } from "@/features/store/stores/types";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { useRouter } from "expo-router";
-import React, { useEffect, useMemo } from "react";
+import React, { useCallback, useEffect, useMemo } from "react";
 import {
-    Image,
-    SafeAreaView,
-    ScrollView,
-    StatusBar,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
+  Image,
+  SafeAreaView,
+  ScrollView,
+  StatusBar,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from "react-native";
 
 const fallbackProductImage = require("../../assets/images/partial-react-logo.png");
@@ -46,29 +49,27 @@ export default function CategoriesPage() {
     if (!stores || stores.length === 0) findStores();
   }, [categories, products, stores, loadCategories, loadProducts, findStores]);
 
-  const getProductCategoryName = (product: any): string => {
-    const directCategory =
-      (product as any)?.category?.name ||
-      (product as any)?.categoryName ||
-      (product as any)?.category;
-    if (directCategory) return String(directCategory);
-    const categoryId =
-      (product as any)?.category?.id || (product as any)?.categoryId;
-    const match = (categories || []).find(
-      (cat: any) => String(cat.id) === String(categoryId)
-    );
-    return match?.name ? String(match.name) : "";
-  };
+  const getProductCategoryName = useCallback(
+    (product: CatalogProduct | StoreProduct): string => {
+      const categoryId = 'categoryId' in product ? product.categoryId : undefined;
+      if (!categoryId) return "";
+      const match = (categories || []).find(
+        (cat: Category) => String(cat.id) === String(categoryId)
+      );
+      return match?.name ? String(match.name) : "";
+    },
+    [categories]
+  );
 
   const availableCategories = useMemo(() => {
     const productCategories = new Set<string>();
-    (products || []).forEach((product: any) => {
+    (products || []).forEach((product: CatalogProduct | StoreProduct) => {
       const categoryName = getProductCategoryName(product);
       if (categoryName) productCategories.add(categoryName);
     });
 
     const names: string[] = [];
-    (categories || []).forEach((category: any) => {
+    (categories || []).forEach((category: Category) => {
       const name = String(category?.name || "");
       if (!name) return;
       if (productCategories.has(name) && !names.includes(name)) {
@@ -76,7 +77,7 @@ export default function CategoriesPage() {
       }
     });
     return names;
-  }, [categories, products]);
+  }, [categories, getProductCategoryName, products]);
 
   const categoryNames = useMemo(
     () => ["All Items", ...availableCategories],
@@ -93,12 +94,12 @@ export default function CategoriesPage() {
   }, [availableCategories, selectedCategory]);
 
   const filteredStores = (stores || [])
-    .map((store: any) => {
+    .map((store: Store) => {
       const storeProducts = (products || []).filter(
-        (p: any) => p.storeId === store.id
+        (p: CatalogProduct | StoreProduct) => p.storeId === store.id
       );
       const filteredProducts = storeProducts
-        .filter((p: any) => {
+        .filter((p: CatalogProduct | StoreProduct) => {
           const matchesQuery =
             searchQuery.trim().length === 0 ||
             String(p.name)
@@ -110,12 +111,13 @@ export default function CategoriesPage() {
             productCategoryName === selectedCategory;
           return matchesQuery && matchesCategory;
         })
-        .map((p: any) => {
-          const imageUrl = normalizeImageUrl(p.imageUrl);
+        .map((p: CatalogProduct | StoreProduct) => {
+          const imageUrl = normalizeImageUrl(p.imageUrl ?? undefined);
+          const priceValue = typeof p.price === 'string' ? parseFloat(p.price) : (typeof p.price === 'number' ? p.price : 0);
           return {
             id: String(p.id),
             name: p.name,
-            price: `₱${Number(p.price ?? 0).toFixed(2)}`,
+            price: `₱${priceValue.toFixed(2)}`,
             originalPrice: undefined,
             imageUrl,
             description: p.description ?? "",
@@ -253,6 +255,15 @@ function SearchBar({
   );
 }
 
+type ProductDisplayItem = {
+  id: string;
+  name: string;
+  price: string;
+  originalPrice?: string;
+  imageUrl?: string;
+  description: string;
+};
+
 function StoreSection({
   storeName,
   distance,
@@ -262,14 +273,14 @@ function StoreSection({
   storeName: string;
   distance: string;
   isOpen: boolean;
-  products: any[];
+  products: ProductDisplayItem[];
 }) {
   const router = useRouter();
   const {
     state: { stores },
   } = useStore();
-  
-  const storeInfo = stores.find((s: any) => s.name === storeName);
+
+  const storeInfo = stores.find((s: Store) => s.name === storeName);
   const storeId = storeInfo?.id;
 
   return (
@@ -307,45 +318,48 @@ function StoreSection({
         <View style={sectionStyles.productsContainer}>
           {products.map((product) => {
             const imageSource =
-              typeof product.imageUrl === "string" && product.imageUrl.length > 0
+              typeof product.imageUrl === "string" &&
+              product.imageUrl.length > 0
                 ? { uri: product.imageUrl }
                 : fallbackProductImage;
             return (
-            <TouchableOpacity
-              key={product.id}
-              style={sectionStyles.productCard}
-              onPress={() =>
-                router.push({
-                  pathname: "/(consumers)/product",
-                  params: {
-                    name: product.name,
-                    store: storeName,
-                    storeId: storeId,
-                    price: product.price?.replace("₱", ""),
-                    description: product.description,
-                    productId: product.id,
-                    imageUrl: product.imageUrl,
-                  },
-                })
-              }
-            >
-              <Image
-                source={imageSource}
-                style={sectionStyles.productImage}
-              />
-              <Text style={sectionStyles.productName} numberOfLines={2}>
-                {product.name}
-              </Text>
-              <View style={sectionStyles.priceContainer}>
-                <Text style={sectionStyles.currentPrice}>{product.price}</Text>
-                {product.originalPrice && (
-                  <Text style={sectionStyles.originalPrice}>
-                    {product.originalPrice}
+              <TouchableOpacity
+                key={product.id}
+                style={sectionStyles.productCard}
+                onPress={() =>
+                  router.push({
+                    pathname: "/(consumers)/product",
+                    params: {
+                      name: product.name,
+                      store: storeName,
+                      storeId: storeId,
+                      price: product.price?.replace("₱", ""),
+                      description: product.description,
+                      productId: product.id,
+                      imageUrl: product.imageUrl,
+                    },
+                  })
+                }
+              >
+                <Image
+                  source={imageSource}
+                  style={sectionStyles.productImage}
+                />
+                <Text style={sectionStyles.productName} numberOfLines={2}>
+                  {product.name}
+                </Text>
+                <View style={sectionStyles.priceContainer}>
+                  <Text style={sectionStyles.currentPrice}>
+                    {product.price}
                   </Text>
-                )}
-              </View>
-            </TouchableOpacity>
-          );
+                  {product.originalPrice && (
+                    <Text style={sectionStyles.originalPrice}>
+                      {product.originalPrice}
+                    </Text>
+                  )}
+                </View>
+              </TouchableOpacity>
+            );
           })}
         </View>
       </ScrollView>

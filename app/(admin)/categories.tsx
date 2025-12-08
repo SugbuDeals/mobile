@@ -1,4 +1,5 @@
 import { useCatalog } from "@/features/catalog";
+import type { Category } from "@/features/catalog/types";
 import { Ionicons } from "@expo/vector-icons";
 import React, { useEffect, useState } from "react";
 import {
@@ -100,7 +101,7 @@ export default function AdminCategories() {
     }
   };
 
-  const openEditModal = (category: any) => {
+  const openEditModal = (category: Category) => {
     setCategoryToEdit(category);
     setEditCategoryName(category.name);
     setShowEditModal(true);

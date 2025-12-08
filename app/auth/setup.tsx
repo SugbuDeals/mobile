@@ -62,8 +62,8 @@ export default function RetailerSetup() {
       setHasCheckedAuth(true);
       
       // Check if user is a retailer
-      const normalizedRole = String((user as any).role ?? "").toLowerCase();
-      const normalizedUserType = String((user as any).user_type ?? "").toLowerCase();
+      const normalizedRole = String(user.role ?? "").toLowerCase();
+      const normalizedUserType = String(user.user_type ?? "").toLowerCase();
       const isRetailer = normalizedRole === "retailer" || normalizedUserType === "retailer";
       
       if (!isRetailer) {
@@ -77,7 +77,7 @@ export default function RetailerSetup() {
 
       // Check if setup is already completed AND user has a store
       // Only redirect if both conditions are met - if no store exists, allow setup
-      if ((user as any)?.retailer_setup_completed && userStore?.id) {
+      if (user.retailer_setup_completed && userStore?.id) {
         Alert.alert(
           "Setup Already Completed",
           "You have already completed your store setup. You can update your store details in Settings.",
@@ -206,8 +206,9 @@ export default function RetailerSetup() {
         setAddress(line);
       }
       Alert.alert("Location captured", "Coordinates and address have been filled.");
-    } catch (e: any) {
-      Alert.alert("Location Error", e?.message || "Failed to get current location");
+    } catch (e: unknown) {
+      const errorMessage = e instanceof Error ? e.message : "Failed to get current location";
+      Alert.alert("Location Error", errorMessage);
     } finally {
       setIsGettingLocation(false);
     }
@@ -217,7 +218,7 @@ export default function RetailerSetup() {
     try {
       setSubmitting(true);
       
-      if (!(user as any)?.id) {
+      if (!user?.id) {
         Alert.alert("Error", "User information not available. Please try logging in again.");
         router.replace("/auth/login");
         return;
@@ -254,7 +255,7 @@ export default function RetailerSetup() {
           const newStore = await createStore({
             name: formData.storeName,
             description: formData.storeDescription,
-            ownerId: Number((user as any).id),
+            ownerId: Number(user.id),
             ...(imageUrl && { imageUrl }),
             ...(address && { address }),
             ...(latitude !== undefined && { latitude }),
@@ -266,8 +267,9 @@ export default function RetailerSetup() {
           // The store should already be set in the Redux state by createStore.fulfilled
           // Let's verify this by checking the state
           console.log("Store should now be available in Redux state");
-        } catch (createError: any) {
-          Alert.alert("Error", createError?.message || "Failed to create store. Please try again.");
+        } catch (createError: unknown) {
+          const errorMessage = createError instanceof Error ? createError.message : "Failed to create store. Please try again.";
+          Alert.alert("Error", errorMessage);
           return;
         }
       } else {
@@ -287,8 +289,9 @@ export default function RetailerSetup() {
             ...(latitude !== undefined && { latitude }),
             ...(longitude !== undefined && { longitude }),
           }).unwrap();
-        } catch (updateError: any) {
-          Alert.alert("Error", updateError?.message || "Failed to update store. Please try again.");
+        } catch (updateError: unknown) {
+          const errorMessage = updateError instanceof Error ? updateError.message : "Failed to update store. Please try again.";
+          Alert.alert("Error", errorMessage);
           return;
         }
       }
@@ -302,8 +305,9 @@ export default function RetailerSetup() {
       setTimeout(() => {
         router.replace("/(retailers)");
       }, 100);
-    } catch (error: any) {
-      Alert.alert("Error", error?.message || "Failed to setup store. Please try again.");
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : "Failed to setup store. Please try again.";
+      Alert.alert("Error", errorMessage);
     } finally {
       setSubmitting(false);
     }

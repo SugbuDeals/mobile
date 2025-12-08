@@ -45,6 +45,20 @@ export default function RecommendationCard({
       onPress();
       return;
     }
+    // Only navigate if productId is a valid number
+    const validProductId =
+      item?.id != null &&
+      typeof item.id === "number" &&
+      Number.isFinite(item.id) &&
+      item.id > 0
+        ? item.id
+        : undefined;
+    
+    if (!validProductId) {
+      // Don't navigate if productId is invalid
+      return;
+    }
+    
     router.push({
       pathname: "/(consumers)/product",
       params: {
@@ -52,7 +66,7 @@ export default function RecommendationCard({
         storeId: item?.storeId || item?.store?.id || "",
         price: item?.price || "",
         description: item?.description || "",
-        productId: item?.id || "",
+        productId: validProductId.toString(),
         imageUrl: item?.imageUrl || "",
       },
     });

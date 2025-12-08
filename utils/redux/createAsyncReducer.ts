@@ -34,59 +34,59 @@ export function createAsyncReducer<TState, TPayload, TArg = unknown>(
     .addCase(thunk.pending, (state, action) => {
       if (loadingKey) {
         const key = loadingKey as string;
-        const loadingValue = (state as any)[key];
+        const loadingValue = (state as Record<string, unknown>)[key];
         if (typeof loadingValue === "boolean") {
-          (state as any)[key] = true;
+          (state as Record<string, unknown>)[key] = true;
         }
       }
       if (errorKey) {
         const key = errorKey as string;
-        const errorValue = (state as any)[key];
+        const errorValue = (state as Record<string, unknown>)[key];
         if (errorValue === null || typeof errorValue === "string") {
-          (state as any)[key] = null;
+          (state as Record<string, unknown>)[key] = null;
         }
       }
-      onPending?.(state, action as any);
+      onPending?.(state, action);
     })
     .addCase(thunk.fulfilled, (state, action) => {
       if (loadingKey) {
         const key = loadingKey as string;
-        const loadingValue = (state as any)[key];
+        const loadingValue = (state as Record<string, unknown>)[key];
         if (typeof loadingValue === "boolean") {
-          (state as any)[key] = false;
+          (state as Record<string, unknown>)[key] = false;
         }
       }
       if (errorKey) {
         const key = errorKey as string;
-        const errorValue = (state as any)[key];
+        const errorValue = (state as Record<string, unknown>)[key];
         if (errorValue === null || typeof errorValue === "string") {
-          (state as any)[key] = null;
+          (state as Record<string, unknown>)[key] = null;
         }
       }
       if (dataKey) {
         const key = dataKey as string;
-        if ((state as any)[key]) {
-          (state as any)[key] = action.payload;
+        if ((state as Record<string, unknown>)[key]) {
+          (state as Record<string, unknown>)[key] = action.payload;
         }
       }
-      onFulfilled?.(state, action as any);
+      onFulfilled?.(state, action);
     })
     .addCase(thunk.rejected, (state, action) => {
       if (loadingKey) {
         const key = loadingKey as string;
-        const loadingValue = (state as any)[key];
+        const loadingValue = (state as Record<string, unknown>)[key];
         if (typeof loadingValue === "boolean") {
-          (state as any)[key] = false;
+          (state as Record<string, unknown>)[key] = false;
         }
       }
       if (errorKey) {
         const key = errorKey as string;
-        const errorValue = (state as any)[key];
+        const errorValue = (state as Record<string, unknown>)[key];
         if (errorValue === null || typeof errorValue === "string") {
-          (state as any)[key] = action.payload?.message || "An error occurred";
+          (state as Record<string, unknown>)[key] = action.payload?.message || "An error occurred";
         }
       }
-      onRejected?.(state, action as any);
+      onRejected?.(state, action);
     });
 }
 

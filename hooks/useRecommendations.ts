@@ -37,7 +37,7 @@ export function useRecommendations() {
   const accessToken = useAppSelector((s) => s.auth.accessToken);
 
   const fetchRecommendations = useCallback(
-    async (query: string, enrichDistance?: (item: any) => any) => {
+    async (query: string, enrichDistance?: (item: RecommendationItem) => RecommendationItem) => {
       const trimmedQuery = query.trim();
       if (!trimmedQuery || loading) return;
 
@@ -70,9 +70,9 @@ export function useRecommendations() {
         }
 
         const rawText = await recRes.text();
-        let recJson: any = {};
+        let recJson: Record<string, unknown> = {};
         try {
-          recJson = rawText ? JSON.parse(rawText) : {};
+          recJson = rawText ? (JSON.parse(rawText) as Record<string, unknown>) : {};
         } catch {
           recJson = { content: rawText };
         }
@@ -82,23 +82,24 @@ export function useRecommendations() {
             ? recJson.content
             : null;
         const fromMessages = Array.isArray(recJson?.messages)
-          ? recJson.messages.find(
-              (m: any) => m?.role === "assistant" && typeof m?.content === "string"
-            )?.content
+          ? (recJson.messages as Array<{ role?: string; content?: unknown }>).find(
+              (m) => m?.role === "assistant" && typeof m?.content === "string"
+            )?.content as string | undefined
           : null;
-        const insightText =
+        const insightText = (
           directAssistantText ||
           fromMessages ||
-          recJson?.recommendation ||
-          recJson?.recommendationText ||
-          recJson?.insight ||
-          recJson?.summary ||
-          recJson?.message ||
-          recJson?.content ||
-          null;
+          (typeof recJson?.recommendation === "string" ? recJson.recommendation : null) ||
+          (typeof recJson?.recommendationText === "string" ? recJson.recommendationText : null) ||
+          (typeof recJson?.insight === "string" ? recJson.insight : null) ||
+          (typeof recJson?.summary === "string" ? recJson.summary : null) ||
+          (typeof recJson?.message === "string" ? recJson.message : null) ||
+          (typeof recJson?.content === "string" ? recJson.content : null) ||
+          null
+        ) as string | null;
 
-        const highlightText = recJson?.highlight || null;
-        const elaborationText = recJson?.elaboration || null;
+        const highlightText = (typeof recJson?.highlight === "string" ? recJson.highlight : null) as string | null;
+        const elaborationText = (typeof recJson?.elaboration === "string" ? recJson.elaboration : null) as string | null;
 
         const items =
           recJson?.products || recJson?.recommendations || recJson?.items || [];
@@ -128,7 +129,7 @@ export function useRecommendations() {
         }
 
         const normalized = hasProducts
-          ? items.map((item: any) =>
+          ? (items as RecommendationItem[]).map((item: RecommendationItem) =>
               enrichDistance ? enrichDistance(item) : item
             )
           : [];

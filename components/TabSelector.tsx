@@ -29,19 +29,19 @@ export interface TabSelectorProps {
   /** Callback fired when tab changes */
   onTabChange?: (tab: string) => void;
   /** Custom style for container */
-  style?: any;
+  style?: Record<string, unknown>;
   /** Custom style for individual tabs */
-  tabStyle?: any;
+  tabStyle?: Record<string, unknown>;
   /** Custom style for active tab */
-  activeTabStyle?: any;
+  activeTabStyle?: Record<string, unknown>;
   /** Custom style for tab text */
-  textStyle?: any;
+  textStyle?: Record<string, unknown>;
   /** Custom style for active tab text */
-  activeTextStyle?: any;
+  activeTextStyle?: Record<string, unknown>;
   /** Custom style for badge */
-  badgeStyle?: any;
+  badgeStyle?: Record<string, unknown>;
   /** Custom style for active tab badge */
-  activeBadgeStyle?: any;
+  activeBadgeStyle?: Record<string, unknown>;
 }
 
 /**

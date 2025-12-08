@@ -12,7 +12,7 @@ interface DistanceEnrichmentItem {
 }
 
 export function useDistanceEnrichment(nearbyStores: Store[] = []) {
-  const normalizeDistance = useCallback((raw: any): number | null => {
+  const normalizeDistance = useCallback((raw: unknown): number | null => {
     if (typeof raw === "number" && Number.isFinite(raw)) return raw;
     if (typeof raw === "string") {
       const parsed = parseFloat(raw);
@@ -46,7 +46,7 @@ export function useDistanceEnrichment(nearbyStores: Store[] = []) {
   const storeDistanceMap = useMemo(() => {
     const map = new Map<number, number>();
     nearbyStores.forEach((store) => {
-      const normalized = normalizeDistance((store as any)?.distance);
+      const normalized = normalizeDistance(store?.distance);
       if (normalized != null && typeof store?.id === "number") {
         map.set(store.id, normalized);
       }

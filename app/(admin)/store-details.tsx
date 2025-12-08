@@ -1,6 +1,7 @@
 import env from "@/config/env";
 import { useLogin } from "@/features/auth";
 import { useStore } from "@/features/store";
+import type { Promotion } from "@/features/store/promotions/types";
 import { Ionicons } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import React, { useEffect, useMemo, useState } from "react";
@@ -83,7 +84,7 @@ export default function AdminStoreDetails() {
   const promotionsForStore = useMemo(() => {
     if (!storeId || !storeState.promotions.length || !storeState.products.length) return [];
     const productById = new Map<number, { name: string }>();
-    storeState.products.forEach((p: any) => {
+    storeState.products.forEach((p) => {
       if (p && typeof p.id === "number") {
         productById.set(p.id, { name: p.name });
       }
@@ -95,7 +96,7 @@ export default function AdminStoreDetails() {
         if (!product || product.storeId !== storeId) return null;
         return { promo, productName: product.name };
       })
-      .filter(Boolean) as Array<{ promo: any; productName: string }>;
+      .filter((item): item is { promo: Promotion; productName: string } => item !== null);
   }, [storeId, storeState.promotions, storeState.products]);
 
   const toggleStoreLoading = (loading: boolean) => {
@@ -195,8 +196,9 @@ export default function AdminStoreDetails() {
               await storeActions.findStores();
               Alert.alert("Success", "Store deleted successfully.");
               router.back();
-            } catch (error: any) {
-              Alert.alert("Error", error?.message || "Failed to delete store.");
+            } catch (error: unknown) {
+              const errorMessage = error instanceof Error ? error.message : "Failed to delete store.";
+              Alert.alert("Error", errorMessage);
             } finally {
               toggleStoreLoading(false);
             }
@@ -209,13 +211,13 @@ export default function AdminStoreDetails() {
   const handleLocateStore = () => {
     if (!store) return;
     const hasCoords =
-      typeof (store as any).latitude === "number" &&
-      typeof (store as any).longitude === "number";
+      typeof store.latitude === "number" &&
+      typeof store.longitude === "number";
 
     const url = hasCoords
-      ? `https://www.google.com/maps/search/?api=1&query=${(store as any).latitude},${(store as any).longitude}`
+      ? `https://www.google.com/maps/search/?api=1&query=${store.latitude},${store.longitude}`
       : `https://maps.google.com/maps?q=${encodeURIComponent(
-          (store as any).address || store.name || ""
+          store.address || store.name || ""
         )}`;
 
     Linking.openURL(url);
@@ -244,8 +246,8 @@ export default function AdminStoreDetails() {
 
   const displayName = store?.name || storeNameFromParams || "Store";
 
-  const rawLogo = (store as any)?.imageUrl as string | undefined;
-  const rawBanner = (store as any)?.bannerUrl as string | undefined;
+  const rawLogo = store?.imageUrl as string | undefined;
+  const rawBanner = store?.bannerUrl as string | undefined;
 
   const logoUrl = (() => {
     if (!rawLogo) return undefined;
@@ -381,7 +383,7 @@ export default function AdminStoreDetails() {
               <View style={[styles.metaPill, { backgroundColor: "#EFF6FF" }]}>
                 <Ionicons name="person" size={14} color="#1D4ED8" />
                 <Text style={[styles.metaText, { color: "#1D4ED8" }]}>
-                  {storeOwner.name || storeOwner.fullname || storeOwner.email}
+                  {storeOwner.name || storeOwner.email}
                 </Text>
               </View>
             )}
@@ -469,7 +471,7 @@ export default function AdminStoreDetails() {
             </View>
           ) : (
             <View style={styles.list}>
-              {productsForStore.map((product: any) => (
+              {productsForStore.map((product) => (
                 <View key={product.id} style={styles.productCard}>
                   <Image
                     source={{

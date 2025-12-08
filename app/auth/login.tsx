@@ -85,14 +85,14 @@ export default function Login() {
     // Wait for login to finish loading before redirecting
     if (!loading && accessToken && user) {
       // Get role from multiple possible fields and normalize to lowercase
-      const userType = String((user as any).user_type ?? (user as any).userType ?? "").trim().toLowerCase();
-      const role = String((user as any).role ?? "").trim().toLowerCase();
+      const userType = String(user.user_type ?? "").trim().toLowerCase();
+      const role = String(user.role ?? "").trim().toLowerCase();
       
       console.log("=== LOGIN REDIRECT DEBUG ===");
       console.log("User object:", JSON.stringify(user));
-      console.log("User type field:", (user as any).user_type || (user as any).userType);
+      console.log("User type field:", user.user_type);
       console.log("User type normalized:", userType);
-      console.log("User role field:", (user as any).role);
+      console.log("User role field:", user.role);
       console.log("User role normalized:", role);
       
       // Check for admin role - comparing normalized lowercase values
@@ -102,15 +102,15 @@ export default function Login() {
         role === "admin" || 
         userType === "administrator" ||
         role === "administrator" ||
-        String((user as any).user_type ?? "").toUpperCase() === "ADMIN" ||
-        String((user as any).role ?? "").toUpperCase() === "ADMIN";
+        String(user.user_type ?? "").toUpperCase() === "ADMIN" ||
+        String(user.role ?? "").toUpperCase() === "ADMIN";
       
       // Check for retailer role - comparing normalized lowercase values  
       const isRetailer = 
         userType === "retailer" || 
         role === "retailer" ||
-        String((user as any).user_type ?? "").toUpperCase() === "RETAILER" ||
-        String((user as any).role ?? "").toUpperCase() === "RETAILER";
+        String(user.user_type ?? "").toUpperCase() === "RETAILER" ||
+        String(user.role ?? "").toUpperCase() === "RETAILER";
       
       console.log("Is admin:", isAdmin);
       console.log("Is retailer:", isRetailer);

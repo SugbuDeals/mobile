@@ -57,8 +57,9 @@ export default function AdminViewPromotions() {
     try {
       await storeActions.updatePromotion({ id: promotionId, active: nextValue }).unwrap();
       Alert.alert("Success", `Promotion has been ${nextValue ? "enabled" : "disabled"}.`);
-    } catch (error: any) {
-      Alert.alert("Error", error?.message || "Failed to update promotion status.");
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : "Failed to update promotion status.";
+      Alert.alert("Error", errorMessage);
     } finally {
       setPromotionStatusLoading((prev) => ({ ...prev, [promotionId]: false }));
     }

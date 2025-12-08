@@ -8,7 +8,9 @@ import {
     TouchableOpacity,
     View,
     ActivityIndicator,
+    ImageSourcePropType,
 } from "react-native";
+import type { BlurEvent } from "react-native/Libraries/Types/CoreEventTypes";
 import Ionicons from "@expo/vector-icons/Ionicons";
 
 /**
@@ -21,7 +23,7 @@ export interface TextFieldProps extends Omit<TextInputProps, "onChangeText" | "v
   /** Label text displayed above the input */
   label?: string;
   /** Image source for left icon */
-  icon?: any;
+  icon?: ImageSourcePropType;
   /** React component for left icon (takes precedence over icon) */
   iconComponent?: React.ReactNode;
   /** Error message to display below input */
@@ -169,12 +171,12 @@ export default function TextField({
       }
       debounceTimerRef.current = setTimeout(() => {
         onDebouncedChange(finalText);
-      }, debounceMs) as any;
+      }, debounceMs);
     }
   }, [isControlled, maxLength, validateOnChange, validationFn, validate, onChangeText, onDebouncedChange, debounceMs]);
 
   // Validate on blur if validation is enabled
-  const handleBlur = useCallback((e: any) => {
+  const handleBlur = useCallback((e: BlurEvent) => {
     if (validationFn) {
       const validationError = validate(currentValue);
       setInternalError(validationError);

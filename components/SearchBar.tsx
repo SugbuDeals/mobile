@@ -1,6 +1,6 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
-import React, { useState, useCallback } from "react";
-import { StyleSheet, TextInput, TouchableOpacity, View, ScrollView, Text } from "react-native";
+import React, { useState, useCallback, useRef, useEffect } from "react";
+import { StyleSheet, TextInput, TouchableOpacity, View, ScrollView, Text, ViewStyle, TextStyle } from "react-native";
 import { useSearch } from "@/hooks/useSearch";
 
 /**
@@ -9,7 +9,7 @@ import { useSearch } from "@/hooks/useSearch";
  * @interface FilterPreset
  * @template T - Type of items being filtered
  */
-export interface FilterPreset<T = any> {
+export interface FilterPreset<T = unknown> {
   /** Display label for the preset */
   label: string;
   /** Filter function to apply when preset is selected */
@@ -24,7 +24,7 @@ export interface FilterPreset<T = any> {
  * @interface SearchBarProps
  * @template T - Type of items being searched/filtered
  */
-export interface SearchBarProps<T = any> {
+export interface SearchBarProps<T = unknown> {
   /** Array of items to search/filter */
   items: T[];
   /** Callback fired when search query or filtered results change */
@@ -34,9 +34,9 @@ export interface SearchBarProps<T = any> {
   /** Custom filter function - receives item and query, returns boolean */
   filterFn?: (item: T, query: string) => boolean;
   /** Custom style for container */
-  style?: any;
+  style?: ViewStyle;
   /** Custom style for input */
-  inputStyle?: any;
+  inputStyle?: TextStyle;
   /** Show filter preset chips */
   showFilterPresets?: boolean;
   /** Array of filter preset configurations */
@@ -102,7 +102,7 @@ export interface SearchBarProps<T = any> {
  * @param {SearchBarProps<T>} props - SearchBar component props
  * @returns {JSX.Element} SearchBar component
  */
-export function SearchBar<T = any>({
+export function SearchBar<T = unknown>({
   items,
   onSearchChange,
   placeholder = "Search...",
@@ -120,6 +120,14 @@ export function SearchBar<T = any>({
   const [selectedPreset, setSelectedPreset] = useState<FilterPreset<T> | null>(null);
   const [showHistory, setShowHistory] = useState(false);
   const [searchHistory, setSearchHistory] = useState<string[]>([]);
+  
+  // Use ref to store the latest onSearchChange callback to avoid infinite loops
+  const onSearchChangeRef = useRef(onSearchChange);
+  
+  // Update ref when callback changes
+  useEffect(() => {
+    onSearchChangeRef.current = onSearchChange;
+  }, [onSearchChange]);
 
   const { query, setQuery, filteredItems, isSearching } = useSearch(items, {
     filterFn: selectedPreset
@@ -132,9 +140,9 @@ export function SearchBar<T = any>({
       : filterFn,
   });
 
-  React.useEffect(() => {
-    onSearchChange?.(query, filteredItems);
-  }, [query, filteredItems, onSearchChange]);
+  useEffect(() => {
+    onSearchChangeRef.current?.(query, filteredItems);
+  }, [query, filteredItems]);
 
   // Load search history from storage (simplified - in real app, use AsyncStorage)
   React.useEffect(() => {
@@ -228,7 +236,7 @@ export function SearchBar<T = any>({
             >
               {preset.icon && (
                 <Ionicons
-                  name={preset.icon as any}
+                  name={preset.icon as keyof typeof Ionicons.glyphMap}
                   size={16}
                   color={selectedPreset === preset ? "#ffffff" : "#6b7280"}
                   style={styles.presetIcon}

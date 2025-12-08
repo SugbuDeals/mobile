@@ -47,8 +47,9 @@ export default function AdminViewStores() {
     try {
       await storeActions.updateStoreAdminStatus({ id: storeId, isActive: nextValue }).unwrap();
       Alert.alert("Success", `Store has been ${nextValue ? "enabled" : "disabled"}.`);
-    } catch (error: any) {
-      Alert.alert("Error", error?.message || "Failed to update store status.");
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : "Failed to update store status.";
+      Alert.alert("Error", errorMessage);
     } finally {
       toggleStoreLoading(storeId, false);
     }
@@ -60,8 +61,9 @@ export default function AdminViewStores() {
     try {
       await storeActions.updateStoreAdminStatus({ id: storeId, verificationStatus: nextStatus }).unwrap();
       Alert.alert("Success", `Store has been marked as ${nextStatus === "VERIFIED" ? "verified" : "unverified"}.`);
-    } catch (error: any) {
-      Alert.alert("Error", error?.message || "Failed to update verification status.");
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : "Failed to update verification status.";
+      Alert.alert("Error", errorMessage);
     } finally {
       toggleStoreLoading(storeId, false);
     }
