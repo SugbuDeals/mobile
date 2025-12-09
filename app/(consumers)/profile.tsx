@@ -134,8 +134,12 @@ export default function Profile() {
         text: "Logout",
         style: "destructive",
         onPress: () => {
+          // Clear auth state immediately
           dispatch(logout());
-          router.replace("/auth/login");
+          // Use setTimeout to ensure state update is processed before navigation
+          setTimeout(() => {
+            router.replace("/auth/login");
+          }, 0);
         },
       },
     ]);

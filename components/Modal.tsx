@@ -186,7 +186,11 @@ export function Modal({
             </View>
           )}
           {title && <Text style={styles.confirmationTitle}>{title}</Text>}
-          {message && <Text style={styles.confirmationMessage}>{message}</Text>}
+          {message && (
+            <Text style={styles.confirmationMessage} numberOfLines={0}>
+              {message}
+            </Text>
+          )}
           {children}
         </View>
       );
@@ -220,13 +224,19 @@ export function Modal({
             </View>
           )}
 
-          <ScrollView
-            style={styles.scrollContent}
-            contentContainerStyle={styles.scrollContentContainer}
-            showsVerticalScrollIndicator={false}
-          >
-            {renderContent()}
-          </ScrollView>
+          {isConfirmation ? (
+            <View style={styles.confirmationScrollWrapper}>
+              {renderContent()}
+            </View>
+          ) : (
+            <ScrollView
+              style={styles.scrollContent}
+              contentContainerStyle={styles.scrollContentContainer}
+              showsVerticalScrollIndicator={false}
+            >
+              {renderContent()}
+            </ScrollView>
+          )}
 
           {showActions && (
             <View style={styles.actionsContainer}>
@@ -239,9 +249,12 @@ export function Modal({
                   style={styles.actionButton}
                 >
                   {action.loading ? (
-                    <ActivityIndicator size="small" color="#ffffff" />
+                    <ActivityIndicator 
+                      size="small" 
+                      color={action.variant === "outline" ? "#277874" : "#ffffff"} 
+                    />
                   ) : (
-                    <Text style={styles.actionButtonText}>{action.label}</Text>
+                    action.label
                   )}
                 </Button>
               ))}
@@ -255,7 +268,7 @@ export function Modal({
                 onPress={onClose}
                 style={styles.actionButton}
               >
-                <Text style={styles.actionButtonText}>Cancel</Text>
+                Cancel
               </Button>
             </View>
           )}
@@ -283,7 +296,7 @@ const styles = StyleSheet.create({
     elevation: 10,
   },
   confirmationModal: {
-    padding: 24,
+    padding: 0,
     alignItems: "center",
   },
   header: {
@@ -314,6 +327,11 @@ const styles = StyleSheet.create({
   scrollContentContainer: {
     padding: 20,
   },
+  confirmationScrollWrapper: {
+    width: "100%",
+    alignItems: "center",
+    justifyContent: "center",
+  },
   loadingContainer: {
     padding: 40,
     alignItems: "center",
@@ -326,7 +344,10 @@ const styles = StyleSheet.create({
   },
   confirmationContent: {
     alignItems: "center",
-    paddingVertical: 8,
+    paddingVertical: 20,
+    paddingHorizontal: 20,
+    width: "100%",
+    justifyContent: "center",
   },
   iconContainer: {
     width: 80,
@@ -345,9 +366,14 @@ const styles = StyleSheet.create({
   },
   confirmationMessage: {
     fontSize: 16,
-    color: "#6b7280",
+    color: "#374151",
     textAlign: "center",
     lineHeight: 24,
+    marginTop: 12,
+    marginBottom: 16,
+    paddingHorizontal: 8,
+    fontWeight: "400",
+    width: "100%",
   },
   actionsContainer: {
     flexDirection: "row",
@@ -359,11 +385,6 @@ const styles = StyleSheet.create({
   },
   actionButton: {
     minWidth: 100,
-  },
-  actionButtonText: {
-    color: "#ffffff",
-    fontSize: 16,
-    fontWeight: "600",
   },
 });
 

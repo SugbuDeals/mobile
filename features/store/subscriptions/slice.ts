@@ -15,6 +15,7 @@ import {
   getSubscriptionAnalytics,
 } from "./thunks";
 import { createAsyncReducer } from "@/utils/redux/createAsyncReducer";
+import { logout } from "@/features/auth/slice";
 import type { Subscription, UserSubscription, SubscriptionAnalytics, JoinSubscriptionDTO, CreateSubscriptionDTO, UpdateSubscriptionDTO } from "./types";
 
 interface SubscriptionsState {
@@ -114,6 +115,15 @@ const subscriptionsSlice = createSlice({
       onFulfilled: (state: Draft<SubscriptionsState>, action) => {
         state.subscriptionAnalytics = action.payload;
       },
+    });
+
+    // Clear subscriptions on logout
+    builder.addCase(logout, (state) => {
+      state.activeSubscription = null;
+      state.subscriptions = [];
+      state.subscriptionAnalytics = null;
+      state.loading = false;
+      state.error = null;
     });
   },
 });

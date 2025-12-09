@@ -1,6 +1,6 @@
+import { colors, spacing, typography } from "@/styles/theme";
 import React, { ReactNode } from "react";
 import { StyleSheet, Text, View, ViewStyle } from "react-native";
-import { colors, spacing, typography } from "@/styles/theme";
 
 /**
  * Props for the FormField component
@@ -68,7 +68,7 @@ export default function FormField({
 
 const styles = StyleSheet.create({
   container: {
-    marginBottom: spacing.md,
+    marginBottom: spacing.sm,
   },
   label: {
     fontSize: typography.fontSize.sm,

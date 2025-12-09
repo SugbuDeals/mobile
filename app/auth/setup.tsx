@@ -425,16 +425,6 @@ export default function RetailerSetup() {
             )}
           />
 
-          {/* Store Category */}
-          <View style={styles.fieldContainer}>
-            <Text style={styles.label}>Store Category</Text>
-            <View style={[styles.dropdownContainer, styles.disabledInput]}>
-              <Text style={styles.disabledText}>Coming Soon</Text>
-              <Ionicons name="chevron-down" size={20} color="#D1D5DB" />
-            </View>
-            <Text style={styles.helperText}>This feature will be available in future updates.</Text>
-          </View>
-
           {/* Store Address */}
           <View style={styles.fieldContainer}>
             <View style={styles.labelContainer}>

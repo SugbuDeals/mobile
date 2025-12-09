@@ -1,3 +1,4 @@
+import { borderRadius, colors, spacing, typography } from "@/styles/theme";
 import React from "react";
 import {
   StyleSheet,
@@ -5,7 +6,6 @@ import {
   TextInputProps,
   View,
 } from "react-native";
-import { colors, spacing, borderRadius, typography } from "@/styles/theme";
 import FormField from "./FormField";
 
 /**

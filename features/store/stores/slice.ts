@@ -14,6 +14,7 @@ import {
   deleteStore,
 } from "./thunks";
 import { createAsyncReducer } from "@/utils/redux/createAsyncReducer";
+import { logout } from "@/features/auth/slice";
 import type { Store, CreateStoreDTO, UpdateStoreDTO } from "./types";
 
 interface StoresState {
@@ -179,6 +180,16 @@ const storesSlice = createSlice({
           state.selectedStore = null;
         }
       },
+    });
+
+    // Clear stores on logout
+    builder.addCase(logout, (state) => {
+      state.stores = [];
+      state.selectedStore = null;
+      state.userStore = null;
+      state.nearbyStores = [];
+      state.loading = false;
+      state.error = null;
     });
   },
 });

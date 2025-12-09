@@ -27,10 +27,15 @@ const authSlice = createSlice({
   initialState,
   reducers: {
     logout: (state) => {
+      // Clear all auth-related state immediately
       state.accessToken = null;
       state.user = null;
       state.error = null;
       state.allUsers = [];
+      // Ensure loading states are reset
+      state.loading = false;
+      state.registering = false;
+      state.usersLoading = false;
     },
     completeRetailerSetup: (state) => {
       if (state.user) {

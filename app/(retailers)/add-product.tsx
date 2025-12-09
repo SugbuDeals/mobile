@@ -10,15 +10,15 @@ import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
 import React, { useEffect, useState } from "react";
 import {
-    Alert,
-    Image,
-    Platform,
-    ScrollView,
-    StatusBar,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View
+  Alert,
+  Image,
+  Platform,
+  ScrollView,
+  StatusBar,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View
 } from "react-native";
 
 const MAX_PRODUCTS_FREE = 10;
@@ -27,7 +27,7 @@ const MAX_PRODUCTS_PREMIUM = 999; // Essentially unlimited
 
 export default function AddProduct() {
   const { state: { user, accessToken } } = useLogin();
-  const { action: { createProduct, findProducts, getActiveSubscription, joinSubscription }, state: { userStore, products, activeSubscription } } = useStore();
+  const { action: { createProduct, findProducts, getActiveSubscription }, state: { userStore, products, activeSubscription } } = useStore();
   const { action: { loadCategories }, state: { categories } } = useCatalog();
   const [productName, setProductName] = useState("");
   const [description, setDescription] = useState("");
@@ -41,7 +41,6 @@ export default function AddProduct() {
   const [selectedCategoryId, setSelectedCategoryId] = useState<number | null>(null);
   const [showCategoryList, setShowCategoryList] = useState(false);
   const [showSubscriptionOverlay, setShowSubscriptionOverlay] = useState(false);
-  const [isUpgrading, setIsUpgrading] = useState(false);
 
   const resetForm = () => {
     setProductName("");
@@ -301,31 +300,9 @@ export default function AddProduct() {
     router.back();
   };
 
-  const handleUpgrade = async () => {
-    // For now, we'll use subscription ID 1 for BASIC plan
-    // In a real app, you'd have a subscription selection screen
-    // You can modify this to use a specific subscription ID based on the plan selected
-    try {
-      setIsUpgrading(true);
-      // TODO: Replace with actual subscription ID from a subscription selection screen
-      // For now, using a placeholder - you should fetch available subscriptions and let user choose
-      const subscriptionId = 1; // This should come from a subscription selection UI
-      
-      await joinSubscription({ subscriptionId }).unwrap();
-      
-      // Refresh subscription status
-      if (user && user.id) {
-        await getActiveSubscription(Number(user.id));
-      }
-      
-      setShowSubscriptionOverlay(false);
-      Alert.alert("Success", "Subscription upgraded successfully! You can now add more products.");
-    } catch (error: unknown) {
-      const errorMessage = error instanceof Error ? error.message : "Failed to upgrade subscription. Please try again.";
-      Alert.alert("Error", errorMessage);
-    } finally {
-      setIsUpgrading(false);
-    }
+  const handleUpgrade = () => {
+    setShowSubscriptionOverlay(false);
+    router.push("/(retailers)/subscription");
   };
 
   return (
@@ -550,7 +527,7 @@ export default function AddProduct() {
         onUpgrade={handleUpgrade}
         upgradePrice={activeSubscription?.subscription?.plan === "FREE" ? "$100" : "$200"}
         validityDays={7}
-        isLoading={isUpgrading}
+        isLoading={false}
       />
     </View>
   );
@@ -626,7 +603,7 @@ const styles = StyleSheet.create({
     elevation: 8,
   },
   inputGroup: {
-    marginBottom: 20,
+    marginBottom: 10,
   },
   label: {
     fontSize: 16,

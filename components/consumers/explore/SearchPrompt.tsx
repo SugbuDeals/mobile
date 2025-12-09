@@ -30,12 +30,18 @@ export default function SearchPrompt({
   hasLocation = false,
 }: SearchPromptProps) {
   return (
-    <View style={styles.searchBox}>
-      <View style={styles.topRow}>
+    <View>
+      <View style={styles.searchBox}>
+        <Ionicons
+          name="search"
+          size={20}
+          color="#6b7280"
+          style={styles.searchIcon}
+        />
         <TextInput
           style={styles.searchInput}
           placeholder={placeholder}
-          placeholderTextColor={colors.gray500}
+          placeholderTextColor="#6b7280"
           value={searchQuery}
           onChangeText={onSearchChange}
           returnKeyType="search"
@@ -44,68 +50,67 @@ export default function SearchPrompt({
           multiline={false}
           numberOfLines={1}
         />
-        <TouchableOpacity
-          style={styles.sendButton}
-          onPress={onSubmit}
-          accessibilityRole="button"
-          accessibilityLabel="Submit search"
-        >
-          <Ionicons name="send" size={20} color={colors.white} />
-        </TouchableOpacity>
-      </View>
-      <View style={styles.bottomRow}>
-        {hasLocation && (
-          <View style={styles.locationIndicator}>
-            <Ionicons name="location" size={16} color={colors.primary} />
-            <Text style={styles.locationText}>Location enabled</Text>
-          </View>
-        )}
-        {onRadiusChange && (
-          <View style={styles.radiusSelector}>
-            <Select<5 | 10 | 15>
-              options={radiusOptions}
-              value={radius}
-              onValueChange={onRadiusChange}
-              placeholder="Radius"
-              style={styles.radiusSelect}
-              containerStyle={styles.radiusSelectContainer}
-              maxHeight={150}
-            />
-          </View>
+        {searchQuery.length > 0 && (
+          <TouchableOpacity
+            style={styles.sendButton}
+            onPress={onSubmit}
+            accessibilityRole="button"
+            accessibilityLabel="Submit search"
+          >
+            <Ionicons name="send" size={18} color={colors.white} />
+          </TouchableOpacity>
         )}
       </View>
+      {(hasLocation || onRadiusChange) && (
+        <View style={styles.bottomRow}>
+          {hasLocation && (
+            <View style={styles.locationIndicator}>
+              <Ionicons name="location" size={16} color={colors.primary} />
+              <Text style={styles.locationText}>Location enabled</Text>
+            </View>
+          )}
+          {onRadiusChange && (
+            <View style={styles.radiusSelector}>
+              <Select<5 | 10 | 15>
+                options={radiusOptions}
+                value={radius}
+                onValueChange={onRadiusChange}
+                placeholder="Radius"
+                style={styles.radiusSelect}
+                containerStyle={styles.radiusSelectContainer}
+                maxHeight={150}
+              />
+            </View>
+          )}
+        </View>
+      )}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   searchBox: {
-    backgroundColor: "#F3E5BC",
-    borderRadius: borderRadius.xl,
-    padding: spacing.md,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.12,
-    shadowRadius: 8,
-    elevation: 5,
-    borderWidth: 1,
-    borderColor: "#FDE68A",
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#E5E7EB",
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
   },
   topRow: {
     flexDirection: "row",
     alignItems: "center",
-    marginBottom: 0,
+    flex: 1,
     gap: spacing.md,
   },
   searchInput: {
-    fontSize: typography.fontSize.base,
-    fontWeight: typography.fontWeight.medium,
-    color: colors.gray900,
     flex: 1,
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.md,
-    minHeight: 48,
-    maxHeight: 48,
+    fontSize: 16,
+    color: "#374151",
+    paddingVertical: 0,
+    paddingHorizontal: 0,
+    minHeight: 20,
+    maxHeight: 20,
   },
   sendButton: {
     backgroundColor: colors.primary,
@@ -115,11 +120,15 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
   },
+  searchIcon: {
+    marginRight: 10,
+  },
   bottomRow: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between",
-    marginTop: spacing.md,
+    justifyContent: "flex-start",
+    marginTop: 12,
+    gap: spacing.sm,
   },
   locationIndicator: {
     flexDirection: "row",

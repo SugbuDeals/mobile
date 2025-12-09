@@ -46,64 +46,43 @@ export default function StoreCard({ store, onPress }: StoreCardProps) {
     <TouchableOpacity
       style={styles.card}
       onPress={handlePress}
-      activeOpacity={0.8}
+      activeOpacity={0.7}
       accessibilityRole="button"
       accessibilityLabel={`Store: ${store.name}`}
     >
-      <View style={styles.cardContent}>
-        {/* Store Image */}
-        <View style={styles.imageContainer}>
+      <View style={styles.cardTopRow}>
+        <View style={styles.storeRow}>
           {store.imageUrl ? (
-            <Image source={{ uri: store.imageUrl }} style={styles.image} />
+            <Image source={{ uri: store.imageUrl }} style={styles.thumbnail} />
           ) : (
-            <View style={styles.placeholderImage}>
-              <Ionicons name="storefront-outline" size={32} color={colors.gray400} />
+            <View style={styles.storeLogo}>
+              <Ionicons name="storefront-outline" size={22} color="#277874" />
             </View>
           )}
-        </View>
-
-        {/* Store Info */}
-        <View style={styles.infoContainer}>
-          <View style={styles.headerRow}>
-            <Text style={styles.storeName} numberOfLines={2}>
+          <View style={{ maxWidth: 220 }}>
+            <Text style={styles.storeName} numberOfLines={1}>
               {store.name}
             </Text>
-            <View style={styles.verifiedBadge}>
-              <Ionicons name="shield-checkmark" size={14} color={colors.success} />
-            </View>
-          </View>
-
-          {store.description && (
-            <Text style={styles.description} numberOfLines={2}>
-              {store.description}
+            <Text style={styles.storeLocation} numberOfLines={2}>
+              {store.description || "Store"}
+              {formattedDistance ? ` • ${formattedDistance}` : ""}
             </Text>
-          )}
-
-          <View style={styles.metaRow}>
-            <View style={styles.metaItem}>
-              <Ionicons name="location" size={14} color={colors.primary} />
-              <Text style={styles.metaText}>{formattedDistance}</Text>
-            </View>
-            {locationText && locationText !== "Location available" && (
-              <View style={styles.metaItem}>
-                <Ionicons name="map-outline" size={14} color={colors.gray500} />
-                <Text style={styles.locationText} numberOfLines={1}>
-                  {locationText}
-                </Text>
-              </View>
-            )}
           </View>
-
-          <TouchableOpacity
-            style={styles.viewButton}
-            onPress={handlePress}
-            accessibilityRole="button"
-            accessibilityLabel="View store details"
-          >
-            <Text style={styles.viewButtonText}>View Store</Text>
-            <Ionicons name="chevron-forward" size={16} color={colors.white} />
-          </TouchableOpacity>
         </View>
+        <Ionicons name="chevron-forward" size={20} color="#6b7280" />
+      </View>
+
+      <View style={styles.cardBottomRow}>
+        <View style={styles.activePill}>
+          <Text style={styles.activePillText}>Store</Text>
+        </View>
+        <View style={styles.spacer} />
+        <TouchableOpacity
+          style={styles.actionButton}
+          onPress={handlePress}
+        >
+          <Ionicons name="arrow-forward-circle" size={20} color="#277874" />
+        </TouchableOpacity>
       </View>
     </TouchableOpacity>
   );
@@ -111,102 +90,73 @@ export default function StoreCard({ store, onPress }: StoreCardProps) {
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: colors.white,
-    borderRadius: borderRadius.xl,
-    marginBottom: spacing.md,
-    ...shadows.md,
+    backgroundColor: "#fff",
+    borderRadius: 12,
+    padding: 15,
+    marginBottom: 15,
+    elevation: 4,
+    shadowColor: "#000",
+    shadowOpacity: 0.1,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 4 },
     borderWidth: 1,
-    borderColor: colors.gray200,
-    overflow: "hidden",
+    borderColor: "#f3f4f6",
   },
-  cardContent: {
+  cardTopRow: {
     flexDirection: "row",
-    padding: spacing.md,
-    gap: spacing.md,
-  },
-  imageContainer: {
-    width: 100,
-    height: 100,
-    borderRadius: borderRadius.lg,
-    overflow: "hidden",
-    backgroundColor: colors.gray100,
-  },
-  image: {
-    width: "100%",
-    height: "100%",
-    resizeMode: "cover",
-  },
-  placeholderImage: {
-    width: "100%",
-    height: "100%",
-    justifyContent: "center",
-    alignItems: "center",
-    backgroundColor: colors.gray100,
-  },
-  infoContainer: {
-    flex: 1,
     justifyContent: "space-between",
+    alignItems: "center",
   },
-  headerRow: {
+  storeRow: {
     flexDirection: "row",
-    alignItems: "flex-start",
-    gap: spacing.xs,
-    marginBottom: spacing.xs,
+    alignItems: "center",
+    columnGap: 12,
+  },
+  thumbnail: {
+    width: 42,
+    height: 42,
+    borderRadius: 8,
+    backgroundColor: "#F1F5F9",
+  },
+  storeLogo: {
+    width: 42,
+    height: 42,
+    borderRadius: 8,
+    backgroundColor: "#F1F5F9",
+    alignItems: "center",
+    justifyContent: "center",
   },
   storeName: {
-    flex: 1,
-    fontSize: typography.fontSize.lg,
-    fontWeight: typography.fontWeight.bold,
-    color: colors.gray900,
-    lineHeight: 22,
+    fontWeight: "700",
+    fontSize: 16,
+    maxWidth: 200,
   },
-  verifiedBadge: {
-    padding: 4,
-    backgroundColor: colors.successLight,
-    borderRadius: borderRadius.sm,
+  storeLocation: {
+    color: "#6B7280",
+    fontSize: 13,
+    textTransform: "capitalize",
   },
-  description: {
-    fontSize: typography.fontSize.sm,
-    color: colors.gray600,
-    lineHeight: 18,
-    marginBottom: spacing.sm,
-  },
-  metaRow: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: spacing.sm,
-    marginBottom: spacing.sm,
-  },
-  metaItem: {
+  cardBottomRow: {
+    marginTop: 14,
     flexDirection: "row",
     alignItems: "center",
-    gap: 4,
   },
-  metaText: {
-    fontSize: typography.fontSize.sm,
-    color: colors.primaryDark,
-    fontWeight: typography.fontWeight.medium,
+  activePill: {
+    backgroundColor: "#D1FAE5",
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 100,
   },
-  locationText: {
-    fontSize: typography.fontSize.xs,
-    color: colors.gray500,
+  activePillText: {
+    color: "#1B6F5D",
+    fontWeight: "600",
+    fontSize: 12,
+  },
+  spacer: {
     flex: 1,
   },
-  viewButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: colors.primary,
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.md,
-    borderRadius: borderRadius.full,
-    gap: spacing.xs,
-    marginTop: spacing.xs,
-  },
-  viewButtonText: {
-    fontSize: typography.fontSize.sm,
-    fontWeight: typography.fontWeight.bold,
-    color: colors.white,
+  actionButton: {
+    padding: 8,
   },
 });
 

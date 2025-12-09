@@ -26,8 +26,12 @@ const RetailerHeader = () => {
   }, []);
 
   const handleLogout = () => {
+    // Clear auth state immediately
     dispatch(logout());
-    router.replace("/auth/login");
+    // Use setTimeout to ensure state update is processed before navigation
+    setTimeout(() => {
+      router.replace("/auth/login");
+    }, 0);
   };
 
   return (
@@ -142,7 +146,6 @@ export default function RetailersLayout() {
           router.replace("/auth/setup");
         }
       }, 500); // Small delay to ensure store loading is complete
-
       return () => clearTimeout(timeoutId);
     }
   }, [user, userStore, storeLoading, authLoading]);
@@ -185,12 +188,12 @@ export default function RetailersLayout() {
           ),
         }}
       />
-    
       <Tabs.Screen
         name="notifications"
         options={{
           title: "Notifications",
-          headerShown: false,
+          headerShown: true,
+          header: () => <RetailerHeader />,
           href: null,
         }}
       />
@@ -202,6 +205,13 @@ export default function RetailersLayout() {
         }}
       />
       <Tabs.Screen
+        name="_layout.tsx"
+        options={{
+          title: "Layout",
+          href: null,
+        }}
+      />
+      <Tabs.Screen
         name="subscription"
         options={{
           title: "Subscription",
@@ -209,6 +219,14 @@ export default function RetailersLayout() {
           tabBarIcon: ({ color, size = 24 }) => (
             <Ionicons name="card" color={color} size={size} />
           ),
+        }}
+      />
+      <Tabs.Screen
+        name="components/PromotionCard"
+        options={{
+          title: "Components",
+          headerShown: false,
+          href: null,
         }}
       />
       <Tabs.Screen

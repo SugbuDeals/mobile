@@ -1,6 +1,7 @@
 import React from "react";
 import { StyleSheet, Text, TouchableOpacity, View, Image } from "react-native";
 import { useRouter } from "expo-router";
+import Ionicons from "@expo/vector-icons/Ionicons";
 import { colors, spacing, borderRadius, typography } from "@/styles/theme";
 import type { RecommendationTab } from "./RecommendationTabs";
 
@@ -72,163 +73,137 @@ export default function RecommendationCard({
     });
   };
 
-  const getBadgeStyle = () => {
-    // For products, show green badge
-    return styles.badgeGreen;
-  };
-
-  const getBadgeText = () => {
-    // Simple "Product" badge for product cards
-    return "Product";
-  };
-
   return (
-    <View style={styles.resultCard}>
-      <View style={styles.resultHeaderRow}>
-        <View style={[styles.badge, getBadgeStyle()]}>
-          <Text style={styles.badgeText}>{getBadgeText()}</Text>
-        </View>
-        {item?.discount && (
-          <View style={styles.badgeOff}>
-            <Text style={styles.badgeOffText}>{`${item.discount}% OFF`}</Text>
-          </View>
-        )}
-      </View>
-      <View style={styles.cardBodyRow}>
-        {item?.imageUrl ? (
-          <Image source={{ uri: item.imageUrl }} style={styles.resultImage} />
-        ) : (
-          <View style={styles.placeholderImage} />
-        )}
-        <View style={styles.cardInfo}>
-          <Text style={styles.cardTitle} numberOfLines={2}>
-            {item?.name || item?.title || "Product"}
-          </Text>
-          <Text style={styles.cardMeta}>
-            {item?.store?.name || item?.storeName || "Store"}
-          </Text>
-          <Text style={styles.cardMeta}>• {formattedDistance}</Text>
-          {typeof item?.price !== "undefined" && (
-            <Text style={styles.cardPrice}>
-              ₱ {Number(item.price).toFixed(2)}
-            </Text>
+    <TouchableOpacity
+      style={styles.card}
+      onPress={handlePress}
+      activeOpacity={0.7}
+    >
+      <View style={styles.cardTopRow}>
+        <View style={styles.storeRow}>
+          {item?.imageUrl ? (
+            <Image source={{ uri: item.imageUrl }} style={styles.thumbnail} />
+          ) : (
+            <View style={styles.storeLogo}>
+              <Ionicons name="bag-outline" size={22} color="#277874" />
+            </View>
           )}
+          <View style={{ maxWidth: 220 }}>
+            <Text style={styles.storeName} numberOfLines={1}>
+              {item?.name || item?.title || "Product"}
+            </Text>
+            <Text style={styles.storeLocation} numberOfLines={1}>
+              {item?.store?.name || item?.storeName || "Store"}
+              {typeof item?.price !== "undefined" ? ` • ₱${Number(item.price).toFixed(2)}` : ""}
+              {formattedDistance ? ` • ${formattedDistance}` : ""}
+            </Text>
+          </View>
         </View>
+        {item?.discount ? (
+          <View style={styles.discountBadge}>
+            <Text style={styles.discountBadgeText}>{item.discount}% OFF</Text>
+          </View>
+        ) : (
+          <Ionicons name="chevron-forward" size={20} color="#6b7280" />
+        )}
       </View>
-      <View style={styles.cardActions}>
+
+      <View style={styles.cardBottomRow}>
+        <View style={styles.activePill}>
+          <Text style={styles.activePillText}>Product</Text>
+        </View>
+        <View style={styles.spacer} />
         <TouchableOpacity
-          style={styles.detailsBtn}
-          accessibilityRole="button"
+          style={styles.actionButton}
           onPress={handlePress}
         >
-          <Text style={styles.detailsBtnText}>Details</Text>
+          <Ionicons name="arrow-forward-circle" size={20} color="#277874" />
         </TouchableOpacity>
       </View>
-    </View>
+    </TouchableOpacity>
   );
 }
 
 const styles = StyleSheet.create({
-  resultCard: {
-    backgroundColor: colors.white,
-    borderRadius: borderRadius.lg,
-    borderWidth: 1,
-    borderColor: colors.gray200,
-    padding: spacing.md,
-    marginBottom: spacing.md,
+  card: {
+    backgroundColor: "#fff",
+    borderRadius: 12,
+    padding: 15,
+    marginBottom: 15,
+    elevation: 4,
     shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 2,
+    shadowOpacity: 0.1,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 4 },
+    borderWidth: 1,
+    borderColor: "#f3f4f6",
   },
-  resultHeaderRow: {
+  cardTopRow: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: spacing.xs,
   },
-  badge: {
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 6,
-    borderRadius: borderRadius.full,
-  },
-  badgeGreen: {
-    backgroundColor: colors.successLight,
-  },
-  badgeYellow: {
-    backgroundColor: colors.warningLight,
-  },
-  badgeTeal: {
-    backgroundColor: "#ccfbf1",
-  },
-  badgeText: {
-    color: colors.successDark,
-    fontWeight: typography.fontWeight.extrabold,
-    fontSize: typography.fontSize.xs,
-  },
-  badgeOff: {
-    backgroundColor: colors.warning,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 6,
-    borderRadius: borderRadius.full,
-  },
-  badgeOffText: {
-    color: colors.white,
-    fontWeight: typography.fontWeight.extrabold,
-    fontSize: typography.fontSize.xs,
-  },
-  cardBodyRow: {
+  storeRow: {
     flexDirection: "row",
-    gap: spacing.md,
+    alignItems: "center",
+    columnGap: 12,
+  },
+  thumbnail: {
+    width: 42,
+    height: 42,
+    borderRadius: 8,
+    backgroundColor: "#F1F5F9",
+  },
+  storeLogo: {
+    width: 42,
+    height: 42,
+    borderRadius: 8,
+    backgroundColor: "#F1F5F9",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  storeName: {
+    fontWeight: "700",
+    fontSize: 16,
+    maxWidth: 200,
+  },
+  storeLocation: {
+    color: "#6B7280",
+    fontSize: 13,
+    textTransform: "capitalize",
+  },
+  discountBadge: {
+    backgroundColor: "#F59E0B",
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 100,
+  },
+  discountBadgeText: {
+    color: "#ffffff",
+    fontWeight: "700",
+    fontSize: 12,
+  },
+  cardBottomRow: {
+    marginTop: 14,
+    flexDirection: "row",
     alignItems: "center",
   },
-  placeholderImage: {
-    width: 110,
-    height: 90,
-    borderRadius: borderRadius.md,
-    backgroundColor: colors.gray100,
+  activePill: {
+    backgroundColor: "#D1FAE5",
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 100,
   },
-  resultImage: {
-    width: 110,
-    height: 90,
-    borderRadius: borderRadius.md,
-    backgroundColor: colors.gray100,
+  activePillText: {
+    color: "#1B6F5D",
+    fontWeight: "600",
+    fontSize: 12,
   },
-  cardInfo: {
+  spacer: {
     flex: 1,
   },
-  cardTitle: {
-    fontSize: typography.fontSize.base,
-    fontWeight: typography.fontWeight.bold,
-    color: colors.gray900,
-    marginBottom: spacing.xs,
-  },
-  cardMeta: {
-    color: colors.gray500,
-    fontSize: typography.fontSize.sm,
-  },
-  cardPrice: {
-    color: colors.successDark,
-    fontWeight: typography.fontWeight.extrabold,
-    marginTop: spacing.sm,
-    fontSize: typography.fontSize.base,
-  },
-  cardActions: {
-    alignItems: "flex-end",
-    marginTop: spacing.sm,
-  },
-  detailsBtn: {
-    alignSelf: "flex-start",
-    backgroundColor: colors.primaryDark,
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.sm,
-    borderRadius: borderRadius.full,
-  },
-  detailsBtnText: {
-    color: colors.white,
-    fontWeight: typography.fontWeight.bold,
-    fontSize: typography.fontSize.sm,
+  actionButton: {
+    padding: 8,
   },
 });
 

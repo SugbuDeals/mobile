@@ -350,8 +350,12 @@ export default function Settings() {
   };
 
   const handleLogout = () => {
+    // Clear auth state immediately
     dispatch(logout());
-    router.replace("/auth/login");
+    // Use setTimeout to ensure state update is processed before navigation
+    setTimeout(() => {
+      router.replace("/auth/login");
+    }, 0);
   };
 
   const handleDeleteAccount = () => {
@@ -556,18 +560,6 @@ export default function Settings() {
               {!isEditingStore && (
                 <Text style={[styles.helperText, { marginTop: 8 }]}>Tap "Edit Store Details" to change your banner.</Text>
               )}
-            </View>
-          </View>
-
-          <View style={styles.inputGroup}>
-            <View style={styles.labelContainer}>
-              <Text style={styles.label}>Store Category</Text>
-              <View style={styles.comingSoonBadge}>
-                <Text style={styles.comingSoonBadgeText}>Coming Soon</Text>
-              </View>
-            </View>
-            <View style={[styles.textInput, styles.disabledInput]}>
-              <Text style={styles.disabledText}>Coming Soon</Text>
             </View>
           </View>
 
@@ -789,17 +781,6 @@ const styles = StyleSheet.create({
     borderRadius: 12,
   },
   activeBadgeText: {
-    fontSize: 12,
-    fontWeight: "600",
-    color: "#ffffff",
-  },
-  comingSoonBadge: {
-    backgroundColor: "#F59E0B",
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 12,
-  },
-  comingSoonBadgeText: {
     fontSize: 12,
     fontWeight: "600",
     color: "#ffffff",

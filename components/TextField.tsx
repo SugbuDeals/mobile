@@ -1,17 +1,17 @@
-import React, { useState, useEffect, useRef, useCallback } from "react";
+import Ionicons from "@expo/vector-icons/Ionicons";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
-    Image,
-    StyleSheet,
-    Text,
-    TextInput,
-    TextInputProps,
-    TouchableOpacity,
-    View,
-    ActivityIndicator,
-    ImageSourcePropType,
+  ActivityIndicator,
+  Image,
+  ImageSourcePropType,
+  StyleSheet,
+  Text,
+  TextInput,
+  TextInputProps,
+  TouchableOpacity,
+  View,
 } from "react-native";
 import type { BlurEvent } from "react-native/Libraries/Types/CoreEventTypes";
-import Ionicons from "@expo/vector-icons/Ionicons";
 
 /**
  * Props for the TextField component
@@ -270,13 +270,11 @@ export default function TextField({
 
 const styles = StyleSheet.create({
   container: {
-    marginBottom: 6,
   },
   labelRow: {
     flexDirection: "row",
     alignItems: "center",
     marginBottom: 6,
-    marginTop: 8,
   },
   label: {
     fontSize: 14,
@@ -318,7 +316,7 @@ const styles = StyleSheet.create({
     flex: 1,
     color: "#0f172a",
     fontSize: 16,
-    paddingVertical: 12,
+    paddingVertical: 5
   },
   rightIcon: {
     marginLeft: 8,
@@ -328,8 +326,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginTop: 4,
-    minHeight: 18,
+    minHeight: 8,
   },
   error: {
     color: "#EF5350",

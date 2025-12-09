@@ -163,10 +163,12 @@ export default function AdminSettings() {
           text: "Logout",
           style: "destructive",
           onPress: () => {
-            // Dispatch logout action to clear Redux state
+            // Clear auth state immediately
             dispatch(logout());
-            // Navigate back to login screen
-            router.replace("/auth/login");
+            // Use setTimeout to ensure state update is processed before navigation
+            setTimeout(() => {
+              router.replace("/auth/login");
+            }, 0);
           }
         }
       ]

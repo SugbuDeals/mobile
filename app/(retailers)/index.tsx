@@ -6,12 +6,12 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import { router, useFocusEffect } from "expo-router";
 import React, { useCallback, useEffect, useMemo, useRef } from "react";
 import {
-    ImageBackground,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View
+  ImageBackground,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View
 } from "react-native";
 import { PromotionCard } from "./components/PromotionCard";
 
@@ -164,20 +164,56 @@ export default function RetailerDashboard() {
         
         {/* Store Information Below Banner */}
         <View style={styles.storeInfoSection}>
-          <Text style={styles.storeName}>{getStoreName()}</Text>
-          <Text style={styles.storeCategories}>{getStoreDescription()}</Text>
-          <View style={styles.storeStatus}>
-            <View style={styles.openButton}>
-              <Text style={styles.openButtonText}>Open Now</Text>
-            </View>
-            <View style={styles.closingButton}>
-              <Text style={styles.closingButtonText}>Closes at 9:00 PM</Text>
+          <View style={styles.storeHeaderRow}>
+            <View style={styles.storeTitleContainer}>
+              <Text style={styles.storeName}>{getStoreName()}</Text>
+              <Text style={styles.storeCategories}>{getStoreDescription()}</Text>
             </View>
             <TouchableOpacity 
               style={styles.editButton}
               onPress={() => router.push("/(retailers)/settings")}
             >
               <Ionicons name="pencil" size={16} color="#277874" />
+            </TouchableOpacity>
+          </View>
+          
+          {/* Store Statistics */}
+          <View style={styles.statsContainer}>
+            <View style={styles.statCard}>
+              <View style={styles.statIconContainer}>
+                <Ionicons name="cube" size={20} color="#277874" />
+              </View>
+              <View style={styles.statContent}>
+                <Text style={styles.statValue}>{products.length || 0}</Text>
+                <Text style={styles.statLabel}>Products</Text>
+              </View>
+            </View>
+            <View style={styles.statCard}>
+              <View style={styles.statIconContainer}>
+                <Ionicons name="ticket" size={20} color="#FFBE5D" />
+              </View>
+              <View style={styles.statContent}>
+                <Text style={styles.statValue}>{groupedPromotions.length || 0}</Text>
+                <Text style={styles.statLabel}>Promotions</Text>
+              </View>
+            </View>
+          </View>
+
+          {/* Quick Actions */}
+          <View style={styles.quickActionsContainer}>
+            <TouchableOpacity 
+              style={styles.quickActionButton}
+              onPress={() => router.push("/(retailers)/add-product")}
+            >
+              <Ionicons name="add-circle" size={20} color="#ffffff" />
+              <Text style={styles.quickActionText}>Add Product</Text>
+            </TouchableOpacity>
+            <TouchableOpacity 
+              style={[styles.quickActionButton, styles.quickActionButtonSecondary]}
+              onPress={() => router.push("/(retailers)/products")}
+            >
+              <Ionicons name="list" size={20} color="#277874" />
+              <Text style={[styles.quickActionText, styles.quickActionTextSecondary]}>View Products</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -287,53 +323,113 @@ const styles = StyleSheet.create({
     paddingTop: 40,
     paddingBottom: 5,
   },
+  storeHeaderRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
+    marginBottom: 20,
+  },
+  storeTitleContainer: {
+    flex: 1,
+  },
   storeName: {
     fontSize: 28,
     fontWeight: "bold",
     color: "#1f2937",
-    marginBottom: 8,
+    marginBottom: 4,
   },
   storeCategories: {
     fontSize: 16,
     color: "#6b7280",
-    marginBottom: 16,
-  },
-  storeStatus: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 5,
-  },
-  openButton: {
-    backgroundColor: "#277874",
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 8,
-  },
-  openButtonText: {
-    color: "#ffffff",
-    fontWeight: "600",
-    fontSize: 14,
-  },
-  closingButton: {
-    backgroundColor: "#ffffff",
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: "#e5e7eb",
-  },
-  closingButtonText: {
-    color: "#6b7280",
-    fontWeight: "600",
-    fontSize: 14,
   },
   editButton: {
     backgroundColor: "#ffffff",
-    width: 32,
-    height: 32,
-    borderRadius: 16,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     justifyContent: "center",
     alignItems: "center",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  statsContainer: {
+    flexDirection: "row",
+    gap: 12,
+    marginBottom: 16,
+  },
+  statCard: {
+    flex: 1,
+    backgroundColor: "#ffffff",
+    borderRadius: 12,
+    padding: 16,
+    flexDirection: "row",
+    alignItems: "center",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  statIconContainer: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: "#F0FDF4",
+    justifyContent: "center",
+    alignItems: "center",
+    marginRight: 12,
+  },
+  statContent: {
+    flex: 1,
+  },
+  statValue: {
+    fontSize: 24,
+    fontWeight: "bold",
+    color: "#1f2937",
+    marginBottom: 2,
+  },
+  statLabel: {
+    fontSize: 12,
+    color: "#6b7280",
+    fontWeight: "500",
+  },
+  quickActionsContainer: {
+    flexDirection: "row",
+    gap: 12,
+  },
+  quickActionButton: {
+    flex: 1,
+    backgroundColor: "#277874",
+    borderRadius: 12,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    shadowColor: "#277874",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  quickActionButtonSecondary: {
+    backgroundColor: "#ffffff",
+    borderWidth: 1,
+    borderColor: "#277874",
+    shadowColor: "#000",
+    shadowOpacity: 0.1,
+  },
+  quickActionText: {
+    color: "#ffffff",
+    fontSize: 14,
+    fontWeight: "600",
+  },
+  quickActionTextSecondary: {
+    color: "#277874",
   },
   section: {
     paddingHorizontal: 20,

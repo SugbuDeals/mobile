@@ -12,6 +12,16 @@ export function useStoreManagement() {
   const user = authState.user;
   const stores = useStores();
   const hasLoadedRef = useRef(false);
+  const userIdRef = useRef<number | null>(null);
+
+  // Reset hasLoadedRef when user changes or logs out
+  useEffect(() => {
+    const currentUserId = user?.id ? Number(user.id) : null;
+    if (userIdRef.current !== currentUserId) {
+      hasLoadedRef.current = false;
+      userIdRef.current = currentUserId;
+    }
+  }, [user?.id]);
 
   // Auto-load user store when user is available
   useEffect(() => {

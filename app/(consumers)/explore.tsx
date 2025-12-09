@@ -55,6 +55,7 @@ export default function Explore() {
   const [location, setLocation] = useState<{ latitude: number; longitude: number } | null>(null);
   const [radius, setRadius] = useState<5 | 10 | 15>(5);
   const [locationPermissionStatus, setLocationPermissionStatus] = useState<"granted" | "denied" | "checking">("checking");
+  const [sortOption, setSortOption] = useState<"best-deal" | "closest" | "cheapest">("best-deal");
   const fadeAnim = useRef(new Animated.Value(0)).current;
   
   const {
@@ -74,10 +75,45 @@ export default function Explore() {
     [aiResponse, products, stores, promotions]
   );
 
+  // Sort products based on selected sort option
+  const sortedProducts = useMemo(() => {
+    if (activeTab !== "products" && activeTab !== "all") {
+      return products;
+    }
+
+    const sorted = [...products].sort((a: any, b: any) => {
+      if (sortOption === "best-deal") {
+        // Sort by discount percentage (highest first), then by price (lowest first)
+        const discountA = a.discount || 0;
+        const discountB = b.discount || 0;
+        if (discountB !== discountA) {
+          return discountB - discountA;
+        }
+        // If same discount, sort by price
+        const priceA = typeof a.price === 'number' ? a.price : (typeof a.price === 'string' ? parseFloat(a.price) : Infinity);
+        const priceB = typeof b.price === 'number' ? b.price : (typeof b.price === 'string' ? parseFloat(b.price) : Infinity);
+        return priceA - priceB;
+      } else if (sortOption === "closest") {
+        // Sort by distance (lowest first)
+        const distanceA = a.distance ?? Infinity;
+        const distanceB = b.distance ?? Infinity;
+        return distanceA - distanceB;
+      } else if (sortOption === "cheapest") {
+        // Sort by price (lowest first)
+        const priceA = typeof a.price === 'number' ? a.price : (typeof a.price === 'string' ? parseFloat(a.price) : Infinity);
+        const priceB = typeof b.price === 'number' ? b.price : (typeof b.price === 'string' ? parseFloat(b.price) : Infinity);
+        return priceA - priceB;
+      }
+      return 0;
+    });
+
+    return sorted;
+  }, [products, sortOption, activeTab]);
+
   // Filter content based on active tab
   const filteredContent = useMemo(() => {
     if (activeTab === "products") {
-      return { products, stores: [], promotions: [] };
+      return { products: sortedProducts, stores: [], promotions: [] };
     }
     if (activeTab === "stores") {
       return { products: [], stores, promotions: [] };
@@ -86,8 +122,8 @@ export default function Explore() {
       return { products: [], stores: [], promotions };
     }
     // "all" tab
-    return { products, stores, promotions };
-  }, [activeTab, products, stores, promotions]);
+    return { products: sortedProducts, stores, promotions };
+  }, [activeTab, sortedProducts, stores, promotions]);
 
   const totalCount = products.length + stores.length + promotions.length;
 
@@ -242,6 +278,7 @@ export default function Explore() {
         setLastSubmittedQuery(null);
         setInsightsExpanded(false);
         setIsEditingPrompt(true);
+        setSortOption("best-deal");
         resetRecommendations();
         resetTabs();
       };
@@ -349,11 +386,46 @@ export default function Explore() {
                 {hasStructuredData && totalCount > 0 && (
                   <RecommendationTabs
                     activeTab={activeTab}
-                    onTabChange={setActiveTab}
+                    onTabChange={(tab) => {
+                      setActiveTab(tab);
+                      setSortOption("best-deal");
+                    }}
                     productsCount={products.length}
                     storesCount={stores.length}
                     promotionsCount={promotions.length}
                   />
+                )}
+
+                {/* Sort Options - Only show for products */}
+                {activeTab === "products" && sortedProducts.length > 0 && (
+                  <View style={styles.categoryContainer}>
+                    <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                      {[
+                        { key: "best-deal", label: "Best Deal" },
+                        { key: "closest", label: "Closest" },
+                        { key: "cheapest", label: "Cheapest" },
+                      ].map((option) => (
+                        <TouchableOpacity
+                          key={option.key}
+                          style={[
+                            styles.categoryChip,
+                            sortOption === option.key && styles.activeCategoryChip,
+                          ]}
+                          onPress={() => setSortOption(option.key as "best-deal" | "closest" | "cheapest")}
+                        >
+                          <Text
+                            style={[
+                              styles.categoryChipText,
+                              sortOption === option.key &&
+                                styles.activeCategoryChipText,
+                            ]}
+                          >
+                            {option.label}
+                          </Text>
+                        </TouchableOpacity>
+                      ))}
+                    </ScrollView>
+                  </View>
                 )}
 
                 {/* Show cards if we have structured data */}
@@ -1247,5 +1319,29 @@ const styles = StyleSheet.create({
     color: "#9CA3AF",
     textAlign: "center",
     lineHeight: 20,
+  },
+  categoryContainer: {
+    marginBottom: 20,
+  },
+  categoryChip: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    backgroundColor: "#f3f4f6",
+    borderRadius: 20,
+    marginRight: 10,
+    borderWidth: 1,
+    borderColor: "#e5e7eb",
+  },
+  activeCategoryChip: {
+    backgroundColor: "#277874",
+    borderColor: "#277874",
+  },
+  categoryChipText: {
+    fontSize: 14,
+    fontWeight: "500",
+    color: "#6b7280",
+  },
+  activeCategoryChipText: {
+    color: "#ffffff",
   },
 });
