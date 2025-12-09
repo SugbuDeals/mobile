@@ -29,10 +29,10 @@ export default function AdminNotifications() {
     action.getNotifications({ skip: 0, take: 50 });
     action.getUnreadCount();
 
-    if (!storeState.products.length) {
+    if (!storeState.products || !storeState.products.length) {
       storeActions.findProducts();
     }
-    if (!storeState.stores.length) {
+    if (!storeState.stores || !storeState.stores.length) {
       storeActions.findStores();
     }
   }, []);
@@ -99,7 +99,7 @@ export default function AdminNotifications() {
 
   return (
     <View style={styles.container}>
-      {state.loading && state.notifications.length === 0 ? (
+      {state.loading && (!state.notifications || state.notifications.length === 0) ? (
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color="#3B82F6" />
           <Text style={styles.loadingText}>Loading notifications...</Text>

@@ -5,22 +5,22 @@ import { LinearGradient } from "expo-linear-gradient";
 import { useFocusEffect, useRouter } from "expo-router";
 import React, { useCallback, useState } from "react";
 import {
-    Alert,
-    Platform,
-    ScrollView,
-    StatusBar,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View,
+  Alert,
+  Platform,
+  ScrollView,
+  StatusBar,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from "react-native";
 
 export default function Subscription() {
   const router = useRouter();
   const { state: { user } } = useLogin();
   const {
-    action: { getCurrentTier, upgradeToPro, downgradeToBasic, findProducts, deleteProduct },
-    state: { currentTier, loading, products, userStore },
+    action: { getCurrentTier, upgradeToPro, downgradeToBasic },
+    state: { currentTier, loading },
   } = useStore();
 
   const [isProcessing, setIsProcessing] = useState(false);
@@ -73,7 +73,7 @@ export default function Subscription() {
 
     Alert.alert(
       "Downgrade to BASIC",
-      "Are you sure you want to downgrade to BASIC tier? You will lose PRO features and extended limits. Products beyond 10 will be deleted.",
+      "Are you sure you want to downgrade to BASIC tier? You will lose PRO features and extended limits.",
       [
         { text: "Cancel", style: "cancel" },
         {
@@ -83,27 +83,8 @@ export default function Subscription() {
             try {
               setIsProcessing(true);
               await downgradeToBasic().unwrap();
-              
-              // Delete excess products (keep only 10)
-              if (userStore?.id) {
-                // Fetch current products list
-                const currentProducts = await findProducts({ storeId: userStore.id }).unwrap();
-                // Get all products and delete those beyond the first 10
-                const productsToDelete = currentProducts.slice(10);
-                for (const product of productsToDelete) {
-                  try {
-                    await deleteProduct(product.id).unwrap();
-                  } catch (error) {
-                    // Silently continue if deletion fails for a product
-                  }
-                }
-                // Refresh products list after deletion
-                await findProducts({ storeId: userStore.id });
-              }
-              
-              // Refresh tier info immediately (state should already be updated by downgradeToBasic reducer)
-              getCurrentTier();
-              Alert.alert("Success", "Successfully downgraded to BASIC tier. Excess products have been removed.");
+              Alert.alert("Success", "Successfully downgraded to BASIC tier.");
+              getCurrentTier(); // Refresh tier info
             } catch (error: unknown) {
               const errorMessage = error instanceof Error 
                 ? error.message 
@@ -119,13 +100,11 @@ export default function Subscription() {
   };
 
   const isPro = currentTier?.tier === "PRO";
-  const isBasic = currentTier?.tier === "BASIC" || !currentTier; // Default to BASIC if no tier
+  const isBasic = currentTier?.tier === "BASIC";
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="transparent" />
-
-      {/* Header */}
+      <StatusBar barStyle="light-content" backgroundColor="#277874" />
       <LinearGradient
         colors={["#FFBE5D", "#277874"]}
         style={styles.header}
@@ -175,7 +154,7 @@ export default function Subscription() {
         <View style={styles.comparisonCard}>
           <Text style={styles.comparisonTitle}>Choose Your Plan</Text>
           <Text style={styles.comparisonSubtitle}>
-            Unlock more product limits and features for your store
+            Unlock more discovery options to find the best deals near you
           </Text>
 
           {/* BASIC Tier */}
@@ -186,9 +165,9 @@ export default function Subscription() {
             </View>
             <View style={styles.featuresList}>
               <FeatureItem
-                icon="cube-outline"
-                text="Up to 10 products"
-                description="Perfect for small stores just getting started. List your essential products and reach local customers."
+                icon="location-outline"
+                text="Discover nearby deals within 1km"
+                description="Find stores and products close to you for quick and convenient shopping. Perfect for everyday essentials and local purchases."
                 color="#6b7280"
               />
             </View>
@@ -213,9 +192,9 @@ export default function Subscription() {
             </View>
             <View style={styles.featuresList}>
               <FeatureItem
-                icon="cube"
-                text="Up to 50 products"
-                description="Expand your inventory and showcase more products. Perfect for growing stores that want to offer a wider selection to customers."
+                icon="location"
+                text="Discover deals up to 3km away"
+                description="Explore a wider area to find the best deals, compare prices across more stores, and discover hidden gems in your neighborhood. Perfect for finding rare items, comparing options before you shop, or when you're willing to travel a bit further for better prices. Access 3x more stores and deals!"
                 color="#277874"
               />
             </View>
@@ -229,9 +208,26 @@ export default function Subscription() {
 
         {/* Action Buttons */}
         <View style={styles.actionsContainer}>
-          {isPro ? (
+          {!isPro ? (
             <TouchableOpacity
-              key="downgrade-button"
+              style={[styles.upgradeButton, isProcessing && styles.buttonDisabled]}
+              onPress={handleUpgrade}
+              disabled={isProcessing || loading}
+            >
+              <LinearGradient
+                colors={["#FFBE5D", "#277874"]}
+                style={styles.buttonGradient}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+              >
+                <Ionicons name="star" size={20} color="#ffffff" />
+                <Text style={styles.upgradeButtonText}>
+                  {isProcessing ? "Processing..." : "Upgrade to PRO"}
+                </Text>
+              </LinearGradient>
+            </TouchableOpacity>
+          ) : (
+            <TouchableOpacity
               style={[styles.downgradeButton, isProcessing && styles.buttonDisabled]}
               onPress={handleDowngrade}
               disabled={isProcessing || loading}
@@ -240,26 +236,6 @@ export default function Subscription() {
                 {isProcessing ? "Processing..." : "Downgrade to BASIC"}
               </Text>
             </TouchableOpacity>
-          ) : (
-            <TouchableOpacity
-              key="upgrade-button"
-              style={[styles.upgradeButton, isProcessing && styles.buttonDisabled]}
-              onPress={handleUpgrade}
-              disabled={isProcessing || loading}
-              activeOpacity={0.8}
-            >
-              <LinearGradient
-                colors={["#FFBE5D", "#277874"]}
-                style={styles.buttonGradient}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 0 }}
-              >
-                <Ionicons name="star" size={20} color="#ffffff" style={{ marginRight: 4 }} />
-                <Text style={styles.upgradeButtonText}>
-                  {isProcessing ? "Processing..." : "Upgrade to PRO"}
-                </Text>
-              </LinearGradient>
-            </TouchableOpacity>
           )}
         </View>
 
@@ -267,7 +243,7 @@ export default function Subscription() {
         <View style={styles.infoCard}>
           <Ionicons name="information-circle" size={20} color="#277874" />
           <Text style={styles.infoText}>
-            PRO tier provides extended product limits and features. You can upgrade or downgrade at any time.
+            PRO tier provides extended limits and features. You can upgrade or downgrade at any time.
           </Text>
         </View>
       </ScrollView>
@@ -495,7 +471,6 @@ const styles = StyleSheet.create({
   },
   actionsContainer: {
     gap: 12,
-    minHeight: 60, // Ensure container has minimum height
   },
   upgradeButton: {
     borderRadius: 12,
@@ -505,17 +480,14 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.2,
     shadowRadius: 8,
     elevation: 5,
-    width: "100%",
-    backgroundColor: "transparent",
   },
   buttonGradient: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
+    gap: 8,
     paddingVertical: 16,
     paddingHorizontal: 24,
-    minHeight: 56,
-    width: "100%",
   },
   upgradeButtonText: {
     color: "#ffffff",

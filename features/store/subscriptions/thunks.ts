@@ -1,170 +1,66 @@
 /**
  * Subscription domain thunks
+ * Updated for tier-based subscription system (BASIC/PRO)
  */
 
 import { createAsyncThunk } from "@reduxjs/toolkit";
 import { RootState } from "@/store/types";
 import { subscriptionsApi } from "@/services/api/endpoints/subscriptions";
 import type {
-  Subscription,
-  UserSubscription,
+  SubscriptionTier,
   SubscriptionAnalytics,
-  CreateSubscriptionDTO,
-  UpdateSubscriptionDTO,
-  JoinSubscriptionDTO,
 } from "./types";
 
-export const getActiveSubscription = createAsyncThunk<
-  UserSubscription | null,
-  number,
-  { rejectValue: { message: string }; state: RootState }
->(
-  "subscriptions/getActiveSubscription",
-  async (userId, { rejectWithValue }) => {
-    try {
-      return await subscriptionsApi.getActiveSubscription(userId);
-    } catch (error) {
-      return rejectWithValue({
-        message:
-          error && typeof error === "object" && "message" in error
-            ? String(error.message)
-            : "Get active subscription failed",
-      });
-    }
-  }
-);
-
-export const joinSubscription = createAsyncThunk<
-  UserSubscription,
-  JoinSubscriptionDTO,
-  { rejectValue: { message: string }; state: RootState }
->("subscriptions/joinSubscription", async (data, { rejectWithValue }) => {
-  try {
-    return await subscriptionsApi.joinSubscription(data);
-  } catch (error) {
-    return rejectWithValue({
-      message:
-        error && typeof error === "object" && "message" in error
-          ? String(error.message)
-          : "Join subscription failed",
-    });
-  }
-});
-
-export const findSubscriptions = createAsyncThunk<
-  Subscription[],
-  {
-    plan?: "FREE" | "BASIC" | "PREMIUM";
-    isActive?: boolean;
-    search?: string;
-    skip?: number;
-    take?: number;
-  },
-  { rejectValue: { message: string }; state: RootState }
->("subscriptions/findSubscriptions", async (filters, { rejectWithValue }) => {
-  try {
-    return await subscriptionsApi.findSubscriptions(filters);
-  } catch (error) {
-    return rejectWithValue({
-      message:
-        error && typeof error === "object" && "message" in error
-          ? String(error.message)
-          : "Find subscriptions failed",
-    });
-  }
-});
-
-export const cancelRetailerSubscription = createAsyncThunk<
-  UserSubscription,
+export const getCurrentTier = createAsyncThunk<
+  SubscriptionTier,
   void,
   { rejectValue: { message: string }; state: RootState }
 >(
-  "subscriptions/cancelRetailerSubscription",
+  "subscriptions/getCurrentTier",
   async (_, { rejectWithValue }) => {
     try {
-      return await subscriptionsApi.cancelRetailerSubscription();
+      return await subscriptionsApi.getCurrentTier();
     } catch (error) {
       return rejectWithValue({
         message:
           error && typeof error === "object" && "message" in error
             ? String(error.message)
-            : "Cancel subscription failed",
+            : "Get current tier failed",
       });
     }
   }
 );
 
-export const updateRetailerSubscription = createAsyncThunk<
-  UserSubscription,
-  JoinSubscriptionDTO,
+export const upgradeToPro = createAsyncThunk<
+  SubscriptionTier,
+  void,
   { rejectValue: { message: string }; state: RootState }
->(
-  "subscriptions/updateRetailerSubscription",
-  async (data, { rejectWithValue }) => {
-    try {
-      return await subscriptionsApi.updateRetailerSubscription(data);
-    } catch (error) {
-      return rejectWithValue({
-        message:
-          error && typeof error === "object" && "message" in error
-            ? String(error.message)
-            : "Update subscription failed",
-      });
-    }
-  }
-);
-
-export const createSubscription = createAsyncThunk<
-  Subscription,
-  CreateSubscriptionDTO,
-  { rejectValue: { message: string }; state: RootState }
->("subscriptions/createSubscription", async (data, { rejectWithValue }) => {
+>("subscriptions/upgradeToPro", async (_, { rejectWithValue }) => {
   try {
-    // Convert price from number to string for API
-    const apiData = {
-      ...data,
-      price: data.price ? String(data.price) : undefined,
-    };
-    return await subscriptionsApi.createSubscription(apiData);
-  } catch (error: unknown) {
-    return rejectWithValue({
-      message: error instanceof Error ? error.message : "Create subscription failed",
-    });
-  }
-});
-
-export const updateSubscription = createAsyncThunk<
-  Subscription,
-  { id: number } & UpdateSubscriptionDTO,
-  { rejectValue: { message: string }; state: RootState }
->("subscriptions/updateSubscription", async ({ id, ...data }, { rejectWithValue }) => {
-  try {
-    // Convert price from number to string for API if present
-    const apiData = {
-      ...data,
-      ...(data.price !== undefined && { price: String(data.price) }),
-    };
-    return await subscriptionsApi.updateSubscription(id, apiData);
-  } catch (error: unknown) {
-    return rejectWithValue({
-      message: error instanceof Error ? error.message : "Update subscription failed",
-    });
-  }
-});
-
-export const deleteSubscription = createAsyncThunk<
-  { id: number },
-  number,
-  { rejectValue: { message: string }; state: RootState }
->("subscriptions/deleteSubscription", async (id, { rejectWithValue }) => {
-  try {
-    return await subscriptionsApi.deleteSubscription(id);
+    return await subscriptionsApi.upgradeToPro();
   } catch (error) {
     return rejectWithValue({
       message:
         error && typeof error === "object" && "message" in error
           ? String(error.message)
-          : "Delete subscription failed",
+          : "Upgrade to PRO failed",
+    });
+  }
+});
+
+export const downgradeToBasic = createAsyncThunk<
+  SubscriptionTier,
+  void,
+  { rejectValue: { message: string }; state: RootState }
+>("subscriptions/downgradeToBasic", async (_, { rejectWithValue }) => {
+  try {
+    return await subscriptionsApi.downgradeToBasic();
+  } catch (error) {
+    return rejectWithValue({
+      message:
+        error && typeof error === "object" && "message" in error
+          ? String(error.message)
+          : "Downgrade to BASIC failed",
     });
   }
 });
@@ -177,7 +73,7 @@ export const getSubscriptionAnalytics = createAsyncThunk<
   "subscriptions/getSubscriptionAnalytics",
   async (_, { rejectWithValue }) => {
     try {
-      return await subscriptionsApi.getSubscriptionAnalytics();
+      return await subscriptionsApi.getAnalytics();
     } catch (error) {
       return rejectWithValue({
         message:

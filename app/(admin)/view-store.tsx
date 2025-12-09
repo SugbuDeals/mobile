@@ -23,7 +23,7 @@ export default function AdminViewStores() {
 
   useEffect(() => {
     storeActions.findStores();
-    if (authState.allUsers.length === 0) {
+    if (!authState.allUsers || authState.allUsers.length === 0) {
       authActions.fetchAllUsers();
     }
   }, []);
@@ -71,7 +71,7 @@ export default function AdminViewStores() {
 
   
 
-  if (storeState.loading && storeState.stores.length === 0) {
+  if (storeState.loading && (!storeState.stores || storeState.stores.length === 0)) {
     return (
       <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color="#277874" />
@@ -87,11 +87,11 @@ export default function AdminViewStores() {
           <Text style={styles.title}>Stores</Text>
           <View style={styles.countBadge}>
             <Ionicons name="storefront" color="#277874" size={16} />
-            <Text style={styles.countText}>{storeState.stores.length}</Text>
+            <Text style={styles.countText}>{storeState.stores?.length || 0}</Text>
           </View>
         </View>
 
-        {storeState.stores.length === 0 ? (
+        {!storeState.stores || storeState.stores.length === 0 ? (
           <View style={styles.emptyState}>
             <Ionicons name="storefront-outline" size={48} color="#9CA3AF" />
             <Text style={styles.emptyTitle}>No stores available</Text>
@@ -126,7 +126,7 @@ export default function AdminViewStores() {
                         {store.isActive === false ? "Disabled" : "Active"}
                       </Text>
                     </View>
-                    {store.ownerId && authState.allUsers.length > 0 && !authState.allUsers.some((u) => u.id === store.ownerId) && (
+                    {store.ownerId && authState.allUsers && authState.allUsers.length > 0 && !authState.allUsers.some((u) => u.id === store.ownerId) && (
                       <View style={[styles.metaPill, styles.deletePill]}>
                         <Ionicons name="alert-circle" size={14} color="#991B1B" />
                         <Text style={[styles.metaText, { color: "#991B1B" }]}>Recommended to delete</Text>

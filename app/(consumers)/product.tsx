@@ -721,10 +721,15 @@ function StoreHeader({
     <View style={hdrStyles.container}>
       <View style={hdrStyles.bannerWrapper}>
         {bannerUrl ? (
-          <Image source={{ uri: bannerUrl }} style={hdrStyles.bannerImage} />
+          <Image 
+            source={{ uri: bannerUrl }} 
+            resizeMode="contain"
+            style={hdrStyles.bannerImage} 
+          />
         ) : (
           <Image
             source={require("../../assets/images/partial-react-logo.png")}
+            resizeMode="contain"
             style={hdrStyles.bannerImage}
           />
         )}

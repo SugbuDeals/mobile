@@ -146,11 +146,11 @@ export default function AdminLayout() {
         <Tabs.Screen
           name="subscriptions"
           options={{
-            title: "Subscriptions",
-            header: () => <AdminHeader title="Subscription Management" subtitle="Configure subscription plans" />,
+            title: "Analytics",
+            header: () => <AdminHeader title="Subscription Analytics" subtitle="View subscription insights" />,
             tabBarIcon: ({ color, size, focused }) => (
               <Ionicons 
-                name={focused ? "card" : "card-outline"} 
+                name={focused ? "stats-chart" : "stats-chart-outline"} 
                 size={size} 
                 color={color} 
               />

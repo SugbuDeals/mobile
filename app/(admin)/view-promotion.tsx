@@ -16,7 +16,7 @@ export default function AdminViewPromotions() {
     storeActions.findPromotions();
     storeActions.findProducts();
     storeActions.findStores();
-    if (authState.allUsers.length === 0) {
+    if (!authState.allUsers || authState.allUsers.length === 0) {
       authActions.fetchAllUsers();
     }
   }, []);
@@ -39,7 +39,7 @@ export default function AdminViewPromotions() {
     if (!product) return true;
     const store = storeById.get(product.storeId);
     if (!store) return true;
-    if (authState.allUsers.length === 0) return false; // can't determine owner yet
+    if (!authState.allUsers || authState.allUsers.length === 0) return false; // can't determine owner yet
     return !!(store.ownerId && !authState.allUsers.some((u) => u.id === store.ownerId));
   };
 
@@ -88,7 +88,7 @@ export default function AdminViewPromotions() {
     );
   };
 
-  if (storeState.loading && storeState.promotions.length === 0) {
+  if (storeState.loading && (!storeState.promotions || storeState.promotions.length === 0)) {
     return (
       <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color="#277874" />
@@ -104,7 +104,7 @@ export default function AdminViewPromotions() {
           <Text style={styles.title}>Promotions</Text>
           <View style={styles.countBadge}>
             <Ionicons name="pricetag" color="#277874" size={16} />
-            <Text style={styles.countText}>{storeState.promotions.length}</Text>
+            <Text style={styles.countText}>{storeState.promotions?.length || 0}</Text>
           </View>
         </View>
 

@@ -7,6 +7,13 @@ import { useAppDispatch, useAppSelector } from "@/store/hooks";
 // Store domain hooks
 import * as storesSelectors from "./stores/selectors";
 import * as storesThunks from "./stores/thunks";
+import { 
+  getActiveSubscription, 
+  joinSubscription, 
+  cancelRetailerSubscription, 
+  updateRetailerSubscription,
+  findSubscriptions 
+} from "./thunk";
 
 // Product domain hooks
 import * as productsSelectors from "./products/selectors";
@@ -33,6 +40,8 @@ export function useStores() {
       selectedStore: useAppSelector(storesSelectors.selectSelectedStore),
       userStore: useAppSelector(storesSelectors.selectUserStore),
       nearbyStores: useAppSelector(storesSelectors.selectNearbyStores),
+      activeSubscription: useAppSelector(storesSelectors.selectActiveSubscription),
+      subscriptions: useAppSelector(storesSelectors.selectSubscriptions),
       loading: storesState.loading,
       error: storesState.error,
     },
@@ -56,6 +65,16 @@ export function useStores() {
       ) => dispatch(storesThunks.updateStoreAdminStatus(data)),
       deleteStore: (storeId: number) =>
         dispatch(storesThunks.deleteStore(storeId)),
+      getActiveSubscription: (userId: number) =>
+        dispatch(getActiveSubscription(userId)),
+      joinSubscription: (data: { subscriptionId: number }) =>
+        dispatch(joinSubscription(data)),
+      cancelRetailerSubscription: () =>
+        dispatch(cancelRetailerSubscription()),
+      updateRetailerSubscription: (data: { subscriptionId: number }) =>
+        dispatch(updateRetailerSubscription(data)),
+      findSubscriptions: (filters?: { plan?: "FREE" | "BASIC" | "PREMIUM"; isActive?: boolean; search?: string; skip?: number; take?: number }) =>
+        dispatch(findSubscriptions(filters || {})),
     },
   };
 }
@@ -123,6 +142,7 @@ export function usePromotions() {
 
 /**
  * Hook for subscription operations
+ * Updated for tier-based subscription system (BASIC/PRO)
  */
 export function useSubscriptions() {
   const dispatch = useAppDispatch();
@@ -132,34 +152,18 @@ export function useSubscriptions() {
 
   return {
     state: {
-      activeSubscription: useAppSelector(subscriptionsSelectors.selectActiveSubscription),
-      subscriptions: useAppSelector(subscriptionsSelectors.selectAllSubscriptions),
-      subscriptionAnalytics: useAppSelector(subscriptionsSelectors.selectSubscriptionAnalytics),
+      currentTier: subscriptionsState.currentTier,
+      subscriptionAnalytics: subscriptionsState.subscriptionAnalytics,
       loading: subscriptionsState.loading,
       error: subscriptionsState.error,
     },
     actions: {
-      getActiveSubscription: (userId: number) =>
-        dispatch(subscriptionsThunks.getActiveSubscription(userId)),
-      joinSubscription: (
-        data: Parameters<typeof subscriptionsThunks.joinSubscription>[0]
-      ) => dispatch(subscriptionsThunks.joinSubscription(data)),
-      findSubscriptions: (
-        filters?: Parameters<typeof subscriptionsThunks.findSubscriptions>[0]
-      ) => dispatch(subscriptionsThunks.findSubscriptions(filters || {})),
-      cancelRetailerSubscription: () =>
-        dispatch(subscriptionsThunks.cancelRetailerSubscription()),
-      updateRetailerSubscription: (
-        data: Parameters<typeof subscriptionsThunks.updateRetailerSubscription>[0]
-      ) => dispatch(subscriptionsThunks.updateRetailerSubscription(data)),
-      createSubscription: (
-        data: Parameters<typeof subscriptionsThunks.createSubscription>[0]
-      ) => dispatch(subscriptionsThunks.createSubscription(data)),
-      updateSubscription: (
-        data: Parameters<typeof subscriptionsThunks.updateSubscription>[0]
-      ) => dispatch(subscriptionsThunks.updateSubscription(data)),
-      deleteSubscription: (id: number) =>
-        dispatch(subscriptionsThunks.deleteSubscription(id)),
+      getCurrentTier: () =>
+        dispatch(subscriptionsThunks.getCurrentTier()),
+      upgradeToPro: () =>
+        dispatch(subscriptionsThunks.upgradeToPro()),
+      downgradeToBasic: () =>
+        dispatch(subscriptionsThunks.downgradeToBasic()),
       getSubscriptionAnalytics: () =>
         dispatch(subscriptionsThunks.getSubscriptionAnalytics()),
     },
@@ -181,11 +185,12 @@ export function useStore() {
       selectedStore: stores.state.selectedStore,
       userStore: stores.state.userStore,
       nearbyStores: stores.state.nearbyStores,
+      activeSubscription: stores.state.activeSubscription,
+      subscriptions: stores.state.subscriptions,
       products: products.state.products,
       promotions: promotions.state.promotions,
       activePromotions: promotions.state.activePromotions,
-      activeSubscription: subscriptions.state.activeSubscription,
-      subscriptions: subscriptions.state.subscriptions,
+      currentTier: subscriptions.state.currentTier,
       subscriptionAnalytics: subscriptions.state.subscriptionAnalytics,
       loading:
         stores.state.loading ||
@@ -208,6 +213,11 @@ export function useStore() {
       updateStore: stores.actions.updateStore,
       updateStoreAdminStatus: stores.actions.updateStoreAdminStatus,
       deleteStore: stores.actions.deleteStore,
+      getActiveSubscription: stores.actions.getActiveSubscription,
+      joinSubscription: stores.actions.joinSubscription,
+      cancelRetailerSubscription: stores.actions.cancelRetailerSubscription,
+      updateRetailerSubscription: stores.actions.updateRetailerSubscription,
+      findSubscriptions: stores.actions.findSubscriptions,
       // Product actions
       findProducts: products.actions.findProducts,
       findProductById: products.actions.findProductById,
@@ -221,17 +231,10 @@ export function useStore() {
       createPromotion: promotions.actions.createPromotion,
       updatePromotion: promotions.actions.updatePromotion,
       deletePromotion: promotions.actions.deletePromotion,
-      // Subscription actions
-      getActiveSubscription: subscriptions.actions.getActiveSubscription,
-      joinSubscription: subscriptions.actions.joinSubscription,
-      findSubscriptions: subscriptions.actions.findSubscriptions,
-      cancelRetailerSubscription:
-        subscriptions.actions.cancelRetailerSubscription,
-      updateRetailerSubscription:
-        subscriptions.actions.updateRetailerSubscription,
-      createSubscription: subscriptions.actions.createSubscription,
-      updateSubscription: subscriptions.actions.updateSubscription,
-      deleteSubscription: subscriptions.actions.deleteSubscription,
+      // Subscription actions (tier-based)
+      getCurrentTier: subscriptions.actions.getCurrentTier,
+      upgradeToPro: subscriptions.actions.upgradeToPro,
+      downgradeToBasic: subscriptions.actions.downgradeToBasic,
       getSubscriptionAnalytics: subscriptions.actions.getSubscriptionAnalytics,
     },
   };

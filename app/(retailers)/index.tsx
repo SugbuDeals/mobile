@@ -274,7 +274,7 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
   },
   backgroundImage: {
-    resizeMode: 'cover',
+    resizeMode: 'contain',
   },
   overlay: {
     flex: 1,
@@ -284,7 +284,7 @@ const styles = StyleSheet.create({
   },
   logoOverlay: {
     position: 'absolute',
-    bottom: -35,
+    bottom: -20,
     left: 20,
     zIndex: 10,
   },

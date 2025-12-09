@@ -8,6 +8,8 @@ import type { Store } from "@/features/store/stores/types";
 
 export default function ViewMap() {
   const router = useRouter();
+  
+  // Don't pass radiusKm - let StoreMapView auto-determine based on tier
 
   const handleStorePress = useCallback((store: Store) => {
     router.push({
@@ -44,7 +46,6 @@ export default function ViewMap() {
           onStorePress={handleStorePress}
           onStoreCalloutPress={handleStoreCalloutPress}
           autoFetchStores={true}
-          radiusKm={10}
           style={styles.map}
         />
       </View>

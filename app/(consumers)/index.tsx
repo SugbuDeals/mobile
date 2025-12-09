@@ -7,6 +7,7 @@ import { useStore } from "@/features/store";
 import type { Promotion } from "@/features/store/promotions/types";
 import { useAsyncEffect } from "@/hooks/useAsyncEffect";
 import { useStableThunk } from "@/hooks/useStableCallback";
+import Ionicons from "@expo/vector-icons/Ionicons";
 import { LinearGradient } from "expo-linear-gradient";
 import * as Location from "expo-location";
 import { useFocusEffect, useRouter } from "expo-router";
@@ -32,14 +33,124 @@ const STATIC_CATEGORIES: Category[] = [
   { id: 1006, name: "Decor", createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
 ];
 
+// Map category names to icons
+const getCategoryIcon = (categoryName: string): keyof typeof Ionicons.glyphMap => {
+  const name = categoryName.toLowerCase().trim();
+  
+  // Food & Groceries
+  if (name.includes("grocery") || name.includes("food") || name.includes("grocery")) {
+    return "storefront";
+  }
+  if (name.includes("restaurant") || name.includes("dining") || name.includes("meal")) {
+    return "restaurant";
+  }
+  if (name.includes("beverage") || name.includes("drink")) {
+    return "wine";
+  }
+  
+  // Electronics
+  if (name.includes("electronic") || name.includes("tech") || name.includes("device")) {
+    return "phone-portrait";
+  }
+  if (name.includes("computer") || name.includes("laptop")) {
+    return "laptop";
+  }
+  if (name.includes("phone") || name.includes("mobile")) {
+    return "phone-portrait";
+  }
+  if (name.includes("tv") || name.includes("television")) {
+    return "tv";
+  }
+  
+  // Fashion & Clothing
+  if (name.includes("fashion") || name.includes("clothing") || name.includes("apparel")) {
+    return "shirt";
+  }
+  if (name.includes("shoe") || name.includes("footwear")) {
+    return "footsteps";
+  }
+  if (name.includes("accessory") || name.includes("jewelry")) {
+    return "diamond";
+  }
+  
+  // Home & Furniture
+  if (name.includes("home") || name.includes("house")) {
+    return "home";
+  }
+  if (name.includes("furniture") || name.includes("sofa") || name.includes("chair")) {
+    return "cube";
+  }
+  if (name.includes("decor") || name.includes("decoration") || name.includes("ornament")) {
+    return "color-palette";
+  }
+  if (name.includes("kitchen") || name.includes("cookware")) {
+    return "restaurant";
+  }
+  if (name.includes("bedroom") || name.includes("bed")) {
+    return "bed";
+  }
+  if (name.includes("bathroom") || name.includes("bath")) {
+    return "water";
+  }
+  
+  // Health & Beauty
+  if (name.includes("health") || name.includes("medical") || name.includes("pharmacy")) {
+    return "medical";
+  }
+  if (name.includes("beauty") || name.includes("cosmetic") || name.includes("makeup")) {
+    return "sparkles";
+  }
+  
+  // Sports & Outdoors
+  if (name.includes("sport") || name.includes("fitness") || name.includes("gym")) {
+    return "barbell";
+  }
+  if (name.includes("outdoor") || name.includes("camping")) {
+    return "trail-sign";
+  }
+  
+  // Books & Education
+  if (name.includes("book") || name.includes("education") || name.includes("stationery")) {
+    return "library";
+  }
+  
+  // Toys & Games
+  if (name.includes("toy") || name.includes("game")) {
+    return "game-controller";
+  }
+  
+  // Automotive
+  if (name.includes("auto") || name.includes("car") || name.includes("vehicle")) {
+    return "car";
+  }
+  
+  // Pets
+  if (name.includes("pet") || name.includes("animal")) {
+    return "paw";
+  }
+  
+  // Garden
+  if (name.includes("garden") || name.includes("plant") || name.includes("flower")) {
+    return "leaf";
+  }
+  
+  // Tools
+  if (name.includes("tool") || name.includes("hardware")) {
+    return "construct";
+  }
+  
+  // Default icon
+  return "grid";
+};
+
 export default function Home() {
   const router = useRouter();
   const {
     state: { user },
   } = useLogin();
   const {
-    state: { nearbyStores, loading, activePromotions },
-    action: { findNearbyStores, findActivePromotions },
+    state: { nearbyStores, loading, activePromotions, currentTier, stores },
+    action: { findNearbyStores, findActivePromotions, getCurrentTier },
   } = useStore();
   const {
     state: { categories, products },
@@ -57,8 +168,19 @@ export default function Home() {
     productPromotions: { product: Product; promotion: Promotion }[];
   } | null>(null);
 
+  // Auto-determine radius based on tier (BASIC: 1km, PRO: 3km)
+  // Default to 1km (BASIC) if tier not loaded yet to avoid errors
+  const radiusKm = useMemo(() => {
+    if (currentTier?.tier === "PRO") {
+      return 3; // PRO tier allows up to 3km
+    }
+    return 1; // BASIC tier allows up to 1km (default)
+  }, [currentTier?.tier]);
+
   // Load initial data
   useAsyncEffect(async () => {
+    // Fetch tier first (don't await - let it load in background)
+    getCurrentTier();
     stableLoadCategories();
     stableLoadProducts();
     stableFindActivePromotions();
@@ -67,13 +189,19 @@ export default function Home() {
       const { status } = await Location.requestForegroundPermissionsAsync();
       if (status === "granted") {
         const pos = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
-        await stableFindNearbyStores({ latitude: pos.coords.latitude, longitude: pos.coords.longitude, radiusKm: 10 });
+        // Use tier-based radius (defaults to 1km if tier not loaded yet)
+        // This ensures we never exceed BASIC tier limits
+        await stableFindNearbyStores({ 
+          latitude: pos.coords.latitude, 
+          longitude: pos.coords.longitude, 
+          radiusKm: radiusKm 
+        });
       }
     } catch (error) {
       // Silently handle location errors
       console.warn("Location permission error:", error);
     }
-  }, [stableLoadCategories, stableLoadProducts, stableFindActivePromotions, stableFindNearbyStores]);
+  }, [stableLoadCategories, stableLoadProducts, stableFindActivePromotions, stableFindNearbyStores, getCurrentTier, radiusKm]);
 
   // Refresh promotions when screen comes into focus
   useFocusEffect(
@@ -95,6 +223,7 @@ export default function Home() {
         <Recommendations 
           products={products || []}
           promotions={activePromotions || []}
+          stores={stores || []}
       onPromotionPress={(promotion, productPromotions) => 
         setSelectedPromotion({ promotion, productPromotions })
       }
@@ -128,6 +257,15 @@ function Greeting({ name }: { name: string }) {
 }
 
 function Categories({ categories, router }: { categories: Category[]; router: Router }) {
+  const handleCategoryPress = (category: Category) => {
+    router.push({
+      pathname: "/(consumers)/categories",
+      params: {
+        category: category.name,
+      },
+    });
+  };
+
   return (
     <View style={styles.section}>
       <SectionHeader 
@@ -136,21 +274,24 @@ function Categories({ categories, router }: { categories: Category[]; router: Ro
         onPress={() => router.push("/(consumers)/categories")}
       />
       <View style={styles.grid}>
-        {categories.map((cat) => (
-          <View key={cat.id} style={styles.gridItem}>
-            <TouchableOpacity activeOpacity={0.8}>
-              <View style={styles.iconWrap}>
-                <Image
-                  source={require("../../assets/images/icon.png")}
-                  style={styles.icon}
-                />
-              </View>
-            </TouchableOpacity>
-            <Text style={styles.caption} numberOfLines={1}>
-              {cat.name}
-            </Text>
-          </View>
-        ))}
+        {categories.map((cat) => {
+          const iconName = getCategoryIcon(cat.name);
+          return (
+            <View key={cat.id} style={styles.gridItem}>
+              <TouchableOpacity 
+                activeOpacity={0.8}
+                onPress={() => handleCategoryPress(cat)}
+              >
+                <View style={styles.iconWrap}>
+                  <Ionicons name={iconName} size={24} color="#277874" />
+                </View>
+              </TouchableOpacity>
+              <Text style={styles.caption} numberOfLines={1}>
+                {cat.name}
+              </Text>
+            </View>
+          );
+        })}
       </View>
     </View>
   );
@@ -318,18 +459,26 @@ function Recommendations({
   promotions,
   onPromotionPress,
   router,
+  stores,
 }: {
   products: Product[];
   promotions: Promotion[];
   onPromotionPress: (promotion: Promotion, productPromotions: { product: Product; promotion: Promotion }[]) => void;
   router: Router;
+  stores: any[];
 }) {
   const [activeTab, setActiveTab] = useState<"products" | "deals">("products");
 
-  const visibleProducts = useMemo(
-    () => (products || []).filter((p: Product) => p.isActive !== false),
-    [products]
-  );
+  const visibleProducts = useMemo(() => {
+    return (products || []).filter((p: Product) => {
+      // Filter out inactive products
+      if (p.isActive === false) return false;
+      
+      // Only show products from verified stores
+      const productStore = (stores || []).find((s: any) => s.id === p.storeId);
+      return productStore?.verificationStatus === "VERIFIED";
+    });
+  }, [products, stores]);
 
   // Group promotions by title
   const groupedPromotions = useMemo(() => {

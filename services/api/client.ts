@@ -54,8 +54,14 @@ class ApiClient {
 
   /**
    * Log API request/response/error with sanitized data
+   * Only logs errors and warnings to reduce console spam
    */
   private log(level: 'info' | 'warn' | 'error', message: string, data?: Record<string, unknown>): void {
+    // Only log errors and warnings, skip info logs to reduce console spam
+    if (level === 'info') {
+      return;
+    }
+    
     const sanitizedData = this.sanitizeLogData(data);
     const logMessage = `[API Client] ${message}`;
     
@@ -63,8 +69,6 @@ class ApiClient {
       console.error(logMessage, sanitizedData);
     } else if (level === 'warn') {
       console.warn(logMessage, sanitizedData);
-    } else {
-      console.log(logMessage, sanitizedData);
     }
   }
 

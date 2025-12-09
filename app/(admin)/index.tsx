@@ -25,14 +25,13 @@ export default function AdminDashboard() {
 
   useEffect(() => {
     // Fetch all data needed for dashboard
-    if (authState.allUsers.length === 0) {
+    if (!authState.allUsers || authState.allUsers.length === 0) {
       authActions.fetchAllUsers();
     }
     
     storeActions.findPromotions();
     storeActions.findProducts();
     storeActions.findStores();
-    storeActions.findSubscriptions();
     storeActions.getSubscriptionAnalytics();
     catalogActions.loadCategories();
   }, []);
@@ -57,33 +56,40 @@ export default function AdminDashboard() {
 
   // Calculate comprehensive metrics
   const metrics = useMemo(() => {
-    const totalUsers = authState.allUsers.length;
-    const consumers = authState.allUsers.filter(u => u.role === "CONSUMER").length;
-    const retailers = authState.allUsers.filter(u => u.role === "RETAILER").length;
-    const admins = authState.allUsers.filter(u => u.role === "ADMIN").length;
+    const allUsers = Array.isArray(authState.allUsers) ? authState.allUsers : [];
+    const storesArray = Array.isArray(stores) ? stores : [];
+    const productsArray = Array.isArray(products) ? products : [];
+    const promotionsArray = Array.isArray(promotions) ? promotions : [];
+    const categoriesArray = Array.isArray(catalogState.categories) ? catalogState.categories : [];
+    const subscriptionsArray = Array.isArray(subscriptions) ? subscriptions : [];
     
-    const totalStores = stores.length;
-    const verifiedStores = stores.filter(s => s.verificationStatus === "VERIFIED").length;
-    const activeStores = stores.filter(s => s.isActive !== false).length;
+    const totalUsers = allUsers.length;
+    const consumers = allUsers.filter(u => u.role === "CONSUMER").length;
+    const retailers = allUsers.filter(u => u.role === "RETAILER").length;
+    const admins = allUsers.filter(u => u.role === "ADMIN").length;
     
-    const totalProducts = products.length;
-    const activeProducts = products.filter(p => p.isActive !== false).length;
+    const totalStores = storesArray.length;
+    const verifiedStores = storesArray.filter(s => s.verificationStatus === "VERIFIED").length;
+    const activeStores = storesArray.filter(s => s.isActive !== false).length;
     
-    const totalPromotions = promotions.length;
-    const activePromotions = promotions.filter(p => p.active).length;
+    const totalProducts = productsArray.length;
+    const activeProducts = productsArray.filter(p => p.isActive !== false).length;
     
-    const totalCategories = catalogState.categories.length;
+    const totalPromotions = promotionsArray.length;
+    const activePromotions = promotionsArray.filter(p => p.active).length;
     
-    const totalSubscriptions = subscriptions.length;
-    const activeSubscriptions = subscriptions.filter(s => s.isActive !== false).length;
+    const totalCategories = categoriesArray.length;
+    
+    const totalSubscriptions = subscriptionsArray.length;
+    const activeSubscriptions = subscriptionsArray.filter(s => s.isActive !== false).length;
     const revenue = typeof subscriptionAnalytics?.totalRevenue === 'number' ? subscriptionAnalytics.totalRevenue : 0;
     
     // Calculate average discount
-    const totalDiscount = promotions.reduce((sum, p) => sum + (p.discount || 0), 0);
+    const totalDiscount = promotionsArray.reduce((sum, p) => sum + (p.discount || 0), 0);
     const avgDiscount = totalPromotions > 0 ? (totalDiscount / totalPromotions).toFixed(1) : "0.0";
     
     // Recent users today
-    const recentUsersToday = authState.allUsers.filter(user => {
+    const recentUsersToday = allUsers.filter(user => {
       const createdAt = user.createdAt;
       if (!createdAt) return false;
       return isCreatedToday(createdAt);
@@ -261,7 +267,7 @@ export default function AdminDashboard() {
 
             <View style={styles.overviewCard}>
               <View style={styles.overviewHeader}>
-                <Ionicons name="card-outline" size={24} color="#10B981" />
+                <Ionicons name="stats-chart-outline" size={24} color="#10B981" />
                 <Text style={styles.overviewLabel}>Subscriptions</Text>
               </View>
               <Text style={styles.overviewValue}>{formatNumber(metrics.totalSubscriptions)}</Text>
@@ -270,7 +276,7 @@ export default function AdminDashboard() {
                 style={styles.overviewButton}
                 onPress={() => router.push("/(admin)/subscriptions")}
               >
-                <Text style={styles.overviewButtonText}>Manage</Text>
+                <Text style={styles.overviewButtonText}>View Analytics</Text>
                 <Ionicons name="chevron-forward" size={16} color="#10B981" />
               </TouchableOpacity>
             </View>

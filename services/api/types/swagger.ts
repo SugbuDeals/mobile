@@ -159,7 +159,7 @@ export interface CreatePromotionDto {
   endsAt?: string | null; // ISO 8601 format date-time
   active?: boolean;
   discount: number;
-  productId: number;
+  productIds: number[]; // Array of product IDs this promotion applies to
 }
 
 export interface PromotionResponseDto {
@@ -171,7 +171,7 @@ export interface PromotionResponseDto {
   endsAt: string | null; // ISO 8601 format date-time
   active: boolean;
   discount: number;
-  productId: number | null;
+  productId: number | null; // Legacy field, may be null for multi-product promotions
 }
 
 export interface UpdatePromotionDto {
@@ -182,7 +182,11 @@ export interface UpdatePromotionDto {
   endsAt?: string | null; // ISO 8601 format date-time
   active?: boolean;
   discount?: number;
-  productId?: number;
+  productIds?: number[]; // Array of product IDs this promotion applies to
+}
+
+export interface AddProductsToPromotionDto {
+  productIds: number[]; // Array of product IDs to add to the promotion
 }
 
 // ============================================================================
@@ -260,100 +264,40 @@ export interface CreateNotificationDto {
 // Subscription Types
 // ============================================================================
 
-export type SubscriptionPlan = "FREE" | "BASIC" | "PREMIUM";
-export type BillingCycle = "MONTHLY" | "YEARLY";
-export type SubscriptionStatus = "ACTIVE" | "CANCELLED" | "EXPIRED" | "PENDING";
+export type SubscriptionTier = "BASIC" | "PRO";
 
-export interface SubscriptionResponseDto {
-  id: number;
-  name: string;
-  description: string | null;
-  plan: SubscriptionPlan;
-  billingCycle: BillingCycle;
-  price: string; // Decimal as string
-  benefits: string | null;
-  isActive: boolean;
-  createdAt: string; // ISO 8601 format date-time
-  updatedAt: string; // ISO 8601 format date-time
-  startsAt: string; // ISO 8601 format date-time
-  endsAt: string | null; // ISO 8601 format date-time
-}
-
-export interface UserSubscriptionResponseDto {
-  id: number;
+export interface SubscriptionTierResponseDto {
   userId: number;
-  subscriptionId: number;
-  status: SubscriptionStatus;
-  price: string; // Decimal as string
-  billingCycle: BillingCycle;
-  startsAt: string; // ISO 8601 format date-time
-  endsAt: string | null; // ISO 8601 format date-time
-  cancelledAt: string | null; // ISO 8601 format date-time
-  createdAt: string; // ISO 8601 format date-time
-  updatedAt: string; // ISO 8601 format date-time
-  subscription?: SubscriptionResponseDto;
-}
-
-export interface CreateSubscriptionDTO {
+  email: string;
   name: string;
-  description?: string;
-  plan?: SubscriptionPlan;
-  billingCycle?: BillingCycle;
-  price?: string;
-  benefits?: string;
-  isActive?: boolean;
-  startsAt?: string; // ISO 8601 format date-time
-  endsAt?: string | null; // ISO 8601 format date-time
+  tier: SubscriptionTier;
+  role: "CONSUMER" | "RETAILER" | "ADMIN";
 }
 
-export interface UpdateSubscriptionDTO {
-  name?: string;
-  description?: string;
-  plan?: SubscriptionPlan;
-  billingCycle?: BillingCycle;
-  price?: string;
-  benefits?: string;
-  isActive?: boolean;
-  startsAt?: string; // ISO 8601 format date-time
-  endsAt?: string | null; // ISO 8601 format date-time
-}
-
-export interface JoinSubscriptionDTO {
-  subscriptionId: number;
-}
-
-export interface UpdateRetailerSubscriptionDTO {
-  subscriptionId: number;
-}
-
-export interface SubscriptionCountByPlan {
-  plan: SubscriptionPlan;
-  count: number;
-}
-
-export interface SubscriptionCountByStatus {
-  status: SubscriptionStatus;
-  count: number;
-}
-
-export interface SubscriptionCountByBillingCycle {
-  billingCycle: BillingCycle;
-  count: number;
-}
-
-export interface SubscriptionAnalyticsDTO {
+export interface RoleTierCountDto {
+  basic: number;
+  pro: number;
   total: number;
-  active: number;
-  cancelled: number;
-  expired: number;
-  pending: number;
-  byPlan: SubscriptionCountByPlan[];
-  byStatus: SubscriptionCountByStatus[];
-  byBillingCycle: SubscriptionCountByBillingCycle[];
-  totalRevenue: string; // Decimal as string
-  averagePrice: string; // Decimal as string
-  recentSubscriptions: number;
-  subscriptionsThisMonth: number;
+}
+
+export interface ByRoleAndTierDto {
+  consumer: RoleTierCountDto;
+  retailer: RoleTierCountDto;
+  admin: RoleTierCountDto;
+}
+
+export interface RevenueDto {
+  monthly: number;
+  yearly: number;
+  currency: string;
+}
+
+export interface SubscriptionAnalyticsDto {
+  totalUsers: number;
+  basicUsers: number;
+  proUsers: number;
+  byRoleAndTier: ByRoleAndTierDto;
+  revenue: RevenueDto;
 }
 
 // ============================================================================
@@ -456,7 +400,7 @@ export interface PromotionRecommendationItemDto {
   startsAt: string; // ISO 8601 format date-time
   endsAt: string | null; // ISO 8601 format date-time
   discount: number;
-  productId: number | null;
+  productCount: number; // Number of products in this promotion
 }
 
 export interface RecommendationResponseDto {

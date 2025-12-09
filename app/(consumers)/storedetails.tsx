@@ -1,28 +1,31 @@
 import env from "@/config/env";
 import { useBookmarks } from "@/features/bookmarks";
 import { useCatalog } from "@/features/catalog";
-import type { Category } from "@/features/catalog/types";
-import type { Product as CatalogProduct } from "@/features/catalog/types";
+import type { Product as CatalogProduct, Category } from "@/features/catalog/types";
+
 import { useStore } from "@/features/store";
-import type { Product as StoreProduct } from "@/features/store/types";
-import type { Store } from "@/features/store/stores/types";
 import type { Promotion } from "@/features/store/promotions/types";
+import type { Store } from "@/features/store/stores/types";
+import type { Product as StoreProduct } from "@/features/store/types";
 import { useStableThunk } from "@/hooks/useStableCallback";
-import { useAsyncEffect } from "@/hooks/useAsyncEffect";
+import { calculateDistance, formatDistance } from "@/utils/distance";
 import Ionicons from "@expo/vector-icons/Ionicons";
+import * as Location from "expo-location";
 import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
-import React, { useCallback, useEffect, useMemo, useRef } from "react";
+import React, { useCallback, useEffect, useRef } from "react";
 import {
-    Image,
-    SafeAreaView,
-    ScrollView,
-    StatusBar,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
+  Image,
+  Linking,
+  SafeAreaView,
+  ScrollView,
+  StatusBar,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from "react-native";
+import MapView, { Marker } from "react-native-maps";
 
 export default function StoreDetailsScreen() {
   const params = useLocalSearchParams() as Record<string, string | undefined>;
@@ -128,7 +131,7 @@ export default function StoreDetailsScreen() {
   const storePromotions = React.useMemo(() => {
     if (storeId == null) return [];
     const promoList = Array.isArray(activePromotions) ? activePromotions : [];
-    return promoList.reduce<Array<{ promotion: Promotion; product: CatalogProduct }>>(
+    return promoList.reduce<{ promotion: Promotion; product: CatalogProduct }[]>(
       (acc, promo: Promotion) => {
         if (!promo?.active) return acc;
         const product = (products || []).find((p: CatalogProduct) => p.id === promo.productId);
@@ -155,6 +158,7 @@ export default function StoreDetailsScreen() {
         showsVerticalScrollIndicator={false}
       >
         <StoreHero storeName={storeName} />
+        <StoreLocationCard storeName={storeName} storeId={storeId} />
         <StorePromotions
           storeName={storeName}
           storeId={storeId}
@@ -233,7 +237,7 @@ function DealsGrid({
   getProductCategoryName: (product: CatalogProduct | StoreProduct) => string;
 }) {
   const router = useRouter();
-  const { state: { activePromotions } } = useStore();
+  const { state: { activePromotions, stores } } = useStore();
   const getDiscounted = React.useCallback((p: CatalogProduct) => {
     const promo = (activePromotions as Promotion[])?.find?.((ap: Promotion) => ap.productId === p.id && ap.active === true);
     if (!promo) return undefined;
@@ -247,9 +251,18 @@ function DealsGrid({
   }, [activePromotions]);
   const filtered = React.useMemo(() => {
     const q = query.trim().toLowerCase();
-    const source = (products || []).filter((p: CatalogProduct) =>
-      storeId == null ? true : p.storeId === storeId
-    );
+    const source = (products || []).filter((p: CatalogProduct) => {
+      // Filter by storeId
+      if (storeId != null && p.storeId !== storeId) return false;
+      
+      // Only show products from verified stores
+      const productStore = (stores || []).find((s: Store) => s.id === p.storeId);
+      if (productStore && productStore.verificationStatus !== "VERIFIED") {
+        return false;
+      }
+      
+      return true;
+    });
     return source.filter((p: CatalogProduct) => {
       const matchesQuery =
         q.length === 0 || String(p.name).toLowerCase().includes(q);
@@ -259,7 +272,7 @@ function DealsGrid({
         productCategoryName.toLowerCase() === category.toLowerCase();
       return matchesQuery && matchesCategory;
     });
-  }, [products, storeId, query, category, getProductCategoryName]);
+  }, [products, storeId, query, category, getProductCategoryName, stores]);
 
   const handleProductPress = (p: CatalogProduct) => {
     router.push({
@@ -318,11 +331,22 @@ function StorePromotions({
 }: {
   storeName: string;
   storeId?: number;
-  promotions: Array<{ promotion: Promotion; product: CatalogProduct }>;
+  promotions: { promotion: Promotion; product: CatalogProduct }[];
 }) {
   const router = useRouter();
+  const { state: { stores } } = useStore();
+  
   if (storeId == null) return null;
-  const hasPromotions = promotions.length > 0;
+  
+  // Filter promotions to only show products from verified stores
+  const verifiedPromotions = React.useMemo(() => {
+    return promotions.filter(({ product }) => {
+      const productStore = (stores || []).find((s: Store) => s.id === product.storeId);
+      return productStore?.verificationStatus === "VERIFIED";
+    });
+  }, [promotions, stores]);
+  
+  const hasPromotions = verifiedPromotions.length > 0;
 
   const getDiscountedPrice = (price: number | string, promo: Promotion) => {
     const base = Number(price);
@@ -363,7 +387,7 @@ function StorePromotions({
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={storePromoStyles.row}
         >
-          {promotions.map(({ promotion, product }) => {
+          {verifiedPromotions.map(({ promotion, product }) => {
             const discounted = getDiscountedPrice(product.price ?? "0", promotion);
             const basePrice = Number(product.price);
             const hasBasePrice = Number.isFinite(basePrice);
@@ -437,10 +461,18 @@ function StoreHero({ storeName }: { storeName: string }) {
   const params = useLocalSearchParams() as Record<string, string | undefined>;
   const storeId = params.storeId ? Number(params.storeId) : undefined;
   const { helpers, action } = useBookmarks();
-  const { state: { selectedStore, stores }, action: { findStoreById } } = useStore();
+  const { 
+    state: { selectedStore, stores, products: storeProducts }, 
+    action: { findStoreById } 
+  } = useStore();
+  const {
+    state: { products: catalogProducts },
+  } = useCatalog();
+  
   React.useEffect(() => {
     if (storeId) findStoreById(storeId);
   }, [storeId]);
+  
   const storeFromList = stores?.find((s: Store) => s.id === storeId);
   const rawLogo = ((selectedStore && selectedStore.id === storeId) ? selectedStore.imageUrl : undefined) || storeFromList?.imageUrl;
   const rawBanner = ((selectedStore && selectedStore.id === storeId) ? selectedStore.bannerUrl : undefined) || storeFromList?.bannerUrl;
@@ -458,6 +490,15 @@ function StoreHero({ storeName }: { storeName: string }) {
   })();
   const description = (selectedStore && selectedStore.id === storeId ? selectedStore?.description : undefined) || storeFromList?.description || "";
   const isSaved = helpers.isStoreBookmarked(storeId);
+  
+  // Count products for this store
+  const productCount = React.useMemo(() => {
+    const allProducts = [...(catalogProducts || []), ...(storeProducts || [])];
+    return allProducts.filter((p: CatalogProduct | StoreProduct) => 
+      p.storeId === storeId
+    ).length;
+  }, [catalogProducts, storeProducts, storeId]);
+  
   const toggle = () => {
     if (storeId == null) return;
     if (helpers.isStoreBookmarked(storeId)) action.removeStoreBookmark(storeId);
@@ -469,23 +510,30 @@ function StoreHero({ storeName }: { storeName: string }) {
         {bannerUrl ? (
           <Image
             source={{ uri: bannerUrl }}
-            resizeMode="cover"
+            resizeMode="contain"
             style={heroStyles.banner}
           />
         ) : (
           <Image
             source={require("../../assets/images/partial-react-logo.png")}
-            resizeMode="cover"
+            resizeMode="contain"
             style={heroStyles.banner}
           />
         )}
       </View>
       <View style={heroStyles.topRightRow}>
-        <TouchableOpacity onPress={toggle} activeOpacity={0.8}>
+        <TouchableOpacity 
+          onPress={toggle} 
+          activeOpacity={0.7}
+          style={[
+            heroStyles.bookmarkButton,
+            isSaved && heroStyles.bookmarkButtonActive
+          ]}
+        >
           <Ionicons
             name={isSaved ? "bookmark" : "bookmark-outline"}
-            size={22}
-            color={isSaved ? "#F59E0B" : "#333"}
+            size={28}
+            color={isSaved ? "#ffffff" : "#277874"}
           />
         </TouchableOpacity>
       </View>
@@ -501,12 +549,20 @@ function StoreHero({ storeName }: { storeName: string }) {
             <Text style={heroStyles.desc} numberOfLines={3}>{description}</Text>
           ) : null}
           <View style={heroStyles.chipsRow}>
-            <View style={[heroStyles.chip, heroStyles.chipPrimary]}>
-              <Text style={heroStyles.chipPrimaryText}>Open Now</Text>
+            <View style={[heroStyles.chip, heroStyles.chipInfo]}>
+              <Ionicons name="cube-outline" size={14} color="#277874" />
+              <Text style={heroStyles.chipInfoText}>
+                {productCount} {productCount === 1 ? 'Product' : 'Products'}
+              </Text>
             </View>
-            <View style={[heroStyles.chip, heroStyles.chipOutline]}>
-              <Text style={heroStyles.chipOutlineText}>Closes at 9:00 PM</Text>
-            </View>
+            {storeFromList?.address || (selectedStore && selectedStore.id === storeId ? selectedStore?.address : undefined) ? (
+              <View style={[heroStyles.chip, heroStyles.chipInfo]}>
+                <Ionicons name="location-outline" size={14} color="#277874" />
+                <Text style={heroStyles.chipInfoText} numberOfLines={1}>
+                  {storeFromList?.address || (selectedStore && selectedStore.id === storeId ? selectedStore?.address : '')}
+                </Text>
+              </View>
+            ) : null}
           </View>
         </View>
       </View>
@@ -693,6 +749,26 @@ const heroStyles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "flex-end",
     marginTop: 8,
+    marginRight: 4,
+  },
+  bookmarkButton: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: "#ffffff",
+    justifyContent: "center",
+    alignItems: "center",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
+    elevation: 4,
+    borderWidth: 2,
+    borderColor: "#e5e7eb",
+  },
+  bookmarkButtonActive: {
+    backgroundColor: "#277874",
+    borderColor: "#277874",
   },
   identityBlock: {
     flexDirection: "row",
@@ -700,7 +776,7 @@ const heroStyles = StyleSheet.create({
     alignItems: "flex-start",
     marginTop: -8,
   },
-  logoWrapper: { marginTop: -52 },
+  logoWrapper: { marginTop: -90},
   logoBox: {
     width: 84,
     height: 84,
@@ -708,18 +784,33 @@ const heroStyles = StyleSheet.create({
     backgroundColor: "#1D9BF0",
   },
   name: { fontSize: 20, fontWeight: "700", marginTop: 6 },
-  desc: { color: "#6B7280", marginTop: 2 },
-  chipsRow: { flexDirection: "row", columnGap: 10, marginTop: 10 },
-  chip: { borderRadius: 100, paddingVertical: 6, paddingHorizontal: 12 },
-  chipPrimary: { backgroundColor: "#1B6F5D" },
-  chipPrimaryText: { color: "#fff", fontWeight: "600" },
-  chipOutline: {
-    backgroundColor: "#fff",
-    borderColor: "#1B6F5D",
-    borderWidth: 1,
+  desc: { color: "#6B7280", marginTop: 2, fontSize: 14, lineHeight: 20 },
+  chipsRow: { 
+    flexDirection: "row", 
+    columnGap: 10, 
+    marginTop: 12,
+    flexWrap: "wrap",
   },
-  chipOutlineText: { color: "#1B6F5D", fontWeight: "600" },
-  sectionTitle: { marginTop: 18, fontWeight: "700" },
+  chip: { 
+    borderRadius: 20, 
+    paddingVertical: 8, 
+    paddingHorizontal: 14,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  chipInfo: {
+    backgroundColor: "#f0f9f8",
+    borderWidth: 1,
+    borderColor: "#d1fae5",
+  },
+  chipInfoText: { 
+    color: "#277874", 
+    fontWeight: "600",
+    fontSize: 13,
+    maxWidth: 150,
+  },
+  sectionTitle: { marginTop: 18, fontWeight: "700", fontSize: 18 },
 });
 
 const searchStyles = StyleSheet.create({
@@ -730,5 +821,230 @@ const searchStyles = StyleSheet.create({
     paddingVertical: 10,
     marginTop: 10,
     marginBottom: 10,
+  },
+});
+
+// StoreLocationCard component
+function StoreLocationCard({
+  storeName,
+  storeId,
+}: {
+  storeName: string;
+  storeId?: number;
+}) {
+  const {
+    state: { stores, selectedStore },
+  } = useStore();
+  const router = useRouter();
+  
+  const store =
+    stores?.find?.((s: Store) => s.id === storeId) ||
+    (selectedStore && selectedStore.id === storeId ? selectedStore : undefined);
+  const latitude = store?.latitude ?? null;
+  const longitude = store?.longitude ?? null;
+  const address = store?.address || "";
+  const [region, setRegion] = React.useState<{
+    latitude: number;
+    longitude: number;
+    latitudeDelta: number;
+    longitudeDelta: number;
+  } | null>(null);
+  const [distance, setDistance] = React.useState<number | null>(null);
+
+  React.useEffect(() => {
+    (async () => {
+      try {
+        const { status } = await Location.requestForegroundPermissionsAsync();
+        if (
+          status === "granted" &&
+          typeof latitude === "number" &&
+          typeof longitude === "number"
+        ) {
+          const pos = await Location.getCurrentPositionAsync({
+            accuracy: Location.Accuracy.Balanced,
+          });
+          const userPos = {
+            latitude: pos.coords.latitude,
+            longitude: pos.coords.longitude,
+          };
+          
+          // Calculate distance
+          const dist = calculateDistance(
+            userPos.latitude,
+            userPos.longitude,
+            latitude,
+            longitude
+          );
+          setDistance(dist);
+          
+          setRegion({
+            latitude: latitude,
+            longitude: longitude,
+            latitudeDelta: Math.abs(latitude - pos.coords.latitude) + 0.02,
+            longitudeDelta: Math.abs(longitude - pos.coords.longitude) + 0.02,
+          });
+        } else if (
+          typeof latitude === "number" &&
+          typeof longitude === "number"
+        ) {
+          setRegion({
+            latitude,
+            longitude,
+            latitudeDelta: 0.02,
+            longitudeDelta: 0.02,
+          });
+        }
+      } catch {}
+    })();
+  }, [latitude, longitude]);
+
+  const openExternalDirections = () => {
+    if (typeof latitude === "number" && typeof longitude === "number") {
+      Linking.openURL(
+        `https://www.google.com/maps/dir/?api=1&destination=${latitude},${longitude}`
+      );
+    } else if (address) {
+      Linking.openURL(
+        `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(
+          address
+        )}`
+      );
+    } else {
+      router.push({
+        pathname: "/(consumers)/navigate",
+        params: {
+          storeName: storeName,
+          storeId: storeId?.toString(),
+          address: address,
+          latitude: latitude?.toString(),
+          longitude: longitude?.toString(),
+        },
+      });
+    }
+  };
+
+  if (!latitude && !longitude && !address) {
+    return null; // Don't show location card if no location data
+  }
+
+  return (
+    <View style={locationStyles.container}>
+      <Text style={locationStyles.sectionTitle}>Store Location</Text>
+      <View style={locationStyles.card}>
+        {region ? (
+          <MapView style={locationStyles.mapImage} initialRegion={region}>
+            {typeof latitude === "number" && typeof longitude === "number" && (
+              <Marker
+                coordinate={{ latitude, longitude }}
+                title={storeName}
+                description={address}
+              />
+            )}
+          </MapView>
+        ) : (
+          <Image
+            source={require("../../assets/images/partial-react-logo.png")}
+            style={locationStyles.mapImage}
+          />
+        )}
+        <View style={locationStyles.detailsRow}>
+          <View style={locationStyles.locationDetails}>
+            <Text style={locationStyles.address} numberOfLines={2}>
+              {address || "Store location"}
+            </Text>
+            {distance !== null ? (
+              <Text style={locationStyles.distance}>
+                {formatDistance(distance)} away
+              </Text>
+            ) : (
+              <Text style={locationStyles.distance}>Get directions</Text>
+            )}
+          </View>
+          <View style={locationStyles.buttonContainer}>
+            <TouchableOpacity
+              style={locationStyles.navigateButton}
+              activeOpacity={0.85}
+              onPress={openExternalDirections}
+            >
+              <View
+                style={{
+                  flexDirection: "row",
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
+                <Ionicons name="navigate" size={16} color="#ffffff" />
+                <Text style={locationStyles.buttonTitle}> Navigate</Text>
+              </View>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </View>
+    </View>
+  );
+}
+
+const locationStyles = StyleSheet.create({
+  container: {
+    marginTop: 16,
+    marginBottom: 12,
+    paddingHorizontal: 0,
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: "700",
+    marginBottom: 15,
+    color: "#333",
+  },
+  card: {
+    backgroundColor: "#fff",
+    borderRadius: 18,
+    overflow: "hidden",
+    elevation: 2,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.08,
+    shadowRadius: 2,
+  },
+  mapImage: {
+    width: "100%",
+    height: 180,
+    resizeMode: "cover",
+    backgroundColor: "#dedede",
+  },
+  detailsRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    padding: 15,
+  },
+  locationDetails: {
+    flex: 1,
+    marginRight: 10,
+  },
+  address: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#333",
+    marginBottom: 4,
+  },
+  distance: {
+    fontSize: 13,
+    color: "#888",
+  },
+  buttonContainer: {
+    width: 120,
+  },
+  navigateButton: {
+    backgroundColor: "#1B6F5D",
+    borderRadius: 24,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+  },
+  buttonTitle: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#ffffff",
+    marginLeft: 6,
   },
 });

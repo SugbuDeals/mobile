@@ -147,7 +147,7 @@ export default function AdminViewProducts() {
     }
   };
 
-  if (storeState.loading && storeState.products.length === 0) {
+  if (storeState.loading && (!storeState.products || storeState.products.length === 0)) {
     return (
       <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color="#277874" />
@@ -165,7 +165,7 @@ export default function AdminViewProducts() {
           <Text style={styles.title}>Products</Text>
           <View style={styles.countBadge}>
             <Ionicons name="cube-outline" color="#277874" size={16} />
-            <Text style={styles.countText}>{storeState.products.length}</Text>
+            <Text style={styles.countText}>{storeState.products?.length || 0}</Text>
           </View>
         </View>
 

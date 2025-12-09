@@ -1,6 +1,6 @@
 import { logout } from "@/features/auth/slice";
 import { useNotifications } from "@/features/notifications";
-import { useStoreManagement } from "@/features/store";
+import { useStore, useStoreManagement } from "@/features/store";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { LinearGradient } from "expo-linear-gradient";
@@ -19,11 +19,19 @@ const RetailerHeader = () => {
   const dispatch = useAppDispatch();
   const { action, state } = useNotifications();
   const { userStore } = useStoreManagement();
+  const {
+    action: { getCurrentTier },
+    state: { currentTier },
+  } = useStore();
 
   useEffect(() => {
     // Fetch unread count when header mounts
     action.getUnreadCount();
-  }, []);
+    // Fetch current tier to show PRO indicator
+    getCurrentTier();
+  }, [action, getCurrentTier]);
+
+  const isPro = currentTier?.tier === "PRO";
 
   const handleLogout = () => {
     // Clear auth state immediately
@@ -49,9 +57,17 @@ const RetailerHeader = () => {
               <Ionicons name="storefront" size={24} color="#ffffff" />
             </View>
             <View style={styles.headerText}>
-              <Text style={styles.headerTitle}>
-                SugbuDeals
-              </Text>
+              <View style={styles.titleRow}>
+                <Text style={styles.headerTitle}>
+                  SugbuDeals
+                </Text>
+                {isPro && (
+                  <View style={styles.proBadge}>
+                    <Ionicons name="star" size={14} color="#FFBE5D" />
+                    <Text style={styles.proBadgeText}>PRO</Text>
+                  </View>
+                )}
+              </View>
               <Text style={styles.headerSubtitle}>Manage your Store</Text>
             </View>
           </View>
@@ -305,11 +321,33 @@ const styles = StyleSheet.create({
   headerText: {
     flex: 1,
   },
+  titleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginBottom: 2,
+  },
   headerTitle: {
     fontSize: 24,
     fontWeight: "bold",
     color: "#ffffff",
-    marginBottom: 2,
+  },
+  proBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    backgroundColor: "rgba(255, 255, 255, 0.25)",
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "rgba(255, 190, 93, 0.5)",
+  },
+  proBadgeText: {
+    fontSize: 11,
+    fontWeight: "700",
+    color: "#FFBE5D",
+    letterSpacing: 0.5,
   },
   headerTitleCompact: {
     fontSize: 18,

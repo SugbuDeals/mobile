@@ -70,14 +70,6 @@ export default function SubscriptionOverlay({
               </View>
             </View>
 
-            {/* Validity Notice */}
-            <View style={styles.validityBox}>
-              <Ionicons name="time-outline" size={24} color="#F59E0B" />
-              <Text style={styles.validityText}>
-                Valid for {validityDays} days only
-              </Text>
-            </View>
-
             {/* Upgrade Button */}
             <TouchableOpacity
               style={[styles.upgradeButton, isLoading && styles.upgradeButtonDisabled]}
@@ -176,20 +168,6 @@ const styles = StyleSheet.create({
   alertSubtitle: {
     fontSize: 14,
     color: "#DC2626",
-  },
-  validityBox: {
-    flexDirection: "row",
-    backgroundColor: "#FFFBEB",
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 20,
-    alignItems: "center",
-  },
-  validityText: {
-    fontSize: 14,
-    color: "#F59E0B",
-    marginLeft: 12,
-    fontWeight: "500",
   },
   upgradeButton: {
     flexDirection: "row",
