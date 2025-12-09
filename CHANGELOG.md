@@ -4,6 +4,28 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [0.8.1] - 2025-12-09
+
+### Added
+- Select component for dropdown selections
+- ChatResponse component for displaying AI responses
+- PromotionCard and StoreCard components for recommendation display
+- Improved Explore screen layout with SearchPrompt at top and centered welcome message
+
+### Updated
+- Restructured Explore screen: SearchPrompt now appears at the top when no results are displayed
+- Centered "Discover Great Deals" welcome message in the middle of the screen
+- Improved SearchPrompt layout: location indicator on left, radius dropdown on right
+- Enhanced radius dropdown width to prevent height growth
+- Refined recommendation components (RecommendationCard, RecommendationTabs, InsightsPanel)
+- Updated API client and recommendation hooks for better data handling
+- Improved authentication wrapper and login flow
+
+### Fixed
+- Fixed SearchPrompt options layout to prevent overlap
+- Removed query history button from Explore screen
+- Version consistency across project files (package.json, app.json)
+
 ## [0.8.0] - 2025-12-07
 
 ### Added

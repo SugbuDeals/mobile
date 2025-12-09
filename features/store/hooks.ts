@@ -5,20 +5,20 @@
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 
 // Store domain hooks
-import * as storesThunks from "./stores/thunks";
 import * as storesSelectors from "./stores/selectors";
+import * as storesThunks from "./stores/thunks";
 
 // Product domain hooks
-import * as productsThunks from "./products/thunks";
 import * as productsSelectors from "./products/selectors";
+import * as productsThunks from "./products/thunks";
 
 // Promotion domain hooks
-import * as promotionsThunks from "./promotions/thunks";
 import * as promotionsSelectors from "./promotions/selectors";
+import * as promotionsThunks from "./promotions/thunks";
 
 // Subscription domain hooks
-import * as subscriptionsThunks from "./subscriptions/thunks";
 import * as subscriptionsSelectors from "./subscriptions/selectors";
+import * as subscriptionsThunks from "./subscriptions/thunks";
 
 /**
  * Hook for store operations
@@ -29,10 +29,10 @@ export function useStores() {
 
   return {
     state: {
-      stores: storesSelectors.selectAllStores(useAppSelector((s) => s)),
-      selectedStore: storesSelectors.selectSelectedStore(useAppSelector((s) => s)),
-      userStore: storesSelectors.selectUserStore(useAppSelector((s) => s)),
-      nearbyStores: storesSelectors.selectNearbyStores(useAppSelector((s) => s)),
+      stores: useAppSelector(storesSelectors.selectAllStores),
+      selectedStore: useAppSelector(storesSelectors.selectSelectedStore),
+      userStore: useAppSelector(storesSelectors.selectUserStore),
+      nearbyStores: useAppSelector(storesSelectors.selectNearbyStores),
       loading: storesState.loading,
       error: storesState.error,
     },
@@ -69,7 +69,7 @@ export function useProducts() {
 
   return {
     state: {
-      products: productsSelectors.selectAllProducts(useAppSelector((s) => s)),
+      products: useAppSelector(productsSelectors.selectAllProducts),
       loading: productsState.loading,
       error: productsState.error,
     },
@@ -100,12 +100,8 @@ export function usePromotions() {
 
   return {
     state: {
-      promotions: promotionsSelectors.selectAllPromotions(
-        useAppSelector((s) => s)
-      ),
-      activePromotions: promotionsSelectors.selectActivePromotions(
-        useAppSelector((s) => s)
-      ),
+      promotions: useAppSelector(promotionsSelectors.selectAllPromotions),
+      activePromotions: useAppSelector(promotionsSelectors.selectActivePromotions),
       loading: promotionsState.loading,
       error: promotionsState.error,
     },
@@ -136,13 +132,9 @@ export function useSubscriptions() {
 
   return {
     state: {
-      activeSubscription:
-        subscriptionsSelectors.selectActiveSubscription(useAppSelector((s) => s)),
-      subscriptions: subscriptionsSelectors.selectAllSubscriptions(
-        useAppSelector((s) => s)
-      ),
-      subscriptionAnalytics:
-        subscriptionsSelectors.selectSubscriptionAnalytics(useAppSelector((s) => s)),
+      activeSubscription: useAppSelector(subscriptionsSelectors.selectActiveSubscription),
+      subscriptions: useAppSelector(subscriptionsSelectors.selectAllSubscriptions),
+      subscriptionAnalytics: useAppSelector(subscriptionsSelectors.selectSubscriptionAnalytics),
       loading: subscriptionsState.loading,
       error: subscriptionsState.error,
     },

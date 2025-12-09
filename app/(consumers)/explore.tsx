@@ -1,9 +1,12 @@
 import {
+  ChatResponse,
   InsightsPanel,
+  PromotionCard,
   QueryHistoryModal,
   RecommendationCard,
   RecommendationTabs,
   SearchPrompt,
+  StoreCard,
   type RecommendationTab,
 } from "@/components/consumers/explore";
 import { useStore } from "@/features/store";
@@ -11,15 +14,21 @@ import { useModal } from "@/hooks/useModal";
 import { useQueryHistory } from "@/hooks/useQueryHistory";
 import { useRecommendations } from "@/hooks/useRecommendations";
 import { useTabs } from "@/hooks/useTabs";
+import { borderRadius, colors, shadows, spacing, typography } from "@/styles/theme";
 import Ionicons from "@expo/vector-icons/Ionicons";
+import { useFocusEffect } from "expo-router";
+import * as Location from "expo-location";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
+  Animated,
+  KeyboardAvoidingView,
+  Platform,
   ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
-  View
+  View,
 } from "react-native";
 
 interface RecommendationItem {
@@ -43,17 +52,98 @@ export default function Explore() {
   const [insightsExpanded, setInsightsExpanded] = useState(false);
   const [isEditingPrompt, setIsEditingPrompt] = useState(true);
   const [lastSubmittedQuery, setLastSubmittedQuery] = useState<string | null>(null);
+  const [location, setLocation] = useState<{ latitude: number; longitude: number } | null>(null);
+  const [radius, setRadius] = useState<5 | 10 | 15>(5);
+  const [locationPermissionStatus, setLocationPermissionStatus] = useState<"granted" | "denied" | "checking">("checking");
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  
   const {
     state: { nearbyStores },
   } = useStore();
 
   // Hooks for state management
-  const { loading, response, fetchRecommendations } = useRecommendations();
-  const { activeTab, setActiveTab } = useTabs<RecommendationTab>("best");
+  const { loading, response, fetchRecommendations, reset: resetRecommendations } = useRecommendations();
+  const { activeTab, setActiveTab, reset: resetTabs } = useTabs<RecommendationTab>("all");
   const { isOpen: showHistoryModal, open: openHistoryModal, close: closeHistoryModal } = useModal();
   const { history: queryHistory, addEntry } = useQueryHistory();
 
-  const { aiResponse, insightsSummary, recommendations, highlight, elaboration } = response;
+  const { aiResponse, insightsSummary, recommendations, highlight, elaboration, intent, products, stores, promotions } = response;
+
+  const hasResults = useMemo(
+    () => !!aiResponse || products.length > 0 || stores.length > 0 || promotions.length > 0,
+    [aiResponse, products, stores, promotions]
+  );
+
+  // Filter content based on active tab
+  const filteredContent = useMemo(() => {
+    if (activeTab === "products") {
+      return { products, stores: [], promotions: [] };
+    }
+    if (activeTab === "stores") {
+      return { products: [], stores, promotions: [] };
+    }
+    if (activeTab === "promotions") {
+      return { products: [], stores: [], promotions };
+    }
+    // "all" tab
+    return { products, stores, promotions };
+  }, [activeTab, products, stores, promotions]);
+
+  const totalCount = products.length + stores.length + promotions.length;
+
+  // Request location permission and get current location
+  useEffect(() => {
+    const requestLocation = async () => {
+      try {
+        console.log("[Explore] Requesting location permission...");
+        const { status } = await Location.requestForegroundPermissionsAsync();
+        console.log("[Explore] Location permission status:", status);
+        
+        if (status === "granted") {
+          setLocationPermissionStatus("granted");
+          try {
+            console.log("[Explore] Getting current position...");
+            const position = await Location.getCurrentPositionAsync({
+              accuracy: Location.Accuracy.Balanced,
+            });
+            const coords = {
+              latitude: position.coords.latitude,
+              longitude: position.coords.longitude,
+            };
+            console.log("[Explore] Location obtained:", coords);
+            setLocation(coords);
+          } catch (error) {
+            console.warn("[Explore] Failed to get current location:", error);
+            setLocationPermissionStatus("denied");
+            setLocation(null);
+          }
+        } else {
+          console.log("[Explore] Location permission denied");
+          setLocationPermissionStatus("denied");
+          setLocation(null);
+        }
+      } catch (error) {
+        console.warn("[Explore] Location permission error:", error);
+        setLocationPermissionStatus("denied");
+        setLocation(null);
+      }
+    };
+
+    requestLocation();
+  }, []);
+
+  // Animate fade in when results appear
+  useEffect(() => {
+    if (hasResults && !loading) {
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 300,
+        useNativeDriver: true,
+      }).start();
+    } else {
+      fadeAnim.setValue(0);
+    }
+  }, [hasResults, loading]);
 
   const normalizeDistance = useCallback((raw: unknown) => {
     if (typeof raw === "number" && Number.isFinite(raw)) return raw;
@@ -111,59 +201,52 @@ export default function Explore() {
     [extractDistanceFromItem, storeDistanceMap]
   );
 
-  const hasResults = useMemo(
-    () => !!aiResponse || (recommendations && recommendations.length > 0),
-    [aiResponse, recommendations]
-  );
-
-  // Memoize displayed recommendations with stable dependencies
-  const displayedRecommendations = useMemo(() => {
-    if (!Array.isArray(recommendations) || recommendations.length === 0) {
-      return [];
-    }
-    
-    // Enrich all items with distance first
-    const enrichedItems = recommendations.map((item) => enrichDistance(item));
-    
-    // Sort based on active tab
-    if (activeTab === "cheapest") {
-      return enrichedItems.sort((a, b) => {
-        const priceA = Number(a?.price ?? Infinity);
-        const priceB = Number(b?.price ?? Infinity);
-        return priceA - priceB;
-      });
-    }
-    
-    if (activeTab === "closest") {
-      return enrichedItems.sort((a, b) => {
-        const distanceA = typeof a?.distance === "number" ? a.distance : extractDistanceFromItem(a);
-        const distanceB = typeof b?.distance === "number" ? b.distance : extractDistanceFromItem(b);
-        if (distanceA == null && distanceB == null) return 0;
-        if (distanceA == null) return 1;
-        if (distanceB == null) return -1;
-        return distanceA - distanceB;
-      });
-    }
-    
-    // Default: sort by discount (best deals)
-    return enrichedItems.sort((a, b) => {
-      const discountA = Number(a?.discount ?? 0);
-      const discountB = Number(b?.discount ?? 0);
-      return discountB - discountA;
-    });
-  }, [recommendations, activeTab, enrichDistance, extractDistanceFromItem]);
+  // Check if we have structured data (products, stores, or promotions)
+  const hasStructuredData = useMemo(() => {
+    return products.length > 0 || stores.length > 0 || promotions.length > 0;
+  }, [products.length, stores.length, promotions.length]);
 
   const submitSearch = useCallback(async () => {
     const query = searchQuery.trim();
     if (!query || loading) return;
     
+    console.log("[Explore] Submitting search:", {
+      query,
+      hasLocation: !!location,
+      location: location ? { latitude: location.latitude, longitude: location.longitude } : null,
+      radius,
+    });
+    
     setLastSubmittedQuery(query);
     setInsightsExpanded(false);
     
-    await fetchRecommendations(query, enrichDistance);
+    await fetchRecommendations(
+      query,
+      enrichDistance,
+      location || undefined,
+      radius,
+      10
+    );
     
     setIsEditingPrompt(false);
-  }, [searchQuery, loading, fetchRecommendations, enrichDistance]);
+  }, [searchQuery, loading, fetchRecommendations, enrichDistance, location, radius]);
+
+  // Reset state when screen loses focus (user navigates away)
+  useFocusEffect(
+    useCallback(() => {
+      // This runs when screen comes into focus
+      // Return cleanup function that runs when screen loses focus
+      return () => {
+        // Reset all state when user navigates away
+        setSearchQuery("");
+        setLastSubmittedQuery(null);
+        setInsightsExpanded(false);
+        setIsEditingPrompt(true);
+        resetRecommendations();
+        resetTabs();
+      };
+    }, [resetRecommendations, resetTabs])
+  );
 
   // Add to query history when response is received (only once per query)
   const lastAddedQueryRef = useRef<string | null>(null);
@@ -177,16 +260,22 @@ export default function Explore() {
       addEntry(
         lastSubmittedQuery,
         aiResponse || "No response received",
-        recommendations?.length || 0
+        totalCount
       );
     }
   }, [lastSubmittedQuery, aiResponse, recommendations, addEntry]);
 
   return (
-    <>
+      <KeyboardAvoidingView
+      style={styles.keyboardAvoidingView}
+      behavior={Platform.select({ ios: "padding", android: "height" })}
+      keyboardVerticalOffset={Platform.select({ ios: 90, android: 0 })}
+    >
       <ScrollView 
         style={styles.container} 
+        contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
       >
         <View style={styles.content}>
           {/* Show prompt/insights panel at TOP only when results are displayed */}
@@ -197,6 +286,9 @@ export default function Explore() {
                   searchQuery={searchQuery}
                   onSearchChange={setSearchQuery}
                   onSubmit={submitSearch}
+                  radius={radius}
+                  onRadiusChange={setRadius}
+                  hasLocation={locationPermissionStatus === "granted" && location !== null}
                 />
               ) : (
                 <InsightsPanel
@@ -208,7 +300,8 @@ export default function Explore() {
                   onToggleExpand={() => setInsightsExpanded((v) => !v)}
                   onEditPrompt={() => setIsEditingPrompt(true)}
                   lastSubmittedQuery={lastSubmittedQuery}
-                  recommendationsCount={recommendations.length}
+                  recommendationsCount={totalCount}
+                  intent={intent}
                 />
               )}
             </View>
@@ -224,82 +317,166 @@ export default function Explore() {
         {/* Results list with tabs and shimmer while loading */}
         {(hasResults || loading) && (
           <View>
-            <RecommendationTabs
-              activeTab={activeTab}
-              onTabChange={setActiveTab}
-              resultsCount={displayedRecommendations?.length}
-            />
             {loading ? (
               <View style={styles.resultsList}>
-                {Array.from({ length: 5 }).map((_, i) => (
-                  <View key={`shimmer-${i}`} style={styles.resultCard}>
-                    <View style={styles.resultHeaderRow}>
-                      <View style={[styles.badge, styles.badgeShimmer]} />
-                      <View style={[styles.badge, styles.badgeShimmerSmall]} />
+                {Array.from({ length: 3 }).map((_, i) => (
+                  <View key={`shimmer-${i}`} style={styles.shimmerCard}>
+                    <View style={styles.shimmerHeader}>
+                      <View style={styles.shimmerBadge} />
+                      <View style={styles.shimmerBadgeSmall} />
                     </View>
-                    <View style={styles.cardBodyRow}>
-                      <View style={styles.placeholderImage} />
-                      <View style={styles.cardInfo}>
-                        <View style={[styles.shimmerLine, { width: "80%" }]} />
+                    <View style={styles.shimmerBody}>
+                      <View style={styles.shimmerImage} />
+                      <View style={styles.shimmerContent}>
+                        <View style={[styles.shimmerLine, { width: "85%", marginBottom: 8 }]} />
+                        <View style={[styles.shimmerLine, { width: "70%", marginBottom: 8 }]} />
                         <View style={[styles.shimmerLine, { width: "60%" }]} />
-                        <View style={[styles.shimmerLine, { width: 100 }]} />
                       </View>
                     </View>
                   </View>
                 ))}
               </View>
-            ) : displayedRecommendations?.length > 0 ? (
-              <View style={styles.resultsList}>
-                {displayedRecommendations.map((item, idx) => {
-                  const distanceValue =
-                    typeof item?.distance === "number"
-                      ? item.distance
-                      : extractDistanceFromItem(item);
-                  return (
-                    <RecommendationCard
-                      key={item?.id ?? idx}
-                      item={item}
-                      activeTab={activeTab}
-                      distance={distanceValue ?? DEFAULT_DISTANCE_KM}
-                    />
-                  );
-                })}
-              </View>
             ) : (
-              <View style={styles.emptyResultsContainer}>
-                <Ionicons name="search-outline" size={64} color="#D1D5DB" />
-                <Text style={styles.emptyResultsText}>This product is not found</Text>
-                <Text style={styles.emptyResultsSubtext}>
-                  Try searching with different keywords
-                </Text>
-              </View>
+              <Animated.View style={{ opacity: fadeAnim }}>
+                {/* Always show AI response content if available */}
+                {aiResponse && (
+                  <View style={styles.chatResponseContainer}>
+                    <ChatResponse content={aiResponse} />
+                  </View>
+                )}
+
+                {/* Show tabs only if we have structured data */}
+                {hasStructuredData && totalCount > 0 && (
+                  <RecommendationTabs
+                    activeTab={activeTab}
+                    onTabChange={setActiveTab}
+                    productsCount={products.length}
+                    storesCount={stores.length}
+                    promotionsCount={promotions.length}
+                  />
+                )}
+
+                {/* Show cards if we have structured data */}
+                {hasStructuredData && totalCount > 0 ? (
+                  <View style={styles.resultsList}>
+                    {/* Products */}
+                    {filteredContent.products.map((product, idx) => {
+                      const distanceValue = product.distance ?? undefined;
+                      const item: RecommendationItem = {
+                        id: product.id,
+                        name: product.name,
+                        price: product.price,
+                        imageUrl: product.imageUrl || undefined,
+                        storeId: product.storeId,
+                        storeName: product.storeName || undefined,
+                        description: product.description,
+                        distance: distanceValue,
+                      };
+                      const enrichedItem = enrichDistance(item);
+                      return (
+                        <RecommendationCard
+                          key={`product-${product.id}-${idx}`}
+                          item={enrichedItem}
+                          activeTab={activeTab}
+                          distance={enrichedItem.distance ?? DEFAULT_DISTANCE_KM}
+                        />
+                      );
+                    })}
+
+                    {/* Stores */}
+                    {filteredContent.stores.map((store, idx) => (
+                      <StoreCard
+                        key={`store-${store.id}-${idx}`}
+                        store={store}
+                      />
+                    ))}
+
+                    {/* Promotions */}
+                    {filteredContent.promotions.map((promotion, idx) => (
+                      <PromotionCard
+                        key={`promotion-${promotion.id}-${idx}`}
+                        promotion={promotion}
+                      />
+                    ))}
+                  </View>
+                ) : !hasStructuredData && aiResponse ? (
+                  // If we have content but no structured data, just show the content (already shown above)
+                  null
+                ) : (
+                  // Empty state when no content and no structured data
+                  <Animated.View style={[styles.emptyResultsContainer, { opacity: fadeAnim }]}>
+                    <View style={styles.emptyIconContainer}>
+                      {intent === "store" ? (
+                        <Ionicons name="storefront-outline" size={80} color={colors.gray300} />
+                      ) : intent === "promotion" ? (
+                        <Ionicons name="pricetag-outline" size={80} color={colors.gray300} />
+                      ) : (
+                        <Ionicons name="search-outline" size={80} color={colors.gray300} />
+                      )}
+                    </View>
+                    <Text style={styles.emptyResultsText}>
+                      {intent === "store" 
+                        ? "No stores found" 
+                        : intent === "promotion"
+                        ? "No promotions found"
+                        : "No results found"}
+                    </Text>
+                    <Text style={styles.emptyResultsSubtext}>
+                      {intent === "store"
+                        ? "Try searching for different store types or adjust your search radius"
+                        : intent === "promotion"
+                        ? "Try searching for different deals or check back later for new promotions"
+                        : "Try searching with different keywords or adjust your search radius"}
+                    </Text>
+                  </Animated.View>
+                )}
+              </Animated.View>
             )}
           </View>
         )}
 
-        {/* Show prompt panel at BOTTOM when no results are displayed */}
+        {/* Show prompt panel at TOP and welcome message CENTERED when no results are displayed */}
         {!hasResults && !loading && (
-          <View style={styles.searchContainerBottom}>
-            {isEditingPrompt ? (
-              <SearchPrompt
-                searchQuery={searchQuery}
-                onSearchChange={setSearchQuery}
-                onSubmit={submitSearch}
-              />
-            ) : (
-              <InsightsPanel
-                summary={insightsSummary}
-                text={aiResponse}
-                highlight={highlight}
-                elaboration={elaboration}
-                isExpanded={insightsExpanded}
-                onToggleExpand={() => setInsightsExpanded((v) => !v)}
-                onEditPrompt={() => setIsEditingPrompt(true)}
-                lastSubmittedQuery={lastSubmittedQuery}
-                recommendationsCount={recommendations.length}
-              />
+          <>
+            {/* SearchPrompt at the top */}
+            <View style={styles.searchContainerTop}>
+              {isEditingPrompt ? (
+                <SearchPrompt
+                  searchQuery={searchQuery}
+                  onSearchChange={setSearchQuery}
+                  onSubmit={submitSearch}
+                  radius={radius}
+                  onRadiusChange={setRadius}
+                  hasLocation={locationPermissionStatus === "granted" && location !== null}
+                />
+              ) : (
+                <InsightsPanel
+                  summary={insightsSummary}
+                  text={aiResponse}
+                  highlight={highlight}
+                  elaboration={elaboration}
+                  isExpanded={insightsExpanded}
+                  onToggleExpand={() => setInsightsExpanded((v) => !v)}
+                  onEditPrompt={() => setIsEditingPrompt(true)}
+                  lastSubmittedQuery={lastSubmittedQuery}
+                  recommendationsCount={totalCount}
+                  intent={intent}
+                />
+              )}
+            </View>
+            {/* Welcome message centered in the middle */}
+            {isEditingPrompt && (
+              <View style={styles.welcomeContainerCentered}>
+                <View style={styles.welcomeContent}>
+                  <Ionicons name="compass-outline" size={64} color={colors.primaryLight} />
+                  <Text style={styles.welcomeTitle}>Discover Great Deals</Text>
+                  <Text style={styles.welcomeText}>
+                    Search for products, stores, or promotions. Ask me anything!
+                  </Text>
+                </View>
+              </View>
             )}
-          </View>
+          </>
         )}
       </View>
 
@@ -313,28 +490,26 @@ export default function Explore() {
           closeHistoryModal();
         }}
       />
-    </ScrollView>
-    
-    {/* History Button - positioned outside the prompt panel */}
-    <TouchableOpacity 
-      style={styles.historyButton} 
-      onPress={openHistoryModal} 
-      accessibilityRole="button"
-    >
-      <Ionicons name="time-outline" size={20} color="#ffffff" />
-    </TouchableOpacity>
-  </>
+      </ScrollView>
+    </KeyboardAvoidingView>
   );
 }
 
 const styles = StyleSheet.create({
+  keyboardAvoidingView: {
+    flex: 1,
+  },
   container: {
     flex: 1,
     backgroundColor: "#ffffff",
   },
+  scrollContent: {
+    flexGrow: 1,
+    paddingBottom: Platform.select({ ios: 100, android: 80 }),
+  },
   content: {
     padding: 20,
-    paddingTop: 10,
+    paddingTop: Platform.select({ ios: 20, android: 10 }),
     flexGrow: 1,
     minHeight: "100%",
   },
@@ -342,8 +517,13 @@ const styles = StyleSheet.create({
     marginBottom: 20,
     marginTop: 0,
   },
+  searchContainerTop: {
+    marginBottom: 20,
+    marginTop: 0,
+  },
   searchContainerBottom: {
-    marginTop: 480,
+    marginTop: "auto",
+    paddingBottom: spacing.xl,
   },
   insightHeadlineContainer: {
     flex: 1,
@@ -371,12 +551,15 @@ const styles = StyleSheet.create({
   loadingContainer: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 8,
+    gap: 12,
     paddingHorizontal: 4,
-    marginBottom: 12,
+    marginBottom: 16,
+    paddingVertical: 8,
   },
   loadingText: {
-    color: "#334155",
+    color: colors.gray700,
+    fontSize: typography.fontSize.base,
+    fontWeight: typography.fontWeight.medium,
   },
   tabsRow: {
     flexDirection: "row",
@@ -405,16 +588,13 @@ const styles = StyleSheet.create({
     gap: 14,
   },
   resultCard: {
-    backgroundColor: "#ffffff",
-    borderRadius: 16,
+    backgroundColor: colors.white,
+    borderRadius: borderRadius.xl,
     borderWidth: 1,
-    borderColor: "#e5e7eb",
-    padding: 12,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 2,
+    borderColor: colors.gray200,
+    padding: spacing.lg,
+    marginBottom: spacing.md,
+    ...shadows.md,
   },
   resultHeaderRow: {
     flexDirection: "row",
@@ -482,12 +662,6 @@ const styles = StyleSheet.create({
   cardInfo: {
     flex: 1,
   },
-  shimmerLine: {
-    height: 14,
-    backgroundColor: "#e5e7eb",
-    borderRadius: 8,
-    marginBottom: 10,
-  },
   cardTitle: {
     fontSize: 16,
     fontWeight: "700",
@@ -506,25 +680,117 @@ const styles = StyleSheet.create({
     alignItems: "flex-end",
     marginTop: 10,
   },
+  chatContainer: {
+    marginTop: spacing.md,
+  },
+  chatResponseContainer: {
+    marginBottom: spacing.lg,
+  },
   emptyResultsContainer: {
     alignItems: "center",
     justifyContent: "center",
-    paddingVertical: 60,
+    paddingVertical: 80,
     paddingHorizontal: 20,
-    marginTop: 20,
+    marginTop: 40,
+  },
+  emptyIconContainer: {
+    marginBottom: spacing.md,
   },
   emptyResultsText: {
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: "700",
-    color: "#6B7280",
-    marginTop: 16,
+    color: colors.gray700,
+    marginTop: spacing.md,
     textAlign: "center",
   },
   emptyResultsSubtext: {
-    fontSize: 14,
-    color: "#9CA3AF",
-    marginTop: 8,
+    fontSize: 15,
+    color: colors.gray500,
+    marginTop: spacing.sm,
     textAlign: "center",
+    lineHeight: 22,
+    maxWidth: 280,
+  },
+  welcomeContainer: {
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: spacing.xxxl,
+    paddingHorizontal: spacing.xl,
+    marginTop: spacing.xl,
+  },
+  welcomeContainerCentered: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    minHeight: 300,
+  },
+  welcomeContent: {
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: spacing.xxxl,
+    paddingHorizontal: spacing.xl,
+  },
+  welcomeTitle: {
+    fontSize: typography.fontSize.xxl,
+    fontWeight: typography.fontWeight.bold,
+    color: colors.gray900,
+    marginTop: spacing.lg,
+    textAlign: "center",
+  },
+  welcomeText: {
+    fontSize: typography.fontSize.base,
+    color: colors.gray600,
+    marginTop: spacing.md,
+    textAlign: "center",
+    lineHeight: 24,
+    maxWidth: 300,
+  },
+  shimmerCard: {
+    backgroundColor: colors.white,
+    borderRadius: borderRadius.xl,
+    padding: spacing.md,
+    marginBottom: spacing.md,
+    borderWidth: 1,
+    borderColor: colors.gray200,
+    ...shadows.sm,
+  },
+  shimmerHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: spacing.sm,
+  },
+  shimmerBadge: {
+    width: 80,
+    height: 24,
+    borderRadius: borderRadius.full,
+    backgroundColor: colors.gray200,
+  },
+  shimmerBadgeSmall: {
+    width: 60,
+    height: 24,
+    borderRadius: borderRadius.full,
+    backgroundColor: colors.gray200,
+  },
+  shimmerBody: {
+    flexDirection: "row",
+    gap: spacing.md,
+    alignItems: "center",
+  },
+  shimmerImage: {
+    width: 100,
+    height: 100,
+    borderRadius: borderRadius.lg,
+    backgroundColor: colors.gray200,
+  },
+  shimmerContent: {
+    flex: 1,
+  },
+  shimmerLine: {
+    height: 12,
+    backgroundColor: colors.gray200,
+    borderRadius: borderRadius.sm,
+    marginBottom: spacing.xs,
   },
   emptyBox: {
     height: "100%",
@@ -595,23 +861,6 @@ const styles = StyleSheet.create({
     height: 4,
     backgroundColor: "#277874",
     borderRadius: 2,
-  },
-  historyButton: {
-    position: "absolute",
-    bottom: 10,
-    right: 20,
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: "#1f7a6e",
-    justifyContent: "center",
-    alignItems: "center",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-    zIndex: 10,
   },
   sendButton: {
     width: 40,

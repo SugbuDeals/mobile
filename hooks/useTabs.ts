@@ -4,6 +4,7 @@ export interface UseTabsReturn<T extends string> {
   activeTab: T;
   setActiveTab: (tab: T) => void;
   isActive: (tab: T) => boolean;
+  reset: () => void;
 }
 
 /**
@@ -21,10 +22,15 @@ export function useTabs<T extends string>(initialTab: T): UseTabsReturn<T> {
     [activeTab]
   );
 
+  const reset = useCallback(() => {
+    setActiveTab(initialTab);
+  }, [initialTab]);
+
   return {
     activeTab,
     setActiveTab,
     isActive,
+    reset,
   };
 }
 
