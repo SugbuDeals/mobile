@@ -11,6 +11,9 @@ All notable changes to this project will be documented in this file.
 - ChatResponse component for displaying AI responses
 - PromotionCard and StoreCard components for recommendation display
 - Improved Explore screen layout with SearchPrompt at top and centered welcome message
+- StoreMarker component with custom pin design and store icons/images
+- StoreMapView component with automatic region fitting and Redux integration
+- Enhanced NearbyStores component with improved card design and View Map link
 
 ### Updated
 - Restructured Explore screen: SearchPrompt now appears at the top when no results are displayed
@@ -20,11 +23,17 @@ All notable changes to this project will be documented in this file.
 - Refined recommendation components (RecommendationCard, RecommendationTabs, InsightsPanel)
 - Updated API client and recommendation hooks for better data handling
 - Improved authentication wrapper and login flow
+- Refactored viewmap.tsx to use reusable StoreMapView component
+- Changed NearbyStores from horizontal scroll to vertical column layout
+- Improved NearbyStores card design with compact horizontal layout and better spacing
+- Enhanced map functionality with custom markers and automatic region fitting
 
 ### Fixed
 - Fixed SearchPrompt options layout to prevent overlap
 - Removed query history button from Explore screen
 - Version consistency across project files (package.json, app.json)
+- Removed all `any` types in map-related components for strict TypeScript compliance
+- Fixed NearbyStores cards being cut off at screen edges with proper padding
 
 ## [0.8.0] - 2025-12-07
 
