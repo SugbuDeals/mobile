@@ -1,10 +1,10 @@
 import Card from "@/components/Card";
+import { NearbyStores } from "@/components/consumers/home";
 import { useLogin } from "@/features/auth";
 import { useCatalog } from "@/features/catalog";
 import type { Category, Product } from "@/features/catalog/types";
 import { useStore } from "@/features/store";
 import type { Promotion } from "@/features/store/promotions/types";
-import type { Store } from "@/features/store/stores/types";
 import { useAsyncEffect } from "@/hooks/useAsyncEffect";
 import { useStableThunk } from "@/hooks/useStableCallback";
 import { LinearGradient } from "expo-linear-gradient";
@@ -100,7 +100,7 @@ export default function Home() {
       }
           router={router} 
         />
-        <NearbyStores stores={nearbyStores || []} loading={loading} router={router} />
+        <NearbyStores stores={nearbyStores || []} loading={loading} />
       </ScrollView>
       
       {/* Promotion Products Overlay */}
@@ -523,65 +523,6 @@ function Recommendations({
   );
 }
 
-function NearbyStores({
-  stores,
-  loading,
-  router,
-}: {
-  stores: (Store & { distance?: number })[];
-  loading: boolean;
-  router: Router;
-}) {
-  if (loading) return null;
-
-  const handleStorePress = (store: Store) => {
-    router.push({
-      pathname: "/(consumers)/storedetails",
-      params: { store: store.name, storeId: store.id },
-    });
-  };
-
-  return (
-    <View style={styles.section}>
-      <SectionHeader 
-        title="Nearby Stores" 
-        linkText="View Map" 
-        onPress={() => router.push("/(consumers)/viewmap")}
-      />
-      {stores.map((s) => (
-        <TouchableOpacity
-          key={s.id ?? s.name}
-          style={styles.nearbyCard}
-          activeOpacity={0.8}
-          onPress={() => handleStorePress(s)}
-        >
-          <Image
-            source={typeof s.imageUrl === 'string' && s.imageUrl.length > 0 ? { uri: s.imageUrl } : require("../../assets/images/partial-react-logo.png")}
-            style={styles.storeIcon}
-          />
-          <View style={styles.info}>
-            <Text style={[styles.text, styles.bold]} numberOfLines={1}>
-              {s.name}
-            </Text>
-            {!!s.description && (
-              <Text style={[styles.text]} numberOfLines={2}>
-                {s.description}
-              </Text>
-            )}
-            <Text style={styles.text}>
-              {(() => {
-                const d = s.distance;
-                if (typeof d === 'number' && isFinite(d)) return `${d.toFixed(2)} km`;
-                return "~1.20 km";
-              })()}
-            </Text>
-            <Text style={styles.text}>{"4.5 ★"}</Text>
-          </View>
-        </TouchableOpacity>
-      ))}
-    </View>
-  );
-}
 
 function SectionHeader({
   title,

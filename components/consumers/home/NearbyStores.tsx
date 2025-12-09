@@ -1,7 +1,8 @@
-import React from "react";
-import { StyleSheet, ScrollView, Text, TouchableOpacity, View, Image } from "react-native";
+import React, { useMemo } from "react";
+import { StyleSheet, Text, TouchableOpacity, View, Image } from "react-native";
 import { useRouter } from "expo-router";
 import { ActivityIndicator } from "react-native";
+import Ionicons from "@expo/vector-icons/Ionicons";
 import { colors, spacing, borderRadius, typography } from "@/styles/theme";
 import SectionHeader from "@/components/SectionHeader";
 import EmptyState from "@/components/EmptyState";
@@ -15,6 +16,22 @@ interface NearbyStoresProps {
 export default function NearbyStores({ stores, loading }: NearbyStoresProps) {
   const router = useRouter();
 
+  // Memoize stores with valid data for performance
+  const validStores = useMemo(() => {
+    return stores.filter((store) => store && store.id);
+  }, [stores]);
+
+  const handleViewMap = () => {
+    router.push("/(consumers)/viewmap");
+  };
+
+  const handleStorePress = (storeId: number) => {
+    router.push({
+      pathname: "/(consumers)/storedetails",
+      params: { storeId },
+    });
+  };
+
   if (loading) {
     return (
       <View style={styles.section}>
@@ -27,10 +44,14 @@ export default function NearbyStores({ stores, loading }: NearbyStoresProps) {
     );
   }
 
-  if (!stores || stores.length === 0) {
+  if (!validStores || validStores.length === 0) {
     return (
       <View style={styles.section}>
-        <SectionHeader title="Nearby Stores" />
+        <SectionHeader
+          title="Nearby Stores"
+          linkText="View Map"
+          onPress={handleViewMap}
+        />
         <EmptyState
           icon="location-outline"
           title="No nearby stores"
@@ -42,47 +63,81 @@ export default function NearbyStores({ stores, loading }: NearbyStoresProps) {
 
   return (
     <View style={styles.section}>
-      <SectionHeader title="Nearby Stores" />
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.scrollContent}
-      >
-        {stores.map((store) => (
-          <TouchableOpacity
-            key={store.id}
-            style={styles.storeCard}
-            activeOpacity={0.8}
-            onPress={() =>
-              router.push({
-                pathname: "/(consumers)/storedetails",
-                params: { storeId: store.id },
-              })
-            }
-          >
-            {store.imageUrl ? (
-              <Image source={{ uri: store.imageUrl }} style={styles.storeImage} />
-            ) : (
-              <View style={styles.placeholderImage} />
-            )}
-            <View style={styles.storeInfo}>
-              <Text style={styles.storeName} numberOfLines={2}>
-                {store.name}
-              </Text>
-              {('distance' in store && typeof store.distance === 'number') && (
-                <Text style={styles.distance}>
-                  {store.distance.toFixed(2)} km away
+      <SectionHeader
+        title="Nearby Stores"
+        linkText="View Map"
+        onPress={handleViewMap}
+      />
+      <View style={styles.storesContainer}>
+        {validStores.map((store) => {
+          const distance =
+            "distance" in store &&
+            typeof store.distance === "number" &&
+            isFinite(store.distance)
+              ? store.distance
+              : null;
+          const address = store.address || store.city || null;
+
+          return (
+            <TouchableOpacity
+              key={store.id}
+              style={styles.storeCard}
+              activeOpacity={0.8}
+              onPress={() => handleStorePress(store.id)}
+            >
+              <View style={styles.imageContainer}>
+                {store.imageUrl ? (
+                  <Image
+                    source={{ uri: store.imageUrl }}
+                    style={styles.storeImage}
+                    resizeMode="cover"
+                  />
+                ) : (
+                  <View style={styles.placeholderImage}>
+                    <Ionicons
+                      name="storefront-outline"
+                      size={24}
+                      color={colors.gray400}
+                    />
+                  </View>
+                )}
+              </View>
+              <View style={styles.storeInfo}>
+                <Text style={styles.storeName} numberOfLines={1}>
+                  {store.name}
                 </Text>
-              )}
-              {store.description && (
-                <Text style={styles.storeDescription} numberOfLines={2}>
-                  {store.description}
-                </Text>
-              )}
-            </View>
-          </TouchableOpacity>
-        ))}
-      </ScrollView>
+                <View style={styles.infoRow}>
+                  {distance !== null && (
+                    <View style={styles.distanceRow}>
+                      <Ionicons
+                        name="location-outline"
+                        size={10}
+                        color={colors.primary}
+                      />
+                      <Text style={styles.distance}>
+                        {distance.toFixed(2)} km
+                      </Text>
+                    </View>
+                  )}
+                  <View style={styles.ratingRow}>
+                    <Ionicons
+                      name="star"
+                      size={10}
+                      color={colors.secondaryDark}
+                    />
+                    <Text style={styles.rating}>4.5</Text>
+                  </View>
+                </View>
+                {address && (
+                  <Text style={styles.address} numberOfLines={1}>
+                    {address}
+                  </Text>
+                )}
+              </View>
+            </TouchableOpacity>
+          );
+        })}
+      </View>
     </View>
   );
 }
@@ -91,7 +146,7 @@ const styles = StyleSheet.create({
   section: {
     marginBottom: spacing.xl,
   },
-  scrollContent: {
+  storesContainer: {
     paddingHorizontal: spacing.lg,
     gap: spacing.md,
   },
@@ -106,29 +161,41 @@ const styles = StyleSheet.create({
     color: colors.gray600,
   },
   storeCard: {
-    width: 200,
+    flexDirection: "row",
+    width: "100%",
     backgroundColor: colors.white,
-    borderRadius: borderRadius.lg,
+    borderRadius: borderRadius.md,
     overflow: "hidden",
-    marginRight: spacing.md,
+    padding: spacing.md,
     shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.08,
+    shadowRadius: 3,
+    elevation: 2,
+  },
+  imageContainer: {
+    width: 60,
+    height: 60,
+    borderRadius: borderRadius.sm,
+    overflow: "hidden",
+    backgroundColor: colors.gray100,
+    marginRight: spacing.sm,
   },
   storeImage: {
     width: "100%",
-    height: 120,
+    height: "100%",
     backgroundColor: colors.gray100,
   },
   placeholderImage: {
     width: "100%",
-    height: 120,
+    height: "100%",
     backgroundColor: colors.gray200,
+    alignItems: "center",
+    justifyContent: "center",
   },
   storeInfo: {
-    padding: spacing.md,
+    flex: 1,
+    justifyContent: "center",
   },
   storeName: {
     fontSize: typography.fontSize.base,
@@ -136,16 +203,35 @@ const styles = StyleSheet.create({
     color: colors.gray900,
     marginBottom: spacing.xs,
   },
-  distance: {
-    fontSize: typography.fontSize.sm,
-    color: colors.primary,
-    fontWeight: typography.fontWeight.medium,
+  infoRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.md,
     marginBottom: spacing.xs,
   },
-  storeDescription: {
+  distanceRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 3,
+  },
+  distance: {
+    fontSize: typography.fontSize.xs,
+    color: colors.primary,
+    fontWeight: typography.fontWeight.medium,
+  },
+  address: {
     fontSize: typography.fontSize.xs,
     color: colors.gray600,
-    lineHeight: typography.lineHeight.normal * typography.fontSize.xs,
+  },
+  ratingRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 3,
+  },
+  rating: {
+    fontSize: typography.fontSize.xs,
+    color: colors.gray700,
+    fontWeight: typography.fontWeight.medium,
   },
 });
 
