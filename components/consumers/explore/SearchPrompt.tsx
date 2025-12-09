@@ -1,33 +1,37 @@
 import React from "react";
-import { StyleSheet, TextInput, TouchableOpacity, View } from "react-native";
-import { LinearGradient } from "expo-linear-gradient";
+import { StyleSheet, TextInput, TouchableOpacity, View, Text } from "react-native";
 import Ionicons from "@expo/vector-icons/Ionicons";
-import { colors, spacing, borderRadius } from "@/styles/theme";
+import { colors, spacing, borderRadius, typography } from "@/styles/theme";
+import { Select, type SelectOption } from "@/components/Select";
 
 interface SearchPromptProps {
   searchQuery: string;
   onSearchChange: (text: string) => void;
   onSubmit: () => void;
   placeholder?: string;
+  radius?: 5 | 10 | 15;
+  onRadiusChange?: (radius: 5 | 10 | 15) => void;
+  hasLocation?: boolean;
 }
+
+const radiusOptions: SelectOption<5 | 10 | 15>[] = [
+  { label: "5 km", value: 5 },
+  { label: "10 km", value: 10 },
+  { label: "15 km", value: 15 },
+];
 
 export default function SearchPrompt({
   searchQuery,
   onSearchChange,
   onSubmit,
   placeholder = "Searching for something?",
+  radius = 5,
+  onRadiusChange,
+  hasLocation = false,
 }: SearchPromptProps) {
   return (
     <View style={styles.searchBox}>
       <View style={styles.topRow}>
-        <LinearGradient
-          colors={[colors.secondary, colors.primary]}
-          style={styles.searchIconContainer}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-        >
-          <Ionicons name="logo-android" size={24} color={colors.white} />
-        </LinearGradient>
         <TextInput
           style={styles.searchInput}
           placeholder={placeholder}
@@ -36,20 +40,39 @@ export default function SearchPrompt({
           onChangeText={onSearchChange}
           returnKeyType="search"
           onSubmitEditing={onSubmit}
+          accessibilityLabel="Search input"
+          multiline={false}
+          numberOfLines={1}
         />
         <TouchableOpacity
           style={styles.sendButton}
           onPress={onSubmit}
           accessibilityRole="button"
+          accessibilityLabel="Submit search"
         >
           <Ionicons name="send" size={20} color={colors.white} />
         </TouchableOpacity>
       </View>
       <View style={styles.bottomRow}>
-        <View style={styles.progressLines}>
-          <View style={styles.progressLine1} />
-          <View style={styles.progressLine2} />
-        </View>
+        {hasLocation && (
+          <View style={styles.locationIndicator}>
+            <Ionicons name="location" size={16} color={colors.primary} />
+            <Text style={styles.locationText}>Location enabled</Text>
+          </View>
+        )}
+        {onRadiusChange && (
+          <View style={styles.radiusSelector}>
+            <Select<5 | 10 | 15>
+              options={radiusOptions}
+              value={radius}
+              onValueChange={onRadiusChange}
+              placeholder="Radius"
+              style={styles.radiusSelect}
+              containerStyle={styles.radiusSelectContainer}
+              maxHeight={150}
+            />
+          </View>
+        )}
       </View>
     </View>
   );
@@ -59,7 +82,7 @@ const styles = StyleSheet.create({
   searchBox: {
     backgroundColor: "#F3E5BC",
     borderRadius: borderRadius.xl,
-    padding: spacing.lg,
+    padding: spacing.md,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.12,
@@ -74,20 +97,15 @@ const styles = StyleSheet.create({
     marginBottom: 0,
     gap: spacing.md,
   },
-  searchIconContainer: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    justifyContent: "center",
-    alignItems: "center",
-  },
   searchInput: {
-    fontSize: 16,
-    fontWeight: "500",
+    fontSize: typography.fontSize.base,
+    fontWeight: typography.fontWeight.medium,
     color: colors.gray900,
     flex: 1,
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.xs,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.md,
+    minHeight: 48,
+    maxHeight: 48,
   },
   sendButton: {
     backgroundColor: colors.primary,
@@ -100,28 +118,34 @@ const styles = StyleSheet.create({
   bottomRow: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "flex-start",
+    justifyContent: "space-between",
     marginTop: spacing.md,
-    paddingTop: spacing.md,
-    borderTopWidth: 1,
-    borderTopColor: "rgba(231, 167, 72, 0.2)",
   },
-  progressLines: {
+  locationIndicator: {
     flexDirection: "row",
-    gap: 6,
     alignItems: "center",
+    gap: spacing.xs,
+    backgroundColor: colors.primaryLight,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+    borderRadius: borderRadius.md,
   },
-  progressLine1: {
-    width: 120,
-    height: 4,
-    backgroundColor: colors.secondary,
-    borderRadius: 2,
+  locationText: {
+    fontSize: typography.fontSize.xs,
+    color: colors.primaryDark,
+    fontWeight: typography.fontWeight.medium,
   },
-  progressLine2: {
-    width: 60,
-    height: 4,
-    backgroundColor: colors.primary,
-    borderRadius: 2,
+  radiusSelector: {
+    minWidth: 120,
+    flexShrink: 0,
+  },
+  radiusSelect: {
+    minHeight: 32,
+    paddingVertical: spacing.xs,
+    paddingHorizontal: spacing.sm,
+  },
+  radiusSelectContainer: {
+    marginVertical: 0,
   },
 });
 

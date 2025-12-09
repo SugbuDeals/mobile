@@ -195,12 +195,23 @@ class ApiClient {
     };
 
     // Log request (sanitized)
+    let requestBodyPreview: unknown = undefined;
+    if (body && !isFormData && typeof body === 'string') {
+      try {
+        const parsed = JSON.parse(body);
+        requestBodyPreview = this.sanitizeLogData(parsed as Record<string, unknown>) || parsed;
+      } catch {
+        requestBodyPreview = '[Unable to parse body]';
+      }
+    }
+    
     this.log('info', `Request: ${restConfig.method || 'GET'} ${endpoint}`, {
       method: restConfig.method || 'GET',
       endpoint,
       skipAuth,
       hasBody: !!body,
       isFormData,
+      body: requestBodyPreview,
     });
 
     try {

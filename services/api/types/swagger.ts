@@ -399,12 +399,19 @@ export interface ChatMessageDto {
 }
 
 export interface ChatRequestDto {
-  messages: ChatMessageDto[];
+  content: string;
+  count: number; // 1-10
+  latitude?: number;
+  longitude?: number;
+  radius?: 5 | 10 | 15;
 }
 
 export interface ChatResponseDto {
-  role: "user" | "assistant" | "system";
   content: string;
+  intent?: "product" | "store" | "promotion" | "chat";
+  products?: ProductRecommendationItemDto[];
+  stores?: StoreRecommendationItemDto[];
+  promotions?: PromotionRecommendationItemDto[];
 }
 
 export type RecommendationIntent = "product" | "store" | "promotion" | "chat";

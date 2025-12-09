@@ -116,23 +116,19 @@ export default function Login() {
       console.log("Is retailer:", isRetailer);
       console.log("=== END LOGIN REDIRECT DEBUG ===");
       
-      // Small delay to ensure state is fully updated before navigation
-      const timeoutId = setTimeout(() => {
-        if (isAdmin) {
-          console.log("✅ REDIRECTING TO ADMIN DASHBOARD");
-          router.replace("/(admin)");
-        } else if (isRetailer) {
-          // Always send retailers to their dashboard on login; setup is handled only after registration
-          console.log("➡️ RETAILER LOGIN → DASHBOARD");
-          router.replace("/(retailers)");
-        } else {
-          console.log("⚠️ DEFAULTING TO CONSUMER DASHBOARD (user may not have a valid role)");
-          router.replace("/(consumers)");
-        }
-      }, 100);
-      
-      // Cleanup timeout on unmount
-      return () => clearTimeout(timeoutId);
+      // Navigate immediately - no delay needed
+      // State is already updated by Redux when this effect runs
+      if (isAdmin) {
+        console.log("✅ REDIRECTING TO ADMIN DASHBOARD");
+        router.replace("/(admin)");
+      } else if (isRetailer) {
+        // Always send retailers to their dashboard on login; setup is handled only after registration
+        console.log("➡️ RETAILER LOGIN → DASHBOARD");
+        router.replace("/(retailers)");
+      } else {
+        console.log("⚠️ DEFAULTING TO CONSUMER DASHBOARD (user may not have a valid role)");
+        router.replace("/(consumers)");
+      }
     }
   }, [accessToken, loading, user]);
 

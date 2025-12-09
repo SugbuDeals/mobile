@@ -73,29 +73,13 @@ export default function RecommendationCard({
   };
 
   const getBadgeStyle = () => {
-    switch (activeTab) {
-      case "best":
-        return styles.badgeGreen;
-      case "cheapest":
-        return styles.badgeYellow;
-      case "closest":
-        return styles.badgeTeal;
-      default:
-        return styles.badgeGreen;
-    }
+    // For products, show green badge
+    return styles.badgeGreen;
   };
 
   const getBadgeText = () => {
-    switch (activeTab) {
-      case "best":
-        return "Best Deal";
-      case "cheapest":
-        return "Cheapest";
-      case "closest":
-        return "Closest";
-      default:
-        return "Best Deal";
-    }
+    // Simple "Product" badge for product cards
+    return "Product";
   };
 
   return (
