@@ -18,6 +18,9 @@ export type {
 
 // Aliases for backward compatibility
 export type Promotion = PromotionResponseDto;
-export type CreatePromotionDTO = CreatePromotionDto;
+// CreatePromotionDTO with backward compatibility for productId
+export type CreatePromotionDTO = CreatePromotionDto & {
+  productId?: number; // Legacy field, will be converted to productIds array
+};
 export type UpdatePromotionDTO = UpdatePromotionDto;
 

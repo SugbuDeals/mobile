@@ -32,19 +32,29 @@ export function PromotionCard({ promotion, activePromotions }: PromotionCardProp
 
   // Find all products associated with this promotion
   useEffect(() => {
-    const productIds = promotion.productIds || [promotion.productId];
+    const productIds = promotion.productIds || (promotion.productId ? [promotion.productId] : []);
     
-    if (productIds.length > 0 && products.length > 0) {
-      const foundProducts = productIds.map((id: number) => 
+    // Filter out invalid IDs (null, undefined, NaN, or non-positive numbers)
+    const validProductIds = productIds.filter((id: number | null | undefined) => 
+      id != null && Number.isFinite(id) && id > 0
+    ) as number[];
+    
+    if (validProductIds.length > 0 && products.length > 0) {
+      const foundProducts = validProductIds.map((id: number) => 
         products.find(p => p.id === id)
       ).filter(Boolean);
       
       setPromotionProducts(foundProducts);
       
       // If some products are missing, try to fetch them
-      const missingIds = productIds.filter((id: number) => !products.find(p => p.id === id));
+      const missingIds = validProductIds.filter((id: number) => !products.find(p => p.id === id));
       if (missingIds.length > 0) {
-        missingIds.forEach((id: number) => findProductById(id));
+        missingIds.forEach((id: number) => {
+          // Double-check the ID is valid before making API call
+          if (id != null && Number.isFinite(id) && id > 0) {
+            findProductById(id);
+          }
+        });
       }
     }
   }, [promotion.productIds, promotion.productId, products, findProductById]);

@@ -13,6 +13,7 @@ import {
 import { createAsyncReducer } from "@/utils/redux/createAsyncReducer";
 import { logout } from "@/features/auth/slice";
 import type { SubscriptionTier, SubscriptionAnalytics } from "./types";
+import type { SubscriptionAnalyticsDto } from "@/services/api/types/swagger";
 
 interface SubscriptionsState {
   currentTier: SubscriptionTier | null;
@@ -62,9 +63,9 @@ const subscriptionsSlice = createSlice({
     });
 
     // Get Subscription Analytics
-    createAsyncReducer<SubscriptionsState, SubscriptionAnalytics, void>(builder, getSubscriptionAnalytics, {
+    createAsyncReducer<SubscriptionsState, SubscriptionAnalyticsDto, void>(builder, getSubscriptionAnalytics, {
       onFulfilled: (state: Draft<SubscriptionsState>, action) => {
-        state.subscriptionAnalytics = action.payload;
+        state.subscriptionAnalytics = action.payload as SubscriptionAnalytics;
       },
     });
 

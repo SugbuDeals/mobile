@@ -55,13 +55,3 @@ export const selectActiveStores = createSelector(
   (stores) => stores.filter((store) => store.isActive !== false)
 );
 
-export const selectActiveSubscription = createSelector(
-  [selectStoresState],
-  (storesState) => storesState.activeSubscription
-);
-
-export const selectSubscriptions = createSelector(
-  [selectStoresState],
-  (storesState) => storesState.subscriptions
-);
-

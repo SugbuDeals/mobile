@@ -1,8 +1,9 @@
 import { productsApi, promotionsApi, storesApi, subscriptionsApi } from "@/services/api";
 import { RootState } from "@/store/types";
 import { createAsyncThunk } from "@reduxjs/toolkit";
-import { CreateProductDTO, CreateStoreDTO, CreateSubscriptionDTO, JoinSubscriptionDTO, ManageStoreStatusDTO, Product, Promotion, Store, Subscription, UserSubscription, SubscriptionAnalytics, UpdateProductDTO, UpdateProductStatusDTO, UpdateSubscriptionDTO } from "./types";
-import type { CreatePromotionDTO, UpdatePromotionDTO } from "@/services/api/endpoints/promotions";
+import { CreateProductDTO, CreateStoreDTO, ManageStoreStatusDTO, Product, Promotion, Store, UpdateProductDTO, UpdateProductStatusDTO } from "./types";
+import type { CreatePromotionDTO, UpdatePromotionDTO } from "./promotions/types";
+import type { SubscriptionAnalyticsDto } from "@/services/api/types/swagger";
 
 export const findStores = createAsyncThunk<
   Store[],
@@ -108,6 +109,13 @@ export const findProductById = createAsyncThunk<
   number,
   { rejectValue: { message: string }; state: RootState }
 >("store/findProductById", async (productId, { rejectWithValue }) => {
+  // Validate productId before making API call
+  if (!productId || !Number.isFinite(productId) || productId <= 0) {
+    return rejectWithValue({
+      message: "Invalid product ID",
+    });
+  }
+
   try {
     const product = await productsApi.findProductById(productId);
     if (!product) {
@@ -212,17 +220,25 @@ export const findPromotions = createAsyncThunk<
     const apiPromotions = await promotionsApi.findPromotions();
     // Map API promotions to feature Promotion format
     // PromotionResponseDto: startsAt is string (ISO 8601), endsAt is string | null, no createdAt/updatedAt
-    return apiPromotions.map((p: Promotion) => ({
-      id: p.id,
-      title: p.title,
-      type: p.type, // Keep as string (e.g., "PERCENTAGE")
-      description: p.description || "",
-      startsAt: typeof p.startsAt === "string" ? p.startsAt : new Date(p.startsAt).toISOString(),
-      endsAt: p.endsAt ? (typeof p.endsAt === "string" ? p.endsAt : new Date(p.endsAt).toISOString()) : null,
-      active: p.active,
-      discount: p.discount,
-      productId: p.productId ?? null, // Nullable per server.json
-    }));
+    return apiPromotions.map((p: any) => {
+      // Extract productId from promotionProducts if productId is not present
+      let productId = p.productId ?? null;
+      if (!productId && p.promotionProducts && p.promotionProducts.length > 0) {
+        productId = p.promotionProducts[0].productId ?? null;
+      }
+      
+      return {
+        id: p.id,
+        title: p.title,
+        type: p.type, // Keep as string (e.g., "PERCENTAGE")
+        description: p.description || "",
+        startsAt: typeof p.startsAt === "string" ? p.startsAt : new Date(p.startsAt).toISOString(),
+        endsAt: p.endsAt ? (typeof p.endsAt === "string" ? p.endsAt : new Date(p.endsAt).toISOString()) : null,
+        active: p.active,
+        discount: p.discount,
+        productId: productId,
+      };
+    });
   } catch (error: unknown) {
     return rejectWithValue({
       message: error instanceof Error ? error.message : "Find promotions failed",
@@ -244,17 +260,25 @@ export const findActivePromotions = createAsyncThunk<
     
     // Map API promotions to feature Promotion format
     // PromotionResponseDto: startsAt is string (ISO 8601), endsAt is string | null, no createdAt/updatedAt
-    let activePromotions = apiPromotions.map((p: Promotion) => ({
-      id: p.id,
-      title: p.title,
-      type: p.type, // Keep as string (e.g., "PERCENTAGE")
-      description: p.description || "",
-      startsAt: typeof p.startsAt === "string" ? p.startsAt : new Date(p.startsAt).toISOString(),
-      endsAt: p.endsAt ? (typeof p.endsAt === "string" ? p.endsAt : new Date(p.endsAt).toISOString()) : null,
-      active: p.active,
-      discount: p.discount,
-      productId: p.productId ?? null, // Nullable per server.json
-    }));
+    let activePromotions = apiPromotions.map((p: any) => {
+      // Extract productId from promotionProducts if productId is not present
+      let productId = p.productId ?? null;
+      if (!productId && p.promotionProducts && p.promotionProducts.length > 0) {
+        productId = p.promotionProducts[0].productId ?? null;
+      }
+      
+      return {
+        id: p.id,
+        title: p.title,
+        type: p.type, // Keep as string (e.g., "PERCENTAGE")
+        description: p.description || "",
+        startsAt: typeof p.startsAt === "string" ? p.startsAt : new Date(p.startsAt).toISOString(),
+        endsAt: p.endsAt ? (typeof p.endsAt === "string" ? p.endsAt : new Date(p.endsAt).toISOString()) : null,
+        active: p.active,
+        discount: p.discount,
+        productId: productId,
+      };
+    });
     
     // If storeId is provided, filter promotions by store ownership
     if (storeId) {
@@ -351,18 +375,27 @@ export const createPromotion = createAsyncThunk<
   try {
     // Map feature DTO to API DTO format
     // Use API CreatePromotionDTO which matches server.json
-    const apiData: CreatePromotionDTO = {
+    // API expects productIds array, not productId
+    // Convert to API format - handle both productId (legacy) and productIds
+    const productIds = promotionData.productIds || (promotionData.productId ? [promotionData.productId] : []);
+    const apiData = {
       title: promotionData.title,
       type: promotionData.type,
       description: promotionData.description,
       discount: promotionData.discount,
-      productId: promotionData.productId,
+      productIds,
       ...(promotionData.startsAt && { startsAt: promotionData.startsAt }),
       ...(promotionData.endsAt && { endsAt: promotionData.endsAt }),
       ...(promotionData.active !== undefined && { active: promotionData.active }),
     };
     
-    const result = await promotionsApi.createPromotion(apiData);
+    const result: any = await promotionsApi.createPromotion(apiData);
+    
+    // Extract productId from promotionProducts if productId is not present
+    let productId = result.productId ?? null;
+    if (!productId && result.promotionProducts && result.promotionProducts.length > 0) {
+      productId = result.promotionProducts[0].productId ?? null;
+    }
     
     // Map API response to feature Promotion format
     // PromotionResponseDto: startsAt is string (ISO 8601), endsAt is string | null, no createdAt/updatedAt
@@ -375,7 +408,7 @@ export const createPromotion = createAsyncThunk<
       endsAt: result.endsAt ? (typeof result.endsAt === "string" ? result.endsAt : new Date(result.endsAt).toISOString()) : null,
       active: result.active,
       discount: result.discount,
-      productId: result.productId ?? null, // Nullable per server.json
+      productId: productId,
     };
   } catch (error: unknown) {
     return rejectWithValue({
@@ -397,7 +430,13 @@ export const updatePromotion = createAsyncThunk<
       ...(updateData.endsAt !== undefined && { endsAt: updateData.endsAt }),
     };
     
-    const result = await promotionsApi.updatePromotion(id, apiData);
+    const result: any = await promotionsApi.updatePromotion(id, apiData);
+    
+    // Extract productId from promotionProducts if productId is not present
+    let productId = result.productId ?? null;
+    if (!productId && result.promotionProducts && result.promotionProducts.length > 0) {
+      productId = result.promotionProducts[0].productId ?? null;
+    }
     
     // Map API response to feature Promotion format
     // PromotionResponseDto: startsAt is string (ISO 8601), endsAt is string | null, no createdAt/updatedAt
@@ -410,7 +449,7 @@ export const updatePromotion = createAsyncThunk<
       endsAt: result.endsAt ? (typeof result.endsAt === "string" ? result.endsAt : new Date(result.endsAt).toISOString()) : null,
       active: result.active,
       discount: result.discount,
-      productId: result.productId ?? null, // Nullable per server.json
+      productId: productId,
     };
   } catch (error: unknown) {
     return rejectWithValue({
@@ -434,154 +473,15 @@ export const deletePromotion = createAsyncThunk<
   }
 });
 
-// Subscription thunks
-export const getActiveSubscription = createAsyncThunk<
-  UserSubscription | null,
-  number,
-  { rejectValue: { message: string }; state: RootState }
->("store/getActiveSubscription", async (userId, { rejectWithValue }) => {
-  try {
-    return await subscriptionsApi.getActiveSubscription(userId);
-  } catch (error: unknown) {
-    // If 404, user has no active subscription (return null, not an error)
-    if (error && typeof error === 'object' && 'status' in error && error.status === 404) {
-      return null;
-    }
-    return rejectWithValue({
-      message: error instanceof Error ? error.message : "Get active subscription failed",
-    });
-  }
-});
-
-export const joinSubscription = createAsyncThunk<
-  UserSubscription,
-  JoinSubscriptionDTO,
-  { rejectValue: { message: string }; state: RootState }
->("store/joinSubscription", async (data, { rejectWithValue }) => {
-  try {
-    return await subscriptionsApi.joinSubscription(data);
-  } catch (error: unknown) {
-    return rejectWithValue({
-      message: error instanceof Error ? error.message : "Join subscription failed",
-    });
-  }
-});
-
-export const findSubscriptions = createAsyncThunk<
-  Subscription[],
-  {
-    plan?: "FREE" | "BASIC" | "PREMIUM";
-    isActive?: boolean;
-    search?: string;
-    skip?: number;
-    take?: number;
-  },
-  { rejectValue: { message: string }; state: RootState }
->("store/findSubscriptions", async ({ plan, isActive, search, skip, take }, { rejectWithValue }) => {
-  try {
-    return await subscriptionsApi.findSubscriptions({
-      plan,
-      isActive,
-      search,
-      skip,
-      take,
-    });
-  } catch (error: unknown) {
-    return rejectWithValue({
-      message: error instanceof Error ? error.message : "Find subscriptions failed",
-    });
-  }
-});
-
-export const cancelRetailerSubscription = createAsyncThunk<
-  UserSubscription,
-  void,
-  { rejectValue: { message: string }; state: RootState }
->("store/cancelRetailerSubscription", async (_, { rejectWithValue }) => {
-  try {
-    return await subscriptionsApi.cancelRetailerSubscription();
-  } catch (error: unknown) {
-    return rejectWithValue({
-      message: error instanceof Error ? error.message : "Cancel subscription failed",
-    });
-  }
-});
-
-export const updateRetailerSubscription = createAsyncThunk<
-  UserSubscription,
-  JoinSubscriptionDTO,
-  { rejectValue: { message: string }; state: RootState }
->("store/updateRetailerSubscription", async (data, { rejectWithValue }) => {
-  try {
-    return await subscriptionsApi.updateRetailerSubscription(data);
-  } catch (error: unknown) {
-    return rejectWithValue({
-      message: error instanceof Error ? error.message : "Update subscription failed",
-    });
-  }
-});
-
-// Admin Subscription thunks
-export const createSubscription = createAsyncThunk<
-  Subscription,
-  CreateSubscriptionDTO,
-  { rejectValue: { message: string }; state: RootState }
->("store/createSubscription", async (data, { rejectWithValue }) => {
-  try {
-    // Convert price from number to string for API
-    const apiData = {
-      ...data,
-      price: data.price ? String(data.price) : undefined,
-    };
-    return await subscriptionsApi.createSubscription(apiData);
-  } catch (error: unknown) {
-    return rejectWithValue({
-      message: error instanceof Error ? error.message : "Create subscription failed",
-    });
-  }
-});
-
-export const updateSubscription = createAsyncThunk<
-  Subscription,
-  { id: number } & UpdateSubscriptionDTO,
-  { rejectValue: { message: string }; state: RootState }
->("store/updateSubscription", async ({ id, ...data }, { rejectWithValue }) => {
-  try {
-    // Convert price from number to string for API if present
-    const apiData = {
-      ...data,
-      ...(data.price !== undefined && { price: String(data.price) }),
-    };
-    return await subscriptionsApi.updateSubscription(id, apiData);
-  } catch (error: unknown) {
-    return rejectWithValue({
-      message: error instanceof Error ? error.message : "Update subscription failed",
-    });
-  }
-});
-
-export const deleteSubscription = createAsyncThunk<
-  { id: number },
-  number,
-  { rejectValue: { message: string }; state: RootState }
->("store/deleteSubscription", async (id, { rejectWithValue }) => {
-  try {
-    await subscriptionsApi.deleteSubscription(id);
-    return { id };
-  } catch (error: unknown) {
-    return rejectWithValue({
-      message: error instanceof Error ? error.message : "Delete subscription failed",
-    });
-  }
-});
-
+// Subscription thunks - Only analytics is available (subscriptions are fixed in backend)
 export const getSubscriptionAnalytics = createAsyncThunk<
-  SubscriptionAnalytics,
+  SubscriptionAnalyticsDto,
   void,
   { rejectValue: { message: string }; state: RootState }
 >("store/getSubscriptionAnalytics", async (_, { rejectWithValue }) => {
   try {
-    return await subscriptionsApi.getSubscriptionAnalytics();
+    const result = await subscriptionsApi.getAnalytics();
+    return result;
   } catch (error: unknown) {
     return rejectWithValue({
       message: error instanceof Error ? error.message : "Get subscription analytics failed",

@@ -52,14 +52,10 @@ export default function PromotionCard({ promotion, onPress }: PromotionCardProps
       return;
     }
 
-    if (promotion.productId) {
-      router.push({
-        pathname: "/(consumers)/product",
-        params: {
-          productId: promotion.productId.toString(),
-        },
-      });
-    }
+    // PromotionRecommendationItemDto doesn't have productId, only productCount
+    // Navigate to promotions list or handle differently
+    // For now, just do nothing or navigate to a promotions page
+    // TODO: Implement proper navigation for multi-product promotions
   };
 
   return (

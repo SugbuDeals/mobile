@@ -25,4 +25,4 @@ export { useStoreManagement } from "./storeManagement";
 export type { Store, CreateStoreDTO, UpdateStoreDTO } from "./stores/types";
 export type { Product, CreateProductDTO, UpdateProductDTO } from "./products/types";
 // Promotion types already exported above, no need to re-export
-export type { Subscription, SubscriptionAnalytics } from "./subscriptions/types";
+export type { SubscriptionAnalytics } from "./subscriptions/types";

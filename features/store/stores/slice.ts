@@ -13,25 +13,16 @@ import {
   updateStoreAdminStatus,
   deleteStore,
 } from "./thunks";
-import { 
-  getActiveSubscription, 
-  joinSubscription, 
-  cancelRetailerSubscription, 
-  updateRetailerSubscription,
-  findSubscriptions 
-} from "../thunk";
-import type { Subscription } from "../types";
 import { createAsyncReducer } from "@/utils/redux/createAsyncReducer";
 import { logout } from "@/features/auth/slice";
-import type { Store, CreateStoreDTO, UpdateStoreDTO, UserSubscription } from "../types";
+import type { Store, CreateStoreDTO, UpdateStoreDTO } from "../types";
+import type { StoreResponseDto } from "@/services/api/types/swagger";
 
 interface StoresState {
   stores: Store[];
   selectedStore: Store | null;
   userStore: Store | null;
   nearbyStores: Store[];
-  activeSubscription: UserSubscription | null;
-  subscriptions: Subscription[];
   loading: boolean;
   error: string | null;
 }
@@ -41,8 +32,6 @@ const initialState: StoresState = {
   selectedStore: null,
   userStore: null,
   nearbyStores: [],
-  activeSubscription: null,
-  subscriptions: [],
   loading: false,
   error: null,
 };
@@ -56,8 +45,6 @@ const storesSlice = createSlice({
       state.selectedStore = null;
       state.userStore = null;
       state.nearbyStores = [];
-      state.activeSubscription = null;
-      state.subscriptions = [];
       state.loading = false;
       state.error = null;
     },
@@ -133,9 +120,10 @@ const storesSlice = createSlice({
     });
 
     // Create Store
-    createAsyncReducer<StoresState, Store, CreateStoreDTO>(builder, createStore, {
+    // Note: createStore returns StoreResponseDto which is compatible with Store
+    createAsyncReducer<StoresState, StoreResponseDto, CreateStoreDTO>(builder, createStore as any, {
       onFulfilled: (state: Draft<StoresState>, action) => {
-        state.userStore = action.payload;
+        state.userStore = action.payload as Store;
         state.selectedStore = action.payload;
         // Add to stores list if not already present
         const existingIndex = state.stores.findIndex(
@@ -196,49 +184,12 @@ const storesSlice = createSlice({
       },
     });
 
-    // Get Active Subscription
-    createAsyncReducer<StoresState, UserSubscription | null, number>(builder, getActiveSubscription, {
-      onFulfilled: (state: Draft<StoresState>, action) => {
-        state.activeSubscription = action.payload;
-      },
-    });
-
-    // Join Subscription
-    createAsyncReducer<StoresState, UserSubscription, any>(builder, joinSubscription, {
-      onFulfilled: (state: Draft<StoresState>, action) => {
-        state.activeSubscription = action.payload;
-      },
-    });
-
-    // Cancel Retailer Subscription
-    createAsyncReducer<StoresState, UserSubscription, void>(builder, cancelRetailerSubscription, {
-      onFulfilled: (state: Draft<StoresState>, action) => {
-        state.activeSubscription = action.payload;
-      },
-    });
-
-    // Update Retailer Subscription
-    createAsyncReducer<StoresState, UserSubscription, any>(builder, updateRetailerSubscription, {
-      onFulfilled: (state: Draft<StoresState>, action) => {
-        state.activeSubscription = action.payload;
-      },
-    });
-
-    // Find Subscriptions
-    createAsyncReducer<StoresState, Subscription[], any>(builder, findSubscriptions, {
-      onFulfilled: (state: Draft<StoresState>, action) => {
-        state.subscriptions = action.payload;
-      },
-    });
-
     // Clear stores on logout
     builder.addCase(logout, (state) => {
       state.stores = [];
       state.selectedStore = null;
       state.userStore = null;
       state.nearbyStores = [];
-      state.activeSubscription = null;
-      state.subscriptions = [];
       state.loading = false;
       state.error = null;
     });

@@ -171,7 +171,25 @@ export interface PromotionResponseDto {
   endsAt: string | null; // ISO 8601 format date-time
   active: boolean;
   discount: number;
-  productId: number | null; // Legacy field, may be null for multi-product promotions
+  productId?: number | null; // Legacy field, may be null for multi-product promotions. If missing, extract from promotionProducts[0].productId
+  promotionProducts?: Array<{
+    id: number;
+    promotionId: number;
+    productId: number;
+    createdAt: string;
+    product?: {
+      id: number;
+      name: string;
+      description: string;
+      price: string;
+      stock: number;
+      createdAt: string;
+      isActive: boolean;
+      storeId: number;
+      categoryId: number | null;
+      imageUrl: string | null;
+    };
+  }>;
 }
 
 export interface UpdatePromotionDto {

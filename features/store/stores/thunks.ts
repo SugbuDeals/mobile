@@ -99,7 +99,9 @@ export const createStore = createAsyncThunk<
   { rejectValue: { message: string }; state: RootState }
 >("stores/createStore", async (storeData, { rejectWithValue }) => {
   try {
-    return await storesApi.createStore(storeData);
+    const result = await storesApi.createStore(storeData);
+    // Store type matches StoreResponseDto, so this is safe
+    return result;
   } catch (error) {
     return rejectWithValue({
       message:
