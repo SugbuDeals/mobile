@@ -14,7 +14,20 @@ export const findPromotions = createAsyncThunk<
   { rejectValue: { message: string }; state: RootState }
 >("promotions/findPromotions", async (_, { rejectWithValue }) => {
   try {
-    return await promotionsApi.findPromotions();
+    const apiPromotions: any[] = await promotionsApi.findPromotions();
+    // Map API promotions to extract productId from promotionProducts if needed
+    return apiPromotions.map((p: any) => {
+      // Extract productId from promotionProducts if productId is not present
+      let productId = p.productId ?? null;
+      if (!productId && p.promotionProducts && p.promotionProducts.length > 0) {
+        productId = p.promotionProducts[0].productId ?? null;
+      }
+      
+      return {
+        ...p,
+        productId: productId,
+      };
+    });
   } catch (error) {
     return rejectWithValue({
       message:
@@ -33,10 +46,24 @@ export const findActivePromotions = createAsyncThunk<
   "promotions/findActivePromotions",
   async ({ storeId }, { rejectWithValue, getState }) => {
     try {
-      const allPromotions = await promotionsApi.findPromotions();
+      const allPromotions: any[] = await promotionsApi.findPromotions();
+      
+      // Map and extract productId from promotionProducts if needed
+      let mappedPromotions = allPromotions.map((p: any) => {
+        // Extract productId from promotionProducts if productId is not present
+        let productId = p.productId ?? null;
+        if (!productId && p.promotionProducts && p.promotionProducts.length > 0) {
+          productId = p.promotionProducts[0].productId ?? null;
+        }
+        
+        return {
+          ...p,
+          productId: productId,
+        };
+      });
       
       // Filter for active promotions
-      let activePromotions = allPromotions.filter(
+      let activePromotions = mappedPromotions.filter(
         (promotion: Promotion) => promotion.active === true
       );
       
@@ -69,7 +96,18 @@ export const createPromotion = createAsyncThunk<
   { rejectValue: { message: string }; state: RootState }
 >("promotions/createPromotion", async (promotionData, { rejectWithValue }) => {
   try {
-    return await promotionsApi.createPromotion(promotionData);
+    const result: any = await promotionsApi.createPromotion(promotionData);
+    
+    // Extract productId from promotionProducts if productId is not present
+    let productId = result.productId ?? null;
+    if (!productId && result.promotionProducts && result.promotionProducts.length > 0) {
+      productId = result.promotionProducts[0].productId ?? null;
+    }
+    
+    return {
+      ...result,
+      productId: productId,
+    };
   } catch (error) {
     return rejectWithValue({
       message:
@@ -86,7 +124,18 @@ export const updatePromotion = createAsyncThunk<
   { rejectValue: { message: string }; state: RootState }
 >("promotions/updatePromotion", async ({ id, ...updateData }, { rejectWithValue }) => {
   try {
-    return await promotionsApi.updatePromotion(id, updateData);
+    const result: any = await promotionsApi.updatePromotion(id, updateData);
+    
+    // Extract productId from promotionProducts if productId is not present
+    let productId = result.productId ?? null;
+    if (!productId && result.promotionProducts && result.promotionProducts.length > 0) {
+      productId = result.promotionProducts[0].productId ?? null;
+    }
+    
+    return {
+      ...result,
+      productId: productId,
+    };
   } catch (error) {
     return rejectWithValue({
       message:

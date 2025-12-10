@@ -19,7 +19,7 @@ const { width } = Dimensions.get("window");
 
 export default function AdminDashboard() {
   const { state: authState, action: authActions } = useLogin();
-  const { action: storeActions, state: { promotions, products, stores, subscriptions, subscriptionAnalytics, loading: storeLoading } } = useStore();
+  const { action: storeActions, state: { promotions, products, stores, subscriptionAnalytics, loading: storeLoading } } = useStore();
   const { state: catalogState, action: catalogActions } = useCatalog();
   const router = useRouter();
 
@@ -61,8 +61,6 @@ export default function AdminDashboard() {
     const productsArray = Array.isArray(products) ? products : [];
     const promotionsArray = Array.isArray(promotions) ? promotions : [];
     const categoriesArray = Array.isArray(catalogState.categories) ? catalogState.categories : [];
-    const subscriptionsArray = Array.isArray(subscriptions) ? subscriptions : [];
-    
     const totalUsers = allUsers.length;
     const consumers = allUsers.filter(u => u.role === "CONSUMER").length;
     const retailers = allUsers.filter(u => u.role === "RETAILER").length;
@@ -80,9 +78,10 @@ export default function AdminDashboard() {
     
     const totalCategories = categoriesArray.length;
     
-    const totalSubscriptions = subscriptionsArray.length;
-    const activeSubscriptions = subscriptionsArray.filter(s => s.isActive !== false).length;
-    const revenue = typeof subscriptionAnalytics?.totalRevenue === 'number' ? subscriptionAnalytics.totalRevenue : 0;
+    // Subscription analytics from API
+    const totalSubscriptions = subscriptionAnalytics?.totalUsers || 0;
+    const activeSubscriptions = subscriptionAnalytics?.proUsers || 0;
+    const revenue = subscriptionAnalytics?.revenue?.monthly || 0;
     
     // Calculate average discount
     const totalDiscount = promotionsArray.reduce((sum, p) => sum + (p.discount || 0), 0);
@@ -114,7 +113,7 @@ export default function AdminDashboard() {
       avgDiscount,
       recentUsersToday,
     };
-  }, [authState.allUsers, stores, products, promotions, catalogState.categories, subscriptions, subscriptionAnalytics]);
+  }, [authState.allUsers, stores, products, promotions, catalogState.categories, subscriptionAnalytics]);
 
   // Format time ago for recent users
   const getTimeAgo = (createdAt: string) => {

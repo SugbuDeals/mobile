@@ -9,6 +9,8 @@ import { Alert, AppState, AppStateStatus } from "react-native";
 const LOCATION_CHECK_INTERVAL = 60000; // 60 seconds - minimal data usage
 const MIN_DISTANCE_CHANGE_KM = 0.1; // Only check if moved at least 100m
 
+type IntervalId = ReturnType<typeof setInterval>;
+
 interface TrackedPromotion {
   promotionId: number;
   storeId: number;
@@ -31,7 +33,7 @@ export function useNearbyPromotionNotifications() {
 
   const [isEnabled, setIsEnabled] = useState(true);
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
-  const locationIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const locationIntervalRef = useRef<IntervalId | null>(null);
   const lastLocationRef = useRef<{ latitude: number; longitude: number } | null>(null);
   const notifiedPromotionsRef = useRef<Map<number, TrackedPromotion>>(new Map());
   const appStateRef = useRef<AppStateStatus>(AppState.currentState);

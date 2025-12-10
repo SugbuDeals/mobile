@@ -43,6 +43,13 @@ export const findProductById = createAsyncThunk<
   number,
   { rejectValue: { message: string }; state: RootState }
 >("products/findProductById", async (productId, { rejectWithValue }) => {
+  // Validate productId before making API call
+  if (!productId || !Number.isFinite(productId) || productId <= 0) {
+    return rejectWithValue({
+      message: "Invalid product ID",
+    });
+  }
+
   try {
     const product = await productsApi.findProductById(productId);
     if (!product) {

@@ -20,8 +20,9 @@ export type {
   SubscriptionAnalyticsDto,
 };
 
-// Aliases for backward compatibility
-export type SubscriptionTier = SubscriptionTierResponseDto;
+// Note: SubscriptionTier is already exported from swagger.ts as "BASIC" | "PRO"
+// Do not re-export SubscriptionTier here to avoid conflict
+// SubscriptionAnalytics is an alias for SubscriptionAnalyticsDto
 export type SubscriptionAnalytics = SubscriptionAnalyticsDto;
 
 export const subscriptionsApi = {

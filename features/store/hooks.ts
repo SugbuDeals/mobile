@@ -7,13 +7,6 @@ import { useAppDispatch, useAppSelector } from "@/store/hooks";
 // Store domain hooks
 import * as storesSelectors from "./stores/selectors";
 import * as storesThunks from "./stores/thunks";
-import { 
-  getActiveSubscription, 
-  joinSubscription, 
-  cancelRetailerSubscription, 
-  updateRetailerSubscription,
-  findSubscriptions 
-} from "./thunk";
 
 // Product domain hooks
 import * as productsSelectors from "./products/selectors";
@@ -40,8 +33,6 @@ export function useStores() {
       selectedStore: useAppSelector(storesSelectors.selectSelectedStore),
       userStore: useAppSelector(storesSelectors.selectUserStore),
       nearbyStores: useAppSelector(storesSelectors.selectNearbyStores),
-      activeSubscription: useAppSelector(storesSelectors.selectActiveSubscription),
-      subscriptions: useAppSelector(storesSelectors.selectSubscriptions),
       loading: storesState.loading,
       error: storesState.error,
     },
@@ -65,16 +56,6 @@ export function useStores() {
       ) => dispatch(storesThunks.updateStoreAdminStatus(data)),
       deleteStore: (storeId: number) =>
         dispatch(storesThunks.deleteStore(storeId)),
-      getActiveSubscription: (userId: number) =>
-        dispatch(getActiveSubscription(userId)),
-      joinSubscription: (data: { subscriptionId: number }) =>
-        dispatch(joinSubscription(data)),
-      cancelRetailerSubscription: () =>
-        dispatch(cancelRetailerSubscription()),
-      updateRetailerSubscription: (data: { subscriptionId: number }) =>
-        dispatch(updateRetailerSubscription(data)),
-      findSubscriptions: (filters?: { plan?: "FREE" | "BASIC" | "PREMIUM"; isActive?: boolean; search?: string; skip?: number; take?: number }) =>
-        dispatch(findSubscriptions(filters || {})),
     },
   };
 }
@@ -185,8 +166,6 @@ export function useStore() {
       selectedStore: stores.state.selectedStore,
       userStore: stores.state.userStore,
       nearbyStores: stores.state.nearbyStores,
-      activeSubscription: stores.state.activeSubscription,
-      subscriptions: stores.state.subscriptions,
       products: products.state.products,
       promotions: promotions.state.promotions,
       activePromotions: promotions.state.activePromotions,
@@ -213,11 +192,6 @@ export function useStore() {
       updateStore: stores.actions.updateStore,
       updateStoreAdminStatus: stores.actions.updateStoreAdminStatus,
       deleteStore: stores.actions.deleteStore,
-      getActiveSubscription: stores.actions.getActiveSubscription,
-      joinSubscription: stores.actions.joinSubscription,
-      cancelRetailerSubscription: stores.actions.cancelRetailerSubscription,
-      updateRetailerSubscription: stores.actions.updateRetailerSubscription,
-      findSubscriptions: stores.actions.findSubscriptions,
       // Product actions
       findProducts: products.actions.findProducts,
       findProductById: products.actions.findProductById,

@@ -34,6 +34,20 @@ export default function SubscriptionAnalytics() {
     return num.toLocaleString("en-US");
   };
 
+  const analytics = subscriptionAnalytics;
+
+  // Calculate derived metrics from API data
+  const totalUsers = analytics?.totalUsers || 0;
+  const basicUsers = analytics?.basicUsers || 0;
+  const proUsers = analytics?.proUsers || 0;
+  const monthlyRevenue = analytics?.revenue?.monthly || 0;
+  const yearlyRevenue = analytics?.revenue?.yearly || 0;
+  
+  // Get role-based breakdowns
+  const consumerStats = analytics?.byRoleAndTier?.consumer;
+  const retailerStats = analytics?.byRoleAndTier?.retailer;
+  const adminStats = analytics?.byRoleAndTier?.admin;
+
   if (loading && !subscriptionAnalytics) {
     return (
       <View style={styles.container}>
@@ -45,8 +59,6 @@ export default function SubscriptionAnalytics() {
       </View>
     );
   }
-
-  const analytics = subscriptionAnalytics;
 
   return (
     <View style={styles.container}>
@@ -62,13 +74,19 @@ export default function SubscriptionAnalytics() {
                 <Text style={[styles.cardLabel, styles.primaryCardText]}>Total Users</Text>
               </View>
               <Text style={[styles.cardValue, styles.primaryCardText]}>
-                {analytics ? formatNumber(analytics.total) : "0"}
+                {formatNumber(totalUsers)}
               </Text>
               <View style={[styles.cardFooter, styles.primaryCardFooter]}>
                 <View style={styles.footerItem}>
-                  <Text style={[styles.footerLabel, styles.primaryCardText]}>Active</Text>
+                  <Text style={[styles.footerLabel, styles.primaryCardText]}>Basic</Text>
                   <Text style={[styles.footerValue, styles.primaryCardText]}>
-                    {analytics ? formatNumber(analytics.active) : "0"}
+                    {formatNumber(basicUsers)}
+                  </Text>
+                </View>
+                <View style={styles.footerItem}>
+                  <Text style={[styles.footerLabel, styles.primaryCardText]}>Pro</Text>
+                  <Text style={[styles.footerValue, styles.primaryCardText]}>
+                    {formatNumber(proUsers)}
                   </Text>
                 </View>
               </View>
@@ -77,16 +95,16 @@ export default function SubscriptionAnalytics() {
             <View style={styles.overviewCard}>
               <View style={styles.cardHeader}>
                 <Ionicons name="cash" size={24} color="#10B981" />
-                <Text style={styles.cardLabel}>Total Revenue</Text>
+                <Text style={styles.cardLabel}>Monthly Revenue</Text>
               </View>
               <Text style={[styles.cardValue, styles.revenueValue]}>
-                {analytics ? formatCurrency(analytics.totalRevenue) : "₱0.00"}
+                {formatCurrency(monthlyRevenue)}
               </Text>
               <View style={styles.cardFooter}>
                 <View style={styles.footerItem}>
-                  <Text style={styles.footerLabel}>Avg Price</Text>
+                  <Text style={styles.footerLabel}>Yearly</Text>
                   <Text style={styles.footerValue}>
-                    {analytics ? formatCurrency(analytics.averagePrice) : "₱0.00"}
+                    {formatCurrency(yearlyRevenue)}
                   </Text>
                 </View>
               </View>
@@ -94,17 +112,17 @@ export default function SubscriptionAnalytics() {
 
             <View style={styles.overviewCard}>
               <View style={styles.cardHeader}>
-                <Ionicons name="calendar" size={24} color="#FFBE5D" />
-                <Text style={styles.cardLabel}>This Month</Text>
+                <Ionicons name="stats-chart" size={24} color="#FFBE5D" />
+                <Text style={styles.cardLabel}>Tier Distribution</Text>
               </View>
               <Text style={styles.cardValue}>
-                {analytics ? formatNumber(analytics.subscriptionsThisMonth) : "0"}
+                {formatNumber(proUsers)}
               </Text>
               <View style={styles.cardFooter}>
                 <View style={styles.footerItem}>
-                  <Text style={styles.footerLabel}>Recent (30d)</Text>
+                  <Text style={styles.footerLabel}>Pro Users</Text>
                   <Text style={styles.footerValue}>
-                    {analytics ? formatNumber(analytics.recentSubscriptions) : "0"}
+                    {formatNumber(basicUsers)} Basic
                   </Text>
                 </View>
               </View>
@@ -112,124 +130,105 @@ export default function SubscriptionAnalytics() {
           </View>
         </View>
 
-        {/* Status Breakdown */}
+        {/* Role & Tier Breakdown */}
         {analytics && (
           <>
             <View style={styles.section}>
-              <Text style={styles.sectionTitle}>Status Breakdown</Text>
+              <Text style={styles.sectionTitle}>Tier Breakdown</Text>
               <View style={styles.breakdownCard}>
                 <View style={styles.breakdownRow}>
                   <View style={styles.breakdownItem}>
-                    <View style={[styles.statusIndicator, { backgroundColor: "#10B981" }]} />
-                    <Text style={styles.breakdownLabel}>Active</Text>
-                    <Text style={styles.breakdownValue}>{formatNumber(analytics.active)}</Text>
+                    <View style={[styles.statusIndicator, { backgroundColor: "#277874" }]} />
+                    <Text style={styles.breakdownLabel}>Basic</Text>
+                    <Text style={styles.breakdownValue}>{formatNumber(basicUsers)}</Text>
                   </View>
                   <View style={styles.breakdownItem}>
-                    <View style={[styles.statusIndicator, { backgroundColor: "#EF4444" }]} />
-                    <Text style={styles.breakdownLabel}>Cancelled</Text>
-                    <Text style={styles.breakdownValue}>{formatNumber(analytics.cancelled || 0)}</Text>
-                  </View>
-                  <View style={styles.breakdownItem}>
-                    <View style={[styles.statusIndicator, { backgroundColor: "#6B7280" }]} />
-                    <Text style={styles.breakdownLabel}>Expired</Text>
-                    <Text style={styles.breakdownValue}>{formatNumber(analytics.expired || 0)}</Text>
-                  </View>
-                  <View style={styles.breakdownItem}>
-                    <View style={[styles.statusIndicator, { backgroundColor: "#F59E0B" }]} />
-                    <Text style={styles.breakdownLabel}>Pending</Text>
-                    <Text style={styles.breakdownValue}>{formatNumber(analytics.pending || 0)}</Text>
+                    <View style={[styles.statusIndicator, { backgroundColor: "#FFBE5D" }]} />
+                    <Text style={styles.breakdownLabel}>Pro</Text>
+                    <Text style={styles.breakdownValue}>{formatNumber(proUsers)}</Text>
                   </View>
                 </View>
               </View>
             </View>
 
-            {/* Plan Distribution */}
-            {analytics.byPlan && analytics.byPlan.length > 0 && (
-              <View style={styles.section}>
-                <Text style={styles.sectionTitle}>Plan Distribution</Text>
-                <View style={styles.distributionCard}>
-                  {analytics.byPlan.map((item, index) => (
-                    <View key={index} style={styles.distributionRow}>
-                      <View style={styles.distributionLeft}>
-                        <View
-                          style={[
-                            styles.planBadge,
-                            {
-                              backgroundColor:
-                                item.plan === "PRO"
-                                  ? "#FFBE5D"
-                                  : item.plan === "BASIC"
-                                  ? "#277874"
-                                  : "#6B7280",
-                            },
-                          ]}
-                        >
-                          <Text style={styles.planBadgeText}>{item.plan}</Text>
-                        </View>
-                        <Text style={styles.distributionLabel}>{item.plan} Plan</Text>
-                      </View>
-                      <Text style={styles.distributionValue}>{formatNumber(item.count)}</Text>
+            {/* Role Distribution */}
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>By Role & Tier</Text>
+              <View style={styles.distributionCard}>
+                {/* Consumers */}
+                {consumerStats && (
+                  <View style={styles.distributionRow}>
+                    <View style={styles.distributionLeft}>
+                      <Ionicons name="people" size={20} color="#277874" />
+                      <Text style={styles.distributionLabel}>Consumers</Text>
                     </View>
-                  ))}
-                </View>
-              </View>
-            )}
+                    <View style={styles.distributionRight}>
+                      <Text style={styles.distributionValue}>{formatNumber(consumerStats.total)}</Text>
+                      <Text style={styles.distributionSubtext}>
+                        {formatNumber(consumerStats.basic)} Basic, {formatNumber(consumerStats.pro)} Pro
+                      </Text>
+                    </View>
+                  </View>
+                )}
 
-            {/* Billing Cycle Distribution */}
-            {analytics.byBillingCycle && analytics.byBillingCycle.length > 0 && (
-              <View style={styles.section}>
-                <Text style={styles.sectionTitle}>Billing Cycle</Text>
-                <View style={styles.distributionCard}>
-                  {analytics.byBillingCycle.map((item, index) => (
-                    <View key={index} style={styles.distributionRow}>
-                      <View style={styles.distributionLeft}>
-                        <Ionicons
-                          name={item.billingCycle === "YEARLY" ? "calendar" : "calendar-outline"}
-                          size={20}
-                          color="#277874"
-                        />
-                        <Text style={styles.distributionLabel}>
-                          {item.billingCycle === "MONTHLY" ? "Monthly" : "Yearly"}
-                        </Text>
-                      </View>
-                      <Text style={styles.distributionValue}>{formatNumber(item.count)}</Text>
+                {/* Retailers */}
+                {retailerStats && (
+                  <View style={styles.distributionRow}>
+                    <View style={styles.distributionLeft}>
+                      <Ionicons name="storefront" size={20} color="#277874" />
+                      <Text style={styles.distributionLabel}>Retailers</Text>
                     </View>
-                  ))}
-                </View>
-              </View>
-            )}
+                    <View style={styles.distributionRight}>
+                      <Text style={styles.distributionValue}>{formatNumber(retailerStats.total)}</Text>
+                      <Text style={styles.distributionSubtext}>
+                        {formatNumber(retailerStats.basic)} Basic, {formatNumber(retailerStats.pro)} Pro
+                      </Text>
+                    </View>
+                  </View>
+                )}
 
-            {/* Status Distribution */}
-            {analytics.byStatus && analytics.byStatus.length > 0 && (
-              <View style={styles.section}>
-                <Text style={styles.sectionTitle}>Status Distribution</Text>
-                <View style={styles.distributionCard}>
-                  {analytics.byStatus.map((item, index) => (
-                    <View key={index} style={styles.distributionRow}>
-                      <View style={styles.distributionLeft}>
-                        <View
-                          style={[
-                            styles.statusDot,
-                            {
-                              backgroundColor:
-                                item.status === "ACTIVE"
-                                  ? "#10B981"
-                                  : item.status === "CANCELLED"
-                                  ? "#EF4444"
-                                  : item.status === "EXPIRED"
-                                  ? "#6B7280"
-                                  : "#F59E0B",
-                            },
-                          ]}
-                        />
-                        <Text style={styles.distributionLabel}>{item.status}</Text>
-                      </View>
-                      <Text style={styles.distributionValue}>{formatNumber(item.count)}</Text>
+                {/* Admins */}
+                {adminStats && (
+                  <View style={styles.distributionRow}>
+                    <View style={styles.distributionLeft}>
+                      <Ionicons name="shield" size={20} color="#277874" />
+                      <Text style={styles.distributionLabel}>Admins</Text>
                     </View>
-                  ))}
+                    <View style={styles.distributionRight}>
+                      <Text style={styles.distributionValue}>{formatNumber(adminStats.total)}</Text>
+                      <Text style={styles.distributionSubtext}>
+                        {formatNumber(adminStats.basic)} Basic, {formatNumber(adminStats.pro)} Pro
+                      </Text>
+                    </View>
+                  </View>
+                )}
+              </View>
+            </View>
+
+            {/* Revenue Breakdown */}
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>Revenue Breakdown</Text>
+              <View style={styles.distributionCard}>
+                <View style={styles.distributionRow}>
+                  <View style={styles.distributionLeft}>
+                    <Ionicons name="calendar-outline" size={20} color="#10B981" />
+                    <Text style={styles.distributionLabel}>Monthly</Text>
+                  </View>
+                  <Text style={[styles.distributionValue, styles.revenueValue]}>
+                    {formatCurrency(monthlyRevenue)}
+                  </Text>
+                </View>
+                <View style={styles.distributionRow}>
+                  <View style={styles.distributionLeft}>
+                    <Ionicons name="calendar" size={20} color="#10B981" />
+                    <Text style={styles.distributionLabel}>Yearly</Text>
+                  </View>
+                  <Text style={[styles.distributionValue, styles.revenueValue]}>
+                    {formatCurrency(yearlyRevenue)}
+                  </Text>
                 </View>
               </View>
-            )}
+            </View>
           </>
         )}
 
@@ -398,6 +397,10 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 12,
+    flex: 1,
+  },
+  distributionRight: {
+    alignItems: "flex-end",
   },
   planBadge: {
     paddingHorizontal: 10,
@@ -418,6 +421,11 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "bold",
     color: "#277874",
+  },
+  distributionSubtext: {
+    fontSize: 12,
+    color: "#6B7280",
+    marginTop: 2,
   },
   statusDot: {
     width: 10,

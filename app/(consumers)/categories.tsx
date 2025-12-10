@@ -184,7 +184,7 @@ export default function CategoriesPage() {
       }
       // If no match found, it will default to "All Items" via the existing useEffect below
     }
-  }, [params.category, availableCategories]);
+  }, [params.category]);
 
   const getProductCategoryName = useCallback(
     (product: CatalogProduct | StoreProduct): string => {

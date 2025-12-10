@@ -11,8 +11,6 @@ import type {
   PromotionResponseDto,
   CategoryResponseDto,
   NotificationResponseDto,
-  SubscriptionResponseDto,
-  UserSubscriptionResponseDto,
 } from "@/services/api/types/swagger";
 
 /**
@@ -140,52 +138,6 @@ export function isNotificationResponseDto(data: unknown): data is NotificationRe
   );
 }
 
-/**
- * Type guard for SubscriptionResponseDto
- */
-export function isSubscriptionResponseDto(data: unknown): data is SubscriptionResponseDto {
-  if (!data || typeof data !== "object") return false;
-  const obj = data as Record<string, unknown>;
-  return (
-    typeof obj.id === "number" &&
-    typeof obj.name === "string" &&
-    typeof obj.plan === "string" &&
-    ["FREE", "BASIC", "PREMIUM"].includes(obj.plan) &&
-    typeof obj.billingCycle === "string" &&
-    ["MONTHLY", "YEARLY"].includes(obj.billingCycle) &&
-    typeof obj.price === "string" &&
-    typeof obj.isActive === "boolean" &&
-    typeof obj.createdAt === "string" &&
-    typeof obj.updatedAt === "string" &&
-    typeof obj.startsAt === "string" &&
-    (obj.description === null || typeof obj.description === "string") &&
-    (obj.benefits === null || typeof obj.benefits === "string") &&
-    (obj.endsAt === null || typeof obj.endsAt === "string")
-  );
-}
-
-/**
- * Type guard for UserSubscriptionResponseDto
- */
-export function isUserSubscriptionResponseDto(data: unknown): data is UserSubscriptionResponseDto {
-  if (!data || typeof data !== "object") return false;
-  const obj = data as Record<string, unknown>;
-  return (
-    typeof obj.id === "number" &&
-    typeof obj.userId === "number" &&
-    typeof obj.subscriptionId === "number" &&
-    typeof obj.status === "string" &&
-    ["ACTIVE", "CANCELLED", "EXPIRED", "PENDING"].includes(obj.status) &&
-    typeof obj.price === "string" &&
-    typeof obj.billingCycle === "string" &&
-    ["MONTHLY", "YEARLY"].includes(obj.billingCycle) &&
-    typeof obj.startsAt === "string" &&
-    typeof obj.createdAt === "string" &&
-    typeof obj.updatedAt === "string" &&
-    (obj.endsAt === null || typeof obj.endsAt === "string") &&
-    (obj.cancelledAt === null || typeof obj.cancelledAt === "string")
-  );
-}
 
 /**
  * Validate array of items with a type guard

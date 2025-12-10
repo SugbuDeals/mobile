@@ -406,7 +406,7 @@ export default function Promotions() {
           startsAt: start.toISOString(),
           endsAt: end.toISOString(),
           discount: parseFloat(productData.discount),
-          productId: parseInt(productId),
+          productIds: [parseInt(productId)],
         };
         console.log(`Creating promotion for product ${productId}:`, promotionPayload);
         return createPromotion(promotionPayload).unwrap();
@@ -1228,7 +1228,7 @@ export default function Promotions() {
                                             startsAt: editForm.startsAt.toISOString(),
                                             endsAt: editForm.endsAt.toISOString(),
                                             discount: discount,
-                                            productId: createdProduct.id,
+                                            productIds: [createdProduct.id],
                                           }).unwrap();
                                         }
                                         
@@ -1350,7 +1350,7 @@ export default function Promotions() {
                                                     startsAt: editForm.startsAt.toISOString(),
                                                     endsAt: editForm.endsAt.toISOString(),
                                                     discount: discountValue,
-                                                    productId: product.id,
+                                                    productIds: [product.id],
                                                   }).unwrap();
                                                   if (storeId) {
                                                     await findActivePromotions(storeId);

@@ -43,7 +43,7 @@ export default function AdminViewPromotions() {
     return !!(store.ownerId && !authState.allUsers.some((u) => u.id === store.ownerId));
   };
 
-  const promotions = storeState.promotions
+  const promotions = (storeState.promotions || [])
     .filter((p) => (showOnlyActive ? p.active : true))
     .filter((p) => {
       const title = (p.title || "").toLowerCase();
@@ -151,7 +151,7 @@ export default function AdminViewPromotions() {
                       <View style={[styles.metaPill, { backgroundColor: "#e0f2f1" }]}>
                         <Ionicons name="pricetag" size={14} color="#277874" />
                         <Text style={[styles.metaText, { color: "#277874" }]}>
-                          {promo.type === "percentage" ? `${promo.discount}%` : `₱${promo.discount}`}
+                          {promo.type?.toLowerCase() === "percentage" ? `${promo.discount}%` : `₱${promo.discount}`}
                         </Text>
                       </View>
                       <View style={[styles.metaPill, { backgroundColor: "#f3f4f6" }]}>
