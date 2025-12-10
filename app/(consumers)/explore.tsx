@@ -10,19 +10,22 @@ import {
   type RecommendationTab,
 } from "@/components/consumers/explore";
 import { useStore } from "@/features/store";
+import type { Store } from "@/features/store/stores/types";
 import { useModal } from "@/hooks/useModal";
 import { useQueryHistory } from "@/hooks/useQueryHistory";
 import { useRecommendations } from "@/hooks/useRecommendations";
 import { useTabs } from "@/hooks/useTabs";
 import { borderRadius, colors, shadows, spacing, typography } from "@/styles/theme";
 import Ionicons from "@expo/vector-icons/Ionicons";
-import { useFocusEffect } from "expo-router";
+import { LinearGradient } from "expo-linear-gradient";
 import * as Location from "expo-location";
+import { useFocusEffect } from "expo-router";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Animated,
   KeyboardAvoidingView,
+  Modal,
   Platform,
   ScrollView,
   StyleSheet,
@@ -53,31 +56,90 @@ export default function Explore() {
   const [isEditingPrompt, setIsEditingPrompt] = useState(true);
   const [lastSubmittedQuery, setLastSubmittedQuery] = useState<string | null>(null);
   const [location, setLocation] = useState<{ latitude: number; longitude: number } | null>(null);
-  const [radius, setRadius] = useState<5 | 10 | 15>(5);
   const [locationPermissionStatus, setLocationPermissionStatus] = useState<"granted" | "denied" | "checking">("checking");
+  const [sortOption, setSortOption] = useState<"best-deal" | "closest" | "cheapest">("best-deal");
   const fadeAnim = useRef(new Animated.Value(0)).current;
   
   const {
-    state: { nearbyStores },
+    state: { nearbyStores, currentTier },
+    action: { getCurrentTier },
   } = useStore();
+
+  // Auto-determine radius based on tier (consumers can't select)
+  // BASIC: 1km max, PRO: 3km max
+  const radius = useMemo(() => {
+    if (currentTier?.tier === "PRO") {
+      return 3; // PRO tier allows up to 3km
+    }
+    return 1; // BASIC tier allows up to 1km
+  }, [currentTier?.tier]);
+
+  // Fetch current tier on mount
+  useEffect(() => {
+    getCurrentTier();
+  }, [getCurrentTier]);
 
   // Hooks for state management
   const { loading, response, fetchRecommendations, reset: resetRecommendations } = useRecommendations();
   const { activeTab, setActiveTab, reset: resetTabs } = useTabs<RecommendationTab>("all");
   const { isOpen: showHistoryModal, open: openHistoryModal, close: closeHistoryModal } = useModal();
+  const { isOpen: showHelpModal, open: openHelpModal, close: closeHelpModal } = useModal();
   const { history: queryHistory, addEntry } = useQueryHistory();
 
   const { aiResponse, insightsSummary, recommendations, highlight, elaboration, intent, products, stores, promotions } = response;
+  const { state: { stores: allStores } } = useStore();
 
   const hasResults = useMemo(
-    () => !!aiResponse || products.length > 0 || stores.length > 0 || promotions.length > 0,
+    () => (aiResponse != null && aiResponse.trim().length > 0) || products.length > 0 || stores.length > 0 || promotions.length > 0,
     [aiResponse, products, stores, promotions]
   );
+
+  // Sort products based on selected sort option
+  const sortedProducts = useMemo(() => {
+    if (activeTab !== "products" && activeTab !== "all") {
+      return products;
+    }
+
+    // Filter to only show products from verified stores
+    const verifiedProducts = products.filter((product: any) => {
+      if (!product.storeId) return false;
+      const productStore = (allStores || []).find((s: Store) => s.id === product.storeId);
+      return productStore?.verificationStatus === "VERIFIED";
+    });
+
+    const sorted = [...verifiedProducts].sort((a: any, b: any) => {
+      if (sortOption === "best-deal") {
+        // Sort by discount percentage (highest first), then by price (lowest first)
+        const discountA = a.discount || 0;
+        const discountB = b.discount || 0;
+        if (discountB !== discountA) {
+          return discountB - discountA;
+        }
+        // If same discount, sort by price
+        const priceA = typeof a.price === 'number' ? a.price : (typeof a.price === 'string' ? parseFloat(a.price) : Infinity);
+        const priceB = typeof b.price === 'number' ? b.price : (typeof b.price === 'string' ? parseFloat(b.price) : Infinity);
+        return priceA - priceB;
+      } else if (sortOption === "closest") {
+        // Sort by distance (lowest first)
+        const distanceA = a.distance ?? Infinity;
+        const distanceB = b.distance ?? Infinity;
+        return distanceA - distanceB;
+      } else if (sortOption === "cheapest") {
+        // Sort by price (lowest first)
+        const priceA = typeof a.price === 'number' ? a.price : (typeof a.price === 'string' ? parseFloat(a.price) : Infinity);
+        const priceB = typeof b.price === 'number' ? b.price : (typeof b.price === 'string' ? parseFloat(b.price) : Infinity);
+        return priceA - priceB;
+      }
+      return 0;
+    });
+
+    return sorted;
+  }, [products, sortOption, activeTab, allStores]);
 
   // Filter content based on active tab
   const filteredContent = useMemo(() => {
     if (activeTab === "products") {
-      return { products, stores: [], promotions: [] };
+      return { products: sortedProducts, stores: [], promotions: [] };
     }
     if (activeTab === "stores") {
       return { products: [], stores, promotions: [] };
@@ -86,8 +148,8 @@ export default function Explore() {
       return { products: [], stores: [], promotions };
     }
     // "all" tab
-    return { products, stores, promotions };
-  }, [activeTab, products, stores, promotions]);
+    return { products: sortedProducts, stores, promotions };
+  }, [activeTab, sortedProducts, stores, promotions]);
 
   const totalCount = products.length + stores.length + promotions.length;
 
@@ -224,7 +286,7 @@ export default function Explore() {
       query,
       enrichDistance,
       location || undefined,
-      radius,
+      radius === 1 ? 5 : radius === 3 ? 10 : 5, // Map 1km to 5, 3km to 10 for API compatibility
       10
     );
     
@@ -242,6 +304,7 @@ export default function Explore() {
         setLastSubmittedQuery(null);
         setInsightsExpanded(false);
         setIsEditingPrompt(true);
+        setSortOption("best-deal");
         resetRecommendations();
         resetTabs();
       };
@@ -287,8 +350,8 @@ export default function Explore() {
                   onSearchChange={setSearchQuery}
                   onSubmit={submitSearch}
                   radius={radius}
-                  onRadiusChange={setRadius}
                   hasLocation={locationPermissionStatus === "granted" && location !== null}
+                  showRadiusSelector={false}
                 />
               ) : (
                 <InsightsPanel
@@ -339,7 +402,7 @@ export default function Explore() {
             ) : (
               <Animated.View style={{ opacity: fadeAnim }}>
                 {/* Always show AI response content if available */}
-                {aiResponse && (
+                {aiResponse && aiResponse.trim().length > 0 && (
                   <View style={styles.chatResponseContainer}>
                     <ChatResponse content={aiResponse} />
                   </View>
@@ -349,11 +412,46 @@ export default function Explore() {
                 {hasStructuredData && totalCount > 0 && (
                   <RecommendationTabs
                     activeTab={activeTab}
-                    onTabChange={setActiveTab}
+                    onTabChange={(tab) => {
+                      setActiveTab(tab);
+                      setSortOption("best-deal");
+                    }}
                     productsCount={products.length}
                     storesCount={stores.length}
                     promotionsCount={promotions.length}
                   />
+                )}
+
+                {/* Sort Options - Only show for products */}
+                {activeTab === "products" && sortedProducts.length > 0 && (
+                  <View style={styles.categoryContainer}>
+                    <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                      {[
+                        { key: "best-deal", label: "Best Deal" },
+                        { key: "closest", label: "Closest" },
+                        { key: "cheapest", label: "Cheapest" },
+                      ].map((option) => (
+                        <TouchableOpacity
+                          key={option.key}
+                          style={[
+                            styles.categoryChip,
+                            sortOption === option.key && styles.activeCategoryChip,
+                          ]}
+                          onPress={() => setSortOption(option.key as "best-deal" | "closest" | "cheapest")}
+                        >
+                          <Text
+                            style={[
+                              styles.categoryChipText,
+                              sortOption === option.key &&
+                                styles.activeCategoryChipText,
+                            ]}
+                          >
+                            {option.label}
+                          </Text>
+                        </TouchableOpacity>
+                      ))}
+                    </ScrollView>
+                  </View>
                 )}
 
                 {/* Show cards if we have structured data */}
@@ -446,8 +544,8 @@ export default function Explore() {
                   onSearchChange={setSearchQuery}
                   onSubmit={submitSearch}
                   radius={radius}
-                  onRadiusChange={setRadius}
                   hasLocation={locationPermissionStatus === "granted" && location !== null}
+                  showRadiusSelector={false}
                 />
               ) : (
                 <InsightsPanel
@@ -468,11 +566,57 @@ export default function Explore() {
             {isEditingPrompt && (
               <View style={styles.welcomeContainerCentered}>
                 <View style={styles.welcomeContent}>
-                  <Ionicons name="compass-outline" size={64} color={colors.primaryLight} />
+                  {/* AI Badge */}
+                  <View style={styles.aiBadgeContainer}>
+                    <LinearGradient
+                      colors={["#FFBE5D", "#277874"]}
+                      style={styles.aiBadge}
+                      start={{ x: 0, y: 0 }}
+                      end={{ x: 1, y: 0 }}
+                    >
+                      <Ionicons name="sparkles" size={24} color="#ffffff" />
+                      <Text style={styles.aiBadgeText}>AI-Powered Search</Text>
+                    </LinearGradient>
+                  </View>
+                  
+                  {/* Main Icon */}
+                  <View style={styles.iconContainer}>
+                    <LinearGradient
+                      colors={["#FFBE5D", "#277874"]}
+                      style={styles.iconGradient}
+                      start={{ x: 0, y: 0 }}
+                      end={{ x: 1, y: 1 }}
+                    >
+                      <Ionicons name="compass" size={48} color="#ffffff" />
+                    </LinearGradient>
+                  </View>
+                  
                   <Text style={styles.welcomeTitle}>Discover Great Deals</Text>
                   <Text style={styles.welcomeText}>
-                    Search for products, stores, or promotions. Ask me anything!
+                    Search naturally for products, stores, or promotions. Our AI understands what you&apos;re looking for!
                   </Text>
+                  
+                  {/* Quick Tips */}
+                  <View style={styles.quickTipsContainer}>
+                    <View style={styles.tipItem}>
+                      <View style={styles.tipIconContainer}>
+                        <Ionicons name="chatbubble-ellipses" size={16} color="#ffffff" />
+                      </View>
+                      <Text style={styles.tipText}>Ask in your own words</Text>
+                    </View>
+                    <View style={styles.tipItem}>
+                      <View style={styles.tipIconContainer}>
+                        <Ionicons name="location" size={16} color="#ffffff" />
+                      </View>
+                      <Text style={styles.tipText}>Find nearby deals automatically</Text>
+                    </View>
+                    <View style={styles.tipItem}>
+                      <View style={styles.tipIconContainer}>
+                        <Ionicons name="star" size={16} color="#ffffff" />
+                      </View>
+                      <Text style={styles.tipText}>Get personalized recommendations</Text>
+                    </View>
+                  </View>
                 </View>
               </View>
             )}
@@ -490,10 +634,256 @@ export default function Explore() {
           closeHistoryModal();
         }}
       />
+      
+      {/* Help/Guide Modal */}
+      <HelpModal
+        visible={showHelpModal}
+        onClose={closeHelpModal}
+      />
+      
+      {/* Help Button - Floating */}
+      {!hasResults && !loading && (
+        <TouchableOpacity
+          style={styles.helpButton}
+          onPress={openHelpModal}
+          activeOpacity={0.8}
+        >
+          <Ionicons name="help-circle" size={28} color="#277874" />
+        </TouchableOpacity>
+      )}
       </ScrollView>
     </KeyboardAvoidingView>
   );
 }
+
+// Help Modal Component
+function HelpModal({ visible, onClose }: { visible: boolean; onClose: () => void }) {
+  return (
+    <Modal
+      visible={visible}
+      transparent={true}
+      animationType="slide"
+      onRequestClose={onClose}
+    >
+      <View style={helpModalStyles.overlay}>
+        <TouchableOpacity 
+          style={helpModalStyles.overlayTouchable}
+          activeOpacity={1}
+          onPress={onClose}
+        >
+          <View />
+        </TouchableOpacity>
+        <View style={helpModalStyles.content}>
+          <View style={helpModalStyles.header}>
+            <View style={helpModalStyles.headerContent}>
+              <LinearGradient
+                colors={["#FFBE5D", "#277874"]}
+                style={helpModalStyles.headerIcon}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+              >
+                <Ionicons name="sparkles" size={24} color="#ffffff" />
+              </LinearGradient>
+              <Text style={helpModalStyles.headerTitle}>How to Use AI Search</Text>
+            </View>
+            <TouchableOpacity onPress={onClose} style={helpModalStyles.closeButton}>
+              <Ionicons name="close" size={24} color="#6b7280" />
+            </TouchableOpacity>
+          </View>
+          
+          <ScrollView 
+            style={helpModalStyles.scrollView} 
+            contentContainerStyle={helpModalStyles.scrollContent}
+            showsVerticalScrollIndicator={true}
+            nestedScrollEnabled={true}
+          >
+            <View style={helpModalStyles.section}>
+              <Text style={helpModalStyles.sectionTitle}>🔍 Search for Products</Text>
+              <Text style={helpModalStyles.sectionText}>
+                Just describe what you&apos;re looking for! Examples:
+              </Text>
+              <View style={helpModalStyles.exampleContainer}>
+                <Text style={helpModalStyles.exampleText}>• &quot;laptops under ₱30,000&quot;</Text>
+                <Text style={helpModalStyles.exampleText}>• &quot;smartphones with good camera&quot;</Text>
+                <Text style={helpModalStyles.exampleText}>• &quot;groceries for cooking&quot;</Text>
+                <Text style={helpModalStyles.exampleText}>• &quot;fashion items for summer&quot;</Text>
+              </View>
+            </View>
+            
+            <View style={helpModalStyles.section}>
+              <Text style={helpModalStyles.sectionTitle}>🏪 Find Stores</Text>
+              <Text style={helpModalStyles.sectionText}>
+                Ask about shops or places to buy:
+              </Text>
+              <View style={helpModalStyles.exampleContainer}>
+                <Text style={helpModalStyles.exampleText}>• &quot;electronics stores near me&quot;</Text>
+                <Text style={helpModalStyles.exampleText}>• &quot;where can I buy groceries&quot;</Text>
+                <Text style={helpModalStyles.exampleText}>• &quot;fashion shops in the area&quot;</Text>
+              </View>
+            </View>
+            
+            <View style={helpModalStyles.section}>
+              <Text style={helpModalStyles.sectionTitle}>🎉 Discover Deals</Text>
+              <Text style={helpModalStyles.sectionText}>
+                Look for discounts and promotions:
+              </Text>
+              <View style={helpModalStyles.exampleContainer}>
+                <Text style={helpModalStyles.exampleText}>• &quot;discounts on smartphones&quot;</Text>
+                <Text style={helpModalStyles.exampleText}>• &quot;sales happening now&quot;</Text>
+                <Text style={helpModalStyles.exampleText}>• &quot;best deals today&quot;</Text>
+              </View>
+            </View>
+            
+            <View style={helpModalStyles.section}>
+              <Text style={helpModalStyles.sectionTitle}>📍 Location Features</Text>
+              <Text style={helpModalStyles.sectionText}>
+                When location is enabled, we automatically show you the closest options first. Results are sorted by both relevance and distance to help you find the best nearby deals.
+              </Text>
+            </View>
+            
+            <View style={helpModalStyles.section}>
+              <Text style={helpModalStyles.sectionTitle}>💡 Tips for Better Results</Text>
+              <View style={helpModalStyles.tipContainer}>
+                <Text style={helpModalStyles.tipText}>✓ Be specific about what you want</Text>
+                <Text style={helpModalStyles.tipText}>✓ Mention your budget if you have one</Text>
+                <Text style={helpModalStyles.tipText}>✓ Use natural language - no need for keywords</Text>
+                <Text style={helpModalStyles.tipText}>✓ Ask follow-up questions if needed</Text>
+              </View>
+            </View>
+            
+            <View style={helpModalStyles.footer}>
+              <Text style={helpModalStyles.footerText}>
+                Our AI understands your intent and finds the best matches from verified stores only.
+              </Text>
+            </View>
+          </ScrollView>
+        </View>
+      </View>
+    </Modal>
+  );
+}
+
+const helpModalStyles = StyleSheet.create({
+  overlay: {
+    flex: 1,
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
+    justifyContent: "flex-end",
+  },
+  overlayTouchable: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+  },
+  content: {
+    backgroundColor: "#ffffff",
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    maxHeight: "85%",
+    height: "85%",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: -4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 10,
+  },
+  header: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    padding: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: "#e5e7eb",
+  },
+  headerContent: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+  },
+  headerIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  headerTitle: {
+    fontSize: 20,
+    fontWeight: "700",
+    color: "#1f2937",
+  },
+  closeButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "#f3f4f6",
+  },
+  scrollView: {
+    flex: 1,
+  },
+  scrollContent: {
+    flexGrow: 1,
+    paddingBottom: 20,
+  },
+  section: {
+    padding: 20,
+    paddingBottom: 16,
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: "700",
+    color: "#1f2937",
+    marginBottom: 12,
+  },
+  sectionText: {
+    fontSize: 15,
+    color: "#4b5563",
+    lineHeight: 22,
+    marginBottom: 12,
+  },
+  exampleContainer: {
+    backgroundColor: "#f9fafb",
+    borderRadius: 12,
+    padding: 16,
+    marginTop: 8,
+  },
+  exampleText: {
+    fontSize: 14,
+    color: "#6b7280",
+    lineHeight: 24,
+    marginBottom: 4,
+  },
+  tipContainer: {
+    backgroundColor: "#f0fdf4",
+    borderRadius: 12,
+    padding: 16,
+    borderLeftWidth: 4,
+    borderLeftColor: "#277874",
+  },
+  tipText: {
+    fontSize: 14,
+    color: "#1f2937",
+    lineHeight: 24,
+    marginBottom: 8,
+  },
+  footer: {
+    padding: 20,
+    paddingTop: 10,
+    backgroundColor: "#f9fafb",
+    borderTopWidth: 1,
+    borderTopColor: "#e5e7eb",
+  },
+  footerText: {
+    fontSize: 13,
+    color: "#6b7280",
+    textAlign: "center",
+    lineHeight: 20,
+    fontStyle: "italic",
+  },
+});
 
 const styles = StyleSheet.create({
   keyboardAvoidingView: {
@@ -505,20 +895,19 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     flexGrow: 1,
-    paddingBottom: Platform.select({ ios: 100, android: 80 }),
+    paddingBottom: Platform.select({ ios: 20, android: 20 }),
   },
   content: {
     padding: 20,
     paddingTop: Platform.select({ ios: 20, android: 10 }),
     flexGrow: 1,
-    minHeight: "100%",
   },
   searchContainer: {
     marginBottom: 20,
     marginTop: 0,
   },
   searchContainerTop: {
-    marginBottom: 20,
+    marginBottom: 0,
     marginTop: 0,
   },
   searchContainerBottom: {
@@ -714,27 +1103,61 @@ const styles = StyleSheet.create({
   welcomeContainer: {
     alignItems: "center",
     justifyContent: "center",
-    paddingVertical: spacing.xxxl,
     paddingHorizontal: spacing.xl,
-    marginTop: spacing.xl,
   },
   welcomeContainerCentered: {
-    flex: 1,
     justifyContent: "center",
     alignItems: "center",
-    minHeight: 300,
+    paddingVertical: 5
   },
   welcomeContent: {
     alignItems: "center",
     justifyContent: "center",
-    paddingVertical: spacing.xxxl,
+    paddingVertical: spacing.md,
     paddingHorizontal: spacing.xl,
+    width: "100%",
+  },
+  aiBadgeContainer: {
+    marginBottom: 10
+  },
+  aiBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 24,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  aiBadgeText: {
+    color: "#ffffff",
+    fontSize: 14,
+    fontWeight: "700",
+    letterSpacing: 0.3,
+  },
+  iconContainer: {
+    marginBottom: 20,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 5,
+  },
+  iconGradient: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    justifyContent: "center",
+    alignItems: "center",
   },
   welcomeTitle: {
     fontSize: typography.fontSize.xxl,
     fontWeight: typography.fontWeight.bold,
     color: colors.gray900,
-    marginTop: spacing.lg,
     textAlign: "center",
   },
   welcomeText: {
@@ -743,7 +1166,62 @@ const styles = StyleSheet.create({
     marginTop: spacing.md,
     textAlign: "center",
     lineHeight: 24,
-    maxWidth: 300,
+    maxWidth: 320,
+    marginBottom: spacing.lg,
+  },
+  quickTipsContainer: {
+    marginTop: spacing.lg,
+    width: "100%",
+    maxWidth: 320,
+    gap: 10,
+  },
+  tipItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    backgroundColor: "#ffffff",
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    borderRadius: 14,
+    borderWidth: 1.5,
+    borderColor: "#e5e7eb",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 3,
+    elevation: 2,
+  },
+  tipIconContainer: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: "#277874",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  tipText: {
+    fontSize: 14,
+    color: "#374151",
+    fontWeight: "600",
+    flex: 1,
+  },
+  helpButton: {
+    position: "absolute",
+    bottom: 100,
+    right: 20,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: "#ffffff",
+    justifyContent: "center",
+    alignItems: "center",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 5,
+    borderWidth: 2,
+    borderColor: "#e5e7eb",
   },
   shimmerCard: {
     backgroundColor: colors.white,
@@ -1247,5 +1725,29 @@ const styles = StyleSheet.create({
     color: "#9CA3AF",
     textAlign: "center",
     lineHeight: 20,
+  },
+  categoryContainer: {
+    marginBottom: 20,
+  },
+  categoryChip: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    backgroundColor: "#f3f4f6",
+    borderRadius: 20,
+    marginRight: 10,
+    borderWidth: 1,
+    borderColor: "#e5e7eb",
+  },
+  activeCategoryChip: {
+    backgroundColor: "#277874",
+    borderColor: "#277874",
+  },
+  categoryChipText: {
+    fontSize: 14,
+    fontWeight: "500",
+    color: "#6b7280",
+  },
+  activeCategoryChipText: {
+    color: "#ffffff",
   },
 });

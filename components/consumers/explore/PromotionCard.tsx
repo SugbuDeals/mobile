@@ -66,84 +66,50 @@ export default function PromotionCard({ promotion, onPress }: PromotionCardProps
     <TouchableOpacity
       style={styles.card}
       onPress={handlePress}
-      activeOpacity={0.8}
+      activeOpacity={0.7}
       accessibilityRole="button"
       accessibilityLabel={`Promotion: ${promotion.title}`}
     >
-      <View style={styles.cardContent}>
-        {/* Discount Badge */}
-        <View style={styles.discountBadge}>
-          <Text style={styles.discountText}>{discountText}</Text>
-        </View>
-
-        {/* Promotion Info */}
-        <View style={styles.infoContainer}>
-          <Text style={styles.title} numberOfLines={2}>
-            {promotion.title}
-          </Text>
-
-          {promotion.description && (
-            <Text style={styles.description} numberOfLines={3}>
-              {promotion.description}
+      <View style={styles.cardTopRow}>
+        <View style={styles.storeRow}>
+          <View style={styles.storeLogo}>
+            <Ionicons name="pricetag-outline" size={22} color="#277874" />
+          </View>
+          <View style={{ maxWidth: 220 }}>
+            <Text style={styles.storeName} numberOfLines={1}>
+              {promotion.title}
             </Text>
-          )}
-
-          {/* Dates */}
-          <View style={styles.datesContainer}>
-            <View style={styles.dateItem}>
-              <Ionicons name="calendar-outline" size={14} color={colors.gray600} />
-              <Text style={styles.dateText}>
-                Starts: {formatDate(promotion.startsAt)}
-              </Text>
-            </View>
-            {promotion.endsAt && (
-              <View style={styles.dateItem}>
-                <Ionicons name="calendar-outline" size={14} color={colors.gray600} />
-                <Text style={styles.dateText}>
-                  Ends: {formatDate(promotion.endsAt)}
-                </Text>
-              </View>
-            )}
+            <Text style={styles.storeLocation} numberOfLines={2}>
+              {promotion.description || "Promotion"}
+            </Text>
           </View>
-
-          {/* Footer */}
-          <View style={styles.footer}>
-            <View style={styles.statusContainer}>
-              <View
-                style={[
-                  styles.statusDot,
-                  { backgroundColor: isActive ? colors.success : colors.error },
-                ]}
-              />
-              <Text
-                style={[
-                  styles.statusText,
-                  { color: isActive ? colors.successDark : colors.errorDark },
-                ]}
-              >
-                {isActive ? "Active" : "Ended"}
-              </Text>
-            </View>
-            {calculateDaysLeft !== null && calculateDaysLeft > 0 && (
-              <View style={styles.daysLeftBadge}>
-                <Ionicons name="time-outline" size={12} color={colors.warningDark} />
-                <Text style={styles.daysLeftText}>
-                  {calculateDaysLeft} day{calculateDaysLeft !== 1 ? "s" : ""} left
-                </Text>
-              </View>
-            )}
-          </View>
-
-          <TouchableOpacity
-            style={styles.viewButton}
-            onPress={handlePress}
-            accessibilityRole="button"
-            accessibilityLabel="View promotion details"
-          >
-            <Text style={styles.viewButtonText}>View Details</Text>
-            <Ionicons name="chevron-forward" size={16} color={colors.white} />
-          </TouchableOpacity>
         </View>
+        <View style={styles.discountBadge}>
+          <Text style={styles.discountBadgeText}>{discountText}</Text>
+        </View>
+      </View>
+
+      <View style={styles.cardBottomRow}>
+        <View style={[styles.activePill, !isActive && styles.inactivePill]}>
+          <Text style={[styles.activePillText, !isActive && styles.inactivePillText]}>
+            {isActive ? "Active" : "Ended"}
+          </Text>
+        </View>
+        {calculateDaysLeft !== null && calculateDaysLeft > 0 && (
+          <View style={styles.daysLeftBadge}>
+            <Ionicons name="time-outline" size={12} color="#92400E" />
+            <Text style={styles.daysLeftText}>
+              {calculateDaysLeft} day{calculateDaysLeft !== 1 ? "s" : ""} left
+            </Text>
+          </View>
+        )}
+        <View style={styles.spacer} />
+        <TouchableOpacity
+          style={styles.actionButton}
+          onPress={handlePress}
+        >
+          <Ionicons name="arrow-forward-circle" size={20} color="#277874" />
+        </TouchableOpacity>
       </View>
     </TouchableOpacity>
   );
@@ -151,108 +117,99 @@ export default function PromotionCard({ promotion, onPress }: PromotionCardProps
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: colors.white,
-    borderRadius: borderRadius.xl,
-    marginBottom: spacing.md,
-    ...shadows.md,
+    backgroundColor: "#fff",
+    borderRadius: 12,
+    padding: 15,
+    marginBottom: 15,
+    elevation: 4,
+    shadowColor: "#000",
+    shadowOpacity: 0.1,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 4 },
     borderWidth: 1,
-    borderColor: colors.gray200,
-    overflow: "hidden",
+    borderColor: "#f3f4f6",
   },
-  cardContent: {
-    padding: spacing.md,
+  cardTopRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  storeRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    columnGap: 12,
+  },
+  storeLogo: {
+    width: 42,
+    height: 42,
+    borderRadius: 8,
+    backgroundColor: "#F1F5F9",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  storeName: {
+    fontWeight: "700",
+    fontSize: 16,
+    maxWidth: 200,
+  },
+  storeLocation: {
+    color: "#6B7280",
+    fontSize: 13,
+    textTransform: "capitalize",
   },
   discountBadge: {
-    alignSelf: "flex-start",
-    backgroundColor: colors.warning,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    borderRadius: borderRadius.full,
-    marginBottom: spacing.md,
+    backgroundColor: "#F59E0B",
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 100,
   },
-  discountText: {
-    fontSize: typography.fontSize.base,
-    fontWeight: typography.fontWeight.extrabold,
-    color: colors.white,
-    letterSpacing: 0.5,
+  discountBadgeText: {
+    color: "#ffffff",
+    fontWeight: "700",
+    fontSize: 12,
   },
-  infoContainer: {
-    gap: spacing.sm,
-  },
-  title: {
-    fontSize: typography.fontSize.lg,
-    fontWeight: typography.fontWeight.bold,
-    color: colors.gray900,
-    lineHeight: 24,
-  },
-  description: {
-    fontSize: typography.fontSize.sm,
-    color: colors.gray600,
-    lineHeight: 20,
-  },
-  datesContainer: {
-    gap: spacing.xs,
-    marginTop: spacing.xs,
-  },
-  dateItem: {
+  cardBottomRow: {
+    marginTop: 14,
     flexDirection: "row",
     alignItems: "center",
-    gap: spacing.xs,
   },
-  dateText: {
-    fontSize: typography.fontSize.xs,
-    color: colors.gray600,
+  activePill: {
+    backgroundColor: "#D1FAE5",
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 100,
   },
-  footer: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    marginTop: spacing.sm,
-    marginBottom: spacing.xs,
+  activePillText: {
+    color: "#1B6F5D",
+    fontWeight: "600",
+    fontSize: 12,
   },
-  statusContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.xs,
+  inactivePill: {
+    backgroundColor: "#FEE2E2",
   },
-  statusDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-  },
-  statusText: {
-    fontSize: typography.fontSize.xs,
-    fontWeight: typography.fontWeight.medium,
+  inactivePillText: {
+    color: "#991B1B",
   },
   daysLeftBadge: {
     flexDirection: "row",
     alignItems: "center",
     gap: 4,
-    backgroundColor: colors.warningLight,
-    paddingHorizontal: spacing.sm,
+    backgroundColor: "#FEF3C7",
+    paddingHorizontal: 8,
     paddingVertical: 4,
-    borderRadius: borderRadius.md,
+    borderRadius: 100,
+    marginLeft: 8,
   },
   daysLeftText: {
-    fontSize: typography.fontSize.xs,
-    fontWeight: typography.fontWeight.semibold,
-    color: colors.warningDark,
+    fontSize: 11,
+    fontWeight: "600",
+    color: "#92400E",
   },
-  viewButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: colors.primary,
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.md,
-    borderRadius: borderRadius.full,
-    gap: spacing.xs,
-    marginTop: spacing.sm,
+  spacer: {
+    flex: 1,
   },
-  viewButtonText: {
-    fontSize: typography.fontSize.sm,
-    fontWeight: typography.fontWeight.bold,
-    color: colors.white,
+  actionButton: {
+    padding: 8,
   },
 });
 

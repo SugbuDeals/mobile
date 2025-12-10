@@ -11,6 +11,7 @@ import {
   deletePromotion,
 } from "./thunks";
 import { createAsyncReducer } from "@/utils/redux/createAsyncReducer";
+import { logout } from "@/features/auth/slice";
 import type { Promotion, UpdatePromotionDTO } from "./types";
 
 interface PromotionsState {
@@ -128,6 +129,15 @@ const promotionsSlice = createSlice({
           (promotion: Promotion) => promotion.id !== action.payload.id
         );
       },
+    });
+
+    // Clear promotions on logout
+    builder.addCase(logout, (state) => {
+      state.promotions = [];
+      state.activePromotions = [];
+      state.loading = false;
+      state.error = null;
+      state.componentLoading = {};
     });
   },
 });

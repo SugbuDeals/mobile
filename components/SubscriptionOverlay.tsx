@@ -2,7 +2,6 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import { LinearGradient } from "expo-linear-gradient";
 import React from "react";
 import {
-    Linking,
     Modal,
     StyleSheet,
     Text,
@@ -31,22 +30,6 @@ export default function SubscriptionOverlay({
   validityDays = 7,
   isLoading = false,
 }: SubscriptionOverlayProps) {
-  const handleContactSupport = () => {
-    // You can replace this with your actual support contact method
-    const supportEmail = "support@example.com";
-    const subject = "Product Limit Inquiry";
-    const body = "I need help with my product limit subscription.";
-    const mailtoLink = `mailto:${supportEmail}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
-    
-    Linking.canOpenURL(mailtoLink).then((supported) => {
-      if (supported) {
-        Linking.openURL(mailtoLink);
-      } else {
-        console.log("Email not supported");
-      }
-    });
-  };
-
   return (
     <Modal
       visible={visible}
@@ -87,14 +70,6 @@ export default function SubscriptionOverlay({
               </View>
             </View>
 
-            {/* Validity Notice */}
-            <View style={styles.validityBox}>
-              <Ionicons name="time-outline" size={24} color="#F59E0B" />
-              <Text style={styles.validityText}>
-                Valid for {validityDays} days only
-              </Text>
-            </View>
-
             {/* Upgrade Button */}
             <TouchableOpacity
               style={[styles.upgradeButton, isLoading && styles.upgradeButtonDisabled]}
@@ -103,7 +78,7 @@ export default function SubscriptionOverlay({
             >
               <Ionicons name="card" size={20} color="#ffffff" />
               <Text style={styles.upgradeButtonText}>
-                {isLoading ? "Processing..." : `Upgrade Now - ${upgradePrice}`}
+                {isLoading ? "Processing..." : "Please go to subscription page to apply for plans"}
               </Text>
             </TouchableOpacity>
 
@@ -114,14 +89,6 @@ export default function SubscriptionOverlay({
             >
               <Text style={styles.dismissButtonText}>Maybe Later</Text>
             </TouchableOpacity>
-
-            {/* Support Link */}
-            <View style={styles.supportContainer}>
-              <Text style={styles.supportText}>Need help? </Text>
-              <TouchableOpacity onPress={handleContactSupport}>
-                <Text style={styles.supportLink}>Contact Support</Text>
-              </TouchableOpacity>
-            </View>
           </View>
         </View>
       </View>
@@ -202,20 +169,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: "#DC2626",
   },
-  validityBox: {
-    flexDirection: "row",
-    backgroundColor: "#FFFBEB",
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 20,
-    alignItems: "center",
-  },
-  validityText: {
-    fontSize: 14,
-    color: "#F59E0B",
-    marginLeft: 12,
-    fontWeight: "500",
-  },
   upgradeButton: {
     flexDirection: "row",
     backgroundColor: "#277874",
@@ -249,20 +202,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "500",
     color: "#6B7280",
-  },
-  supportContainer: {
-    flexDirection: "row",
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  supportText: {
-    fontSize: 14,
-    color: "#6B7280",
-  },
-  supportLink: {
-    fontSize: 14,
-    color: "#10B981",
-    fontWeight: "600",
   },
   upgradeButtonDisabled: {
     opacity: 0.6,

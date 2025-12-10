@@ -4,6 +4,7 @@ import { logout } from "@/features/auth/slice";
 import { fetchUserById } from "@/features/auth/thunk";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { getFileUrl, uploadFile } from "@/utils/fileUpload";
+import { getNotificationPreference, setNotificationPreference } from "@/utils/notificationPreferences";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import * as ImagePicker from "expo-image-picker";
 import { router } from "expo-router";
@@ -52,6 +53,17 @@ export default function Profile() {
       dispatch(fetchUserById(Number(user.id)));
     }
   }, [dispatch, user]);
+
+  // Load notification preference on mount
+  useEffect(() => {
+    getNotificationPreference().then(setNotificationsEnabled);
+  }, []);
+
+  // Handle notification preference change
+  const handleNotificationToggle = async (value: boolean) => {
+    setNotificationsEnabled(value);
+    await setNotificationPreference(value);
+  };
 
   const handleSave = async () => {
     try {
@@ -134,8 +146,12 @@ export default function Profile() {
         text: "Logout",
         style: "destructive",
         onPress: () => {
+          // Clear auth state immediately
           dispatch(logout());
-          router.replace("/auth/login");
+          // Use setTimeout to ensure state update is processed before navigation
+          setTimeout(() => {
+            router.replace("/auth/login");
+          }, 0);
         },
       },
     ]);
@@ -309,7 +325,7 @@ export default function Profile() {
           <View style={styles.notificationContainer}>
             <Toggle
               value={notificationsEnabled}
-              onValueChange={setNotificationsEnabled}
+              onValueChange={handleNotificationToggle}
               label="Receive Notifications"
               icon={
                 <Ionicons
@@ -319,7 +335,31 @@ export default function Profile() {
                 />
               }
             />
+            <Text style={styles.notificationHint}>
+              Get notified about nearby promotions when you're close to stores
+            </Text>
           </View>
+        </View>
+
+        <View style={styles.card}>
+          <View style={styles.cardHeader}>
+            <Ionicons name="star-outline" size={18} color="#277874" />
+            <Text style={styles.cardTitle}>Subscription</Text>
+          </View>
+          <TouchableOpacity
+            style={styles.subscriptionButton}
+            onPress={() => router.push("/(consumers)/subscription")}
+          >
+            <View style={styles.subscriptionButtonContent}>
+              <View>
+                <Text style={styles.subscriptionButtonTitle}>Manage Subscription</Text>
+                <Text style={styles.subscriptionButtonSubtitle}>
+                  Upgrade to PRO for extended features
+                </Text>
+              </View>
+              <Ionicons name="chevron-forward" size={20} color="#277874" />
+            </View>
+          </TouchableOpacity>
         </View>
 
         <View style={styles.dangerCard}>
@@ -446,6 +486,12 @@ const styles = StyleSheet.create({
     marginTop: 8,
     paddingVertical: 4,
   },
+  notificationHint: {
+    fontSize: 12,
+    color: "#6b7280",
+    marginTop: 8,
+    lineHeight: 16,
+  },
   buttonContainer: {
     gap: 12,
   },
@@ -472,5 +518,28 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
     borderWidth: 2,
     borderColor: "#7f1d1d",
+  },
+  subscriptionButton: {
+    marginTop: 8,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "#e5e7eb",
+    backgroundColor: "#f9fafb",
+  },
+  subscriptionButtonContent: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    padding: 16,
+  },
+  subscriptionButtonTitle: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#1f2937",
+    marginBottom: 4,
+  },
+  subscriptionButtonSubtitle: {
+    fontSize: 14,
+    color: "#6b7280",
   },
 });

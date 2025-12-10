@@ -1,5 +1,7 @@
 import env from "@/config/env";
 import { useLogin } from "@/features/auth";
+import { aiApi } from "@/services/api/endpoints/ai";
+import type { ChatRequestDto, ChatResponseDto } from "@/services/api/endpoints/ai";
 import { Ionicons } from "@expo/vector-icons";
 import React, { useState } from "react";
 import {
@@ -15,10 +17,13 @@ import {
 
 interface QueryHistory {
   id: number;
-  type: 'chat' | 'generate' | 'recommendation';
   query: string;
   count?: number;
   response: string;
+  productsCount?: number;
+  storesCount?: number;
+  promotionsCount?: number;
+  intent?: string;
   timestamp: Date;
 }
 
@@ -41,258 +46,101 @@ type RecommendationProduct = {
 export default function AITesting() {
   const { state: authState } = useLogin();
   
-  // States for each AI endpoint
-  const [chatMessage, setChatMessage] = useState("");
-  const [chatResponse, setChatResponse] = useState("");
-  const [chatLoading, setChatLoading] = useState(false);
-  
-  const [generatePrompt, setGeneratePrompt] = useState("");
-  const [generateResponse, setGenerateResponse] = useState("");
-  const [generateLoading, setGenerateLoading] = useState(false);
-  
-  const [recommendationQuery, setRecommendationQuery] = useState("");
-  const [recommendationCount, setRecommendationCount] = useState("10");
-  const [recommendationResponse, setRecommendationResponse] = useState("");
-  const [recommendationLoading, setRecommendationLoading] = useState(false);
-  const [recommendationProducts, setRecommendationProducts] = useState<RecommendationProduct[]>([]);
+  // States for AI chat endpoint (same as consumer explore)
+  const [query, setQuery] = useState("");
+  const [count, setCount] = useState("10");
+  const [response, setResponse] = useState<ChatResponseDto | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [products, setProducts] = useState<RecommendationProduct[]>([]);
+  const [stores, setStores] = useState<any[]>([]);
+  const [promotions, setPromotions] = useState<any[]>([]);
   
   // History state
   const [queryHistory, setQueryHistory] = useState<QueryHistory[]>([]);
 
-  // Handle Chat AI
-  const handleChatAI = async () => {
-    if (!chatMessage.trim() || chatLoading) return;
+  // Handle AI Chat (same route as consumer explore)
+  const handleAIChat = async () => {
+    if (!query.trim() || loading) return;
     
-    setChatLoading(true);
-    setChatResponse("Processing...");
-    
-    try {
-      const response = await fetch(`${env.API_BASE_URL}/ai/chat`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          ...(authState.accessToken ? { Authorization: `Bearer ${authState.accessToken}` } : {}),
-        },
-        body: JSON.stringify({
-          messages: [
-            { role: "user", content: chatMessage }
-          ]
-        }),
-      });
-      
-      const rawText = await response.text();
-      let jsonData: Record<string, unknown> = {};
-      
-      try {
-        jsonData = rawText ? JSON.parse(rawText) : {};
-      } catch {
-        jsonData = { content: rawText };
-      }
-      
-      // Extract content from various response formats
-      const responseText: string =
-        (typeof jsonData?.content === 'string' ? jsonData.content : undefined) ||
-        (typeof jsonData?.message === 'string' ? jsonData.message : undefined) ||
-        (typeof jsonData?.response === 'string' ? jsonData.response : undefined) ||
-        (typeof rawText === 'string' ? rawText : undefined) ||
-        "No response received";
-      
-      setChatResponse(responseText);
-      
-      // Add to history
-      setQueryHistory(prev => [{
-        id: Date.now(),
-        type: 'chat',
-        query: chatMessage,
-        response: responseText,
-        timestamp: new Date()
-      }, ...prev]);
-    } catch (error) {
-      const errorText = `Error: ${error}`;
-      setChatResponse(errorText);
-      
-      // Add error to history
-      setQueryHistory(prev => [{
-        id: Date.now(),
-        type: 'chat',
-        query: chatMessage,
-        response: errorText,
-        timestamp: new Date()
-      }, ...prev]);
-    } finally {
-      setChatLoading(false);
-    }
-  };
-
-  // Handle Text Generation AI
-  const handleGenerateAI = async () => {
-    if (!generatePrompt.trim() || generateLoading) return;
-    
-    setGenerateLoading(true);
-    setGenerateResponse("Processing...");
+    setLoading(true);
+    setResponse(null);
+    setProducts([]);
+    setStores([]);
+    setPromotions([]);
     
     try {
-      const response = await fetch(`${env.API_BASE_URL}/ai/generate`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          ...(authState.accessToken ? { Authorization: `Bearer ${authState.accessToken}` } : {}),
-        },
-        body: JSON.stringify({ prompt: generatePrompt }),
-      });
+      const countValue = parseInt(count) || 10;
+      const validatedCount = Math.max(1, Math.min(50, countValue));
       
-      const rawText = await response.text();
-      let jsonData: Record<string, unknown> = {};
-      
-      try {
-        jsonData = rawText ? JSON.parse(rawText) : {};
-      } catch {
-        jsonData = { content: rawText };
-      }
-      
-      // Extract content from various response formats
-      const responseText: string =
-        (typeof jsonData?.content === 'string' ? jsonData.content : undefined) ||
-        (typeof jsonData?.message === 'string' ? jsonData.message : undefined) ||
-        (typeof jsonData?.response === 'string' ? jsonData.response : undefined) ||
-        (typeof rawText === 'string' ? rawText : undefined) ||
-        "No response received";
-      
-      setGenerateResponse(responseText);
-      
-      // Add to history
-      setQueryHistory(prev => [{
-        id: Date.now(),
-        type: 'generate',
-        query: generatePrompt,
-        response: responseText,
-        timestamp: new Date()
-      }, ...prev]);
-    } catch (error) {
-      const errorText = `Error: ${error}`;
-      setGenerateResponse(errorText);
-      
-      // Add error to history
-      setQueryHistory(prev => [{
-        id: Date.now(),
-        type: 'generate',
-        query: generatePrompt,
-        response: errorText,
-        timestamp: new Date()
-      }, ...prev]);
-    } finally {
-      setGenerateLoading(false);
-    }
-  };
-
-  // Handle Recommendation AI - following routes.json FreeformRecommendationDto schema
-  const handleRecommendationAI = async () => {
-    if (!recommendationQuery.trim() || recommendationLoading) return;
-    
-    setRecommendationLoading(true);
-    setRecommendationResponse("Processing...");
-    setRecommendationProducts([]);
-    
-    try {
-      // Validate and prepare request body according to FreeformRecommendationDto
-      // query (required), count (optional, 1-50)
-      const countValue = parseInt(recommendationCount) || 10;
-      const validatedCount = Math.max(1, Math.min(50, countValue)); // Clamp between 1-50
-      
-      const requestBody: { query: string; count?: number } = {
-        query: recommendationQuery.trim(),
-        ...(validatedCount !== 10 && { count: validatedCount }) // Only include if not default
+      const requestBody: ChatRequestDto = {
+        content: query.trim(),
+        count: validatedCount,
       };
       
-      const response = await fetch(`${env.API_BASE_URL}/ai/recommendations`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          ...(authState.accessToken ? { Authorization: `Bearer ${authState.accessToken}` } : {}),
-        },
-        body: JSON.stringify(requestBody),
-      });
-
-      // Handle 201 status code as per routes.json
-      if (!response.ok) {
-        throw new Error(`API returned status ${response.status}`);
-      }
+      const chatResponse: ChatResponseDto = await aiApi.chat(requestBody);
       
-      const rawText = await response.text();
-      let jsonData: Record<string, unknown> = {};
+      setResponse(chatResponse);
       
-      try {
-        jsonData = rawText ? JSON.parse(rawText) : {};
-      } catch {
-        jsonData = { content: rawText };
-      }
+      // Extract products, stores, and promotions from response
+      const extractedProducts = (chatResponse.products || []).map((product: any) => ({
+        id: product.id,
+        name: product.name,
+        price: product.price,
+        imageUrl: product.imageUrl,
+        storeId: product.storeId,
+        storeName: product.storeName,
+        description: product.description,
+        distance: product.distance,
+      }));
       
-      // Extract content from various response formats
-      // Response may contain: products array, recommendations array, items array, or content/message fields
-      const directAssistantText =
-        typeof jsonData?.content === "string" && jsonData?.role === "assistant"
-          ? jsonData.content
-          : null;
-      const fromMessages = Array.isArray(jsonData?.messages)
-        ? jsonData.messages.find((m: any) => m?.role === "assistant" && typeof m?.content === "string")?.content
-        : null;
-      const responseText =
-        directAssistantText ||
-        fromMessages ||
-        jsonData?.recommendation ||
-        jsonData?.recommendationText ||
-        jsonData?.insight ||
-        jsonData?.summary ||
-        jsonData?.message ||
-        jsonData?.content ||
-        rawText ||
-        "No response received";
-
-      // Extract product recommendations array from response
-      const items =
-        (Array.isArray(jsonData?.products) && jsonData.products) ||
-        (Array.isArray(jsonData?.recommendations) && jsonData.recommendations) ||
-        (Array.isArray(jsonData?.items) && jsonData.items) ||
-        [];
+      const extractedStores = chatResponse.stores || [];
+      const extractedPromotions = chatResponse.promotions || [];
       
-      setRecommendationResponse(responseText);
-      setRecommendationProducts(
-        (items as RecommendationProduct[]).filter(Boolean)
-      );
+      setProducts(extractedProducts);
+      setStores(extractedStores);
+      setPromotions(extractedPromotions);
       
       // Add to history
       setQueryHistory(prev => [{
         id: Date.now(),
-        type: 'recommendation',
-        query: recommendationQuery,
+        query: query.trim(),
         count: validatedCount,
-        response: responseText,
+        response: chatResponse.content || "No response",
+        productsCount: extractedProducts.length,
+        storesCount: extractedStores.length,
+        promotionsCount: extractedPromotions.length,
+        intent: chatResponse.intent,
         timestamp: new Date()
       }, ...prev]);
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
       const errorText = `Error: ${errorMessage}`;
-      setRecommendationResponse(errorText);
-      setRecommendationProducts([]);
+      
+      setResponse({
+        content: errorText,
+        intent: undefined,
+        products: [],
+        stores: [],
+        promotions: [],
+      });
       
       // Add error to history
       setQueryHistory(prev => [{
         id: Date.now(),
-        type: 'recommendation',
-        query: recommendationQuery,
-        count: parseInt(recommendationCount) || 10,
+        query: query.trim(),
+        count: parseInt(count) || 10,
         response: errorText,
         timestamp: new Date()
       }, ...prev]);
     } finally {
-      setRecommendationLoading(false);
+      setLoading(false);
     }
   };
 
   return (
     <View style={styles.container}>
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-        {/* Chat AI Section */}
+        {/* AI Chat Section - Same as consumer explore */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
             <View style={styles.titleContainer}>
@@ -305,145 +153,16 @@ export default function AITesting() {
           </View>
           
           <Text style={styles.description}>
-            Chat with AI using conversation messages. Include role (user, assistant, or system) and content.
+            Chat with AI to get product recommendations, store suggestions, or promotions. Uses the same endpoint as the consumer explore page.
           </Text>
           
           <TextInput
             style={styles.inputField}
-            placeholder="Enter your message..."
-            value={chatMessage}
-            onChangeText={setChatMessage}
+            placeholder="Enter your query (e.g., 'budget mechanical keyboard')..."
+            value={query}
+            onChangeText={setQuery}
             placeholderTextColor="#9CA3AF"
             multiline
-          />
-          
-          <View style={styles.buttonRow}>
-            <TouchableOpacity 
-              style={[styles.actionButton, styles.actionButtonMain, chatLoading && styles.actionButtonDisabled]} 
-              onPress={handleChatAI}
-              disabled={chatLoading}
-            >
-              {chatLoading ? (
-                <ActivityIndicator size="small" color="#ffffff" />
-              ) : (
-                <>
-                  <Ionicons name="send" size={18} color="#ffffff" />
-                  <Text style={styles.actionButtonText}>Send Message</Text>
-                </>
-              )}
-            </TouchableOpacity>
-            
-            <TouchableOpacity 
-              style={styles.refreshButton}
-              onPress={() => {
-                setChatMessage("");
-                setChatResponse("");
-              }}
-            >
-              <Ionicons name="refresh" size={20} color="#6B7280" />
-            </TouchableOpacity>
-          </View>
-          
-          {chatResponse && (
-            <View style={styles.responseArea}>
-              <ScrollView 
-                style={styles.responseScroll} 
-                nestedScrollEnabled 
-                showsVerticalScrollIndicator
-              >
-                <Text style={styles.responseText}>{chatResponse}</Text>
-              </ScrollView>
-            </View>
-          )}
-        </View>
-
-        {/* Text Generation AI Section */}
-        <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <View style={styles.titleContainer}>
-              <Ionicons name="create" size={24} color="#10B981" />
-              <Text style={styles.sectionTitle}>AI Text Generation</Text>
-              <View style={[styles.labelBadge, { backgroundColor: "#D1FAE5" }]}>
-                <Text style={[styles.labelText, { color: "#065F46" }]}>/ai/generate</Text>
-              </View>
-            </View>
-          </View>
-          
-          <Text style={styles.description}>
-            Generate text based on a prompt. Useful for creating descriptions, content, or creative writing.
-            </Text>
-          
-          <TextInput
-            style={styles.inputField}
-            placeholder="Enter a prompt (e.g., 'Write a haiku about the sea')..."
-            value={generatePrompt}
-            onChangeText={setGeneratePrompt}
-            placeholderTextColor="#9CA3AF"
-            multiline
-          />
-          
-          <View style={styles.buttonRow}>
-            <TouchableOpacity 
-              style={[styles.actionButton, styles.generateButton, styles.actionButtonMain, generateLoading && styles.actionButtonDisabled]} 
-              onPress={handleGenerateAI}
-              disabled={generateLoading}
-            >
-              {generateLoading ? (
-                <ActivityIndicator size="small" color="#ffffff" />
-              ) : (
-                <>
-                  <Ionicons name="sparkles" size={18} color="#ffffff" />
-                  <Text style={styles.actionButtonText}>Generate Text</Text>
-                </>
-              )}
-            </TouchableOpacity>
-            
-            <TouchableOpacity 
-              style={styles.refreshButton}
-              onPress={() => {
-                setGeneratePrompt("");
-                setGenerateResponse("");
-              }}
-            >
-              <Ionicons name="refresh" size={20} color="#6B7280" />
-            </TouchableOpacity>
-          </View>
-          
-          {generateResponse && (
-            <View style={styles.responseArea}>
-              <ScrollView 
-                style={styles.responseScroll} 
-                nestedScrollEnabled 
-                showsVerticalScrollIndicator
-              >
-                <Text style={styles.responseText}>{generateResponse}</Text>
-              </ScrollView>
-            </View>
-          )}
-                </View>
-
-        {/* Recommendation AI Section */}
-        <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <View style={styles.titleContainer}>
-              <Ionicons name="pricetag" size={24} color="#F59E0B" />
-              <Text style={styles.sectionTitle}>AI Recommendations</Text>
-              <View style={[styles.labelBadge, { backgroundColor: "#FEF3C7" }]}>
-                <Text style={[styles.labelText, { color: "#92400E" }]}>/ai/recommendations</Text>
-              </View>
-          </View>
-        </View>
-
-          <Text style={styles.description}>
-            Get AI-powered product recommendations based on natural language queries. Perfect for deal finding.
-          </Text>
-          
-          <TextInput
-            style={styles.inputField}
-            placeholder="Enter a query (e.g., 'budget mechanical keyboard')..."
-            value={recommendationQuery}
-            onChangeText={setRecommendationQuery}
-            placeholderTextColor="#9CA3AF"
           />
           
           <View style={styles.countInputContainer}>
@@ -451,12 +170,12 @@ export default function AITesting() {
             <TextInput
               style={styles.countInput}
               placeholder="10"
-              value={recommendationCount}
+              value={count}
               onChangeText={(text) => {
-                // Only allow numbers and validate range (1-50 per routes.json schema)
+                // Only allow numbers and validate range (1-50)
                 const num = parseInt(text);
                 if (text === "" || (!isNaN(num) && num >= 1 && num <= 50)) {
-                  setRecommendationCount(text);
+                  setCount(text);
                 }
               }}
               placeholderTextColor="#9CA3AF"
@@ -467,16 +186,16 @@ export default function AITesting() {
           
           <View style={styles.buttonRow}>
             <TouchableOpacity 
-              style={[styles.actionButton, styles.recommendationButton, styles.actionButtonMain, recommendationLoading && styles.actionButtonDisabled]} 
-              onPress={handleRecommendationAI}
-              disabled={recommendationLoading}
+              style={[styles.actionButton, styles.actionButtonMain, loading && styles.actionButtonDisabled]} 
+              onPress={handleAIChat}
+              disabled={loading}
             >
-              {recommendationLoading ? (
+              {loading ? (
                 <ActivityIndicator size="small" color="#ffffff" />
               ) : (
                 <>
-                  <Ionicons name="search" size={18} color="#ffffff" />
-                  <Text style={styles.actionButtonText}>Get Recommendations</Text>
+                  <Ionicons name="send" size={18} color="#ffffff" />
+                  <Text style={styles.actionButtonText}>Send Query</Text>
                 </>
               )}
             </TouchableOpacity>
@@ -484,35 +203,48 @@ export default function AITesting() {
             <TouchableOpacity 
               style={styles.refreshButton}
               onPress={() => {
-                setRecommendationQuery("");
-                setRecommendationCount("10");
-                setRecommendationResponse("");
+                setQuery("");
+                setCount("10");
+                setResponse(null);
+                setProducts([]);
+                setStores([]);
+                setPromotions([]);
               }}
             >
               <Ionicons name="refresh" size={20} color="#6B7280" />
             </TouchableOpacity>
           </View>
           
-          {recommendationResponse && (
+          {response && (
             <View style={styles.responseArea}>
               <View style={styles.responseHeader}>
                 <Text style={styles.responseHeaderText}>AI Response</Text>
-                {!!recommendationProducts.length && (
-                  <Text style={styles.responseMeta}>
-                    {recommendationProducts.length} product{recommendationProducts.length !== 1 ? 's' : ''} found
-                  </Text>
+                {response.intent && (
+                  <View style={styles.intentBadge}>
+                    <Text style={styles.intentText}>{response.intent.toUpperCase()}</Text>
+                  </View>
                 )}
               </View>
+              
+              {(products.length > 0 || stores.length > 0 || promotions.length > 0) && (
+                <Text style={styles.responseMeta}>
+                  {products.length} product{products.length !== 1 ? 's' : ''}, {stores.length} store{stores.length !== 1 ? 's' : ''}, {promotions.length} promotion{promotions.length !== 1 ? 's' : ''}
+                </Text>
+              )}
+              
               <ScrollView 
                 style={styles.responseScroll} 
                 nestedScrollEnabled 
                 showsVerticalScrollIndicator
               >
-                <Text style={styles.responseText}>{recommendationResponse}</Text>
+                <Text style={styles.responseText}>{response.content || "No response received"}</Text>
               </ScrollView>
-              {!!recommendationProducts.length && (
+              
+              {/* Products List */}
+              {products.length > 0 && (
                 <View style={styles.productList}>
-                  {recommendationProducts.map((item, idx) => {
+                  <Text style={styles.sectionSubtitle}>Products</Text>
+                  {products.map((item, idx) => {
                     const displayName = item.name || item.title || `Product ${idx + 1}`;
                     const displayStore = item.storeName || item.store?.name || "Store";
                     const price =
@@ -565,9 +297,49 @@ export default function AITesting() {
                   })}
                 </View>
               )}
+              
+              {/* Stores List */}
+              {stores.length > 0 && (
+                <View style={styles.productList}>
+                  <Text style={styles.sectionSubtitle}>Stores</Text>
+                  {stores.map((store, idx) => (
+                    <View key={store.id ?? idx} style={styles.productCard}>
+                      <View style={styles.productInfo}>
+                        <Text style={styles.productName} numberOfLines={2}>{store.name || `Store ${idx + 1}`}</Text>
+                        {store.description && (
+                          <Text style={styles.productStore} numberOfLines={2}>{store.description}</Text>
+                        )}
+                        {store.distance !== undefined && (
+                          <Text style={styles.productMeta}>{store.distance.toFixed(1)} km away</Text>
+                        )}
+                      </View>
+                    </View>
+                  ))}
+                </View>
+              )}
+              
+              {/* Promotions List */}
+              {promotions.length > 0 && (
+                <View style={styles.productList}>
+                  <Text style={styles.sectionSubtitle}>Promotions</Text>
+                  {promotions.map((promo, idx) => (
+                    <View key={promo.id ?? idx} style={styles.productCard}>
+                      <View style={styles.productInfo}>
+                        <Text style={styles.productName} numberOfLines={2}>{promo.title || `Promotion ${idx + 1}`}</Text>
+                        {promo.description && (
+                          <Text style={styles.productStore} numberOfLines={2}>{promo.description}</Text>
+                        )}
+                        {promo.discount !== undefined && (
+                          <Text style={styles.productDiscount}>{promo.discount}% OFF</Text>
+                        )}
+                      </View>
+                    </View>
+                  ))}
+                </View>
+              )}
             </View>
           )}
-                  </View>
+        </View>
 
         {/* Query History Section */}
         <View style={styles.section}>
@@ -583,27 +355,25 @@ export default function AITesting() {
                   <Ionicons name="trash-outline" size={20} color="#DC2626" />
                 </TouchableOpacity>
               )}
-                </View>
+            </View>
           </View>
           
           {queryHistory.length === 0 ? (
             <View style={styles.emptyHistoryContainer}>
               <Ionicons name="document-outline" size={48} color="#D1D5DB" />
-              <Text style={styles.emptyHistoryText}>No queries yet. Test any AI endpoint to see history here.</Text>
+              <Text style={styles.emptyHistoryText}>No queries yet. Test the AI endpoint to see history here.</Text>
             </View>
           ) : (
             <View style={styles.historyList}>
               {queryHistory.slice(0, 10).map((item) => (
                 <View key={item.id} style={styles.historyCard}>
                   <View style={styles.historyCardHeader}>
-                    <View style={styles.historyIconContainer}>
-                      {item.type === 'chat' && <Ionicons name="chatbubbles" size={16} color="#3B82F6" />}
-                      {item.type === 'generate' && <Ionicons name="create" size={16} color="#10B981" />}
-                      {item.type === 'recommendation' && <Ionicons name="pricetag" size={16} color="#F59E0B" />}
-                    </View>
-                    <View style={styles.historyBadge}>
-                      <Text style={styles.historyBadgeText}>{item.type.toUpperCase()}</Text>
-                    </View>
+                    <Ionicons name="chatbubbles" size={16} color="#3B82F6" />
+                    {item.intent && (
+                      <View style={styles.historyBadge}>
+                        <Text style={styles.historyBadgeText}>{item.intent.toUpperCase()}</Text>
+                      </View>
+                    )}
                     <Text style={styles.historyTime}>
                       {new Date(item.timestamp).toLocaleTimeString()}
                     </Text>
@@ -614,12 +384,18 @@ export default function AITesting() {
                     {item.count && ` (count: ${item.count})`}
                   </Text>
                   
+                  {(item.productsCount !== undefined || item.storesCount !== undefined || item.promotionsCount !== undefined) && (
+                    <Text style={styles.historyMeta}>
+                      {item.productsCount || 0} products, {item.storesCount || 0} stores, {item.promotionsCount || 0} promotions
+                    </Text>
+                  )}
+                  
                   <Text style={styles.historyResponse} numberOfLines={3}>
                     {item.response.substring(0, 150)}...
                   </Text>
-              </View>
-            ))}
-          </View>
+                </View>
+              ))}
+            </View>
           )}
         </View>
       </ScrollView>
@@ -663,6 +439,13 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
     color: "#277874",
     flex: 1,
+  },
+  sectionSubtitle: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: "#1F2937",
+    marginBottom: 12,
+    marginTop: 8,
   },
   labelBadge: {
     backgroundColor: "#e0f2f1",
@@ -730,7 +513,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   actionButton: {
-    backgroundColor: "#FFBE5D",
+    backgroundColor: "#3B82F6",
     paddingHorizontal: 24,
     paddingVertical: 12,
     borderRadius: 12,
@@ -753,14 +536,8 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
   },
-  generateButton: {
-    backgroundColor: "#277874",
-  },
-  recommendationButton: {
-    backgroundColor: "#FFBE5D",
-  },
   actionButtonText: {
-    color: "#1f2937",
+    color: "#ffffff",
     fontSize: 16,
     fontWeight: "600",
   },
@@ -788,10 +565,22 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     color: "#1F2937",
   },
+  intentBadge: {
+    backgroundColor: "#DBEAFE",
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+  },
+  intentText: {
+    fontSize: 10,
+    fontWeight: "700",
+    color: "#1E40AF",
+  },
   responseMeta: {
     fontSize: 12,
     color: "#6B7280",
     fontWeight: "500",
+    marginBottom: 12,
   },
   responseScroll: {
     maxHeight: 260,
@@ -893,12 +682,6 @@ const styles = StyleSheet.create({
     gap: 8,
     marginBottom: 8,
   },
-  historyIconContainer: {
-    width: 24,
-    height: 24,
-    justifyContent: "center",
-    alignItems: "center",
-  },
   historyBadge: {
     backgroundColor: "#ffffff",
     paddingHorizontal: 8,
@@ -922,6 +705,12 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     color: "#1F2937",
     marginBottom: 8,
+  },
+  historyMeta: {
+    fontSize: 12,
+    color: "#6B7280",
+    marginBottom: 8,
+    fontStyle: "italic",
   },
   historyResponse: {
     fontSize: 12,

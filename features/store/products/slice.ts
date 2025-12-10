@@ -12,6 +12,7 @@ import {
   deleteProduct,
 } from "./thunks";
 import { createAsyncReducer } from "@/utils/redux/createAsyncReducer";
+import { logout } from "@/features/auth/slice";
 import type { Product } from "./types";
 
 interface ProductsState {
@@ -125,6 +126,14 @@ const productsSlice = createSlice({
           delete state.componentLoading[`deleting-${productId}`];
         }
       },
+    });
+
+    // Clear products on logout
+    builder.addCase(logout, (state) => {
+      state.products = [];
+      state.loading = false;
+      state.error = null;
+      state.componentLoading = {};
     });
   },
 });

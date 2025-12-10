@@ -1,33 +1,28 @@
 /**
  * Subscription domain slice
+ * Updated for tier-based subscription system (BASIC/PRO)
  */
 
 import { createSlice, Draft } from "@reduxjs/toolkit";
 import {
-  getActiveSubscription,
-  joinSubscription,
-  findSubscriptions,
-  cancelRetailerSubscription,
-  updateRetailerSubscription,
-  createSubscription,
-  updateSubscription,
-  deleteSubscription,
+  getCurrentTier,
+  upgradeToPro,
+  downgradeToBasic,
   getSubscriptionAnalytics,
 } from "./thunks";
 import { createAsyncReducer } from "@/utils/redux/createAsyncReducer";
-import type { Subscription, UserSubscription, SubscriptionAnalytics, JoinSubscriptionDTO, CreateSubscriptionDTO, UpdateSubscriptionDTO } from "./types";
+import { logout } from "@/features/auth/slice";
+import type { SubscriptionTier, SubscriptionAnalytics } from "./types";
 
 interface SubscriptionsState {
-  activeSubscription: UserSubscription | null;
-  subscriptions: Subscription[];
+  currentTier: SubscriptionTier | null;
   subscriptionAnalytics: SubscriptionAnalytics | null;
   loading: boolean;
   error: string | null;
 }
 
 const initialState: SubscriptionsState = {
-  activeSubscription: null,
-  subscriptions: [],
+  currentTier: null,
   subscriptionAnalytics: null,
   loading: false,
   error: null,
@@ -38,74 +33,31 @@ const subscriptionsSlice = createSlice({
   initialState,
   reducers: {
     clearSubscriptions: (state) => {
-      state.activeSubscription = null;
-      state.subscriptions = [];
+      state.currentTier = null;
       state.subscriptionAnalytics = null;
       state.loading = false;
       state.error = null;
     },
   },
   extraReducers: (builder) => {
-    // Get Active Subscription
-    createAsyncReducer<SubscriptionsState, UserSubscription | null, number>(builder, getActiveSubscription, {
+    // Get Current Tier
+    createAsyncReducer<SubscriptionsState, SubscriptionTier, void>(builder, getCurrentTier, {
       onFulfilled: (state: Draft<SubscriptionsState>, action) => {
-        state.activeSubscription = action.payload;
+        state.currentTier = action.payload;
       },
     });
 
-    // Join Subscription
-    createAsyncReducer<SubscriptionsState, UserSubscription, JoinSubscriptionDTO>(builder, joinSubscription, {
+    // Upgrade to PRO
+    createAsyncReducer<SubscriptionsState, SubscriptionTier, void>(builder, upgradeToPro, {
       onFulfilled: (state: Draft<SubscriptionsState>, action) => {
-        state.activeSubscription = action.payload;
+        state.currentTier = action.payload;
       },
     });
 
-    // Find Subscriptions
-    createAsyncReducer<SubscriptionsState, Subscription[], any>(builder, findSubscriptions, {
+    // Downgrade to BASIC
+    createAsyncReducer<SubscriptionsState, SubscriptionTier, void>(builder, downgradeToBasic, {
       onFulfilled: (state: Draft<SubscriptionsState>, action) => {
-        state.subscriptions = action.payload;
-      },
-    });
-
-    // Cancel Retailer Subscription
-    createAsyncReducer<SubscriptionsState, UserSubscription, void>(builder, cancelRetailerSubscription, {
-      onFulfilled: (state: Draft<SubscriptionsState>) => {
-        state.activeSubscription = null;
-      },
-    });
-
-    // Update Retailer Subscription
-    createAsyncReducer<SubscriptionsState, UserSubscription, JoinSubscriptionDTO>(builder, updateRetailerSubscription, {
-      onFulfilled: (state: Draft<SubscriptionsState>, action) => {
-        state.activeSubscription = action.payload;
-      },
-    });
-
-    // Create Subscription (Admin)
-    createAsyncReducer<SubscriptionsState, Subscription, CreateSubscriptionDTO>(builder, createSubscription, {
-      onFulfilled: (state: Draft<SubscriptionsState>, action) => {
-        state.subscriptions.push(action.payload);
-      },
-    });
-
-    // Update Subscription (Admin)
-    createAsyncReducer<SubscriptionsState, Subscription, { id: number } & UpdateSubscriptionDTO>(builder, updateSubscription, {
-      onFulfilled: (state: Draft<SubscriptionsState>, action) => {
-        const index = state.subscriptions.findIndex(
-          (s: Subscription) => s.id === action.payload.id
-        );
-        if (index !== -1) {
-          state.subscriptions[index] = action.payload;
-        }
-      },
-    });
-
-    // Delete Subscription (Admin)
-    createAsyncReducer<SubscriptionsState, { id: number }, number>(builder, deleteSubscription, {
-      onFulfilled: (state: Draft<SubscriptionsState>, action) => {
-        state.subscriptions = state.subscriptions.filter(
-          (s: Subscription) => s.id !== action.payload.id
-        );
+        state.currentTier = action.payload;
       },
     });
 
@@ -114,6 +66,14 @@ const subscriptionsSlice = createSlice({
       onFulfilled: (state: Draft<SubscriptionsState>, action) => {
         state.subscriptionAnalytics = action.payload;
       },
+    });
+
+    // Clear subscriptions on logout
+    builder.addCase(logout, (state) => {
+      state.currentTier = null;
+      state.subscriptionAnalytics = null;
+      state.loading = false;
+      state.error = null;
     });
   },
 });

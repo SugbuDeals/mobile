@@ -6,6 +6,7 @@
  * - GET /promotions/active (operationId: PromotionController_findActive)
  * - GET /promotions/{id} (operationId: PromotionController_findOne)
  * - POST /promotions (operationId: PromotionController_create)
+ * - POST /promotions/{id}/products (operationId: PromotionController_addProducts)
  * - PATCH /promotions/{id} (operationId: PromotionController_update)
  * - DELETE /promotions/{id} (operationId: PromotionController_remove)
  */
@@ -15,6 +16,7 @@ import type {
   PromotionResponseDto,
   CreatePromotionDto,
   UpdatePromotionDto,
+  AddProductsToPromotionDto,
 } from "../types/swagger";
 
 // Re-export Swagger types for convenience
@@ -22,6 +24,7 @@ export type {
   PromotionResponseDto,
   CreatePromotionDto,
   UpdatePromotionDto,
+  AddProductsToPromotionDto,
 };
 
 // Alias for consistency with existing code
@@ -63,6 +66,22 @@ export const promotionsApi = {
    */
   createPromotion: (data: CreatePromotionDto): Promise<PromotionResponseDto> => {
     return getApiClient().post<PromotionResponseDto>("/promotions", data);
+  },
+
+  /**
+   * Add products to an existing promotion
+   * Restricted to retailers and admins. BASIC tier allows max 10 products total per promotion, PRO tier allows unlimited.
+   * Operation: PromotionController_addProducts
+   * Endpoint: POST /promotions/{id}/products
+   */
+  addProductsToPromotion: (
+    promotionId: number,
+    data: AddProductsToPromotionDto
+  ): Promise<PromotionResponseDto> => {
+    return getApiClient().post<PromotionResponseDto>(
+      `/promotions/${promotionId}/products`,
+      data
+    );
   },
 
   /**

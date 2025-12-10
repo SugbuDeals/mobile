@@ -4,28 +4,17 @@
  */
 
 import type {
-  SubscriptionResponseDto,
-  UserSubscriptionResponseDto,
-  CreateSubscriptionDTO,
-  UpdateSubscriptionDTO,
-  JoinSubscriptionDTO,
-  UpdateRetailerSubscriptionDTO,
-  SubscriptionAnalyticsDTO,
+  SubscriptionTierResponseDto,
+  SubscriptionAnalyticsDto,
 } from "@/services/api/types/swagger";
 
 // Re-export Swagger types
 export type {
-  SubscriptionResponseDto,
-  UserSubscriptionResponseDto,
-  CreateSubscriptionDTO,
-  UpdateSubscriptionDTO,
-  JoinSubscriptionDTO,
-  UpdateRetailerSubscriptionDTO,
-  SubscriptionAnalyticsDTO,
+  SubscriptionTierResponseDto,
+  SubscriptionAnalyticsDto,
 };
 
 // Aliases for backward compatibility
-export type Subscription = SubscriptionResponseDto;
-export type UserSubscription = UserSubscriptionResponseDto;
-export type SubscriptionAnalytics = SubscriptionAnalyticsDTO;
+export type SubscriptionTier = SubscriptionTierResponseDto;
+export type SubscriptionAnalytics = SubscriptionAnalyticsDto;
 

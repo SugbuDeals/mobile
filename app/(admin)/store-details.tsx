@@ -46,16 +46,16 @@ export default function AdminStoreDetails() {
   }, [params.storeName]);
 
   useEffect(() => {
-    if (!storeState.stores.length) {
+    if (!storeState.stores || !storeState.stores.length) {
       storeActions.findStores();
     }
-    if (!storeState.products.length) {
+    if (!storeState.products || !storeState.products.length) {
       storeActions.findProducts();
     }
-    if (!storeState.promotions.length) {
+    if (!storeState.promotions || !storeState.promotions.length) {
       storeActions.findPromotions();
     }
-    if (!authState.allUsers.length) {
+    if (!authState.allUsers || !authState.allUsers.length) {
       authActions.fetchAllUsers();
     }
   }, []);
@@ -69,7 +69,7 @@ export default function AdminStoreDetails() {
   );
 
   const storeOwner = useMemo(() => {
-    if (!store?.ownerId || !authState.allUsers.length) return undefined;
+    if (!store?.ownerId || !authState.allUsers || !authState.allUsers.length) return undefined;
     return authState.allUsers.find((u) => u.id === store.ownerId);
   }, [store, authState.allUsers]);
 
@@ -82,7 +82,7 @@ export default function AdminStoreDetails() {
   );
 
   const promotionsForStore = useMemo(() => {
-    if (!storeId || !storeState.promotions.length || !storeState.products.length) return [];
+    if (!storeId || !storeState.promotions || !storeState.promotions.length || !storeState.products || !storeState.products.length) return [];
     const productById = new Map<number, { name: string }>();
     storeState.products.forEach((p) => {
       if (p && typeof p.id === "number") {
@@ -277,7 +277,7 @@ export default function AdminStoreDetails() {
           {bannerUrl ? (
             <Image
               source={{ uri: bannerUrl }}
-              resizeMode="cover"
+              resizeMode="contain"
               style={styles.banner}
             />
           ) : (

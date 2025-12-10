@@ -62,12 +62,26 @@ export const storesApi = {
   findNearbyStores: (
     params: FindNearbyStoresParams
   ): Promise<StoreWithDistanceResponseDto[]> => {
-    const queryParams = {
+    const queryParams: {
+      latitude: number;
+      longitude: number;
+      radius?: number;
+    } = {
       latitude: params.latitude,
       longitude: params.longitude,
-      ...(params.radiusKm && { radius: params.radiusKm }),
-      ...(params.radius && { radius: params.radius }), // Fallback for radius
     };
+    
+    // Always include radius to avoid backend default of 10km
+    // Prefer radiusKm, fallback to radius, or default to 1km (BASIC tier limit)
+    if (params.radiusKm !== undefined) {
+      queryParams.radius = params.radiusKm;
+    } else if (params.radius !== undefined) {
+      queryParams.radius = params.radius;
+    } else {
+      // Default to 1km (BASIC tier limit) if not provided
+      queryParams.radius = 1;
+    }
+    
     return getApiClient().get<StoreWithDistanceResponseDto[]>("/store/nearby", queryParams);
   },
 

@@ -2,187 +2,69 @@
  * Subscription API endpoints
  * 
  * Aligned with server.json OpenAPI specification:
- * - GET /subscription (operationId: SubscriptionController_findManySubscriptions)
- * - GET /subscription/{id} (operationId: SubscriptionController_findUniqueSubscription)
- * - GET /subscription/user/{userId}/active (operationId: SubscriptionController_getActiveSubscription)
- * - GET /subscription/admin/analytics (operationId: SubscriptionController_getAnalytics)
- * - POST /subscription (operationId: SubscriptionController_createSubscription)
- * - POST /subscription/retailer/join (operationId: SubscriptionController_joinSubscription)
- * - POST /subscription/retailer/cancel (operationId: SubscriptionController_cancelRetailerSubscription)
- * - PATCH /subscription/{id} (operationId: SubscriptionController_updateSubscription)
- * - PATCH /subscription/retailer/update (operationId: SubscriptionController_updateRetailerSubscription)
- * - DELETE /subscription/{id} (operationId: SubscriptionController_deleteSubscription)
+ * - GET /subscription/me (operationId: SubscriptionController_getCurrentTier)
+ * - POST /subscription/upgrade (operationId: SubscriptionController_upgradeToPro)
+ * - POST /subscription/downgrade (operationId: SubscriptionController_downgradeToBasic)
+ * - GET /subscription/analytics (operationId: SubscriptionController_getAnalytics)
  */
 
 import { getApiClient } from "../client";
 import type {
-  SubscriptionResponseDto,
-  UserSubscriptionResponseDto,
-  CreateSubscriptionDTO,
-  UpdateSubscriptionDTO,
-  JoinSubscriptionDTO,
-  UpdateRetailerSubscriptionDTO,
-  SubscriptionAnalyticsDTO,
-  SubscriptionPlan,
+  SubscriptionTierResponseDto,
+  SubscriptionAnalyticsDto,
 } from "../types/swagger";
 
 // Re-export Swagger types for convenience
 export type {
-  SubscriptionResponseDto,
-  UserSubscriptionResponseDto,
-  CreateSubscriptionDTO,
-  UpdateSubscriptionDTO,
-  JoinSubscriptionDTO,
-  UpdateRetailerSubscriptionDTO,
-  SubscriptionAnalyticsDTO,
-  SubscriptionPlan,
+  SubscriptionTierResponseDto,
+  SubscriptionAnalyticsDto,
 };
 
 // Aliases for backward compatibility
-export type Subscription = SubscriptionResponseDto;
-export type UserSubscription = UserSubscriptionResponseDto;
-export type SubscriptionAnalytics = SubscriptionAnalyticsDTO;
-
-export interface FindSubscriptionsParams {
-  plan?: SubscriptionPlan;
-  isActive?: boolean;
-  search?: string;
-  skip?: number;
-  take?: number;
-  [key: string]: string | number | boolean | undefined;
-}
+export type SubscriptionTier = SubscriptionTierResponseDto;
+export type SubscriptionAnalytics = SubscriptionAnalyticsDto;
 
 export const subscriptionsApi = {
   /**
-   * Find all subscriptions with optional filters and pagination
-   * Operation: SubscriptionController_findManySubscriptions
-   * Endpoint: GET /subscription
+   * Get current user subscription tier
+   * Returns the authenticated user's current subscription tier (BASIC or PRO) along with role information.
+   * Operation: SubscriptionController_getCurrentTier
+   * Endpoint: GET /subscription/me
    */
-  findSubscriptions: (
-    params?: FindSubscriptionsParams
-  ): Promise<SubscriptionResponseDto[]> => {
-    return getApiClient().get<SubscriptionResponseDto[]>("/subscription", params);
+  getCurrentTier: (): Promise<SubscriptionTierResponseDto> => {
+    return getApiClient().get<SubscriptionTierResponseDto>("/subscription/me");
   },
 
   /**
-   * Find subscription by ID
-   * Returns SubscriptionResponseDto | null per server.json (status 200 with null body if not found)
-   * Operation: SubscriptionController_findUniqueSubscription
-   * Endpoint: GET /subscription/{id}
+   * Upgrade to PRO tier
+   * Upgrades the user from BASIC to PRO tier. PRO costs 100 PHP/month and provides extended limits.
+   * Restricted to consumers and retailers.
+   * Operation: SubscriptionController_upgradeToPro
+   * Endpoint: POST /subscription/upgrade
    */
-  findSubscriptionById: (subscriptionId: number): Promise<SubscriptionResponseDto | null> => {
-    return getApiClient()
-      .get<SubscriptionResponseDto>(`/subscription/${subscriptionId}`)
-      .catch((error) => {
-        // Return null for 404 or 200 with null body
-        if (error.status === 404 || error.status === 200) {
-          return null;
-        }
-        throw error;
-      });
+  upgradeToPro: (): Promise<SubscriptionTierResponseDto> => {
+    return getApiClient().post<SubscriptionTierResponseDto>("/subscription/upgrade");
   },
 
   /**
-   * Get active subscription for a user
-   * Returns UserSubscriptionResponseDto | null per server.json (status 200 with null body if not found)
-   * Operation: SubscriptionController_getActiveSubscription
-   * Endpoint: GET /subscription/user/{userId}/active
+   * Downgrade to BASIC tier
+   * Downgrades the user from PRO to BASIC tier. BASIC tier has limited features.
+   * Restricted to consumers and retailers.
+   * Operation: SubscriptionController_downgradeToBasic
+   * Endpoint: POST /subscription/downgrade
    */
-  getActiveSubscription: (userId: number): Promise<UserSubscriptionResponseDto | null> => {
-    return getApiClient()
-      .get<UserSubscriptionResponseDto>(`/subscription/user/${userId}/active`)
-      .catch((error) => {
-        // Return null for 404 (no active subscription) or 200 with null body
-        if (error.status === 404 || error.status === 200) {
-          return null;
-        }
-        throw error;
-      });
-  },
-
-  /**
-   * Join a subscription (retailer only)
-   * Operation: SubscriptionController_joinSubscription
-   * Endpoint: POST /subscription/retailer/join
-   */
-  joinSubscription: (data: JoinSubscriptionDTO): Promise<UserSubscriptionResponseDto> => {
-    return getApiClient().post<UserSubscriptionResponseDto>(
-      "/subscription/retailer/join",
-      data
-    );
-  },
-
-  /**
-   * Update retailer subscription
-   * Operation: SubscriptionController_updateRetailerSubscription
-   * Endpoint: PATCH /subscription/retailer/update
-   */
-  updateRetailerSubscription: (
-    data: UpdateRetailerSubscriptionDTO
-  ): Promise<UserSubscriptionResponseDto> => {
-    return getApiClient().patch<UserSubscriptionResponseDto>(
-      "/subscription/retailer/update",
-      data
-    );
-  },
-
-  /**
-   * Cancel retailer subscription
-   * Operation: SubscriptionController_cancelRetailerSubscription
-   * Endpoint: POST /subscription/retailer/cancel
-   */
-  cancelRetailerSubscription: (): Promise<UserSubscriptionResponseDto> => {
-    return getApiClient().post<UserSubscriptionResponseDto>(
-      "/subscription/retailer/cancel"
-    );
-  },
-
-  /**
-   * Create a subscription plan (admin only)
-   * Operation: SubscriptionController_createSubscription
-   * Endpoint: POST /subscription
-   */
-  createSubscription: (
-    data: CreateSubscriptionDTO
-  ): Promise<SubscriptionResponseDto> => {
-    return getApiClient().post<SubscriptionResponseDto>("/subscription", data);
-  },
-
-  /**
-   * Update a subscription plan (admin only)
-   * Operation: SubscriptionController_updateSubscription
-   * Endpoint: PATCH /subscription/{id}
-   */
-  updateSubscription: (
-    subscriptionId: number,
-    data: UpdateSubscriptionDTO
-  ): Promise<SubscriptionResponseDto> => {
-    return getApiClient().patch<SubscriptionResponseDto>(
-      `/subscription/${subscriptionId}`,
-      data
-    );
-  },
-
-  /**
-   * Delete a subscription plan (admin only)
-   * Operation: SubscriptionController_deleteSubscription
-   * Endpoint: DELETE /subscription/{id}
-   */
-  deleteSubscription: (subscriptionId: number): Promise<SubscriptionResponseDto> => {
-    return getApiClient().delete<SubscriptionResponseDto>(
-      `/subscription/${subscriptionId}`
-    );
+  downgradeToBasic: (): Promise<SubscriptionTierResponseDto> => {
+    return getApiClient().post<SubscriptionTierResponseDto>("/subscription/downgrade");
   },
 
   /**
    * Get subscription analytics (admin only)
+   * Returns comprehensive subscription tier analytics including user counts by tier/role and revenue metrics.
    * Operation: SubscriptionController_getAnalytics
-   * Endpoint: GET /subscription/admin/analytics
+   * Endpoint: GET /subscription/analytics
    */
-  getSubscriptionAnalytics: (): Promise<SubscriptionAnalyticsDTO> => {
-    return getApiClient().get<SubscriptionAnalyticsDTO>(
-      "/subscription/admin/analytics"
-    );
+  getAnalytics: (): Promise<SubscriptionAnalyticsDto> => {
+    return getApiClient().get<SubscriptionAnalyticsDto>("/subscription/analytics");
   },
 };
 

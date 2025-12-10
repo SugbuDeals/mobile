@@ -41,14 +41,14 @@ export default function RecommendationTabs({
 
   return (
     <View style={styles.container}>
-      <View style={styles.tabsRow}>
+      <View style={styles.tabContainer}>
         {tabs.map((tab) => (
           <TouchableOpacity
             key={tab.key}
             onPress={() => onTabChange(tab.key)}
             style={[
-              styles.tabBtn,
-              activeTab === tab.key && styles.tabBtnActive,
+              styles.tab,
+              activeTab === tab.key && styles.activeTab,
             ]}
             accessibilityRole="button"
             accessibilityLabel={`${tab.label} tab, ${tab.count} items`}
@@ -56,28 +56,11 @@ export default function RecommendationTabs({
             <Text
               style={[
                 styles.tabText,
-                activeTab === tab.key && styles.tabTextActive,
+                activeTab === tab.key && styles.activeTabText,
               ]}
             >
               {tab.label}
             </Text>
-            {tab.count > 0 && (
-              <View
-                style={[
-                  styles.badge,
-                  activeTab === tab.key && styles.badgeActive,
-                ]}
-              >
-                <Text
-                  style={[
-                    styles.badgeText,
-                    activeTab === tab.key && styles.badgeTextActive,
-                  ]}
-                >
-                  {tab.count}
-                </Text>
-              </View>
-            )}
           </TouchableOpacity>
         ))}
       </View>
@@ -87,54 +70,30 @@ export default function RecommendationTabs({
 
 const styles = StyleSheet.create({
   container: {
-    marginBottom: spacing.md,
+    marginBottom: 15,
   },
-  tabsRow: {
+  tabContainer: {
     flexDirection: "row",
-    gap: spacing.md,
-    flexWrap: "wrap",
+    backgroundColor: "#f3f4f6",
+    borderRadius: 30,
+    padding: 4,
   },
-  tabBtn: {
-    flexDirection: "row",
+  tab: {
+    flex: 1,
+    paddingVertical: 12,
     alignItems: "center",
-    gap: spacing.xs,
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.md,
-    borderRadius: borderRadius.full,
-    backgroundColor: colors.gray100,
-    borderWidth: 1,
-    borderColor: colors.gray200,
+    borderRadius: 30,
   },
-  tabBtnActive: {
-    backgroundColor: colors.primary,
-    borderColor: colors.primary,
+  activeTab: {
+    backgroundColor: "#277874",
   },
   tabText: {
-    color: colors.gray600,
-    fontWeight: typography.fontWeight.semibold,
-    fontSize: typography.fontSize.sm,
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#6b7280",
   },
-  tabTextActive: {
-    color: colors.white,
-  },
-  badge: {
-    backgroundColor: colors.gray300,
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: borderRadius.full,
-    minWidth: 20,
-    alignItems: "center",
-  },
-  badgeActive: {
-    backgroundColor: colors.white,
-  },
-  badgeText: {
-    color: colors.gray700,
-    fontSize: typography.fontSize.xs,
-    fontWeight: typography.fontWeight.bold,
-  },
-  badgeTextActive: {
-    color: colors.primary,
+  activeTabText: {
+    color: "#ffffff",
   },
 });
 

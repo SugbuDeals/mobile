@@ -1,4 +1,5 @@
 import { useLogin } from "@/features/auth";
+import { useCatalog } from "@/features/catalog";
 import { useStore } from "@/features/store";
 import type { Promotion } from "@/features/store/promotions/types";
 import Ionicons from "@expo/vector-icons/Ionicons";
@@ -6,6 +7,7 @@ import DateTimePicker from '@react-native-community/datetimepicker';
 import { LinearGradient } from "expo-linear-gradient";
 import React, { useEffect, useState } from "react";
 import {
+  Alert,
   Platform,
   ScrollView,
   StatusBar,
@@ -17,11 +19,12 @@ import {
 } from "react-native";
 
 export default function Promotions() {
-  const { state: { user } } = useLogin();
+  const { state: { user, accessToken } } = useLogin();
   const {
-    action: { findProducts, createPromotion, findActivePromotions, updatePromotion, findUserStore },
+    action: { findProducts, createPromotion, findActivePromotions, updatePromotion, findUserStore, createProduct, updateProduct, deleteProduct, deletePromotion },
     state: { products, activePromotions, userStore, loading: productsLoading, error },
   } = useStore();
+  const { action: { loadCategories }, state: { categories } } = useCatalog();
   const [promotionTitle, setPromotionTitle] = useState("");
   const [startDate, setStartDate] = useState(new Date());
   const [endDate, setEndDate] = useState(new Date());
@@ -34,6 +37,16 @@ export default function Promotions() {
   const [editForm, setEditForm] = useState<{ title: string; description: string; startsAt: Date | null; endsAt: Date | null; active: boolean }>({ title: "", description: "", startsAt: null, endsAt: null, active: true });
   const [showEditStartPicker, setShowEditStartPicker] = useState(false);
   const [showEditEndPicker, setShowEditEndPicker] = useState(false);
+  
+  // Product CRUD state for promotion edit
+  const [editingProductId, setEditingProductId] = useState<number | null>(null);
+  const [productEditForm, setProductEditForm] = useState<{ name: string; description: string; price: string; stock: string; categoryId: number | null }>({ name: "", description: "", price: "", stock: "", categoryId: null });
+  const [showAddProductToPromotion, setShowAddProductToPromotion] = useState(false);
+  const [newProductForm, setNewProductForm] = useState<{ name: string; description: string; price: string; stock: string; discount: string; discountType: 'percentage' | 'fixed'; categoryId: number | null }>({ name: "", description: "", price: "", stock: "", discount: "", discountType: 'percentage', categoryId: null });
+  const [showCategoryList, setShowCategoryList] = useState(false);
+  const [addingExistingProductId, setAddingExistingProductId] = useState<number | null>(null);
+  const [existingProductDiscount, setExistingProductDiscount] = useState("");
+  const [existingProductDiscountType, setExistingProductDiscountType] = useState<'percentage' | 'fixed'>('percentage');
 
   useEffect(() => {
     if (user?.id && !userStore) {
@@ -47,7 +60,8 @@ export default function Promotions() {
     if (!storeId) return;
     findProducts({ storeId });
     findActivePromotions(storeId);
-  }, [storeId]);
+    loadCategories();
+  }, [storeId, loadCategories]);
 
   const retailerProducts = React.useMemo(() => {
     if (!storeId) return [];
@@ -147,10 +161,18 @@ export default function Promotions() {
       endsAt: groupSample.endsAt ? new Date(groupSample.endsAt) : null,
       active: !!groupSample.active,
     });
+    setEditingProductId(null);
+    setShowAddProductToPromotion(false);
   };
 
   const cancelEdit = () => {
     setEditingKey(null);
+    setEditingProductId(null);
+    setShowAddProductToPromotion(false);
+    setProductEditForm({ name: "", description: "", price: "", stock: "", categoryId: null });
+    setNewProductForm({ name: "", description: "", price: "", stock: "", discount: "", discountType: 'percentage', categoryId: null });
+    setAddingExistingProductId(null);
+    setExistingProductDiscount("");
   };
 
   const handleEditStartChange = (_event: unknown, selectedDate?: Date) => {
@@ -827,6 +849,538 @@ export default function Promotions() {
                                 was wrong with it. While disabled, customers cannot see this
                                 promotion.
                               </Text>
+                            )}
+                          </View>
+
+                          {/* Products in Promotion Section */}
+                          <View style={[styles.inputGroup, { marginTop: 16, borderTopWidth: 1, borderTopColor: '#E5E7EB', paddingTop: 16 }]}>
+                            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+                              <Text style={styles.label}>Products in Promotion</Text>
+                              <TouchableOpacity 
+                                style={[styles.createButton, { paddingVertical: 6, paddingHorizontal: 12 }]}
+                                onPress={() => setShowAddProductToPromotion(!showAddProductToPromotion)}
+                              >
+                                <Ionicons name="add" size={16} color="#ffffff" style={{ marginRight: 4 }} />
+                                <Text style={[styles.createButtonText, { fontSize: 12 }]}>Add Product</Text>
+                              </TouchableOpacity>
+                            </View>
+
+                            {/* List of products in this promotion */}
+                            {group.promos.map((p) => {
+                              const product = retailerProducts.find(pr => pr.id === p.productId);
+                              if (!product) return null;
+                              
+                              const isEditingProduct = editingProductId === product.id;
+                              
+                              return (
+                                <View key={p.id} style={[styles.productCard, { marginBottom: 12, backgroundColor: '#F9FAFB' }]}>
+                                  {!isEditingProduct ? (
+                                    <View>
+                                      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                                        <View style={{ flex: 1 }}>
+                                          <Text style={[styles.productName, { marginBottom: 4 }]}>{product.name}</Text>
+                                          <Text style={[styles.productPrice, { marginBottom: 2 }]}>{product.description}</Text>
+                                          <Text style={styles.productPrice}>Price: ${product.price} | Stock: {product.stock}</Text>
+                                          <Text style={[styles.productPrice, { color: '#10B981', fontWeight: '600', marginTop: 4 }]}>
+                                            Discount: {p.type === 'percentage' ? `${p.discount}%` : `$${p.discount}`} off
+                                          </Text>
+                                        </View>
+                                        <View style={{ flexDirection: 'row', gap: 8 }}>
+                                          <TouchableOpacity onPress={() => {
+                                            setEditingProductId(product.id);
+                                            setProductEditForm({
+                                              name: product.name,
+                                              description: product.description || "",
+                                              price: product.price.toString(),
+                                              stock: product.stock.toString(),
+                                              categoryId: product.categoryId || null
+                                            });
+                                          }}>
+                                            <Ionicons name="create-outline" size={18} color="#277874" />
+                                          </TouchableOpacity>
+                                          <TouchableOpacity onPress={() => {
+                                            Alert.alert(
+                                              "Remove Product from Promotion",
+                                              `Remove "${product.name}" from this promotion?`,
+                                              [
+                                                { text: "Cancel", style: "cancel" },
+                                                {
+                                                  text: "Remove",
+                                                  style: "destructive",
+                                                  onPress: async () => {
+                                                    try {
+                                                      await deletePromotion(p.id).unwrap();
+                                                      if (storeId) {
+                                                        await findActivePromotions(storeId);
+                                                        await findProducts({ storeId });
+                                                      }
+                                                    } catch (error) {
+                                                      Alert.alert("Error", "Failed to remove product from promotion");
+                                                    }
+                                                  }
+                                                }
+                                              ]
+                                            );
+                                          }}>
+                                            <Ionicons name="remove-circle-outline" size={18} color="#F59E0B" />
+                                          </TouchableOpacity>
+                                          <TouchableOpacity onPress={() => {
+                                            Alert.alert(
+                                              "Delete Product",
+                                              `Are you sure you want to permanently delete "${product.name}"? This will also remove it from this promotion.`,
+                                              [
+                                                { text: "Cancel", style: "cancel" },
+                                                {
+                                                  text: "Delete",
+                                                  style: "destructive",
+                                                  onPress: async () => {
+                                                    try {
+                                                      // Delete the promotion first
+                                                      await deletePromotion(p.id).unwrap();
+                                                      // Then delete the product
+                                                      await deleteProduct(product.id).unwrap();
+                                                      if (storeId) {
+                                                        await findActivePromotions(storeId);
+                                                        await findProducts({ storeId });
+                                                      }
+                                                      Alert.alert("Success", "Product deleted successfully");
+                                                    } catch (error: any) {
+                                                      Alert.alert("Error", error?.message || "Failed to delete product");
+                                                    }
+                                                  }
+                                                }
+                                              ]
+                                            );
+                                          }}>
+                                            <Ionicons name="trash-outline" size={18} color="#EF4444" />
+                                          </TouchableOpacity>
+                                        </View>
+                                      </View>
+                                    </View>
+                                  ) : (
+                                    <View>
+                                      <View style={styles.inputGroup}>
+                                        <Text style={styles.label}>Product Name</Text>
+                                        <TextInput
+                                          style={styles.textInput}
+                                          value={productEditForm.name}
+                                          onChangeText={(t) => setProductEditForm(prev => ({ ...prev, name: t }))}
+                                          placeholder="Product name"
+                                        />
+                                      </View>
+                                      <View style={styles.inputGroup}>
+                                        <Text style={styles.label}>Description</Text>
+                                        <TextInput
+                                          style={styles.textInput}
+                                          value={productEditForm.description}
+                                          onChangeText={(t) => setProductEditForm(prev => ({ ...prev, description: t }))}
+                                          placeholder="Description"
+                                          multiline
+                                        />
+                                      </View>
+                                      <View style={{ flexDirection: 'row', gap: 10 }}>
+                                        <View style={{ flex: 1 }}>
+                                          <Text style={styles.label}>Price</Text>
+                                          <TextInput
+                                            style={styles.textInput}
+                                            value={productEditForm.price}
+                                            onChangeText={(t) => setProductEditForm(prev => ({ ...prev, price: t }))}
+                                            placeholder="0.00"
+                                            keyboardType="decimal-pad"
+                                          />
+                                        </View>
+                                        <View style={{ flex: 1 }}>
+                                          <Text style={styles.label}>Stock</Text>
+                                          <TextInput
+                                            style={styles.textInput}
+                                            value={productEditForm.stock}
+                                            onChangeText={(t) => setProductEditForm(prev => ({ ...prev, stock: t }))}
+                                            placeholder="0"
+                                            keyboardType="numeric"
+                                          />
+                                        </View>
+                                      </View>
+                                      <View style={{ flexDirection: 'row', gap: 10, marginTop: 8 }}>
+                                        <TouchableOpacity 
+                                          style={[styles.createButton, { flex: 1 }]}
+                                          onPress={async () => {
+                                            if (!productEditForm.name.trim()) {
+                                              Alert.alert("Error", "Product name is required");
+                                              return;
+                                            }
+                                            const price = parseFloat(productEditForm.price);
+                                            const stock = parseInt(productEditForm.stock, 10);
+                                            if (isNaN(price) || price <= 0) {
+                                              Alert.alert("Error", "Price must be a positive number");
+                                              return;
+                                            }
+                                            if (isNaN(stock) || stock < 0) {
+                                              Alert.alert("Error", "Stock must be a non-negative number");
+                                              return;
+                                            }
+                                            try {
+                                              await updateProduct({
+                                                id: product.id,
+                                                name: productEditForm.name.trim(),
+                                                description: productEditForm.description.trim() || undefined,
+                                                price: price,
+                                                stock: stock,
+                                                categoryId: productEditForm.categoryId || undefined,
+                                              }).unwrap();
+                                              if (storeId) {
+                                                await findProducts({ storeId });
+                                              }
+                                              setEditingProductId(null);
+                                              Alert.alert("Success", "Product updated successfully");
+                                            } catch (error: any) {
+                                              Alert.alert("Error", error?.message || "Failed to update product");
+                                            }
+                                          }}
+                                        >
+                                          <Text style={styles.createButtonText}>Save</Text>
+                                        </TouchableOpacity>
+                                        <TouchableOpacity 
+                                          style={[styles.createButton, styles.createButtonDisabled, { flex: 1 }]}
+                                          onPress={() => setEditingProductId(null)}
+                                        >
+                                          <Text style={styles.createButtonText}>Cancel</Text>
+                                        </TouchableOpacity>
+                                      </View>
+                                    </View>
+                                  )}
+                                </View>
+                              );
+                            })}
+
+                            {/* Add Product to Promotion Form */}
+                            {showAddProductToPromotion && (
+                              <View style={[styles.productCard, { backgroundColor: '#F0FDF4', borderWidth: 2, borderColor: '#10B981', marginTop: 12 }]}>
+                                <Text style={[styles.label, { marginBottom: 12 }]}>Add New Product to Promotion</Text>
+                                
+                                <View style={styles.inputGroup}>
+                                  <Text style={styles.label}>Product Name *</Text>
+                                  <TextInput
+                                    style={styles.textInput}
+                                    value={newProductForm.name}
+                                    onChangeText={(t) => setNewProductForm(prev => ({ ...prev, name: t }))}
+                                    placeholder="Product name"
+                                  />
+                                </View>
+
+                                <View style={styles.inputGroup}>
+                                  <Text style={styles.label}>Description *</Text>
+                                  <TextInput
+                                    style={styles.textInput}
+                                    value={newProductForm.description}
+                                    onChangeText={(t) => setNewProductForm(prev => ({ ...prev, description: t }))}
+                                    placeholder="Description"
+                                    multiline
+                                  />
+                                </View>
+
+                                <View style={{ flexDirection: 'row', gap: 10 }}>
+                                  <View style={{ flex: 1 }}>
+                                    <Text style={styles.label}>Price *</Text>
+                                    <TextInput
+                                      style={styles.textInput}
+                                      value={newProductForm.price}
+                                      onChangeText={(t) => setNewProductForm(prev => ({ ...prev, price: t }))}
+                                      placeholder="0.00"
+                                      keyboardType="decimal-pad"
+                                    />
+                                  </View>
+                                  <View style={{ flex: 1 }}>
+                                    <Text style={styles.label}>Stock *</Text>
+                                    <TextInput
+                                      style={styles.textInput}
+                                      value={newProductForm.stock}
+                                      onChangeText={(t) => setNewProductForm(prev => ({ ...prev, stock: t }))}
+                                      placeholder="0"
+                                      keyboardType="numeric"
+                                    />
+                                  </View>
+                                </View>
+
+                                <View style={styles.inputGroup}>
+                                  <Text style={styles.label}>Category</Text>
+                                  <TouchableOpacity
+                                    style={styles.inputContainer}
+                                    onPress={() => setShowCategoryList(!showCategoryList)}
+                                  >
+                                    <Ionicons name="pricetags" size={18} color="#6B7280" />
+                                    <Text style={{ marginLeft: 8, color: "#374151", fontSize: 14 }}>
+                                      {newProductForm.categoryId
+                                        ? categories.find((c) => c.id === newProductForm.categoryId)?.name || "Select category"
+                                        : "Select category"}
+                                    </Text>
+                                  </TouchableOpacity>
+                                  {showCategoryList && (
+                                    <View style={{ marginTop: 8, borderWidth: 1, borderColor: "#E5E7EB", borderRadius: 12, backgroundColor: "#F9FAFB", maxHeight: 150 }}>
+                                      <ScrollView>
+                                        {categories.map((cat) => (
+                                          <TouchableOpacity
+                                            key={cat.id}
+                                            onPress={() => {
+                                              setNewProductForm(prev => ({ ...prev, categoryId: cat.id }));
+                                              setShowCategoryList(false);
+                                            }}
+                                            style={{ paddingVertical: 10, paddingHorizontal: 12 }}
+                                          >
+                                            <Text style={{ fontSize: 14, color: "#374151" }}>{cat.name}</Text>
+                                          </TouchableOpacity>
+                                        ))}
+                                      </ScrollView>
+                                    </View>
+                                  )}
+                                </View>
+
+                                <View style={styles.inputGroup}>
+                                  <Text style={styles.label}>Discount *</Text>
+                                  <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center' }}>
+                                    <View style={styles.discountTypeSelector}>
+                                      <TouchableOpacity
+                                        style={[
+                                          styles.discountTypeButton,
+                                          newProductForm.discountType === 'percentage' && styles.discountTypeButtonSelected
+                                        ]}
+                                        onPress={() => setNewProductForm(prev => ({ ...prev, discountType: 'percentage' }))}
+                                      >
+                                        <Text style={[
+                                          styles.discountTypeButtonText,
+                                          newProductForm.discountType === 'percentage' && styles.discountTypeButtonTextSelected
+                                        ]}>%</Text>
+                                      </TouchableOpacity>
+                                      <TouchableOpacity
+                                        style={[
+                                          styles.discountTypeButton,
+                                          newProductForm.discountType === 'fixed' && styles.discountTypeButtonSelected
+                                        ]}
+                                        onPress={() => setNewProductForm(prev => ({ ...prev, discountType: 'fixed' }))}
+                                      >
+                                        <Text style={[
+                                          styles.discountTypeButtonText,
+                                          newProductForm.discountType === 'fixed' && styles.discountTypeButtonTextSelected
+                                        ]}>$</Text>
+                                      </TouchableOpacity>
+                                    </View>
+                                    <TextInput
+                                      style={[styles.discountInput, { flex: 1 }]}
+                                      value={newProductForm.discount}
+                                      onChangeText={(t) => setNewProductForm(prev => ({ ...prev, discount: t }))}
+                                      placeholder={newProductForm.discountType === 'percentage' ? "20" : "5.00"}
+                                      keyboardType="decimal-pad"
+                                    />
+                                  </View>
+                                </View>
+
+                                <View style={{ flexDirection: 'row', gap: 10, marginTop: 8 }}>
+                                  <TouchableOpacity 
+                                    style={[styles.createButton, { flex: 1 }]}
+                                    onPress={async () => {
+                                      if (!newProductForm.name.trim() || !newProductForm.description.trim() || !newProductForm.price || !newProductForm.stock || !newProductForm.discount) {
+                                        Alert.alert("Error", "Please fill in all required fields");
+                                        return;
+                                      }
+                                      const price = parseFloat(newProductForm.price);
+                                      const stock = parseInt(newProductForm.stock, 10);
+                                      const discount = parseFloat(newProductForm.discount);
+                                      if (isNaN(price) || price <= 0) {
+                                        Alert.alert("Error", "Price must be a positive number");
+                                        return;
+                                      }
+                                      if (isNaN(stock) || stock < 0) {
+                                        Alert.alert("Error", "Stock must be a non-negative number");
+                                        return;
+                                      }
+                                      if (isNaN(discount) || discount <= 0) {
+                                        Alert.alert("Error", "Discount must be a positive number");
+                                        return;
+                                      }
+                                      if (newProductForm.discountType === 'percentage' && discount > 100) {
+                                        Alert.alert("Error", "Percentage discount cannot exceed 100%");
+                                        return;
+                                      }
+                                      if (newProductForm.discountType === 'fixed' && discount >= price) {
+                                        Alert.alert("Error", "Fixed discount must be less than product price");
+                                        return;
+                                      }
+                                      if (!storeId) {
+                                        Alert.alert("Error", "Store not found");
+                                        return;
+                                      }
+                                      try {
+                                        // Create the product first
+                                        const createdProduct = await createProduct({
+                                          name: newProductForm.name.trim(),
+                                          description: newProductForm.description.trim(),
+                                          price: price,
+                                          stock: stock,
+                                          storeId: storeId,
+                                          categoryId: newProductForm.categoryId || undefined,
+                                        }).unwrap();
+                                        
+                                        // Then create the promotion for this product
+                                        if (editForm.startsAt && editForm.endsAt) {
+                                          await createPromotion({
+                                            title: editForm.title,
+                                            type: newProductForm.discountType,
+                                            description: editForm.description || `${newProductForm.discountType === 'percentage' ? `${discount}%` : `$${discount}`} off`,
+                                            startsAt: editForm.startsAt.toISOString(),
+                                            endsAt: editForm.endsAt.toISOString(),
+                                            discount: discount,
+                                            productId: createdProduct.id,
+                                          }).unwrap();
+                                        }
+                                        
+                                        // Refresh data
+                                        if (storeId) {
+                                          await findProducts({ storeId });
+                                          await findActivePromotions(storeId);
+                                        }
+                                        
+                                        // Reset form
+                                        setNewProductForm({ name: "", description: "", price: "", stock: "", discount: "", discountType: 'percentage', categoryId: null });
+                                        setShowAddProductToPromotion(false);
+                                        Alert.alert("Success", "Product created and added to promotion");
+                                      } catch (error: any) {
+                                        Alert.alert("Error", error?.message || "Failed to create product");
+                                      }
+                                    }}
+                                  >
+                                    <Text style={styles.createButtonText}>Create & Add</Text>
+                                  </TouchableOpacity>
+                                  <TouchableOpacity 
+                                    style={[styles.createButton, styles.createButtonDisabled, { flex: 1 }]}
+                                    onPress={() => {
+                                      setShowAddProductToPromotion(false);
+                                      setNewProductForm({ name: "", description: "", price: "", stock: "", discount: "", discountType: 'percentage', categoryId: null });
+                                    }}
+                                  >
+                                    <Text style={styles.createButtonText}>Cancel</Text>
+                                  </TouchableOpacity>
+                                </View>
+                              </View>
+                            )}
+
+                            {/* Add Existing Product to Promotion */}
+                            {showAddProductToPromotion && availableProducts.length > 0 && (
+                              <View style={[styles.productCard, { backgroundColor: '#FEF3C7', borderWidth: 2, borderColor: '#F59E0B', marginTop: 12 }]}>
+                                <Text style={[styles.label, { marginBottom: 12 }]}>Or Add Existing Product</Text>
+                                {availableProducts.slice(0, 5).map((product) => (
+                                  <View key={product.id} style={{ paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: '#E5E7EB' }}>
+                                    {addingExistingProductId !== product.id ? (
+                                      <TouchableOpacity
+                                        onPress={() => {
+                                          setAddingExistingProductId(product.id);
+                                          setExistingProductDiscount("");
+                                          setExistingProductDiscountType('percentage');
+                                        }}
+                                      >
+                                        <Text style={styles.productName}>{product.name}</Text>
+                                        <Text style={styles.productPrice}>${product.price}</Text>
+                                      </TouchableOpacity>
+                                    ) : (
+                                      <View>
+                                        <Text style={styles.productName}>{product.name}</Text>
+                                        <View style={{ marginTop: 8 }}>
+                                          <Text style={styles.label}>Discount</Text>
+                                          <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center', marginTop: 4 }}>
+                                            <View style={styles.discountTypeSelector}>
+                                              <TouchableOpacity
+                                                style={[
+                                                  styles.discountTypeButton,
+                                                  existingProductDiscountType === 'percentage' && styles.discountTypeButtonSelected
+                                                ]}
+                                                onPress={() => setExistingProductDiscountType('percentage')}
+                                              >
+                                                <Text style={[
+                                                  styles.discountTypeButtonText,
+                                                  existingProductDiscountType === 'percentage' && styles.discountTypeButtonTextSelected
+                                                ]}>%</Text>
+                                              </TouchableOpacity>
+                                              <TouchableOpacity
+                                                style={[
+                                                  styles.discountTypeButton,
+                                                  existingProductDiscountType === 'fixed' && styles.discountTypeButtonSelected
+                                                ]}
+                                                onPress={() => setExistingProductDiscountType('fixed')}
+                                              >
+                                                <Text style={[
+                                                  styles.discountTypeButtonText,
+                                                  existingProductDiscountType === 'fixed' && styles.discountTypeButtonTextSelected
+                                                ]}>$</Text>
+                                              </TouchableOpacity>
+                                            </View>
+                                            <TextInput
+                                              style={[styles.discountInput, { flex: 1 }]}
+                                              value={existingProductDiscount}
+                                              onChangeText={setExistingProductDiscount}
+                                              placeholder={existingProductDiscountType === 'percentage' ? "20" : "5.00"}
+                                              keyboardType="decimal-pad"
+                                            />
+                                          </View>
+                                        </View>
+                                        <View style={{ flexDirection: 'row', gap: 8, marginTop: 8 }}>
+                                          <TouchableOpacity
+                                            style={[styles.createButton, { flex: 1, paddingVertical: 6 }]}
+                                            onPress={async () => {
+                                              if (!existingProductDiscount) {
+                                                Alert.alert("Error", "Please enter a discount");
+                                                return;
+                                              }
+                                              const discountValue = parseFloat(existingProductDiscount);
+                                              if (isNaN(discountValue) || discountValue <= 0) {
+                                                Alert.alert("Error", "Please enter a valid discount");
+                                                return;
+                                              }
+                                              if (existingProductDiscountType === 'percentage' && discountValue > 100) {
+                                                Alert.alert("Error", "Percentage discount cannot exceed 100%");
+                                                return;
+                                              }
+                                              if (existingProductDiscountType === 'fixed' && discountValue >= parseFloat(product.price.toString())) {
+                                                Alert.alert("Error", "Fixed discount must be less than product price");
+                                                return;
+                                              }
+                                              if (editForm.startsAt && editForm.endsAt) {
+                                                try {
+                                                  await createPromotion({
+                                                    title: editForm.title,
+                                                    type: existingProductDiscountType,
+                                                    description: editForm.description || `${existingProductDiscountType === 'percentage' ? `${discountValue}%` : `$${discountValue}`} off`,
+                                                    startsAt: editForm.startsAt.toISOString(),
+                                                    endsAt: editForm.endsAt.toISOString(),
+                                                    discount: discountValue,
+                                                    productId: product.id,
+                                                  }).unwrap();
+                                                  if (storeId) {
+                                                    await findActivePromotions(storeId);
+                                                  }
+                                                  setAddingExistingProductId(null);
+                                                  setExistingProductDiscount("");
+                                                  Alert.alert("Success", "Product added to promotion");
+                                                } catch (error: any) {
+                                                  Alert.alert("Error", error?.message || "Failed to add product to promotion");
+                                                }
+                                              }
+                                            }}
+                                          >
+                                            <Text style={[styles.createButtonText, { fontSize: 12 }]}>Add</Text>
+                                          </TouchableOpacity>
+                                          <TouchableOpacity
+                                            style={[styles.createButton, styles.createButtonDisabled, { flex: 1, paddingVertical: 6 }]}
+                                            onPress={() => {
+                                              setAddingExistingProductId(null);
+                                              setExistingProductDiscount("");
+                                            }}
+                                          >
+                                            <Text style={[styles.createButtonText, { fontSize: 12 }]}>Cancel</Text>
+                                          </TouchableOpacity>
+                                        </View>
+                                      </View>
+                                    )}
+                                  </View>
+                                ))}
+                              </View>
                             )}
                           </View>
 

@@ -154,7 +154,7 @@ export default function Notifications() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#fff" },
-  content: { paddingHorizontal: 20, paddingBottom: Platform.OS === "ios" ? 120 : 100 },
+  content: { paddingTop: 20, paddingHorizontal: 20, paddingBottom: Platform.OS === "ios" ? 120 : 100 },
   loadingContainer: {
     flex: 1,
     justifyContent: "center",
@@ -169,7 +169,7 @@ const styles = StyleSheet.create({
     position: "absolute",
     left: 20,
     right: 20,
-    bottom: Platform.OS === "ios" ? 90 : 70,
+    bottom: Platform.OS === "ios" ? 90 : 10,
     backgroundColor: "#F3F4F6",
     borderRadius: 12,
     paddingVertical: 14,

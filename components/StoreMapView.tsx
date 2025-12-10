@@ -49,14 +49,34 @@ export default function StoreMapView({
   onStoreCalloutPress,
   stores: externalStores,
   autoFetchStores = false,
-  radiusKm = 10,
+  radiusKm: providedRadiusKm,
   style,
 }: StoreMapViewProps) {
   const mapRef = useRef<MapView>(null);
   const {
-    state: { nearbyStores, loading },
-    action: { findNearbyStores },
+    state: { nearbyStores, loading, currentTier },
+    action: { findNearbyStores, getCurrentTier },
   } = useStore();
+
+  // Auto-determine radius based on tier if not provided
+  // BASIC: 1km max, PRO: 3km max
+  const radiusKm = useMemo(() => {
+    if (providedRadiusKm !== undefined) {
+      return providedRadiusKm;
+    }
+    // Auto-determine based on tier
+    if (currentTier?.tier === "PRO") {
+      return 3; // PRO tier allows up to 3km
+    }
+    return 1; // BASIC tier allows up to 1km (default)
+  }, [providedRadiusKm, currentTier?.tier]);
+
+  // Fetch tier on mount if auto-fetching stores
+  useEffect(() => {
+    if (autoFetchStores && !currentTier) {
+      getCurrentTier();
+    }
+  }, [autoFetchStores, currentTier, getCurrentTier]);
 
   const [region, setRegion] = useState<Region | null>(initialRegion || null);
   const [isLoadingLocation, setIsLoadingLocation] = useState(false);
