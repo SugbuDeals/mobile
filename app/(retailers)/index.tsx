@@ -13,7 +13,7 @@ import {
   TouchableOpacity,
   View
 } from "react-native";
-import { PromotionCard } from "./components/PromotionCard";
+import PromotionCard from "@/components/consumers/PromotionCard";
 
 const DEFAULT_BANNER = require("../../assets/images/index3.png");
 

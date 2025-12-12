@@ -4,8 +4,8 @@ import { useStore, useStoreManagement } from "@/features/store";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { LinearGradient } from "expo-linear-gradient";
-import { Tabs, router } from "expo-router";
-import React, { useEffect } from "react";
+import { Tabs, router, useFocusEffect } from "expo-router";
+import React, { useEffect, useCallback } from "react";
 import {
   Platform,
   StatusBar,
@@ -13,6 +13,7 @@ import {
   Text,
   TouchableOpacity,
   View,
+  AppState,
 } from "react-native";
 
 const RetailerHeader = () => {
@@ -30,6 +31,26 @@ const RetailerHeader = () => {
     // Fetch current tier to show PRO indicator
     getCurrentTier();
   }, [action, getCurrentTier]);
+
+  // Refresh unread count when screen comes into focus
+  useFocusEffect(
+    useCallback(() => {
+      action.getUnreadCount();
+    }, [action])
+  );
+
+  // Refresh unread count when app comes to foreground
+  useEffect(() => {
+    const subscription = AppState.addEventListener("change", (nextAppState) => {
+      if (nextAppState === "active") {
+        action.getUnreadCount();
+      }
+    });
+
+    return () => {
+      subscription.remove();
+    };
+  }, [action]);
 
   const isPro = currentTier?.tier === "PRO";
 
@@ -195,6 +216,16 @@ export default function RetailersLayout() {
         }}
       />
       <Tabs.Screen
+        name="voucher-scanner"
+        options={{
+          title: "Scanner",
+          headerShown: false,
+          tabBarIcon: ({ color, size = 24 }) => (
+            <Ionicons name="qr-code" color={color} size={size} />
+          ),
+        }}
+      />
+      <Tabs.Screen
         name="products"
         options={{
           title: "Products",
@@ -238,14 +269,6 @@ export default function RetailersLayout() {
         }}
       />
       <Tabs.Screen
-        name="components/PromotionCard"
-        options={{
-          title: "Components",
-          headerShown: false,
-          href: null,
-        }}
-      />
-      <Tabs.Screen
         name="settings"
         options={{
           title: "Settings",
@@ -253,6 +276,24 @@ export default function RetailersLayout() {
           tabBarIcon: ({ color, size = 24 }) => (
             <Ionicons name="settings" color={color} size={size} />
           ),
+        }}
+      />
+      <Tabs.Screen
+        name="components"
+        options={{
+          href: null,
+        }}
+      />
+      <Tabs.Screen
+        name="hooks"
+        options={{
+          href: null,
+        }}
+      />
+      <Tabs.Screen
+        name="utils"
+        options={{
+          href: null,
         }}
       />
       <Tabs.Screen

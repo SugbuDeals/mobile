@@ -3,6 +3,7 @@ import { useStore } from "@/features/store";
 import { Ionicons } from "@expo/vector-icons";
 import React, { useEffect, useMemo, useState } from "react";
 import { ActivityIndicator, Alert, ScrollView, StyleSheet, Switch, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { formatDealDetails, getDealTypeLabel } from "@/utils/dealTypes";
 
 export default function AdminViewPromotions() {
   const { state: storeState, action: storeActions } = useStore();
@@ -151,7 +152,13 @@ export default function AdminViewPromotions() {
                       <View style={[styles.metaPill, { backgroundColor: "#e0f2f1" }]}>
                         <Ionicons name="pricetag" size={14} color="#277874" />
                         <Text style={[styles.metaText, { color: "#277874" }]}>
-                          {promo.type?.toLowerCase() === "percentage" ? `${promo.discount}%` : `₱${promo.discount}`}
+                          {formatDealDetails(promo)}
+                        </Text>
+                      </View>
+                      <View style={[styles.metaPill, { backgroundColor: "#FEF3C7" }]}>
+                        <Ionicons name="gift" size={14} color="#D97706" />
+                        <Text style={[styles.metaText, { color: "#92400E" }]}>
+                          {getDealTypeLabel(promo.dealType)}
                         </Text>
                       </View>
                       <View style={[styles.metaPill, { backgroundColor: "#f3f4f6" }]}>

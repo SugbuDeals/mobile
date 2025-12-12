@@ -1,9 +1,9 @@
 import { useNotifications } from "@/features/notifications";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
-import { Tabs, useRouter } from "expo-router";
-import React, { useEffect } from "react";
-import { Platform, StatusBar, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { Tabs, useRouter, useFocusEffect } from "expo-router";
+import React, { useEffect, useCallback } from "react";
+import { Platform, StatusBar, StyleSheet, Text, TouchableOpacity, View, AppState } from "react-native";
 
 const AdminHeader = ({ title = "Dashboard", subtitle = "Welcome back, Admin!" }: { title?: string; subtitle?: string }) => {
   const router = useRouter();
@@ -13,6 +13,26 @@ const AdminHeader = ({ title = "Dashboard", subtitle = "Welcome back, Admin!" }:
     // Fetch unread count when header mounts
     action.getUnreadCount();
   }, []);
+
+  // Refresh unread count when screen comes into focus
+  useFocusEffect(
+    useCallback(() => {
+      action.getUnreadCount();
+    }, [action])
+  );
+
+  // Refresh unread count when app comes to foreground
+  useEffect(() => {
+    const subscription = AppState.addEventListener("change", (nextAppState) => {
+      if (nextAppState === "active") {
+        action.getUnreadCount();
+      }
+    });
+
+    return () => {
+      subscription.remove();
+    };
+  }, [action]);
   
   return (
     <View style={styles.headerShadowContainer}>

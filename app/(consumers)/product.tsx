@@ -1,19 +1,23 @@
+import DealBadge from "@/components/consumers/deals/DealBadge";
 import env from "@/config/env";
 import { useBookmarks } from "@/features/bookmarks";
 import { useCatalog } from "@/features/catalog";
 import type { Product } from "@/features/catalog/types";
 import { useStore } from "@/features/store";
-import type { Store } from "@/features/store/stores/types";
 import type { Promotion } from "@/features/store/promotions/types";
+import type { Store } from "@/features/store/stores/types";
+import { promotionsApi } from "@/services/api/endpoints/promotions";
+import type { VoucherTokenResponseDto } from "@/services/api/types/swagger";
+import { formatDealDetails } from "@/utils/dealTypes";
 import Ionicons from "@expo/vector-icons/Ionicons";
-import * as Location from "expo-location";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import React, { useMemo, useState } from "react";
 import {
+  ActivityIndicator,
+  Alert,
   Image,
   Linking,
   Modal,
-  Platform,
   SafeAreaView,
   ScrollView,
   StatusBar,
@@ -22,7 +26,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import MapView, { Marker } from "react-native-maps";
+import QRCode from "react-native-qrcode-svg";
 
 export default function ProductDetailScreen() {
   const params = useLocalSearchParams() as Record<string, string | undefined>;
@@ -34,6 +38,7 @@ export default function ProductDetailScreen() {
     state: { products },
   } = useCatalog();
   const router = useRouter();
+  const { helpers: bookmarkHelpers, action: bookmarkActions } = useBookmarks();
 
   // Validate productId to ensure it's a valid number (not NaN, not null string, not empty)
   const productId = (() => {
@@ -104,15 +109,6 @@ export default function ProductDetailScreen() {
     if (rawLogo.startsWith("/")) return `${env.API_BASE_URL}${rawLogo}`;
     return `${env.API_BASE_URL}/files/${rawLogo}`;
   })();
-
-  // Compute store banner for this product's store (used in header)
-  const rawBanner = resolvedStore?.bannerUrl ?? undefined;
-  const bannerUrl = (() => {
-    if (!rawBanner) return undefined;
-    if (/^https?:\/\//i.test(rawBanner)) return rawBanner;
-    if (rawBanner.startsWith("/")) return `${env.API_BASE_URL}${rawBanner}`;
-    return `${env.API_BASE_URL}/files/${rawBanner}`;
-  })();
   // If this product exists but was disabled by administrators, hide details from consumers
   if (actualProduct && actualProduct.isActive === false) {
     return (
@@ -143,25 +139,43 @@ export default function ProductDetailScreen() {
     );
   }
 
+  const isSaved = bookmarkHelpers.isProductBookmarked(productId);
+
+  const toggleBookmark = () => {
+    if (productId == null) return;
+    if (bookmarkHelpers.isProductBookmarked(productId)) {
+      bookmarkActions.removeProductBookmark(productId);
+    } else {
+      bookmarkActions.addProductBookmark(productId);
+    }
+  };
+
   return (
     <SafeAreaView style={styles.safeArea}>
-      <StatusBar barStyle="dark-content" backgroundColor="#fff" />
+      <StatusBar barStyle="dark-content" backgroundColor="#F9FAFB" />
+      <View style={styles.topBar}>
+        <TouchableOpacity 
+          style={styles.backButton}
+          onPress={() => router.back()}
+        >
+          <Ionicons name="arrow-back" size={24} color="#111827" />
+        </TouchableOpacity>
+        
+        <TouchableOpacity 
+          style={styles.bookmarkButton}
+          onPress={toggleBookmark}
+        >
+          <Ionicons 
+            name={isSaved ? "bookmark" : "bookmark-outline"} 
+            size={24} 
+            color={isSaved ? "#1B6F5D" : "#111827"} 
+          />
+        </TouchableOpacity>
+      </View>
       <ScrollView
         contentContainerStyle={styles.scrollViewContent}
         showsVerticalScrollIndicator={false}
       >
-        <StoreHeader
-          storeName={productStore}
-          storeId={productStoreId}
-          logoUrl={logoUrl}
-          bannerUrl={bannerUrl}
-          onOpenStore={() =>
-            router.push({
-              pathname: "/(consumers)/storedetails",
-              params: { store: productStore, storeId: productStoreId },
-            })
-          }
-        />
         <ProductCard
           name={productName}
           store={productStore}
@@ -171,19 +185,20 @@ export default function ProductDetailScreen() {
           imageUrl={productImageUrl}
           description={productDescription}
         />
-        <LocationCard
+        <SimpleStoreHeader
           storeName={productStore}
           storeId={productStoreId}
-          onNavigate={() =>
+          logoUrl={logoUrl}
+          onOpenStore={() =>
             router.push({
-              pathname: "/(consumers)/navigate",
-              params: {
-                storeName: productStore,
-                storeId: productStoreId?.toString(),
-                address: "123 Market Street",
-              },
+              pathname: "/(consumers)/storedetails",
+              params: { store: productStore, storeId: productStoreId },
             })
           }
+        />
+        <SimpleLocationCard
+          storeName={productStore}
+          storeId={productStoreId}
         />
       </ScrollView>
     </SafeAreaView>
@@ -193,24 +208,45 @@ export default function ProductDetailScreen() {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
+    backgroundColor: "#F9FAFB",
+  },
+  topBar: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    paddingBottom: 8,
     backgroundColor: "#fff",
   },
+  backButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: "#F9FAFB",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  bookmarkButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: "#F9FAFB",
+    justifyContent: "center",
+    alignItems: "center",
+  },
   scrollViewContent: {
-    paddingHorizontal: 16,
-    paddingTop: 4,
-    paddingBottom: 12,
+    paddingBottom: 24,
   },
 });
 
-// Location Card (inline)
-function LocationCard({
+// Simple Location Card
+function SimpleLocationCard({
   storeName,
   storeId,
-  onNavigate,
 }: {
   storeName: string;
   storeId?: number;
-  onNavigate: () => void;
 }) {
   const {
     state: { stores, selectedStore },
@@ -221,47 +257,8 @@ function LocationCard({
   const latitude = store?.latitude ?? null;
   const longitude = store?.longitude ?? null;
   const address = store?.address || "";
-  const [region, setRegion] = React.useState<{
-    latitude: number;
-    longitude: number;
-    latitudeDelta: number;
-    longitudeDelta: number;
-  } | null>(null);
 
-  React.useEffect(() => {
-    (async () => {
-      try {
-        const { status } = await Location.requestForegroundPermissionsAsync();
-        if (
-          status === "granted" &&
-          typeof latitude === "number" &&
-          typeof longitude === "number"
-        ) {
-          const pos = await Location.getCurrentPositionAsync({
-            accuracy: Location.Accuracy.Balanced,
-          });
-          setRegion({
-            latitude: latitude,
-            longitude: longitude,
-            latitudeDelta: Math.abs(latitude - pos.coords.latitude) + 0.02,
-            longitudeDelta: Math.abs(longitude - pos.coords.longitude) + 0.02,
-          });
-        } else if (
-          typeof latitude === "number" &&
-          typeof longitude === "number"
-        ) {
-          setRegion({
-            latitude,
-            longitude,
-            latitudeDelta: 0.02,
-            longitudeDelta: 0.02,
-          });
-        }
-      } catch {}
-    })();
-  }, [latitude, longitude]);
-
-  const openExternalDirections = () => {
+  const openDirections = () => {
     if (typeof latitude === "number" && typeof longitude === "number") {
       Linking.openURL(
         `https://www.google.com/maps/dir/?api=1&destination=${latitude},${longitude}`
@@ -272,105 +269,71 @@ function LocationCard({
           address
         )}`
       );
-    } else {
-      onNavigate();
     }
   };
 
+  if (!address) return null;
+
   return (
     <View style={locStyles.container}>
-      <Text style={locStyles.sectionTitle}>Location</Text>
-      <View style={locStyles.card}>
-        {region ? (
-          <MapView style={locStyles.mapImage} initialRegion={region}>
-            {typeof latitude === "number" && typeof longitude === "number" && (
-              <Marker
-                coordinate={{ latitude, longitude }}
-                title={storeName}
-                description={address}
-              />
-            )}
-          </MapView>
-        ) : (
-          <Image
-            source={require("../../assets/images/partial-react-logo.png")}
-            style={locStyles.mapImage}
-          />
-        )}
-        <View style={locStyles.detailsRow}>
-          <View style={locStyles.locationDetails}>
-            <Text style={locStyles.address}>{address || "Store location"}</Text>
-            <Text style={locStyles.distance}>Navigate to destination</Text>
-          </View>
-          <View style={locStyles.buttonContainer}>
-            <TouchableOpacity
-              style={locStyles.navigateButton}
-              activeOpacity={0.85}
-              onPress={openExternalDirections}
-            >
-              <View
-                style={{
-                  flexDirection: "row",
-                  alignItems: "center",
-                  justifyContent: "center",
-                }}
-              >
-                <Ionicons name="navigate" size={16} color="#ffffff" />
-                <Text style={locStyles.buttonTitle}> Navigate</Text>
-              </View>
-            </TouchableOpacity>
-          </View>
+      <TouchableOpacity 
+        style={locStyles.locationButton}
+        onPress={openDirections}
+        activeOpacity={0.7}
+      >
+        <View style={locStyles.iconContainer}>
+          <Ionicons name="location" size={24} color="#1B6F5D" />
         </View>
-      </View>
+        <View style={locStyles.locationInfo}>
+          <Text style={locStyles.locationLabel}>Store Location</Text>
+          <Text style={locStyles.addressText} numberOfLines={2}>
+            {address}
+          </Text>
+        </View>
+        <Ionicons name="navigate" size={20} color="#1B6F5D" />
+      </TouchableOpacity>
     </View>
   );
 }
 
 const locStyles = StyleSheet.create({
-  container: { marginTop: 12, marginBottom: 12, paddingHorizontal: 0 },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: "700",
-    marginBottom: 15,
-    color: "#333",
-  },
-  card: {
+  container: {
     backgroundColor: "#fff",
-    borderRadius: 18,
-    overflow: "hidden",
-    elevation: 2,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.08,
-    shadowRadius: 2,
-  },
-  mapImage: {
-    width: "100%",
-    height: 180,
-    resizeMode: "cover",
-    backgroundColor: "#dedede",
-  },
-  detailsRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    padding: 15,
-  },
-  locationDetails: { flex: 1, marginRight: 10 },
-  address: { fontSize: 18, fontWeight: "600", color: "#333", marginBottom: 4 },
-  distance: { fontSize: 14, color: "#888" },
-  buttonContainer: { width: 120 },
-  navigateButton: {
-    backgroundColor: "#1B6F5D",
-    borderRadius: 24,
-    paddingVertical: 10,
     paddingHorizontal: 16,
+    paddingVertical: 12,
   },
-  buttonTitle: {
-    fontSize: 14,
+  locationButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#F0FDF4",
+    padding: 16,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "#D1FAE5",
+    gap: 12,
+  },
+  iconContainer: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: "#fff",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  locationInfo: {
+    flex: 1,
+  },
+  locationLabel: {
+    fontSize: 12,
     fontWeight: "600",
-    color: "#ffffff",
-    marginLeft: 6,
+    color: "#047857",
+    marginBottom: 4,
+    textTransform: "uppercase",
+  },
+  addressText: {
+    fontSize: 14,
+    color: "#374151",
+    lineHeight: 20,
   },
 });
 
@@ -395,6 +358,7 @@ function ProductCard({
   const {
     state: { activePromotions },
   } = useStore();
+  const router = useRouter();
   const params = useLocalSearchParams() as Record<string, string | undefined>;
   // Validate productId to ensure it's a valid number (not NaN, not null string, not empty)
   const productId = (() => {
@@ -406,91 +370,370 @@ function ProductCard({
   const [showDescription, setShowDescription] = useState(false);
   const hasDescription = description && description.trim().length > 0;
 
-  const computedDiscountedPrice = React.useMemo(() => {
+  // Voucher state
+  const [voucherToken, setVoucherToken] = useState<VoucherTokenResponseDto | null>(null);
+  const [showVoucherModal, setShowVoucherModal] = useState(false);
+  const [isGeneratingVoucher, setIsGeneratingVoucher] = useState(false);
+
+  const {
+    state: { products: allProducts },
+  } = useCatalog();
+
+  // Generate voucher function
+  const handleGenerateVoucher = async () => {
+    console.log("=== GENERATE VOUCHER STARTED ===");
+    console.log("ProductId:", productId);
+    console.log("Active Promotion:", activePromotion);
+    console.log("Store ID:", params.storeId);
+    
+    if (!productId || !activePromotion || !params.storeId) {
+      console.error("Missing required info for voucher generation");
+      Alert.alert("Error", "Missing required information to generate voucher");
+      return;
+    }
+
+    setIsGeneratingVoucher(true);
+    console.log("Generating voucher token...");
+    
+    try {
+      const response = await promotionsApi.generateVoucherToken({
+        promotionId: activePromotion.id,
+        storeId: Number(params.storeId),
+        productId: productId,
+      });
+      
+      console.log("=== VOUCHER TOKEN RESPONSE ===");
+      console.log("Full Response:", JSON.stringify(response, null, 2));
+      console.log("Response type:", typeof response);
+      console.log("Response is array:", Array.isArray(response));
+      console.log("Response keys:", Object.keys(response || {}));
+      console.log("Token value:", response?.token);
+      console.log("Token type:", typeof response?.token);
+      console.log("Token length:", response?.token?.length);
+      
+      // Check if response is nested under 'data' property
+      const actualData = (response as any)?.data || response;
+      console.log("Actual data (after checking for nested data):", actualData);
+      console.log("Actual data token:", actualData?.token);
+      
+      console.log("Setting voucherToken state...");
+      setVoucherToken(actualData);
+      console.log("Opening modal...");
+      setShowVoucherModal(true);
+      console.log("Modal should be open now");
+    } catch (error: any) {
+      console.error("=== ERROR GENERATING VOUCHER ===");
+      console.error("Error:", error);
+      console.error("Error message:", error?.message);
+      console.error("Error response:", error?.response?.data);
+      Alert.alert(
+        "Failed to Generate Voucher",
+        error?.response?.data?.message || error?.message || "Please try again later"
+      );
+    } finally {
+      setIsGeneratingVoucher(false);
+      console.log("=== GENERATE VOUCHER COMPLETE ===");
+    }
+  };
+
+  const handleBundleProductPress = (product: Product) => {
+    if (product.id === productId) return; // Don't navigate to current product
+    
+    router.push({
+      pathname: "/(consumers)/product",
+      params: {
+        name: product.name,
+        storeId: product.storeId,
+        price: product.price,
+        description: product.description,
+        productId: product.id,
+        imageUrl: product.imageUrl || "",
+        promotionId: activePromotion?.id || "",
+      },
+    });
+  };
+
+  const activePromotion = React.useMemo(() => {
     if (!productId) return undefined;
-    const promo = (activePromotions || []).find(
+    
+    // First, try to find a direct promotion match
+    const directMatch = (activePromotions || []).find(
       (p: Promotion) => p.productId === productId && p.active === true
     );
-    if (!promo) return undefined;
+    
+    if (directMatch) return directMatch;
+    
+    // For bundle deals, check if this product is part of any bundle's promotionProducts
+    const bundleMatch = (activePromotions || []).find((p: Promotion) => {
+      if (!p.active || p.dealType !== 'BUNDLE') return false;
+      
+      // Check if this product is in the bundle's promotionProducts array
+      const promotionProducts = p.promotionProducts || [];
+      return promotionProducts.some((pp: any) => pp.productId === productId);
+    });
+    
+    return bundleMatch;
+  }, [activePromotions, productId]);
+
+  // Get all products in the bundle if this is a bundle deal
+  const bundleProducts = React.useMemo(() => {
+    if (!activePromotion || activePromotion.dealType !== 'BUNDLE') return [];
+    
+    // Get product IDs from promotionProducts array
+    const productIds = (activePromotion.promotionProducts || [])
+      .map((pp: any) => pp.productId)
+      .filter((id: number) => id != null);
+    
+    // Find all products in the bundle
+    return productIds
+      .map((id: number) => allProducts?.find((p: Product) => p.id === id))
+      .filter((p: Product | undefined): p is Product => p != null);
+  }, [activePromotion, allProducts]);
+
+  // Calculate bundle savings
+  const bundleSavings = React.useMemo(() => {
+    if (!activePromotion || activePromotion.dealType !== 'BUNDLE' || !activePromotion.bundlePrice) {
+      return undefined;
+    }
+    
+    const totalOriginalPrice = bundleProducts.reduce((sum, p) => sum + Number(p.price || 0), 0);
+    const bundlePrice = Number(activePromotion.bundlePrice);
+    const savings = totalOriginalPrice - bundlePrice;
+    
+    return savings > 0 ? { totalOriginalPrice, bundlePrice, savings } : undefined;
+  }, [activePromotion, bundleProducts]);
+
+  const computedDiscountedPrice = React.useMemo(() => {
+    if (!activePromotion) return undefined;
+    
     const p = Number(price);
     if (!isFinite(p)) return undefined;
-    const type = String(promo.type || "").toLowerCase();
-    const value = Number(promo.discount || 0);
-    if (type === "percentage") return Math.max(0, p * (1 - value / 100));
-    if (type === "fixed") return Math.max(0, p - value);
+    
+    let discounted: number | undefined;
+    
+    // Handle new dealType fields
+    if (activePromotion.dealType === 'PERCENTAGE_DISCOUNT' && activePromotion.percentageOff != null) {
+      const percentValue = Number(activePromotion.percentageOff);
+      if (percentValue > 0) {
+        discounted = Math.max(0, p * (1 - percentValue / 100));
+      }
+    } else if (activePromotion.dealType === 'FIXED_DISCOUNT' && activePromotion.fixedAmountOff != null) {
+      const fixedValue = Number(activePromotion.fixedAmountOff);
+      if (fixedValue > 0) {
+        discounted = Math.max(0, p - fixedValue);
+      }
+    }
+    // Fallback to legacy fields
+    else if (activePromotion.type && activePromotion.discount != null) {
+      const type = String(activePromotion.type).toLowerCase();
+      const value = Number(activePromotion.discount);
+      if (isFinite(value) && value > 0) {
+        if (type === "percentage") {
+          discounted = Math.max(0, p * (1 - value / 100));
+        } else if (type === "fixed") {
+          discounted = Math.max(0, p - value);
+        }
+      }
+    }
+    
+    // Only return discounted price if it's actually different from base price
+    if (discounted !== undefined && Math.abs(discounted - p) < 0.01) {
+      return undefined;
+    }
+    
+    return discounted;
+  }, [activePromotion, price]);
+  
+  const discountDisplay = React.useMemo(() => {
+    if (!activePromotion) return undefined;
+    
+    if (activePromotion.dealType === 'PERCENTAGE_DISCOUNT' && activePromotion.percentageOff != null) {
+      return `${activePromotion.percentageOff}% OFF`;
+    } else if (activePromotion.dealType === 'FIXED_DISCOUNT' && activePromotion.fixedAmountOff != null) {
+      return `₱${Number(activePromotion.fixedAmountOff).toFixed(2)} OFF`;
+    }
+    // Fallback to legacy fields
+    else if (activePromotion.discount != null) {
+      if (activePromotion.type === 'percentage') {
+        return `${activePromotion.discount}% OFF`;
+      } else if (activePromotion.type === 'fixed') {
+        return `₱${Number(activePromotion.discount).toFixed(2)} OFF`;
+      }
+    }
+    
     return undefined;
-  }, [activePromotions, productId, price]);
+  }, [activePromotion]);
 
   return (
     <>
       <View style={prodStyles.container}>
-        <View style={prodStyles.headerRow}>
-          <Text style={prodStyles.sectionTitle}>Product Details</Text>
-        </View>
-        <View style={prodStyles.card}>
-          <View style={prodStyles.cardRow}>
-            <View style={prodStyles.leftContent}>
-              <Image
-                source={
-                  imageUrl
-                    ? { uri: imageUrl }
-                    : require("../../assets/images/react-logo.png")
-                }
-                style={prodStyles.productImage}
-              />
+        {/* Product Image */}
+        <View style={prodStyles.imageContainer}>
+          <Image
+            source={
+              imageUrl
+                ? { uri: imageUrl }
+                : require("../../assets/images/react-logo.png")
+            }
+            style={prodStyles.productImage}
+          />
+          {activePromotion && activePromotion.dealType && (
+            <View style={prodStyles.dealBadgeContainer}>
+              <DealBadge dealType={activePromotion.dealType} size="small" />
             </View>
-            <View style={prodStyles.rightContent}>
-              {discount ? (
-                <View style={prodStyles.discountTag}>
-                  <Text style={prodStyles.discountText}>{discount} OFF</Text>
-                </View>
-              ) : null}
-              <Text style={prodStyles.productName}>{name}</Text>
-              <View style={prodStyles.statusRow}>
-                <Text style={prodStyles.statusLabel}>Status:</Text>
-                <Text style={prodStyles.statusValue}>In Stock</Text>
-              </View>
-              <View style={prodStyles.priceRow}>
-                {computedDiscountedPrice !== undefined ? (
-                  <>
-                    <Text style={prodStyles.priceOld}>
-                      ₱ {Number(price).toFixed(2)}
-                    </Text>
-                    <Text style={prodStyles.priceNew}>
-                      ₱ {computedDiscountedPrice.toFixed(2)}
-                    </Text>
-                  </>
-                ) : (
-                  <Text style={prodStyles.priceNew}>
-                    ₱ {Number(price).toFixed(2)}
-                  </Text>
-                )}
-              </View>
-              <TouchableOpacity
-                style={[
-                  prodStyles.descriptionButton,
-                  !hasDescription && prodStyles.descriptionButtonDisabled,
-                ]}
-                activeOpacity={0.85}
-                onPress={() => setShowDescription(true)}
-                disabled={!hasDescription}
-              >
-                <Text
-                  style={[
-                    prodStyles.descriptionButtonTitle,
-                    !hasDescription &&
-                      prodStyles.descriptionButtonTitleDisabled,
-                  ]}
-                >
-                  {hasDescription
-                    ? "View Description"
-                    : "No Description Available"}
+          )}
+        </View>
+
+        {/* Product Info Card */}
+        <View style={prodStyles.infoCard}>
+          <Text style={prodStyles.productName}>{name}</Text>
+          
+          <View style={prodStyles.priceContainer}>
+            {computedDiscountedPrice !== undefined && computedDiscountedPrice < Number(price) ? (
+              <>
+                <Text style={prodStyles.priceNew}>
+                  ₱{computedDiscountedPrice.toFixed(2)}
                 </Text>
+                <Text style={prodStyles.priceOld}>
+                  ₱{Number(price).toFixed(2)}
+                </Text>
+                {discountDisplay && (
+                  <View style={prodStyles.discountBadge}>
+                    <Text style={prodStyles.discountText}>
+                      {discountDisplay}
+                    </Text>
+                  </View>
+                )}
+              </>
+            ) : (
+              <Text style={prodStyles.priceNew}>
+                ₱{Number(price).toFixed(2)}
+              </Text>
+            )}
+          </View>
+
+          {/* Active Deal Simplified - only show if has valid discount or special deal type */}
+          {activePromotion && (computedDiscountedPrice !== undefined || ['BOGO', 'BUNDLE', 'VOUCHER', 'QUANTITY_DISCOUNT'].includes(activePromotion.dealType || '')) && (
+            <View style={prodStyles.dealBanner}>
+              <Ionicons name="flash" size={16} color="#F59E0B" />
+              <Text style={prodStyles.dealBannerText}>
+                {formatDealDetails(activePromotion)}
+              </Text>
+            </View>
+          )}
+
+          {/* Voucher Generation Button */}
+          {activePromotion && activePromotion.dealType === 'VOUCHER' && (
+            <TouchableOpacity
+              style={prodStyles.voucherButton}
+              onPress={handleGenerateVoucher}
+              disabled={isGeneratingVoucher}
+              activeOpacity={0.7}
+            >
+              {isGeneratingVoucher ? (
+                <ActivityIndicator color="#fff" size="small" />
+              ) : (
+                <>
+                  <Ionicons name="qr-code" size={20} color="#fff" />
+                  <Text style={prodStyles.voucherButtonText}>
+                    Generate Voucher QR Code
+                  </Text>
+                </>
+              )}
+            </TouchableOpacity>
+          )}
+
+          <View style={prodStyles.statusBadge}>
+            <View style={prodStyles.statusDot} />
+            <Text style={prodStyles.statusText}>In Stock</Text>
+          </View>
+
+          {/* Description */}
+          {hasDescription && (
+            <View style={prodStyles.descriptionContainer}>
+              <Text style={prodStyles.descriptionLabel}>Description</Text>
+              <Text style={prodStyles.descriptionText} numberOfLines={3}>
+                {description}
+              </Text>
+              <TouchableOpacity onPress={() => setShowDescription(true)}>
+                <Text style={prodStyles.readMoreText}>Read more</Text>
               </TouchableOpacity>
             </View>
-          </View>
+          )}
         </View>
       </View>
+
+      {/* Bundle Products Section */}
+      {activePromotion && activePromotion.dealType === 'BUNDLE' && bundleProducts.length > 0 && (
+        <View style={prodStyles.bundleSection}>
+          <View style={prodStyles.bundleHeader}>
+            <Ionicons name="apps" size={20} color="#42A5F5" />
+            <Text style={prodStyles.bundleSectionTitle}>Bundle Includes ({bundleProducts.length} items)</Text>
+          </View>
+          <View style={prodStyles.bundleCard}>
+            {bundleProducts.map((product) => (
+              <TouchableOpacity 
+                key={product.id} 
+                style={[
+                  prodStyles.bundleItem,
+                  product.id === productId && prodStyles.currentBundleItem
+                ]}
+                onPress={() => handleBundleProductPress(product)}
+                activeOpacity={product.id === productId ? 1 : 0.7}
+                disabled={product.id === productId}
+              >
+                <Image
+                  source={
+                    product.imageUrl
+                      ? { uri: product.imageUrl }
+                      : require("../../assets/images/react-logo.png")
+                  }
+                  style={prodStyles.bundleItemImage}
+                />
+                <View style={prodStyles.bundleItemInfo}>
+                  <Text style={prodStyles.bundleItemName} numberOfLines={2}>
+                    {product.name}
+                  </Text>
+                  <Text style={prodStyles.bundleItemPrice}>
+                    ₱{Number(product.price).toFixed(2)}
+                  </Text>
+                </View>
+                {product.id === productId && (
+                  <View style={prodStyles.currentItemBadge}>
+                    <Text style={prodStyles.currentItemText}>You&apos;re viewing</Text>
+                  </View>
+                )}
+                {product.id !== productId && (
+                  <Ionicons name="chevron-forward" size={20} color="#9CA3AF" />
+                )}
+              </TouchableOpacity>
+            ))}
+            
+            {bundleSavings && (
+              <View style={prodStyles.bundleSummary}>
+                <View style={prodStyles.bundleSummaryRow}>
+                  <Text style={prodStyles.bundleSummaryLabel}>Total if bought separately:</Text>
+                  <Text style={prodStyles.bundleSummaryOriginalPrice}>
+                    ₱{bundleSavings.totalOriginalPrice.toFixed(2)}
+                  </Text>
+                </View>
+                <View style={prodStyles.bundleSummaryRow}>
+                  <Text style={prodStyles.bundleSummaryLabel}>Bundle Price:</Text>
+                  <Text style={prodStyles.bundleSummaryBundlePrice}>
+                    ₱{bundleSavings.bundlePrice.toFixed(2)}
+                  </Text>
+                </View>
+                <View style={prodStyles.bundleSavingsRow}>
+                  <Ionicons name="pricetag" size={16} color="#10B981" />
+                  <Text style={prodStyles.bundleSavingsText}>
+                    You save ₱{bundleSavings.savings.toFixed(2)}!
+                  </Text>
+                </View>
+              </View>
+            )}
+          </View>
+        </View>
+      )}
 
       {/* Description Modal */}
       {showDescription && (
@@ -503,12 +746,12 @@ function ProductCard({
           <View style={prodStyles.modalOverlay}>
             <View style={prodStyles.modalContent}>
               <View style={prodStyles.modalHeader}>
-                <Text style={prodStyles.modalTitle}>Product Description</Text>
+                <Text style={prodStyles.modalTitle}>Description</Text>
                 <TouchableOpacity
                   onPress={() => setShowDescription(false)}
                   style={prodStyles.modalCloseButton}
                 >
-                  <Text style={prodStyles.modalCloseText}>✕</Text>
+                  <Ionicons name="close" size={24} color="#6B7280" />
                 </TouchableOpacity>
               </View>
               <ScrollView style={prodStyles.modalScrollView}>
@@ -518,129 +761,312 @@ function ProductCard({
           </View>
         </Modal>
       )}
+
+      {/* Voucher QR Code Modal */}
+      <Modal
+        visible={showVoucherModal}
+        transparent={true}
+        animationType="slide"
+        onRequestClose={() => setShowVoucherModal(false)}
+      >
+        <View style={prodStyles.modalOverlay}>
+          <View style={prodStyles.voucherModalContent}>
+            <View style={prodStyles.modalHeader}>
+              <Text style={prodStyles.modalTitle}>Your Voucher</Text>
+              <TouchableOpacity
+                onPress={() => setShowVoucherModal(false)}
+                style={prodStyles.modalCloseButton}
+              >
+                <Ionicons name="close" size={24} color="#6B7280" />
+              </TouchableOpacity>
+            </View>
+
+            {!voucherToken ? (
+              <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: 20, backgroundColor: '#FEE2E2' }}>
+                <ActivityIndicator size="large" color="#8B5CF6" />
+                <Text style={{ marginTop: 16, fontSize: 14, color: '#111827', fontWeight: '600' }}>
+                  Loading voucher...
+                </Text>
+                <Text style={{ marginTop: 8, fontSize: 12, color: '#6B7280' }}>
+                  VoucherToken: {JSON.stringify(voucherToken)}
+                </Text>
+              </View>
+            ) : (
+              <ScrollView 
+                style={prodStyles.voucherModalScroll}
+                contentContainerStyle={prodStyles.voucherModalScrollContent}
+              >
+                {/* Test View - Remove after testing */}
+                <View style={{ backgroundColor: '#DCFCE7', padding: 16, marginBottom: 16, width: '100%' }}>
+                  <Text style={{ fontSize: 14, fontWeight: '600', color: '#047857' }}>
+                    ✓ Modal Content is Rendering!
+                  </Text>
+                </View>
+
+                {/* Status Badge */}
+                <View style={prodStyles.voucherStatusBadge}>
+                  <View style={prodStyles.voucherStatusDot} />
+                  <Text style={prodStyles.voucherStatusText}>
+                    {voucherToken.status === 'PENDING' && 'Ready to Use'}
+                    {voucherToken.status === 'VERIFIED' && 'Verified by Retailer'}
+                    {voucherToken.status === 'REDEEMED' && 'Redeemed'}
+                    {voucherToken.status === 'CANCELLED' && 'Cancelled'}
+                  </Text>
+                </View>
+
+                {/* QR Code */}
+                <View style={prodStyles.qrCodeContainer}>
+                  {(() => {
+                    console.log("=== QR CODE RENDER CHECK ===");
+                    console.log("voucherToken object:", voucherToken);
+                    console.log("voucherToken keys:", Object.keys(voucherToken || {}));
+                    console.log("voucherToken.token value:", voucherToken?.token);
+                    console.log("Token type:", typeof voucherToken?.token);
+                    console.log("Token is string:", typeof voucherToken?.token === 'string');
+                    console.log("Token length:", voucherToken?.token?.length);
+                    console.log("Token exists check:", !!voucherToken?.token);
+                    console.log("Full condition:", voucherToken?.token && typeof voucherToken.token === 'string' && voucherToken.token.length > 0);
+                    
+                    // Check if token might be nested
+                    if (voucherToken && typeof voucherToken === 'object') {
+                      console.log("Checking for nested data...");
+                      console.log("voucherToken.data:", (voucherToken as any).data);
+                      console.log("voucherToken.data?.token:", (voucherToken as any).data?.token);
+                    }
+                    return null;
+                  })()}
+                  {voucherToken?.token && typeof voucherToken.token === 'string' && voucherToken.token.length > 0 ? (
+                    <QRCode
+                      key={voucherToken.token}
+                      value={String(voucherToken.token)}
+                      size={240}
+                      backgroundColor="white"
+                      color="black"
+                      quietZone={10}
+                      enableLinearGradient={false}
+                    />
+                  ) : (
+                    <View style={{ width: 240, height: 240, justifyContent: 'center', alignItems: 'center', backgroundColor: '#F3F4F6', borderRadius: 8 }}>
+                      <Ionicons name="alert-circle" size={48} color="#EF4444" />
+                      <Text style={{ marginTop: 12, fontSize: 14, color: '#6B7280', textAlign: 'center' }}>
+                        Unable to generate QR code{'\n'}
+                        Token is {!voucherToken?.token ? 'missing' : 'invalid'}
+                      </Text>
+                      <Text style={{ marginTop: 8, fontSize: 11, color: '#EF4444', textAlign: 'center' }}>
+                        Type: {typeof voucherToken?.token}, Length: {voucherToken?.token?.length || 0}
+                      </Text>
+                    </View>
+                  )}
+                </View>
+
+                {/* Debug Info - Remove this after testing */}
+                {__DEV__ && (
+                  <View style={{ backgroundColor: '#FEF3C7', padding: 12, borderRadius: 8, marginBottom: 20, width: '100%' }}>
+                    <Text style={{ fontSize: 12, fontWeight: '600', color: '#92400E', marginBottom: 4 }}>Debug Info:</Text>
+                    <Text style={{ fontSize: 11, color: '#92400E' }}>Token exists: {voucherToken.token ? 'Yes' : 'No'}</Text>
+                    <Text style={{ fontSize: 11, color: '#92400E' }}>Token type: {typeof voucherToken.token}</Text>
+                    <Text style={{ fontSize: 11, color: '#92400E' }}>Token length: {voucherToken.token?.length || 0}</Text>
+                    <Text style={{ fontSize: 11, color: '#92400E' }} numberOfLines={3} ellipsizeMode="tail">
+                      Token preview: {voucherToken.token ? voucherToken.token.substring(0, 80) + '...' : 'N/A'}
+                    </Text>
+                    <Text style={{ fontSize: 11, color: '#92400E', marginTop: 8 }}>
+                      Full voucherToken object keys: {Object.keys(voucherToken || {}).join(', ')}
+                    </Text>
+                  </View>
+                )}
+
+                {/* Voucher Details */}
+                <View style={prodStyles.voucherDetails}>
+                  <View style={prodStyles.voucherDetailRow}>
+                    <Ionicons name="person" size={18} color="#6B7280" />
+                    <Text style={prodStyles.voucherDetailLabel}>Consumer:</Text>
+                    <Text style={prodStyles.voucherDetailValue}>{voucherToken.userName}</Text>
+                  </View>
+                  
+                  {activePromotion?.voucherValue && (
+                    <View style={prodStyles.voucherDetailRow}>
+                      <Ionicons name="cash" size={18} color="#6B7280" />
+                      <Text style={prodStyles.voucherDetailLabel}>Value:</Text>
+                      <Text style={prodStyles.voucherDetailValue}>
+                        ₱{Number(activePromotion.voucherValue).toFixed(2)}
+                      </Text>
+                    </View>
+                  )}
+
+                  <View style={prodStyles.voucherDetailRow}>
+                    <Ionicons name="storefront" size={18} color="#6B7280" />
+                    <Text style={prodStyles.voucherDetailLabel}>Store:</Text>
+                    <Text style={prodStyles.voucherDetailValue}>{store}</Text>
+                  </View>
+
+                  <View style={prodStyles.voucherDetailRow}>
+                    <Ionicons name="cube" size={18} color="#6B7280" />
+                    <Text style={prodStyles.voucherDetailLabel}>Product:</Text>
+                    <Text style={prodStyles.voucherDetailValue}>{name}</Text>
+                  </View>
+                </View>
+
+                {/* Instructions */}
+                <View style={prodStyles.voucherInstructions}>
+                  <Text style={prodStyles.instructionsTitle}>How to Use:</Text>
+                  <View style={prodStyles.instructionStep}>
+                    <Text style={prodStyles.stepNumber}>1</Text>
+                    <Text style={prodStyles.stepText}>Show this QR code to the retailer</Text>
+                  </View>
+                  <View style={prodStyles.instructionStep}>
+                    <Text style={prodStyles.stepNumber}>2</Text>
+                    <Text style={prodStyles.stepText}>Wait for them to scan and verify</Text>
+                  </View>
+                  <View style={prodStyles.instructionStep}>
+                    <Text style={prodStyles.stepNumber}>3</Text>
+                    <Text style={prodStyles.stepText}>Retailer confirms redemption</Text>
+                  </View>
+                  <View style={prodStyles.instructionStep}>
+                    <Text style={prodStyles.stepNumber}>4</Text>
+                    <Text style={prodStyles.stepText}>Enjoy your voucher discount!</Text>
+                  </View>
+                </View>
+
+                {voucherToken.status === 'REDEEMED' && (
+                  <View style={prodStyles.redeemedBanner}>
+                    <Ionicons name="checkmark-circle" size={24} color="#059669" />
+                    <Text style={prodStyles.redeemedText}>This voucher has been redeemed</Text>
+                  </View>
+                )}
+              </ScrollView>
+            )}
+          </View>
+        </View>
+      </Modal>
     </>
   );
 }
 
+
 const prodStyles = StyleSheet.create({
-  container: { marginTop: 16, marginBottom: 16, paddingHorizontal: 0 },
-  headerRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: "700",
-    marginBottom: 15,
-    color: "#333",
-  },
-  card: {
+  container: {
     backgroundColor: "#fff",
-    borderRadius: 18,
-    padding: 16,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.08,
-    shadowRadius: 2,
-    ...Platform.select({ android: { elevation: 2 }, ios: {} }),
+    marginBottom: 16,
   },
-  cardRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    columnGap: 16,
-  },
-  leftContent: {
-    width: 130,
-    alignItems: "center",
-    justifyContent: "center",
+  imageContainer: {
+    width: "100%",
+    height: 300,
+    backgroundColor: "#F3F4F6",
+    position: "relative",
   },
   productImage: {
-    width: 120,
-    height: 120,
-    borderRadius: 16,
+    width: "100%",
+    height: "100%",
     resizeMode: "cover",
-    backgroundColor: "#F3F4F6",
   },
-  rightContent: {
-    flex: 1,
-    paddingLeft: 0,
-    paddingTop: 4,
-    justifyContent: "flex-start",
+  dealBadgeContainer: {
+    position: "absolute",
+    top: 16,
+    right: 16,
   },
-  discountTag: {
-    backgroundColor: "#FFBE5D",
-    alignSelf: "flex-end",
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 100,
-    marginBottom: 6,
+  infoCard: {
+    padding: 20,
   },
-  discountText: { color: "#fff", fontSize: 12, fontWeight: "700" },
   productName: {
-    fontSize: 20,
+    fontSize: 24,
     fontWeight: "700",
-    color: "#1F2937",
-    marginBottom: 8,
+    color: "#111827",
+    marginBottom: 12,
   },
-  statusRow: { flexDirection: "row", alignItems: "center", marginBottom: 8 },
-  statusLabel: { fontSize: 14, color: "#888", marginRight: 5 },
-  statusValue: { fontSize: 14, fontWeight: "600", color: "#1B6F5D" },
-  priceRow: {
+  priceContainer: {
     flexDirection: "row",
-    alignItems: "flex-end",
-    marginBottom: 8,
-  },
-  descriptionButton: {
-    backgroundColor: "#1B6F5D",
-    borderRadius: 12,
-    paddingVertical: 12,
-    paddingHorizontal: 16,
     alignItems: "center",
-    justifyContent: "center",
-    marginTop: 12,
-    alignSelf: "stretch",
-  },
-  descriptionButtonDisabled: {
-    backgroundColor: "#E5E7EB",
-  },
-  descriptionButtonTitle: {
-    fontSize: 16,
-    fontWeight: "600",
-    color: "#ffffff",
-    textAlign: "center",
-  },
-  descriptionButtonTitleDisabled: { color: "#9CA3AF", textAlign: "center" },
-  priceOld: {
-    fontSize: 16,
-    color: "#9CA3AF",
-    textDecorationLine: "line-through",
-    marginRight: 8,
+    marginBottom: 12,
+    flexWrap: "wrap",
+    gap: 8,
   },
   priceNew: {
-    fontSize: 18,
-    fontWeight: "900",
+    fontSize: 28,
+    fontWeight: "800",
     color: "#1B6F5D",
-    marginLeft: 8,
+  },
+  priceOld: {
+    fontSize: 18,
+    color: "#9CA3AF",
+    textDecorationLine: "line-through",
+  },
+  discountBadge: {
+    backgroundColor: "#FEF3C7",
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+  },
+  discountText: {
+    color: "#92400E",
+    fontSize: 12,
+    fontWeight: "600",
+  },
+  dealBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#FEF3C7",
+    padding: 12,
+    borderRadius: 8,
+    marginBottom: 12,
+    gap: 8,
+  },
+  dealBannerText: {
+    flex: 1,
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#92400E",
+  },
+  statusBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 16,
+    gap: 6,
+  },
+  statusDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: "#10B981",
+  },
+  statusText: {
+    fontSize: 14,
+    fontWeight: "500",
+    color: "#10B981",
+  },
+  descriptionContainer: {
+    borderTopWidth: 1,
+    borderTopColor: "#E5E7EB",
+    paddingTop: 16,
+  },
+  descriptionLabel: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#374151",
+    marginBottom: 8,
+  },
+  descriptionText: {
+    fontSize: 15,
+    color: "#6B7280",
+    lineHeight: 22,
+    marginBottom: 8,
+  },
+  readMoreText: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#1B6F5D",
   },
   // Modal styles
   modalOverlay: {
     flex: 1,
     backgroundColor: "rgba(0, 0, 0, 0.5)",
-    justifyContent: "center",
-    alignItems: "center",
+    justifyContent: "flex-start",
   },
   modalContent: {
     backgroundColor: "#ffffff",
-    borderRadius: 20,
-    width: "90%",
-    maxHeight: "70%",
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    maxHeight: "80%",
     overflow: "hidden",
-    elevation: 10,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
   },
   modalHeader: {
     flexDirection: "row",
@@ -648,239 +1074,360 @@ const prodStyles = StyleSheet.create({
     alignItems: "center",
     paddingHorizontal: 20,
     paddingTop: 20,
-    paddingBottom: 15,
+    paddingBottom: 16,
     borderBottomWidth: 1,
     borderBottomColor: "#E5E7EB",
   },
   modalTitle: {
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: "700",
-    color: "#1B6F5D",
+    color: "#111827",
   },
   modalCloseButton: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: "#F3F4F6",
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  modalCloseText: {
-    fontSize: 18,
-    color: "#6B7280",
-    fontWeight: "600",
+    padding: 4,
   },
   modalScrollView: {
     padding: 20,
   },
   modalDescription: {
-    fontSize: 16,
+    fontSize: 15,
     color: "#374151",
     lineHeight: 24,
   },
+  // Bundle section styles
+  bundleSection: {
+    backgroundColor: "#fff",
+    paddingHorizontal: 16,
+    paddingVertical: 16,
+    marginBottom: 16,
+  },
+  bundleHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 12,
+    gap: 8,
+  },
+  bundleSectionTitle: {
+    fontSize: 18,
+    fontWeight: "700",
+    color: "#111827",
+  },
+  bundleCard: {
+    backgroundColor: "#F9FAFB",
+    borderRadius: 12,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: "#E5E7EB",
+  },
+  bundleItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#fff",
+    borderRadius: 10,
+    padding: 12,
+    marginBottom: 12,
+    position: "relative",
+  },
+  currentBundleItem: {
+    backgroundColor: "#EFF6FF",
+    borderWidth: 2,
+    borderColor: "#BFDBFE",
+  },
+  bundleItemImage: {
+    width: 60,
+    height: 60,
+    borderRadius: 8,
+    marginRight: 12,
+    backgroundColor: "#F3F4F6",
+  },
+  bundleItemInfo: {
+    flex: 1,
+  },
+  bundleItemName: {
+    fontSize: 15,
+    fontWeight: "600",
+    color: "#111827",
+    marginBottom: 4,
+  },
+  bundleItemPrice: {
+    fontSize: 14,
+    color: "#6B7280",
+    fontWeight: "500",
+  },
+  currentItemBadge: {
+    backgroundColor: "#DBEAFE",
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+    position: "absolute",
+    top: 8,
+    right: 8,
+  },
+  currentItemText: {
+    fontSize: 10,
+    fontWeight: "600",
+    color: "#1E40AF",
+    textTransform: "uppercase",
+  },
+  bundleSummary: {
+    marginTop: 4,
+    paddingTop: 16,
+    borderTopWidth: 1,
+    borderTopColor: "#E5E7EB",
+  },
+  bundleSummaryRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 8,
+  },
+  bundleSummaryLabel: {
+    fontSize: 14,
+    color: "#6B7280",
+  },
+  bundleSummaryOriginalPrice: {
+    fontSize: 14,
+    color: "#9CA3AF",
+    textDecorationLine: "line-through",
+  },
+  bundleSummaryBundlePrice: {
+    fontSize: 18,
+    fontWeight: "700",
+    color: "#42A5F5",
+  },
+  bundleSavingsRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#D1FAE5",
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 8,
+    marginTop: 8,
+    gap: 6,
+  },
+  bundleSavingsText: {
+    fontSize: 15,
+    fontWeight: "700",
+    color: "#047857",
+  },
+  // Voucher button styles
+  voucherButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#8B5CF6",
+    paddingVertical: 14,
+    paddingHorizontal: 20,
+    borderRadius: 10,
+    marginBottom: 12,
+    gap: 8,
+  },
+  voucherButtonText: {
+    color: "#fff",
+    fontSize: 16,
+    fontWeight: "700",
+  },
+  // Voucher modal styles
+  voucherModalContent: {
+    backgroundColor: "#ffffff",
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    maxHeight: "90%",
+    overflow: "hidden",
+  },
+  voucherModalScroll: {
+    flex: 1,
+  },
+  voucherModalScrollContent: {
+    padding: 20,
+    alignItems: "center",
+  },
+  voucherStatusBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#DBEAFE",
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+    marginBottom: 20,
+    gap: 8,
+  },
+  voucherStatusDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: "#3B82F6",
+  },
+  voucherStatusText: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#1E40AF",
+  },
+  qrCodeContainer: {
+    backgroundColor: "#fff",
+    padding: 24,
+    borderRadius: 16,
+    borderWidth: 2,
+    borderColor: "#E5E7EB",
+    marginBottom: 24,
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  voucherDetails: {
+    width: "100%",
+    backgroundColor: "#F9FAFB",
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 20,
+    gap: 12,
+  },
+  voucherDetailRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  voucherDetailLabel: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#6B7280",
+    minWidth: 80,
+  },
+  voucherDetailValue: {
+    flex: 1,
+    fontSize: 14,
+    color: "#111827",
+    fontWeight: "500",
+  },
+  voucherInstructions: {
+    width: "100%",
+    backgroundColor: "#FEF3C7",
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 20,
+  },
+  instructionsTitle: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: "#92400E",
+    marginBottom: 12,
+  },
+  instructionStep: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    marginBottom: 10,
+    gap: 12,
+  },
+  stepNumber: {
+    width: 24,
+    height: 24,
+    backgroundColor: "#F59E0B",
+    color: "#fff",
+    borderRadius: 12,
+    textAlign: "center",
+    lineHeight: 24,
+    fontSize: 14,
+    fontWeight: "700",
+  },
+  stepText: {
+    flex: 1,
+    fontSize: 14,
+    color: "#92400E",
+    lineHeight: 20,
+  },
+  redeemedBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#D1FAE5",
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: 10,
+    gap: 8,
+    width: "100%",
+  },
+  redeemedText: {
+    fontSize: 15,
+    fontWeight: "600",
+    color: "#047857",
+  },
 });
 
-// Store Header (inline)
-function StoreHeader({
+// Simple Store Header
+function SimpleStoreHeader({
   storeName,
   storeId,
   logoUrl,
-  bannerUrl,
   onOpenStore,
 }: {
   storeName: string;
   storeId?: number;
   logoUrl?: string;
-  bannerUrl?: string;
   onOpenStore?: () => void;
 }) {
-  const params = useLocalSearchParams() as Record<string, string | undefined>;
-  // Validate productId to ensure it's a valid number (not NaN, not null string, not empty)
-  const productId = (() => {
-    const raw = params.productId;
-    if (!raw || raw === "null" || raw === "undefined" || raw === "") return undefined;
-    const num = Number(raw);
-    return Number.isFinite(num) && num > 0 ? num : undefined;
-  })();
-  const { helpers, action } = useBookmarks();
-  const isSaved = helpers.isProductBookmarked(productId);
-  const toggle = () => {
-    if (productId == null) return;
-    if (helpers.isProductBookmarked(productId))
-      action.removeProductBookmark(productId);
-    else action.addProductBookmark(productId);
-  };
-  const {
-    state: { stores, selectedStore },
-  } = useStore();
-  const store =
-    stores.find((s: Store) => s.id === storeId) ||
-    (selectedStore && selectedStore.id === storeId ? selectedStore : undefined);
-  const description = store?.description || "";
   return (
     <View style={hdrStyles.container}>
-      <View style={hdrStyles.bannerWrapper}>
-        {bannerUrl ? (
-          <Image 
-            source={{ uri: bannerUrl }} 
-            resizeMode="contain"
-            style={hdrStyles.bannerImage} 
-          />
-        ) : (
-          <Image
-            source={require("../../assets/images/partial-react-logo.png")}
-            resizeMode="contain"
-            style={hdrStyles.bannerImage}
-          />
-        )}
-      </View>
-      <View style={hdrStyles.storeInfoContainer}>
-        <View style={hdrStyles.logoAndName}>
-          <View style={hdrStyles.logoWrapper}>
-            <Image
-              source={
-                typeof logoUrl === "string" && logoUrl.length > 0
-                  ? { uri: logoUrl }
-                  : require("../../assets/images/partial-react-logo.png")
-              }
-              style={hdrStyles.logoImage}
-            />
-          </View>
-          <View style={hdrStyles.storeDetails}>
-            <Text style={hdrStyles.storeName}>{storeName}</Text>
-            {description ? (
-              <Text style={hdrStyles.storeDescription} numberOfLines={2}>
-                {description}
-              </Text>
-            ) : null}
-          </View>
-        </View>
-        <View style={hdrStyles.bookmarkIcon} />
-      </View>
-      <View style={hdrStyles.buttonRow}>
-        <View style={hdrStyles.buttonContainer}>
-          <TouchableOpacity
-            style={hdrStyles.detailsButton}
-            activeOpacity={0.85}
-            onPress={onOpenStore}
-          >
-            <Text style={hdrStyles.detailsButtonTitle}>Store Details</Text>
-          </TouchableOpacity>
-        </View>
-        <View style={hdrStyles.buttonContainer}>
-          <TouchableOpacity
-            style={hdrStyles.saveButton}
-            activeOpacity={0.85}
-            onPress={toggle}
-          >
-            <Text style={hdrStyles.saveButtonTitle}>
-              {isSaved ? "Unsave Item" : "Save Item"}
-            </Text>
-          </TouchableOpacity>
-        </View>
-      </View>
+      <Text style={hdrStyles.sectionTitle}>Store</Text>
+      <TouchableOpacity 
+        style={hdrStyles.storeInfo}
+        onPress={onOpenStore}
+        activeOpacity={0.7}
+      >
+        <Image
+          source={
+            typeof logoUrl === "string" && logoUrl.length > 0
+              ? { uri: logoUrl }
+              : require("../../assets/images/partial-react-logo.png")
+          }
+          style={hdrStyles.storeLogo}
+        />
+        <Text style={hdrStyles.storeName}>{storeName}</Text>
+        <Ionicons name="chevron-forward" size={20} color="#9CA3AF" />
+      </TouchableOpacity>
     </View>
   );
 }
 
 const hdrStyles = StyleSheet.create({
   container: {
-    borderRadius: 18,
-    overflow: "visible",
     backgroundColor: "#fff",
-    marginBottom: 12,
-    paddingBottom: 16,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.08,
-    shadowRadius: 2,
-    ...Platform.select({ android: { elevation: 2 }, ios: {} }),
-  },
-  bannerWrapper: {
-    borderTopLeftRadius: 18,
-    borderTopRightRadius: 18,
-    overflow: "hidden",
-  },
-  bannerImage: {
-    height: 160,
-    width: "100%",
-  },
-  storeInfoContainer: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "flex-start",
-    marginTop: -30,
     paddingHorizontal: 16,
+    paddingVertical: 12,
   },
-  logoAndName: { flexDirection: "row", alignItems: "flex-start", flex: 1 },
-  quickMartLogo: {
-    backgroundColor: "#277874",
-    paddingVertical: 22,
-    paddingHorizontal: 12,
-    borderRadius: 14,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    elevation: 5,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-    marginTop: 15,
-  },
-  logoText: {
-    color: "#ffffff",
-    marginLeft: 5,
-    fontWeight: "bold",
+  sectionTitle: {
     fontSize: 14,
+    fontWeight: "600",
+    color: "#6B7280",
+    marginBottom: 8,
     textTransform: "uppercase",
   },
-  logoWrapper: {
-    width: 84,
-    height: 84,
-    borderRadius: 20,
-    backgroundColor: "#fff",
-    justifyContent: "center",
-    alignItems: "center",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 3,
-  },
-  logoImage: {
-    width: 72,
-    height: 72,
-    borderRadius: 16,
-    resizeMode: "cover",
-  },
-  storeDetails: { marginLeft: 16, marginTop: 12, flex: 1 },
-  storeName: { fontSize: 20, fontWeight: "700", color: "#111827" },
-  storeDescription: { fontSize: 14, color: "#6B7280" },
-  bookmarkIcon: { alignSelf: "flex-end", marginTop: 10 },
-  buttonRow: {
+  storeInfo: {
     flexDirection: "row",
-    justifyContent: "space-between",
-    marginTop: 16,
-    paddingHorizontal: 16,
-  },
-  buttonContainer: { flex: 1, marginHorizontal: 5 },
-  detailsButton: {
-    backgroundColor: "#1B6F5D",
-    borderRadius: 10,
-    paddingVertical: 12,
     alignItems: "center",
-    minHeight: 44,
-  },
-  detailsButtonTitle: { fontSize: 16, fontWeight: "600", color: "#ffffff" },
-  saveButton: {
-    borderColor: "#1B6F5D",
+    backgroundColor: "#F9FAFB",
+    padding: 14,
+    borderRadius: 12,
+    gap: 12,
     borderWidth: 1,
-    borderRadius: 10,
-    paddingVertical: 12,
-    backgroundColor: "#fff",
-    alignItems: "center",
-    minHeight: 44,
+    borderColor: "#E5E7EB",
   },
-  saveButtonTitle: { color: "#1B6F5D", fontSize: 16, fontWeight: "600" },
+  storeLogo: {
+    width: 48,
+    height: 48,
+    borderRadius: 10,
+    resizeMode: "cover",
+    backgroundColor: "#E5E7EB",
+  },
+  storeName: {
+    flex: 1,
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#111827",
+  },
 });

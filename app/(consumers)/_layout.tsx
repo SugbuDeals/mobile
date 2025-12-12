@@ -3,9 +3,9 @@ import { useStore } from "@/features/store";
 import { useNearbyPromotionNotifications } from "@/hooks/useNearbyPromotionNotifications";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { LinearGradient } from "expo-linear-gradient";
-import { Tabs, useRouter } from "expo-router";
-import React, { useEffect } from "react";
-import { Platform, StatusBar, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { Tabs, useRouter, useFocusEffect } from "expo-router";
+import React, { useEffect, useCallback } from "react";
+import { Platform, StatusBar, StyleSheet, Text, TouchableOpacity, View, AppState } from "react-native";
 
 const ConsumerHeader = () => {
   const router = useRouter();
@@ -21,6 +21,26 @@ const ConsumerHeader = () => {
     // Fetch current tier to show PRO indicator
     getCurrentTier();
   }, [action, getCurrentTier]);
+
+  // Refresh unread count when screen comes into focus
+  useFocusEffect(
+    useCallback(() => {
+      action.getUnreadCount();
+    }, [action])
+  );
+
+  // Refresh unread count when app comes to foreground
+  useEffect(() => {
+    const subscription = AppState.addEventListener("change", (nextAppState) => {
+      if (nextAppState === "active") {
+        action.getUnreadCount();
+      }
+    });
+
+    return () => {
+      subscription.remove();
+    };
+  }, [action]);
 
   const isPro = currentTier?.tier === "PRO";
 
