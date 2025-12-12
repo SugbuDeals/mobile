@@ -73,7 +73,7 @@ function PercentageDiscountCard({ promotion, product, onPress, compact, storeNam
       >
         <View style={styles.cardHeader}>
           <View style={[styles.iconBadge, { backgroundColor: "rgba(255, 255, 255, 0.3)" }]}>
-            <Ionicons name="percent-outline" size={16} color="#ffffff" />
+            <Ionicons name="calculator-outline" size={16} color="#ffffff" />
           </View>
           <Text style={styles.dealTypeLabel}>Percentage Off</Text>
         </View>
