@@ -1,9 +1,12 @@
-import React, { useMemo } from "react";
-import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
-import { useRouter } from "expo-router";
-import Ionicons from "@expo/vector-icons/Ionicons";
-import { colors, spacing, borderRadius, typography, shadows } from "@/styles/theme";
+import { useStore } from "@/features/store";
+import { productsApi } from "@/services/api/endpoints/products";
+import { promotionsApi } from "@/services/api/endpoints/promotions";
+import { storesApi } from "@/services/api/endpoints/stores";
 import type { PromotionRecommendationItemDto } from "@/services/api/types/swagger";
+import Ionicons from "@expo/vector-icons/Ionicons";
+import { useRouter } from "expo-router";
+import React, { useMemo, useState } from "react";
+import { ActivityIndicator, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
 interface PromotionCardProps {
   promotion: PromotionRecommendationItemDto;
@@ -12,6 +15,8 @@ interface PromotionCardProps {
 
 export default function PromotionCard({ promotion, onPress }: PromotionCardProps) {
   const router = useRouter();
+  const { state: { products } } = useStore();
+  const [isNavigating, setIsNavigating] = useState(false);
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
@@ -46,16 +51,143 @@ export default function PromotionCard({ promotion, onPress }: PromotionCardProps
     return `₱${promotion.discount} OFF`;
   }, [promotion.type, promotion.discount]);
 
-  const handlePress = () => {
+  const handleArrowPress = async (e: any) => {
+    e.stopPropagation(); // Prevent card press from firing
+    
     if (onPress) {
       onPress();
       return;
     }
 
-    // PromotionRecommendationItemDto doesn't have productId, only productCount
-    // Navigate to promotions list or handle differently
-    // For now, just do nothing or navigate to a promotions page
-    // TODO: Implement proper navigation for multi-product promotions
+    if (isNavigating) return;
+    
+    setIsNavigating(true);
+    try {
+      // Fetch full promotion details to get product information
+      const promotionDetails: any = await promotionsApi.findPromotionById(promotion.id);
+      
+      // Extract productId from promotionProducts or productId field
+      let productId = promotionDetails.productId ?? null;
+      if (!productId && promotionDetails.promotionProducts && promotionDetails.promotionProducts.length > 0) {
+        productId = promotionDetails.promotionProducts[0].productId ?? null;
+      }
+      
+      if (productId) {
+        // Find the product in the store state to get storeId
+        let product = products.find((p) => p.id === productId);
+        
+        // If product not in state, try to fetch it
+        if (!product) {
+          try {
+            const fetchedProduct = await productsApi.findProductById(productId);
+            if (fetchedProduct) {
+              product = fetchedProduct;
+            }
+          } catch (error) {
+            console.error("Error fetching product:", error);
+          }
+        }
+        
+        if (product && product.storeId) {
+          // Fetch store details to get the proper store name
+          let storeName = "Store";
+          try {
+            const storeDetails = await storesApi.findStoreById(product.storeId);
+            if (storeDetails && storeDetails.name) {
+              storeName = storeDetails.name;
+            }
+          } catch (error) {
+            console.error("Error fetching store details:", error);
+          }
+          
+          // Navigate to the store details page with proper store name
+          router.push({
+            pathname: "/(consumers)/storedetails",
+            params: {
+              store: storeName,
+              storeId: product.storeId.toString(),
+            },
+          });
+        } else {
+          console.warn("No store ID found for product:", productId);
+        }
+      } else {
+        console.warn("No product ID found for promotion:", promotion.id);
+      }
+    } catch (error) {
+      console.error("Error fetching promotion details:", error);
+    } finally {
+      setIsNavigating(false);
+    }
+  };
+
+  const handlePress = async () => {
+    if (onPress) {
+      onPress();
+      return;
+    }
+
+    // If no custom onPress handler, navigate to store (same as arrow button)
+    if (isNavigating) return;
+    
+    setIsNavigating(true);
+    try {
+      // Fetch full promotion details to get product information
+      const promotionDetails: any = await promotionsApi.findPromotionById(promotion.id);
+      
+      // Extract productId from promotionProducts or productId field
+      let productId = promotionDetails.productId ?? null;
+      if (!productId && promotionDetails.promotionProducts && promotionDetails.promotionProducts.length > 0) {
+        productId = promotionDetails.promotionProducts[0].productId ?? null;
+      }
+      
+      if (productId) {
+        // Find the product in the store state to get storeId
+        let product = products.find((p) => p.id === productId);
+        
+        // If product not in state, try to fetch it
+        if (!product) {
+          try {
+            const fetchedProduct = await productsApi.findProductById(productId);
+            if (fetchedProduct) {
+              product = fetchedProduct;
+            }
+          } catch (error) {
+            console.error("Error fetching product:", error);
+          }
+        }
+        
+        if (product && product.storeId) {
+          // Fetch store details to get the proper store name
+          let storeName = "Store";
+          try {
+            const storeDetails = await storesApi.findStoreById(product.storeId);
+            if (storeDetails && storeDetails.name) {
+              storeName = storeDetails.name;
+            }
+          } catch (error) {
+            console.error("Error fetching store details:", error);
+          }
+          
+          // Navigate to the store details page with proper store name
+          router.push({
+            pathname: "/(consumers)/storedetails",
+            params: {
+              store: storeName,
+              storeId: product.storeId.toString(),
+            },
+          });
+        } else {
+          console.warn("No store ID found for product:", productId);
+        }
+      } else {
+        console.warn("No product ID found for promotion:", promotion.id);
+      }
+    } catch (error) {
+      console.error("Error fetching promotion details:", error);
+    } finally {
+      setIsNavigating(false);
+    }
   };
 
   return (
@@ -102,9 +234,14 @@ export default function PromotionCard({ promotion, onPress }: PromotionCardProps
         <View style={styles.spacer} />
         <TouchableOpacity
           style={styles.actionButton}
-          onPress={handlePress}
+          onPress={handleArrowPress}
+          disabled={isNavigating}
         >
-          <Ionicons name="arrow-forward-circle" size={20} color="#277874" />
+          {isNavigating ? (
+            <ActivityIndicator size="small" color="#277874" />
+          ) : (
+            <Ionicons name="arrow-forward-circle" size={20} color="#277874" />
+          )}
         </TouchableOpacity>
       </View>
     </TouchableOpacity>

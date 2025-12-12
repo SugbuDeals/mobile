@@ -228,14 +228,14 @@ export const findPromotions = createAsyncThunk<
       }
       
       return {
-        id: p.id,
-        title: p.title,
-        type: p.type, // Keep as string (e.g., "PERCENTAGE")
-        description: p.description || "",
-        startsAt: typeof p.startsAt === "string" ? p.startsAt : new Date(p.startsAt).toISOString(),
-        endsAt: p.endsAt ? (typeof p.endsAt === "string" ? p.endsAt : new Date(p.endsAt).toISOString()) : null,
-        active: p.active,
-        discount: p.discount,
+      id: p.id,
+      title: p.title,
+      type: p.type, // Keep as string (e.g., "PERCENTAGE")
+      description: p.description || "",
+      startsAt: typeof p.startsAt === "string" ? p.startsAt : new Date(p.startsAt).toISOString(),
+      endsAt: p.endsAt ? (typeof p.endsAt === "string" ? p.endsAt : new Date(p.endsAt).toISOString()) : null,
+      active: p.active,
+      discount: p.discount,
         productId: productId,
       };
     });
@@ -268,14 +268,14 @@ export const findActivePromotions = createAsyncThunk<
       }
       
       return {
-        id: p.id,
-        title: p.title,
-        type: p.type, // Keep as string (e.g., "PERCENTAGE")
-        description: p.description || "",
-        startsAt: typeof p.startsAt === "string" ? p.startsAt : new Date(p.startsAt).toISOString(),
-        endsAt: p.endsAt ? (typeof p.endsAt === "string" ? p.endsAt : new Date(p.endsAt).toISOString()) : null,
-        active: p.active,
-        discount: p.discount,
+      id: p.id,
+      title: p.title,
+      type: p.type, // Keep as string (e.g., "PERCENTAGE")
+      description: p.description || "",
+      startsAt: typeof p.startsAt === "string" ? p.startsAt : new Date(p.startsAt).toISOString(),
+      endsAt: p.endsAt ? (typeof p.endsAt === "string" ? p.endsAt : new Date(p.endsAt).toISOString()) : null,
+      active: p.active,
+      discount: p.discount,
         productId: productId,
       };
     });
