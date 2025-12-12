@@ -11,19 +11,26 @@ import {
 } from "@/components/consumers/explore";
 import { useStore } from "@/features/store";
 import type { Store } from "@/features/store/stores/types";
+import type { Product } from "@/features/catalog/types";
+import type { Promotion } from "@/features/store/promotions/types";
 import { useModal } from "@/hooks/useModal";
 import { useQueryHistory } from "@/hooks/useQueryHistory";
 import { useRecommendations } from "@/hooks/useRecommendations";
 import { useTabs } from "@/hooks/useTabs";
 import { borderRadius, colors, shadows, spacing, typography } from "@/styles/theme";
+import { promotionsApi } from "@/services/api/endpoints/promotions";
+import { productsApi } from "@/services/api/endpoints/products";
+import { storesApi } from "@/services/api/endpoints/stores";
+import type { PromotionRecommendationItemDto } from "@/services/api/types/swagger";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { LinearGradient } from "expo-linear-gradient";
 import * as Location from "expo-location";
-import { useFocusEffect } from "expo-router";
+import { useFocusEffect, useRouter } from "expo-router";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Animated,
+  Image,
   KeyboardAvoidingView,
   Modal,
   Platform,
@@ -58,6 +65,10 @@ export default function Explore() {
   const [location, setLocation] = useState<{ latitude: number; longitude: number } | null>(null);
   const [locationPermissionStatus, setLocationPermissionStatus] = useState<"granted" | "denied" | "checking">("checking");
   const [sortOption, setSortOption] = useState<"best-deal" | "closest" | "cheapest">("best-deal");
+  const [selectedPromotion, setSelectedPromotion] = useState<{
+    promotion: Promotion;
+    products: Array<{ product: Product; promotion: Promotion }>;
+  } | null>(null);
   const fadeAnim = useRef(new Animated.Value(0)).current;
   
   const {
@@ -87,7 +98,6 @@ export default function Explore() {
   const { history: queryHistory, addEntry } = useQueryHistory();
 
   const { aiResponse, insightsSummary, recommendations, highlight, elaboration, intent, products, stores, promotions } = response;
-  const { state: { stores: allStores } } = useStore();
 
   const hasResults = useMemo(
     () => (aiResponse != null && aiResponse.trim().length > 0) || products.length > 0 || stores.length > 0 || promotions.length > 0,
@@ -100,14 +110,10 @@ export default function Explore() {
       return products;
     }
 
-    // Filter to only show products from verified stores
-    const verifiedProducts = products.filter((product: any) => {
-      if (!product.storeId) return false;
-      const productStore = (allStores || []).find((s: Store) => s.id === product.storeId);
-      return productStore?.verificationStatus === "VERIFIED";
-    });
+    // API already filters for verified stores, no need to filter again
+    const productsToSort = products;
 
-    const sorted = [...verifiedProducts].sort((a: any, b: any) => {
+    const sorted = [...productsToSort].sort((a: any, b: any) => {
       if (sortOption === "best-deal") {
         // Sort by discount percentage (highest first), then by price (lowest first)
         const discountA = a.discount || 0;
@@ -134,7 +140,7 @@ export default function Explore() {
     });
 
     return sorted;
-  }, [products, sortOption, activeTab, allStores]);
+  }, [products, sortOption, activeTab]);
 
   // Filter content based on active tab
   const filteredContent = useMemo(() => {
@@ -293,6 +299,85 @@ export default function Explore() {
     setIsEditingPrompt(false);
   }, [searchQuery, loading, fetchRecommendations, enrichDistance, location, radius]);
 
+  const handlePromotionPress = useCallback(async (promotion: PromotionRecommendationItemDto) => {
+    try {
+      // Fetch full promotion details to get product information
+      const promotionDetails = await promotionsApi.findPromotionById(promotion.id);
+      
+      // Extract products from the promotion
+      const promotionProducts = promotionDetails.promotionProducts || [];
+      
+      // Fetch product details for each product in the promotion
+      const productPromotions: Array<{ product: Product; promotion: Promotion }> = [];
+      
+      for (const pp of promotionProducts) {
+        if (pp.productId) {
+          try {
+            const product = await productsApi.findProductById(pp.productId);
+            if (product) {
+              // Convert the promotion details to Promotion type
+              const promo: Promotion = {
+                id: promotionDetails.id,
+                title: promotionDetails.title,
+                type: promotionDetails.type.toLowerCase() as "percentage" | "fixed",
+                description: promotionDetails.description,
+                startsAt: promotionDetails.startsAt,
+                endsAt: promotionDetails.endsAt,
+                active: promotionDetails.active,
+                discount: promotionDetails.discount,
+                productId: pp.productId,
+                createdAt: promotionDetails.startsAt,
+                updatedAt: promotionDetails.startsAt,
+              };
+              
+              // Convert product to Product type
+              const prod: Product = {
+                id: product.id,
+                name: product.name,
+                description: product.description,
+                price: product.price,
+                imageUrl: product.imageUrl || null,
+                storeId: product.storeId,
+                categoryId: product.categoryId,
+                isActive: product.isActive,
+                createdAt: product.createdAt,
+                updatedAt: product.updatedAt,
+              };
+              
+              productPromotions.push({ product: prod, promotion: promo });
+            }
+          } catch (error) {
+            console.error("Error fetching product:", error);
+          }
+        }
+      }
+      
+      // If we have products, show the modal
+      if (productPromotions.length > 0) {
+        const mainPromotion: Promotion = {
+          id: promotionDetails.id,
+          title: promotionDetails.title,
+          type: promotionDetails.type.toLowerCase() as "percentage" | "fixed",
+          description: promotionDetails.description,
+          startsAt: promotionDetails.startsAt,
+          endsAt: promotionDetails.endsAt,
+          active: promotionDetails.active,
+          discount: promotionDetails.discount,
+          productId: promotionDetails.productId,
+          createdAt: promotionDetails.startsAt,
+          updatedAt: promotionDetails.startsAt,
+        };
+        
+        setSelectedPromotion({
+          promotion: mainPromotion,
+          products: productPromotions,
+        });
+      }
+    } catch (error) {
+      console.error("Error fetching promotion details:", error);
+    }
+  }, []);
+
   // Reset state when screen loses focus (user navigates away)
   useFocusEffect(
     useCallback(() => {
@@ -305,6 +390,7 @@ export default function Explore() {
         setInsightsExpanded(false);
         setIsEditingPrompt(true);
         setSortOption("best-deal");
+        setSelectedPromotion(null);
         resetRecommendations();
         resetTabs();
       };
@@ -494,6 +580,7 @@ export default function Explore() {
                       <PromotionCard
                         key={`promotion-${promotion.id}-${idx}`}
                         promotion={promotion}
+                        onPress={() => handlePromotionPress(promotion)}
                       />
                     ))}
                   </View>
@@ -651,8 +738,192 @@ export default function Explore() {
           <Ionicons name="help-circle" size={28} color="#277874" />
         </TouchableOpacity>
       )}
+
+      {/* Promotion Modal */}
+      {selectedPromotion && (
+        <ExplorePromotionModal
+          promotion={selectedPromotion.promotion}
+          productPromotions={selectedPromotion.products}
+          onClose={() => setSelectedPromotion(null)}
+        />
+      )}
       </ScrollView>
     </KeyboardAvoidingView>
+  );
+}
+
+// Promotion Modal Component
+function ExplorePromotionModal({
+  promotion,
+  productPromotions,
+  onClose,
+}: {
+  promotion: Promotion;
+  productPromotions: { product: Product; promotion: Promotion }[];
+  onClose: () => void;
+}) {
+  const router = useRouter();
+
+  const handleProductPress = (item: { product: Product; promotion: Promotion }) => {
+    router.push({
+      pathname: "/(consumers)/product",
+      params: {
+        name: item.product.name,
+        storeId: item.product.storeId,
+        price: item.product.price,
+        description: item.product.description,
+        productId: item.product.id,
+        imageUrl: item.product.imageUrl || "",
+        promotionId: item.promotion.id,
+      },
+    });
+    onClose();
+  };
+
+  const getDiscountedPrice = (originalPrice: number | string, promo: Promotion) => {
+    const price = typeof originalPrice === 'string' ? parseFloat(originalPrice) : originalPrice;
+    if (promo.type === 'percentage') {
+      return price * (1 - promo.discount / 100);
+    } else {
+      return Math.max(0, price - promo.discount);
+    }
+  };
+
+  const primaryProduct = productPromotions[0]?.product;
+  const primaryStoreId = primaryProduct?.storeId;
+  const [primaryStoreName, setPrimaryStoreName] = useState("Store");
+
+  // Fetch store name
+  useEffect(() => {
+    const fetchStoreName = async () => {
+      if (primaryStoreId) {
+        try {
+          const storeDetails = await storesApi.findStoreById(primaryStoreId);
+          if (storeDetails && storeDetails.name) {
+            setPrimaryStoreName(storeDetails.name);
+          }
+        } catch (error) {
+          console.error("Error fetching store details:", error);
+        }
+      }
+    };
+    fetchStoreName();
+  }, [primaryStoreId]);
+
+  const handleStorePress = () => {
+    if (!primaryStoreId) return;
+    // Close modal first, then navigate
+    onClose();
+    // Use setTimeout to ensure modal closes before navigation
+    setTimeout(() => {
+      router.push({
+        pathname: "/(consumers)/storedetails",
+        params: {
+          store: primaryStoreName,
+          storeId: primaryStoreId,
+        },
+      });
+    }, 100);
+  };
+
+  return (
+    <Modal
+      visible={true}
+      transparent={true}
+      animationType="slide"
+      onRequestClose={onClose}
+    >
+      <View style={exploreModalStyles.modalOverlay}>
+        <View style={exploreModalStyles.modalContent}>
+          <View style={exploreModalStyles.modalHeader}>
+            <View style={exploreModalStyles.modalHeaderGradient}>
+              <Text style={exploreModalStyles.modalHeaderTitle}>{promotion.title}</Text>
+              <View style={exploreModalStyles.modalHeaderDiscountContainer}>
+                <Text style={exploreModalStyles.modalHeaderDiscount}>
+                  Special Prices
+                </Text>
+              </View>
+              {promotion.description && (
+                <Text style={exploreModalStyles.modalHeaderDescription}>{promotion.description}</Text>
+              )}
+            </View>
+            <TouchableOpacity onPress={onClose} style={exploreModalStyles.modalCloseButton}>
+              <Text style={exploreModalStyles.modalCloseText}>✕</Text>
+            </TouchableOpacity>
+          </View>
+
+        {!!primaryProduct && (
+          <View style={exploreModalStyles.modalStoreCard}>
+            <View>
+              <Text style={exploreModalStyles.modalStoreLabel}>Promotion from</Text>
+              <Text style={exploreModalStyles.modalStoreName} numberOfLines={1}>
+                {primaryStoreName}
+              </Text>
+            </View>
+            {!!primaryStoreId && (
+              <TouchableOpacity
+                onPress={handleStorePress}
+                style={exploreModalStyles.modalStoreButton}
+                accessibilityRole="button"
+              >
+                <Text style={exploreModalStyles.modalStoreButtonText}>Visit Store</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+        )}
+          
+          <ScrollView style={exploreModalStyles.modalProducts}>
+            {productPromotions.map(({ product, promotion: productPromo }) => {
+              const discountedPrice = product.price ? getDiscountedPrice(product.price, productPromo) : null;
+              return (
+                <TouchableOpacity
+                  key={product.id}
+                  style={exploreModalStyles.modalProductCard}
+                  onPress={() => handleProductPress({ product, promotion: productPromo })}
+                  activeOpacity={0.8}
+                >
+                  <Image
+                    source={
+                      product.imageUrl
+                        ? { uri: product.imageUrl }
+                        : require("../../assets/images/react-logo.png")
+                    }
+                    style={exploreModalStyles.modalProductImage}
+                  />
+                  <View style={exploreModalStyles.modalProductInfo}>
+                    <Text style={exploreModalStyles.modalProductName} numberOfLines={2}>
+                      {product.name}
+                    </Text>
+                    <View style={exploreModalStyles.modalProductPriceRow}>
+                      {discountedPrice && (
+                        <>
+                          <Text style={exploreModalStyles.modalProductOriginalPrice}>
+                            ₱{Number(product.price).toFixed(2)}
+                          </Text>
+                          <Text style={exploreModalStyles.modalProductDiscountedPrice}>
+                            ₱{discountedPrice.toFixed(2)}
+                          </Text>
+                          <Text style={exploreModalStyles.modalProductDiscount}>
+                            {productPromo.type === 'percentage' 
+                              ? `-${productPromo.discount}%`
+                              : `-₱${productPromo.discount}`}
+                          </Text>
+                        </>
+                      )}
+                      {!discountedPrice && product.price && (
+                        <Text style={exploreModalStyles.modalProductDiscountedPrice}>
+                          ₱{Number(product.price).toFixed(2)}
+                        </Text>
+                      )}
+                    </View>
+                  </View>
+                </TouchableOpacity>
+              );
+            })}
+          </ScrollView>
+        </View>
+      </View>
+    </Modal>
   );
 }
 
@@ -1749,5 +2020,176 @@ const styles = StyleSheet.create({
   },
   activeCategoryChipText: {
     color: "#ffffff",
+  },
+});
+
+// Modal Styles for Promotion Modal
+const exploreModalStyles = StyleSheet.create({
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0, 0, 0, 0.7)",
+    justifyContent: "flex-end",
+  },
+  modalContent: {
+    backgroundColor: "#ffffff",
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    maxHeight: "80%",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: -4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 10,
+  },
+  modalHeader: {
+    position: "relative",
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    overflow: "hidden",
+  },
+  modalHeaderGradient: {
+    backgroundColor: "#FFBE5D",
+    paddingVertical: 20,
+    paddingHorizontal: 24,
+    paddingBottom: 24,
+  },
+  modalHeaderTitle: {
+    fontSize: 22,
+    fontWeight: "bold",
+    color: "#ffffff",
+    marginBottom: 6,
+  },
+  modalHeaderDiscountContainer: {
+    backgroundColor: "rgba(255, 255, 255, 0.3)",
+    alignSelf: "flex-start",
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
+    marginTop: 6,
+  },
+  modalHeaderDiscount: {
+    fontSize: 16,
+    fontWeight: "800",
+    color: "#277874",
+  },
+  modalHeaderDescription: {
+    fontSize: 14,
+    fontWeight: "400",
+    color: "#ffffff",
+    marginTop: 12,
+    opacity: 0.95,
+    lineHeight: 20,
+  },
+  modalStoreCard: {
+    marginHorizontal: 20,
+    marginTop: 16,
+    marginBottom: 4,
+    padding: 16,
+    borderRadius: 14,
+    backgroundColor: "#F3F4F6",
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 12,
+  },
+  modalStoreLabel: {
+    fontSize: 12,
+    color: "#6B7280",
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+    marginBottom: 4,
+  },
+  modalStoreName: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: "#0F172A",
+  },
+  modalStoreButton: {
+    backgroundColor: "#277874",
+    paddingHorizontal: 18,
+    paddingVertical: 10,
+    borderRadius: 999,
+  },
+  modalStoreButtonText: {
+    color: "#ffffff",
+    fontWeight: "700",
+  },
+  modalCloseButton: {
+    position: "absolute",
+    top: 16,
+    right: 16,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: "#ffffff",
+    justifyContent: "center",
+    alignItems: "center",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 4,
+  },
+  modalCloseText: {
+    fontSize: 20,
+    fontWeight: "bold",
+    color: "#277874",
+  },
+  modalProducts: {
+    padding: 20,
+    maxHeight: 500,
+  },
+  modalProductCard: {
+    flexDirection: "row",
+    backgroundColor: "#ffffff",
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: "#e5e7eb",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  modalProductImage: {
+    width: 60,
+    height: 60,
+    borderRadius: 8,
+    marginRight: 12,
+  },
+  modalProductInfo: {
+    flex: 1,
+  },
+  modalProductName: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#1a1a1a",
+    marginBottom: 6,
+  },
+  modalProductPriceRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  modalProductOriginalPrice: {
+    fontSize: 13,
+    color: "#9CA3AF",
+    textDecorationLine: "line-through",
+  },
+  modalProductDiscountedPrice: {
+    fontSize: 16,
+    fontWeight: "bold",
+    color: "#10B981",
+  },
+  modalProductDiscount: {
+    fontSize: 11,
+    fontWeight: "600",
+    color: "#FFBE5D",
+    backgroundColor: "rgba(255, 190, 93, 0.15)",
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
   },
 });
