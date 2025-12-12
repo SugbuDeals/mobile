@@ -6,6 +6,7 @@ import { createAsyncThunk } from "@reduxjs/toolkit";
 import { RootState } from "@/store/types";
 import { promotionsApi } from "@/services/api/endpoints/promotions";
 import { productsApi } from "@/services/api/endpoints/products";
+import { convertLegacyPromotion } from "@/utils/dealTypes";
 import type { Promotion, CreatePromotionDTO, UpdatePromotionDTO } from "./types";
 
 export const findPromotions = createAsyncThunk<
@@ -16,6 +17,7 @@ export const findPromotions = createAsyncThunk<
   try {
     const apiPromotions: any[] = await promotionsApi.findPromotions();
     // Map API promotions to extract productId from promotionProducts if needed
+    // Also convert legacy format to new format
     return apiPromotions.map((p: any) => {
       // Extract productId from promotionProducts if productId is not present
       let productId = p.productId ?? null;
@@ -23,8 +25,11 @@ export const findPromotions = createAsyncThunk<
         productId = p.promotionProducts[0].productId ?? null;
       }
       
+      // Convert legacy promotion format if needed
+      const converted = convertLegacyPromotion(p);
+      
       return {
-        ...p,
+        ...converted,
         productId: productId,
       };
     });
@@ -49,6 +54,7 @@ export const findActivePromotions = createAsyncThunk<
       const allPromotions: any[] = await promotionsApi.findPromotions();
       
       // Map and extract productId from promotionProducts if needed
+      // Also convert legacy format to new format
       let mappedPromotions = allPromotions.map((p: any) => {
         // Extract productId from promotionProducts if productId is not present
         let productId = p.productId ?? null;
@@ -56,8 +62,11 @@ export const findActivePromotions = createAsyncThunk<
           productId = p.promotionProducts[0].productId ?? null;
         }
         
+        // Convert legacy promotion format if needed
+        const converted = convertLegacyPromotion(p);
+        
         return {
-          ...p,
+          ...converted,
           productId: productId,
         };
       });
@@ -104,8 +113,11 @@ export const createPromotion = createAsyncThunk<
       productId = result.promotionProducts[0].productId ?? null;
     }
     
+    // Convert legacy promotion format if needed
+    const converted = convertLegacyPromotion(result);
+    
     return {
-      ...result,
+      ...converted,
       productId: productId,
     };
   } catch (error) {
@@ -132,8 +144,11 @@ export const updatePromotion = createAsyncThunk<
       productId = result.promotionProducts[0].productId ?? null;
     }
     
+    // Convert legacy promotion format if needed
+    const converted = convertLegacyPromotion(result);
+    
     return {
-      ...result,
+      ...converted,
       productId: productId,
     };
   } catch (error) {

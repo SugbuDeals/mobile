@@ -9,6 +9,8 @@ import type { Store } from "@/features/store/stores/types";
 import type { Product as StoreProduct } from "@/features/store/types";
 import { useStableThunk } from "@/hooks/useStableCallback";
 import { calculateDistance, formatDistance } from "@/utils/distance";
+import { getVouchersOnly, getNonVoucherDeals } from "@/utils/dealPlacement";
+import DealCard from "@/components/consumers/deals/DealCard";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Location from "expo-location";
 import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
@@ -25,7 +27,6 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import MapView, { Marker } from "react-native-maps";
 
 export default function StoreDetailsScreen() {
   const params = useLocalSearchParams() as Record<string, string | undefined>;
@@ -144,6 +145,25 @@ export default function StoreDetailsScreen() {
     );
   }, [activePromotions, products, storeId]);
 
+  // Separate vouchers from regular promotions
+  const storeVouchers = React.useMemo(() => {
+    const vouchers = getVouchersOnly(
+      storePromotions.map((sp) => sp.promotion)
+    );
+    return storePromotions.filter((sp) =>
+      vouchers.some((v) => v.id === sp.promotion.id)
+    );
+  }, [storePromotions]);
+
+  const regularPromotions = React.useMemo(() => {
+    const nonVouchers = getNonVoucherDeals(
+      storePromotions.map((sp) => sp.promotion)
+    );
+    return storePromotions.filter((sp) =>
+      nonVouchers.some((nv) => nv.id === sp.promotion.id)
+    );
+  }, [storePromotions]);
+
   React.useEffect(() => {
     if (activeCategory !== "All" && !storeCategories.includes(activeCategory)) {
       setActiveCategory("All");
@@ -159,10 +179,11 @@ export default function StoreDetailsScreen() {
       >
         <StoreHero storeName={storeName} />
         <StoreLocationCard storeName={storeName} storeId={storeId} />
-        <StorePromotions
+        <StoreDealsAndVouchers
           storeName={storeName}
           storeId={storeId}
-          promotions={storePromotions}
+          promotions={regularPromotions}
+          vouchers={storeVouchers}
         />
         <CategoriesBar
           categories={categories}
@@ -255,6 +276,9 @@ function DealsGrid({
       // Filter by storeId
       if (storeId != null && p.storeId !== storeId) return false;
       
+      // Only show active products
+      if (p.isActive === false) return false;
+      
       // Only show products from verified stores
       const productStore = (stores || []).find((s: Store) => s.id === p.storeId);
       if (productStore && productStore.verificationStatus !== "VERIFIED") {
@@ -324,17 +348,21 @@ function DealsGrid({
   );
 }
 
-function StorePromotions({
+// Combined Deals and Vouchers Component with Dashboard Layout
+function StoreDealsAndVouchers({
   storeName,
   storeId,
   promotions,
+  vouchers,
 }: {
   storeName: string;
   storeId?: number;
   promotions: { promotion: Promotion; product: CatalogProduct }[];
+  vouchers: { promotion: Promotion; product: CatalogProduct }[];
 }) {
   const router = useRouter();
   const { state: { stores } } = useStore();
+  const [showVouchers, setShowVouchers] = React.useState(false);
   
   if (storeId == null) return null;
   
@@ -346,19 +374,14 @@ function StorePromotions({
     });
   }, [promotions, stores]);
   
-  const hasPromotions = verifiedPromotions.length > 0;
+  const verifiedVouchers = React.useMemo(() => {
+    return vouchers.filter(({ product }) => {
+      const productStore = (stores || []).find((s: Store) => s.id === product.storeId);
+      return productStore?.verificationStatus === "VERIFIED";
+    });
+  }, [vouchers, stores]);
 
-  const getDiscountedPrice = (price: number | string, promo: Promotion) => {
-    const base = Number(price);
-    if (!isFinite(base)) return undefined;
-    const type = String(promo?.type || "").toLowerCase();
-    const discount = Number(promo?.discount || 0);
-    if (type === "percentage") return Math.max(0, base * (1 - discount / 100));
-    if (type === "fixed") return Math.max(0, base - discount);
-    return undefined;
-  };
-
-  const handleProductPress = (product: CatalogProduct, promo: Promotion) => {
+  const handleDealPress = (product: CatalogProduct, promo: Promotion) => {
     router.push({
       pathname: "/(consumers)/product",
       params: {
@@ -373,84 +396,104 @@ function StorePromotions({
     });
   };
 
+  const getDealIcon = (dealType?: string) => {
+    switch (dealType) {
+      case "PERCENTAGE_DISCOUNT": return "percent-outline";
+      case "FIXED_DISCOUNT": return "cash-outline";
+      case "BOGO": return "gift-outline";
+      case "BUNDLE": return "apps-outline";
+      case "QUANTITY_DISCOUNT": return "layers-outline";
+      default: return "pricetag-outline";
+    }
+  };
+
+  const getDealColor = (dealType?: string) => {
+    switch (dealType) {
+      case "PERCENTAGE_DISCOUNT": return "#FF9800";
+      case "FIXED_DISCOUNT": return "#4CAF50";
+      case "BOGO": return "#9C27B0";
+      case "BUNDLE": return "#2196F3";
+      case "QUANTITY_DISCOUNT": return "#009688";
+      default: return "#F59E0B";
+    }
+  };
+
+  if (verifiedPromotions.length === 0 && verifiedVouchers.length === 0) {
+    return null;
+  }
+
   return (
-    <View style={storePromoStyles.container}>
-      <View style={storePromoStyles.headerRow}>
-        <Text style={storePromoStyles.title}>Store Promotions</Text>
-        <Text style={storePromoStyles.count}>
-          {hasPromotions ? `${promotions.length} active` : "None right now"}
-        </Text>
-      </View>
-      {hasPromotions ? (
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={storePromoStyles.row}
-        >
-          {verifiedPromotions.map(({ promotion, product }) => {
-            const discounted = getDiscountedPrice(product.price ?? "0", promotion);
-            const basePrice = Number(product.price);
-            const hasBasePrice = Number.isFinite(basePrice);
-            const promoType = String(promotion.type || "").toLowerCase();
-            return (
+    <View style={dealsStyles.container}>
+      {/* Active Deals Section */}
+      {verifiedPromotions.length > 0 && (
+        <>
+          <Text style={dealsStyles.sectionTitle}>Active Deals</Text>
+          <View style={dealsStyles.dealsGrid}>
+            {verifiedPromotions.map(({ promotion, product }) => (
               <TouchableOpacity
                 key={`${promotion.id}-${product.id}`}
-                style={storePromoStyles.card}
-                activeOpacity={0.85}
-                onPress={() => handleProductPress(product, promotion)}
-                accessibilityRole="button"
+                style={[dealsStyles.dealBox, { borderColor: getDealColor(promotion.dealType) }]}
+                onPress={() => handleDealPress(product, promotion)}
+                activeOpacity={0.7}
               >
-                {product.imageUrl ? (
-                  <Image source={{ uri: product.imageUrl }} style={storePromoStyles.cardImage} />
-                ) : (
-                  <Image
-                    source={require("../../assets/images/partial-react-logo.png")}
-                    style={storePromoStyles.cardImage}
-                  />
-                )}
-                <View style={storePromoStyles.cardBody}>
-                  <Text style={storePromoStyles.promotionTitle} numberOfLines={1}>
+                <Ionicons 
+                  name={getDealIcon(promotion.dealType) as any} 
+                  size={24} 
+                  color={getDealColor(promotion.dealType)} 
+                />
+                <Text style={dealsStyles.dealType} numberOfLines={1}>
+                  {promotion.dealType?.replace(/_/g, ' ') || 'DEAL'}
+                </Text>
+                <Text style={dealsStyles.dealTitle} numberOfLines={2}>
+                  {promotion.title}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </>
+      )}
+      
+      {/* Vouchers Section - Below Deals */}
+      {verifiedVouchers.length > 0 && (
+        <View style={dealsStyles.vouchersSection}>
+          <TouchableOpacity
+            style={dealsStyles.voucherButton}
+            onPress={() => setShowVouchers(!showVouchers)}
+            activeOpacity={0.8}
+          >
+            <View style={dealsStyles.voucherHeader}>
+              <Ionicons name="ticket" size={20} color="#E53935" />
+              <Text style={dealsStyles.voucherButtonText}>
+                Vouchers ({verifiedVouchers.length})
+              </Text>
+            </View>
+            <Ionicons 
+              name={showVouchers ? "chevron-up" : "chevron-down"} 
+              size={20} 
+              color="#E53935" 
+            />
+          </TouchableOpacity>
+          
+          {showVouchers && (
+            <View style={dealsStyles.vouchersList}>
+              {verifiedVouchers.map(({ promotion, product }) => (
+                <TouchableOpacity
+                  key={`${promotion.id}-${product.id}`}
+                  style={dealsStyles.voucherItem}
+                  onPress={() => handleDealPress(product, promotion)}
+                  activeOpacity={0.7}
+                >
+                  <View style={dealsStyles.voucherIconContainer}>
+                    <Ionicons name="ticket-outline" size={18} color="#E53935" />
+                  </View>
+                  <Text style={dealsStyles.voucherItemTitle} numberOfLines={2}>
                     {promotion.title}
                   </Text>
-                  <Text style={storePromoStyles.productName} numberOfLines={2}>
-                    {product.name}
-                  </Text>
-                  <View style={storePromoStyles.priceRow}>
-                    {hasBasePrice ? (
-                      discounted !== undefined ? (
-                        <>
-                          <Text style={storePromoStyles.oldPrice}>
-                            ₱{basePrice.toFixed(2)}
-                          </Text>
-                          <Text style={storePromoStyles.price}>
-                            ₱{discounted.toFixed(2)}
-                          </Text>
-                        </>
-                      ) : (
-                        <Text style={storePromoStyles.price}>
-                          ₱{basePrice.toFixed(2)}
-                        </Text>
-                      )
-                    ) : (
-                      <Text style={storePromoStyles.price}>View details</Text>
-                    )}
-                  </View>
-                  <View style={storePromoStyles.badge}>
-                    <Text style={storePromoStyles.badgeText}>
-                      {promoType === "percentage"
-                        ? `${promotion.discount}% OFF`
-                        : `₱${promotion.discount} OFF`}
-                    </Text>
-                  </View>
-                </View>
-              </TouchableOpacity>
-            );
-          })}
-        </ScrollView>
-      ) : (
-        <Text style={storePromoStyles.emptyText}>
-          No active promotions for {storeName} right now.
-        </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          )}
+        </View>
       )}
     </View>
   );
@@ -645,6 +688,99 @@ const gridStyles = StyleSheet.create({
   priceOld: { color: "#9CA3AF", textDecorationLine: 'line-through', marginTop: 6 },
 });
 
+const dealsStyles = StyleSheet.create({
+  container: {
+    backgroundColor: "#fff",
+    paddingHorizontal: 16,
+    paddingVertical: 16,
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: "700",
+    color: "#111827",
+    marginBottom: 12,
+  },
+  dealsGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+    marginBottom: 16,
+  },
+  dealBox: {
+    width: "48%",
+    backgroundColor: "#fff",
+    borderRadius: 12,
+    padding: 12,
+    borderWidth: 2,
+    borderColor: "#E5E7EB",
+    minHeight: 100,
+  },
+  dealType: {
+    fontSize: 10,
+    fontWeight: "600",
+    color: "#6B7280",
+    textTransform: "uppercase",
+    marginTop: 6,
+    marginBottom: 4,
+  },
+  dealTitle: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#111827",
+    lineHeight: 18,
+  },
+  vouchersSection: {
+    marginTop: 8,
+  },
+  voucherButton: {
+    backgroundColor: "#FEE2E2",
+    borderRadius: 12,
+    padding: 14,
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: "#FCA5A5",
+  },
+  voucherHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  voucherButtonText: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#E53935",
+  },
+  vouchersList: {
+    marginTop: 10,
+    gap: 8,
+  },
+  voucherItem: {
+    backgroundColor: "#fff",
+    borderRadius: 10,
+    padding: 12,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    borderWidth: 1,
+    borderColor: "#FCA5A5",
+  },
+  voucherIconContainer: {
+    width: 28,
+    height: 28,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  voucherItemTitle: {
+    flex: 1,
+    fontSize: 14,
+    fontWeight: "500",
+    color: "#111827",
+    lineHeight: 18,
+  },
+});
+
 const storePromoStyles = StyleSheet.create({
   container: {
     marginTop: 16,
@@ -668,6 +804,12 @@ const storePromoStyles = StyleSheet.create({
     fontSize: 13,
     color: "#6B7280",
     fontWeight: "600",
+  },
+  voucherDescription: {
+    fontSize: 13,
+    color: "#6B7280",
+    marginBottom: 12,
+    lineHeight: 18,
   },
   row: {
     columnGap: 12,
@@ -923,128 +1065,77 @@ function StoreLocationCard({
     }
   };
 
-  if (!latitude && !longitude && !address) {
-    return null; // Don't show location card if no location data
-  }
+  if (!address) return null;
 
   return (
     <View style={locationStyles.container}>
-      <Text style={locationStyles.sectionTitle}>Store Location</Text>
-      <View style={locationStyles.card}>
-        {region ? (
-          <MapView style={locationStyles.mapImage} initialRegion={region}>
-            {typeof latitude === "number" && typeof longitude === "number" && (
-              <Marker
-                coordinate={{ latitude, longitude }}
-                title={storeName}
-                description={address}
-              />
-            )}
-          </MapView>
-        ) : (
-          <Image
-            source={require("../../assets/images/partial-react-logo.png")}
-            style={locationStyles.mapImage}
-          />
-        )}
-        <View style={locationStyles.detailsRow}>
-          <View style={locationStyles.locationDetails}>
-            <Text style={locationStyles.address} numberOfLines={2}>
-              {address || "Store location"}
-            </Text>
-            {distance !== null ? (
-              <Text style={locationStyles.distance}>
-                {formatDistance(distance)} away
-              </Text>
-            ) : (
-              <Text style={locationStyles.distance}>Get directions</Text>
-            )}
-          </View>
-          <View style={locationStyles.buttonContainer}>
-            <TouchableOpacity
-              style={locationStyles.navigateButton}
-              activeOpacity={0.85}
-              onPress={openExternalDirections}
-            >
-              <View
-                style={{
-                  flexDirection: "row",
-                  alignItems: "center",
-                  justifyContent: "center",
-                }}
-              >
-                <Ionicons name="navigate" size={16} color="#ffffff" />
-                <Text style={locationStyles.buttonTitle}> Navigate</Text>
-              </View>
-            </TouchableOpacity>
-          </View>
+      <TouchableOpacity 
+        style={locationStyles.locationButton}
+        onPress={openExternalDirections}
+        activeOpacity={0.7}
+      >
+        <View style={locationStyles.iconContainer}>
+          <Ionicons name="location" size={24} color="#1B6F5D" />
         </View>
-      </View>
+        <View style={locationStyles.locationInfo}>
+          <Text style={locationStyles.locationLabel}>Store Location</Text>
+          <Text style={locationStyles.addressText} numberOfLines={2}>
+            {address}
+          </Text>
+          {distance !== null && (
+            <Text style={locationStyles.distanceText}>
+              {formatDistance(distance)} away
+            </Text>
+          )}
+        </View>
+        <Ionicons name="navigate" size={20} color="#1B6F5D" />
+      </TouchableOpacity>
     </View>
   );
 }
 
 const locationStyles = StyleSheet.create({
   container: {
-    marginTop: 16,
-    marginBottom: 12,
-    paddingHorizontal: 0,
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: "700",
-    marginBottom: 15,
-    color: "#333",
-  },
-  card: {
     backgroundColor: "#fff",
-    borderRadius: 18,
-    overflow: "hidden",
-    elevation: 2,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.08,
-    shadowRadius: 2,
-  },
-  mapImage: {
-    width: "100%",
-    height: 180,
-    resizeMode: "cover",
-    backgroundColor: "#dedede",
-  },
-  detailsRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    padding: 15,
-  },
-  locationDetails: {
-    flex: 1,
-    marginRight: 10,
-  },
-  address: {
-    fontSize: 16,
-    fontWeight: "600",
-    color: "#333",
-    marginBottom: 4,
-  },
-  distance: {
-    fontSize: 13,
-    color: "#888",
-  },
-  buttonContainer: {
-    width: 120,
-  },
-  navigateButton: {
-    backgroundColor: "#1B6F5D",
-    borderRadius: 24,
-    paddingVertical: 10,
     paddingHorizontal: 16,
+    paddingVertical: 12,
   },
-  buttonTitle: {
-    fontSize: 14,
+  locationButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#F0FDF4",
+    padding: 16,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "#D1FAE5",
+    gap: 12,
+  },
+  iconContainer: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: "#fff",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  locationInfo: {
+    flex: 1,
+  },
+  locationLabel: {
+    fontSize: 12,
     fontWeight: "600",
-    color: "#ffffff",
-    marginLeft: 6,
+    color: "#047857",
+    marginBottom: 4,
+    textTransform: "uppercase",
+  },
+  addressText: {
+    fontSize: 14,
+    color: "#374151",
+    lineHeight: 20,
+  },
+  distanceText: {
+    fontSize: 12,
+    color: "#6B7280",
+    marginTop: 2,
   },
 });

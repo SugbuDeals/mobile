@@ -17,6 +17,12 @@ import type {
   CreatePromotionDto,
   UpdatePromotionDto,
   AddProductsToPromotionDto,
+  GenerateVoucherTokenDto,
+  VoucherTokenResponseDto,
+  VerifyVoucherDto,
+  VoucherVerificationResponseDto,
+  ConfirmVoucherRedemptionDto,
+  ConfirmVoucherRedemptionResponseDto,
 } from "../types/swagger";
 
 // Re-export Swagger types for convenience
@@ -25,6 +31,12 @@ export type {
   CreatePromotionDto,
   UpdatePromotionDto,
   AddProductsToPromotionDto,
+  GenerateVoucherTokenDto,
+  VoucherTokenResponseDto,
+  VerifyVoucherDto,
+  VoucherVerificationResponseDto,
+  ConfirmVoucherRedemptionDto,
+  ConfirmVoucherRedemptionResponseDto,
 };
 
 // Alias for consistency with existing code
@@ -106,6 +118,39 @@ export const promotionsApi = {
    */
   deletePromotion: (promotionId: number): Promise<PromotionResponseDto> => {
     return getApiClient().delete<PromotionResponseDto>(`/promotions/${promotionId}`);
+  },
+
+  /**
+   * Consumer generates a one-time use voucher token for a specific promotion at a store
+   * This token can be encoded into a QR code for the retailer to scan
+   * Operation: PromotionController_generateVoucherToken
+   * Endpoint: POST /promotions/voucher/generate
+   * Role: CONSUMER only
+   */
+  generateVoucherToken: (data: GenerateVoucherTokenDto): Promise<VoucherTokenResponseDto> => {
+    return getApiClient().post<VoucherTokenResponseDto>("/promotions/voucher/generate", data);
+  },
+
+  /**
+   * Retailer scans and verifies the consumer's voucher QR code
+   * Returns consumer information and marks voucher as verified
+   * Operation: PromotionController_verifyVoucherToken
+   * Endpoint: POST /promotions/voucher/verify
+   * Role: RETAILER, ADMIN
+   */
+  verifyVoucherToken: (data: VerifyVoucherDto): Promise<VoucherVerificationResponseDto> => {
+    return getApiClient().post<VoucherVerificationResponseDto>("/promotions/voucher/verify", data);
+  },
+
+  /**
+   * Retailer confirms the voucher redemption after verification
+   * Marks the voucher as redeemed and it becomes unusable
+   * Operation: PromotionController_confirmVoucherRedemption
+   * Endpoint: POST /promotions/voucher/confirm
+   * Role: RETAILER, ADMIN
+   */
+  confirmVoucherRedemption: (data: ConfirmVoucherRedemptionDto): Promise<ConfirmVoucherRedemptionResponseDto> => {
+    return getApiClient().post<ConfirmVoucherRedemptionResponseDto>("/promotions/voucher/confirm", data);
   },
 };
 

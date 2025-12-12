@@ -13,6 +13,7 @@ import { useStore } from "@/features/store";
 import type { Store } from "@/features/store/stores/types";
 import type { Product } from "@/features/catalog/types";
 import type { Promotion } from "@/features/store/promotions/types";
+import DealBadge from "@/components/consumers/deals/DealBadge";
 import { useModal } from "@/hooks/useModal";
 import { useQueryHistory } from "@/hooks/useQueryHistory";
 import { useRecommendations } from "@/hooks/useRecommendations";
@@ -780,12 +781,148 @@ function ExplorePromotionModal({
     onClose();
   };
 
-  const getDiscountedPrice = (originalPrice: number | string, promo: Promotion) => {
-    const price = typeof originalPrice === 'string' ? parseFloat(originalPrice) : originalPrice;
-    if (promo.type === 'percentage') {
-      return price * (1 - promo.discount / 100);
-    } else {
-      return Math.max(0, price - promo.discount);
+  // Get deal-specific information for display
+  const getDealInfo = (promo: Promotion, productPrice: number | string) => {
+    const price = typeof productPrice === 'string' ? parseFloat(productPrice) : productPrice;
+    if (!isFinite(price)) return null;
+
+    // Handle new dealType field
+    if (promo.dealType) {
+      switch (promo.dealType) {
+        case "PERCENTAGE_DISCOUNT":
+          const percentOff = promo.percentageOff ?? 0;
+          return {
+            type: 'percentage',
+            showPrice: true,
+            showStrikethrough: true,
+            originalPrice: price,
+            finalPrice: price * (1 - percentOff / 100),
+            label: `${percentOff}% OFF`,
+          };
+        
+        case "FIXED_DISCOUNT":
+          const amountOff = promo.fixedAmountOff ?? 0;
+          return {
+            type: 'fixed',
+            showPrice: true,
+            showStrikethrough: true,
+            originalPrice: price,
+            finalPrice: Math.max(0, price - amountOff),
+            label: `₱${amountOff} OFF`,
+          };
+        
+        case "BOGO":
+          return {
+            type: 'bogo',
+            showPrice: true,
+            showStrikethrough: false,
+            originalPrice: price,
+            message: `Buy ${promo.buyQuantity ?? 1} Get ${promo.getQuantity ?? 1} Free`,
+            label: "BOGO",
+          };
+        
+        case "BUNDLE":
+          return {
+            type: 'bundle',
+            showPrice: false,
+            bundlePrice: promo.bundlePrice,
+            message: `Bundle Deal`,
+            label: `₱${promo.bundlePrice}`,
+          };
+        
+        case "QUANTITY_DISCOUNT":
+          const quantityDiscount = promo.quantityDiscount ?? 0;
+          const minQty = promo.minQuantity ?? 2;
+          return {
+            type: 'quantity',
+            showPrice: true,
+            showStrikethrough: true,
+            originalPrice: price,
+            finalPrice: price * (1 - quantityDiscount / 100),
+            message: `Buy ${minQty}+ get ${quantityDiscount}% off`,
+            label: "Bulk Deal",
+          };
+        
+        case "VOUCHER":
+          return {
+            type: 'voucher',
+            showPrice: true,
+            showStrikethrough: false,
+            originalPrice: price,
+            message: `₱${promo.voucherValue} Voucher`,
+            label: "Voucher",
+          };
+        
+        default:
+          return null;
+      }
+    }
+
+    // Fallback to legacy type/discount fields
+    const discount = promo.discount ?? 0;
+    const type = String(promo.type || "").toLowerCase();
+    
+    if (type === 'percentage') {
+      return {
+        type: 'percentage',
+        showPrice: true,
+        showStrikethrough: true,
+        originalPrice: price,
+        finalPrice: price * (1 - discount / 100),
+        label: `${discount}% OFF`,
+      };
+    } else if (type === 'fixed') {
+      return {
+        type: 'fixed',
+        showPrice: true,
+        showStrikethrough: true,
+        originalPrice: price,
+        finalPrice: Math.max(0, price - discount),
+        label: `₱${discount} OFF`,
+      };
+    }
+
+    return null;
+  };
+
+  // Get icon for deal type
+  const getDealIconName = (dealType: string) => {
+    switch (dealType) {
+      case "PERCENTAGE_DISCOUNT":
+        return "percent-outline" as const;
+      case "FIXED_DISCOUNT":
+        return "cash-outline" as const;
+      case "BOGO":
+        return "gift-outline" as const;
+      case "BUNDLE":
+        return "apps-outline" as const;
+      case "QUANTITY_DISCOUNT":
+        return "layers-outline" as const;
+      case "VOUCHER":
+        return "ticket-outline" as const;
+      default:
+        return "pricetag-outline" as const;
+    }
+  };
+
+  // Get label for deal type
+  const getDealTypeLabel = (dealType?: string): string => {
+    if (!dealType) return "Special Prices";
+    switch (dealType) {
+      case "PERCENTAGE_DISCOUNT":
+        return "Percentage Discount";
+      case "FIXED_DISCOUNT":
+        return "Fixed Discount";
+      case "BOGO":
+        return "Buy One Get One";
+      case "BUNDLE":
+        return "Bundle Deal";
+      case "QUANTITY_DISCOUNT":
+        return "Bulk Discount";
+      case "VOUCHER":
+        return "Voucher";
+      default:
+        return "Special Deal";
     }
   };
 
@@ -874,7 +1011,7 @@ function ExplorePromotionModal({
           
           <ScrollView style={exploreModalStyles.modalProducts}>
             {productPromotions.map(({ product, promotion: productPromo }) => {
-              const discountedPrice = product.price ? getDiscountedPrice(product.price, productPromo) : null;
+              const dealInfo = product.price ? getDealInfo(productPromo, product.price) : null;
               return (
                 <TouchableOpacity
                   key={product.id}
@@ -882,40 +1019,62 @@ function ExplorePromotionModal({
                   onPress={() => handleProductPress({ product, promotion: productPromo })}
                   activeOpacity={0.8}
                 >
-                  <Image
-                    source={
-                      product.imageUrl
-                        ? { uri: product.imageUrl }
-                        : require("../../assets/images/react-logo.png")
-                    }
-                    style={exploreModalStyles.modalProductImage}
-                  />
+                  <View style={exploreModalStyles.modalProductImageContainer}>
+                    <Image
+                      source={
+                        product.imageUrl
+                          ? { uri: product.imageUrl }
+                          : require("../../assets/images/react-logo.png")
+                      }
+                      style={exploreModalStyles.modalProductImage}
+                    />
+                    {productPromo.dealType && (
+                      <View style={exploreModalStyles.modalProductBadge}>
+                        <DealBadge dealType={productPromo.dealType} size="small" />
+                      </View>
+                    )}
+                  </View>
                   <View style={exploreModalStyles.modalProductInfo}>
                     <Text style={exploreModalStyles.modalProductName} numberOfLines={2}>
                       {product.name}
                     </Text>
-                    <View style={exploreModalStyles.modalProductPriceRow}>
-                      {discountedPrice && (
-                        <>
+                    
+                    {dealInfo?.showPrice && dealInfo.originalPrice !== undefined && dealInfo.finalPrice !== undefined && (
+                      <View style={exploreModalStyles.modalProductPriceRow}>
+                        <Text style={exploreModalStyles.modalProductOriginalPrice}>
+                          ₱{dealInfo.originalPrice.toFixed(2)}
+                        </Text>
+                        <Text style={exploreModalStyles.modalProductDiscountedPrice}>
+                          ₱{dealInfo.finalPrice.toFixed(2)}
+                        </Text>
+                        {dealInfo.label && (
+                          <Text style={exploreModalStyles.modalProductDiscount}>
+                            {dealInfo.label}
+                          </Text>
+                        )}
+                      </View>
+                    )}
+                    
+                    {dealInfo?.message && (
+                      <View style={exploreModalStyles.modalProductPriceRow}>
+                        {product.price && (
                           <Text style={exploreModalStyles.modalProductOriginalPrice}>
                             ₱{Number(product.price).toFixed(2)}
                           </Text>
-                          <Text style={exploreModalStyles.modalProductDiscountedPrice}>
-                            ₱{discountedPrice.toFixed(2)}
-                          </Text>
-                          <Text style={exploreModalStyles.modalProductDiscount}>
-                            {productPromo.type === 'percentage' 
-                              ? `-${productPromo.discount}%`
-                              : `-₱${productPromo.discount}`}
-                          </Text>
-                        </>
-                      )}
-                      {!discountedPrice && product.price && (
+                        )}
+                        <Text style={exploreModalStyles.modalProductDealMessage}>
+                          {dealInfo.message}
+                        </Text>
+                      </View>
+                    )}
+                    
+                    {!dealInfo && product.price && (
+                      <View style={exploreModalStyles.modalProductPriceRow}>
                         <Text style={exploreModalStyles.modalProductDiscountedPrice}>
                           ₱{Number(product.price).toFixed(2)}
                         </Text>
-                      )}
-                    </View>
+                      </View>
+                    )}
                   </View>
                 </TouchableOpacity>
               );
@@ -2153,11 +2312,19 @@ const exploreModalStyles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 2,
   },
+  modalProductImageContainer: {
+    position: "relative",
+    marginRight: 12,
+  },
   modalProductImage: {
     width: 60,
     height: 60,
     borderRadius: 8,
-    marginRight: 12,
+  },
+  modalProductBadge: {
+    position: "absolute",
+    top: -4,
+    right: -4,
   },
   modalProductInfo: {
     flex: 1,
@@ -2191,5 +2358,15 @@ const exploreModalStyles = StyleSheet.create({
     paddingHorizontal: 6,
     paddingVertical: 2,
     borderRadius: 4,
+  },
+  modalProductDealMessage: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: "#277874",
+    backgroundColor: "rgba(39, 120, 116, 0.1)",
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+    marginLeft: 8,
   },
 });
