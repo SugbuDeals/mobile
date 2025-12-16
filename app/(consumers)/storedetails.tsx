@@ -8,24 +8,24 @@ import type { Promotion } from "@/features/store/promotions/types";
 import type { Store } from "@/features/store/stores/types";
 import type { Product as StoreProduct } from "@/features/store/types";
 import { useStableThunk } from "@/hooks/useStableCallback";
+import { viewsApi } from "@/services/api/endpoints/views";
+import { getNonVoucherDeals, getVouchersOnly } from "@/utils/dealPlacement";
 import { calculateDistance, formatDistance } from "@/utils/distance";
-import { getVouchersOnly, getNonVoucherDeals } from "@/utils/dealPlacement";
-import DealCard from "@/components/consumers/deals/DealCard";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Location from "expo-location";
 import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
 import React, { useCallback, useEffect, useRef } from "react";
 import {
-  Image,
-  Linking,
-  SafeAreaView,
-  ScrollView,
-  StatusBar,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
+    Image,
+    Linking,
+    SafeAreaView,
+    ScrollView,
+    StatusBar,
+    StyleSheet,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View,
 } from "react-native";
 
 export default function StoreDetailsScreen() {
@@ -89,6 +89,19 @@ export default function StoreDetailsScreen() {
       stableFindActivePromotions(storeId);
     }
   }, [storeId, stableFindStoreProducts, stableFindActivePromotions]);
+
+  // Record view when store is viewed
+  useEffect(() => {
+    if (storeId && Number.isFinite(storeId) && storeId > 0) {
+      viewsApi.recordView({
+        entityType: "STORE",
+        entityId: storeId,
+      }).catch((error) => {
+        // Silently fail - view recording is not critical
+        console.debug("Failed to record store view:", error);
+      });
+    }
+  }, [storeId]);
 
   // Refresh data when screen comes into focus
   useFocusEffect(

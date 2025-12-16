@@ -1,9 +1,9 @@
 import { productsApi, promotionsApi, storesApi, subscriptionsApi } from "@/services/api";
+import type { CreatePromotionDto, DealType, SubscriptionAnalyticsDto } from "@/services/api/types/swagger";
 import { RootState } from "@/store/types";
 import { createAsyncThunk } from "@reduxjs/toolkit";
-import { CreateProductDTO, CreateStoreDTO, ManageStoreStatusDTO, Product, Promotion, Store, UpdateProductDTO, UpdateProductStatusDTO } from "./types";
 import type { CreatePromotionDTO, UpdatePromotionDTO } from "./promotions/types";
-import type { SubscriptionAnalyticsDto } from "@/services/api/types/swagger";
+import { CreateProductDTO, CreateStoreDTO, ManageStoreStatusDTO, Product, Promotion, Store, UpdateProductDTO, UpdateProductStatusDTO } from "./types";
 
 export const findStores = createAsyncThunk<
   Store[],
@@ -378,16 +378,48 @@ export const createPromotion = createAsyncThunk<
     // API expects productIds array, not productId
     // Convert to API format - handle both productId (legacy) and productIds
     const productIds = promotionData.productIds || (promotionData.productId ? [promotionData.productId] : []);
-    const apiData = {
+    
+    // Map legacy type field to dealType if dealType is not provided
+    let dealType: DealType = promotionData.dealType as DealType;
+    if (!dealType && promotionData.type) {
+      // Convert legacy type to dealType
+      dealType = promotionData.type === "percentage" || promotionData.type === "PERCENTAGE" 
+        ? "PERCENTAGE_DISCOUNT" 
+        : "FIXED_DISCOUNT";
+    }
+    
+    // Ensure dealType is set (default to PERCENTAGE_DISCOUNT if missing)
+    if (!dealType) {
+      dealType = "PERCENTAGE_DISCOUNT";
+    }
+    
+    // Build API data with dealType and appropriate deal-specific fields
+    const apiData: CreatePromotionDto = {
       title: promotionData.title,
-      type: promotionData.type,
+      dealType: dealType,
       description: promotionData.description,
-      discount: promotionData.discount,
       productIds,
       ...(promotionData.startsAt && { startsAt: promotionData.startsAt }),
       ...(promotionData.endsAt && { endsAt: promotionData.endsAt }),
       ...(promotionData.active !== undefined && { active: promotionData.active }),
     };
+    
+    // Map discount to appropriate deal-specific field
+    if (dealType === "PERCENTAGE_DISCOUNT" && promotionData.discount !== undefined) {
+      apiData.percentageOff = promotionData.discount;
+    } else if (dealType === "FIXED_DISCOUNT" && promotionData.discount !== undefined) {
+      apiData.fixedAmountOff = promotionData.discount;
+    }
+    
+    // Include any other deal-specific fields that might be present
+    if (promotionData.percentageOff !== undefined) apiData.percentageOff = promotionData.percentageOff;
+    if (promotionData.fixedAmountOff !== undefined) apiData.fixedAmountOff = promotionData.fixedAmountOff;
+    if (promotionData.buyQuantity !== undefined) apiData.buyQuantity = promotionData.buyQuantity;
+    if (promotionData.getQuantity !== undefined) apiData.getQuantity = promotionData.getQuantity;
+    if (promotionData.bundlePrice !== undefined) apiData.bundlePrice = promotionData.bundlePrice;
+    if (promotionData.minQuantity !== undefined) apiData.minQuantity = promotionData.minQuantity;
+    if (promotionData.quantityDiscount !== undefined) apiData.quantityDiscount = promotionData.quantityDiscount;
+    if (promotionData.voucherValue !== undefined) apiData.voucherValue = promotionData.voucherValue;
     
     const result: any = await promotionsApi.createPromotion(apiData);
     

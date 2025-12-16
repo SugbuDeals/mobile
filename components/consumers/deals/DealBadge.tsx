@@ -7,7 +7,7 @@
 
 import type { DealType } from "@/services/api/types/swagger";
 import Ionicons from "@expo/vector-icons/Ionicons";
-import { View, Text, StyleSheet } from "react-native";
+import { StyleSheet, Text, View } from "react-native";
 
 export interface DealBadgeProps {
   dealType: DealType;
@@ -20,7 +20,7 @@ export interface DealBadgeProps {
 function getDealIcon(dealType: DealType): keyof typeof Ionicons.glyphMap {
   switch (dealType) {
     case "PERCENTAGE_DISCOUNT":
-      return "percent-outline";
+      return "pricetag-outline";
     case "FIXED_DISCOUNT":
       return "cash-outline";
     case "BOGO":

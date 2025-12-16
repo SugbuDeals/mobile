@@ -1,45 +1,45 @@
-import {
-  ChatResponse,
-  InsightsPanel,
-  PromotionCard,
-  QueryHistoryModal,
-  RecommendationCard,
-  RecommendationTabs,
-  SearchPrompt,
-  StoreCard,
-  type RecommendationTab,
-} from "@/components/consumers/explore";
-import { useStore } from "@/features/store";
-import type { Store } from "@/features/store/stores/types";
-import type { Product } from "@/features/catalog/types";
-import type { Promotion } from "@/features/store/promotions/types";
 import DealBadge from "@/components/consumers/deals/DealBadge";
+import {
+    ChatResponse,
+    InsightsPanel,
+    PromotionCard,
+    QueryHistoryModal,
+    RecommendationCard,
+    RecommendationTabs,
+    SearchPrompt,
+    StoreCard,
+    type RecommendationTab,
+} from "@/components/consumers/explore";
+import type { Product } from "@/features/catalog/types";
+import { useStore } from "@/features/store";
+import type { Promotion } from "@/features/store/promotions/types";
 import { useModal } from "@/hooks/useModal";
 import { useQueryHistory } from "@/hooks/useQueryHistory";
 import { useRecommendations } from "@/hooks/useRecommendations";
 import { useTabs } from "@/hooks/useTabs";
-import { borderRadius, colors, shadows, spacing, typography } from "@/styles/theme";
-import { promotionsApi } from "@/services/api/endpoints/promotions";
 import { productsApi } from "@/services/api/endpoints/products";
+import { promotionsApi } from "@/services/api/endpoints/promotions";
 import { storesApi } from "@/services/api/endpoints/stores";
+import { viewsApi } from "@/services/api/endpoints/views";
 import type { PromotionRecommendationItemDto } from "@/services/api/types/swagger";
+import { borderRadius, colors, shadows, spacing, typography } from "@/styles/theme";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { LinearGradient } from "expo-linear-gradient";
 import * as Location from "expo-location";
 import { useFocusEffect, useRouter } from "expo-router";
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
-  ActivityIndicator,
-  Animated,
-  Image,
-  KeyboardAvoidingView,
-  Modal,
-  Platform,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
+    ActivityIndicator,
+    Animated,
+    Image,
+    KeyboardAvoidingView,
+    Modal,
+    Platform,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View,
 } from "react-native";
 
 interface RecommendationItem {
@@ -318,17 +318,9 @@ export default function Explore() {
             if (product) {
               // Convert the promotion details to Promotion type
               const promo: Promotion = {
-                id: promotionDetails.id,
-                title: promotionDetails.title,
-                type: promotionDetails.type.toLowerCase() as "percentage" | "fixed",
-                description: promotionDetails.description,
-                startsAt: promotionDetails.startsAt,
-                endsAt: promotionDetails.endsAt,
-                active: promotionDetails.active,
-                discount: promotionDetails.discount,
+                ...promotionDetails,
                 productId: pp.productId,
-                createdAt: promotionDetails.startsAt,
-                updatedAt: promotionDetails.startsAt,
+                type: promotionDetails.type?.toLowerCase() as "percentage" | "fixed" | undefined,
               };
               
               // Convert product to Product type
@@ -337,12 +329,12 @@ export default function Explore() {
                 name: product.name,
                 description: product.description,
                 price: product.price,
+                stock: product.stock,
                 imageUrl: product.imageUrl || null,
                 storeId: product.storeId,
                 categoryId: product.categoryId,
                 isActive: product.isActive,
                 createdAt: product.createdAt,
-                updatedAt: product.updatedAt,
               };
               
               productPromotions.push({ product: prod, promotion: promo });
@@ -356,17 +348,9 @@ export default function Explore() {
       // If we have products, show the modal
       if (productPromotions.length > 0) {
         const mainPromotion: Promotion = {
-          id: promotionDetails.id,
-          title: promotionDetails.title,
-          type: promotionDetails.type.toLowerCase() as "percentage" | "fixed",
-          description: promotionDetails.description,
-          startsAt: promotionDetails.startsAt,
-          endsAt: promotionDetails.endsAt,
-          active: promotionDetails.active,
-          discount: promotionDetails.discount,
-          productId: promotionDetails.productId,
-          createdAt: promotionDetails.startsAt,
-          updatedAt: promotionDetails.startsAt,
+          ...promotionDetails,
+          productId: promotionDetails.productId ?? null,
+          type: promotionDetails.type?.toLowerCase() as "percentage" | "fixed" | undefined,
         };
         
         setSelectedPromotion({
@@ -780,6 +764,19 @@ function ExplorePromotionModal({
     });
     onClose();
   };
+
+  // Record view when promotion modal is opened
+  useEffect(() => {
+    if (promotion?.id && Number.isFinite(promotion.id) && promotion.id > 0) {
+      viewsApi.recordView({
+        entityType: "PROMOTION",
+        entityId: promotion.id,
+      }).catch((error) => {
+        // Silently fail - view recording is not critical
+        console.debug("Failed to record promotion view:", error);
+      });
+    }
+  }, [promotion?.id]);
 
   // Get deal-specific information for display
   const getDealInfo = (promo: Promotion, productPrice: number | string) => {

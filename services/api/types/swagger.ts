@@ -531,6 +531,73 @@ export interface SimilarProductsResponseDto {
 }
 
 // ============================================================================
+// View Types
+// ============================================================================
+
+export type EntityType = "STORE" | "PRODUCT" | "PROMOTION";
+
+export interface RecordViewDto {
+  entityType: EntityType;
+  entityId: number; // Must be a positive integer
+}
+
+export interface ViewResponseDto {
+  id: number;
+  userId: number;
+  entityType: EntityType;
+  entityId: number;
+  viewedAt: string; // ISO 8601 format date-time
+  store?: StoreResponseDto; // Only populated when entityType is STORE
+  product?: ProductResponseDto; // Only populated when entityType is PRODUCT
+  promotion?: PromotionResponseDto; // Only populated when entityType is PROMOTION
+}
+
+export interface ViewCountResponseDto {
+  entityType: EntityType;
+  entityId: number;
+  viewCount: number; // Total number of unique users who have viewed this entity
+}
+
+export interface ListViewsParams {
+  skip?: number; // Number of records to skip for pagination (default: 0)
+  take?: number; // Number of records to return (max 100, default: 10)
+  entityType?: EntityType; // Filter views by entity type
+}
+
+export type TimePeriod = "daily" | "weekly" | "monthly" | "custom";
+
+export interface DateRangeDto {
+  start: string; // ISO 8601 format date-time
+  end: string; // ISO 8601 format date-time
+}
+
+export interface StoreViewItem {
+  store: StoreResponseDto;
+  viewCount: number;
+}
+
+export interface ProductViewItem {
+  product: ProductResponseDto;
+  viewCount: number;
+}
+
+export interface RetailerAnalyticsResponseDto {
+  totalStoreViews: number;
+  totalProductViews: number;
+  storeViews: StoreViewItem[];
+  productViews: ProductViewItem[];
+  timePeriod: TimePeriod;
+  dateRange: DateRangeDto;
+}
+
+export interface GetRetailerAnalyticsParams {
+  timePeriod: TimePeriod;
+  startDate?: string; // ISO 8601 format date-time, required when timePeriod is "custom"
+  endDate?: string; // ISO 8601 format date-time, required when timePeriod is "custom"
+  entityType?: EntityType; // Optional filter by entity type (STORE or PRODUCT only)
+}
+
+// ============================================================================
 // File Types
 // ============================================================================
 

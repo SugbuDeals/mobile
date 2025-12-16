@@ -1,19 +1,19 @@
+import PromotionCard from "@/components/consumers/PromotionCard";
 import { useLogin } from "@/features/auth";
 import { useStore } from "@/features/store";
 import type { Promotion } from "@/features/store/promotions/types";
 import { useStableThunk } from "@/hooks/useStableCallback";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { router, useFocusEffect } from "expo-router";
-import React, { useCallback, useEffect, useMemo, useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef } from "react";
 import {
-  ImageBackground,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View
+    ImageBackground,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View
 } from "react-native";
-import PromotionCard from "@/components/consumers/PromotionCard";
 
 const DEFAULT_BANNER = require("../../assets/images/index3.png");
 
@@ -238,7 +238,7 @@ export default function RetailerDashboard() {
             </View>
           ) : groupedPromotions.length > 0 ? (
             groupedPromotions.map((promotion) => (
-              <PromotionCard key={`${promotion.title}-${promotion.discount}-${promotion.type}`} promotion={promotion} activePromotions={activePromotions} />
+              <PromotionCard key={`${promotion.title}-${promotion.discount}-${promotion.type}`} promotion={promotion} />
             ))
           ) : (
             <View style={styles.emptyContainer}>

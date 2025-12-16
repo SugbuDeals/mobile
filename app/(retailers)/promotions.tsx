@@ -3,26 +3,25 @@
  * Features: Create, edit, and manage promotions with comprehensive deal type support
  */
 
+import PromotionDealTypeForm from "@/components/retailers/promotions/PromotionDealTypeForm";
 import { useLogin } from "@/features/auth";
 import { useStore } from "@/features/store";
-import type { DealType, CreatePromotionDto } from "@/services/api/types/swagger";
-import type { Promotion } from "@/features/store/promotions/types";
-import { validatePromotionData, formatDealDetails, getDealTypeLabel } from "@/utils/dealTypes";
-import PromotionDealTypeForm from "@/components/retailers/promotions/PromotionDealTypeForm";
+import type { CreatePromotionDto, DealType } from "@/services/api/types/swagger";
+import { formatDealDetails, getDealTypeLabel, validatePromotionData } from "@/utils/dealTypes";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { LinearGradient } from "expo-linear-gradient";
 import React, { useEffect, useState } from "react";
 import {
-  Alert,
-  Platform,
-  ScrollView,
-  StatusBar,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
+    Alert,
+    Platform,
+    ScrollView,
+    StatusBar,
+    StyleSheet,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View,
 } from "react-native";
 
 export default function PromotionsNew() {
@@ -82,7 +81,7 @@ export default function PromotionsNew() {
     if (!storeId) return [];
     const storeProductIds = new Set(retailerProducts.map((product) => product.id));
     return (activePromotions || []).filter((promotion) =>
-      promotion.productId !== null && storeProductIds.has(promotion.productId)
+      promotion.productId !== null && promotion.productId !== undefined && storeProductIds.has(promotion.productId as number)
     );
   }, [activePromotions, retailerProducts, storeId]);
 

@@ -5,15 +5,15 @@ import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { LinearGradient } from "expo-linear-gradient";
 import { Tabs, router, useFocusEffect } from "expo-router";
-import React, { useEffect, useCallback } from "react";
+import React, { useCallback, useEffect } from "react";
 import {
+  AppState,
   Platform,
   StatusBar,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
-  AppState,
 } from "react-native";
 
 const RetailerHeader = () => {
@@ -256,6 +256,16 @@ export default function RetailersLayout() {
         options={{
           title: "Layout",
           href: null,
+        }}
+      />
+      <Tabs.Screen
+        name="analytics"
+        options={{
+          title: "Analytics",
+          headerShown: true,
+          tabBarIcon: ({ color, size = 24 }) => (
+            <Ionicons name="stats-chart" color={color} size={size} />
+          ),
         }}
       />
       <Tabs.Screen

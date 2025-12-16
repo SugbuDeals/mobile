@@ -3,11 +3,10 @@
  * Handles all 6 deal types with proper validation
  */
 
-import React, { useState } from "react";
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView, Alert } from "react-native";
+import type { CreatePromotionDto, DealType } from "@/services/api/types/swagger";
+import { DEAL_TYPES } from "@/utils/dealTypes";
 import { Ionicons } from "@expo/vector-icons";
-import type { DealType, CreatePromotionDto } from "@/services/api/types/swagger";
-import { DEAL_TYPES, validatePromotionData, formatDealDetails } from "@/utils/dealTypes";
+import { ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 
 interface PromotionDealTypeFormProps {
   selectedDealType: DealType;
@@ -86,7 +85,7 @@ function renderDealTypeFields(
         <View>
           <Text style={styles.label}>Percentage Off (0-100) *</Text>
           <View style={styles.inputContainer}>
-            <Ionicons name="percent" size={20} color="#9CA3AF" style={styles.inputIcon} />
+            <Ionicons name="pricetag-outline" size={20} color="#9CA3AF" style={styles.inputIcon} />
             <TextInput
               style={styles.textInput}
               placeholder="25"
@@ -245,7 +244,7 @@ function renderDealTypeFields(
             <View style={styles.column}>
               <Text style={styles.label}>Discount (%) *</Text>
               <View style={styles.inputContainer}>
-                <Ionicons name="percent" size={20} color="#9CA3AF" style={styles.inputIcon} />
+                <Ionicons name="pricetag-outline" size={20} color="#9CA3AF" style={styles.inputIcon} />
                 <TextInput
                   style={styles.textInput}
                   placeholder="20"

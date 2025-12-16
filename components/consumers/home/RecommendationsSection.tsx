@@ -1,10 +1,9 @@
-import React from "react";
-import { StyleSheet, ScrollView, Text, TouchableOpacity, View, Image } from "react-native";
-import { useRouter } from "expo-router";
-import { colors, spacing, borderRadius, typography } from "@/styles/theme";
 import SectionHeader from "@/components/SectionHeader";
 import type { Product } from "@/features/catalog/types";
 import type { Promotion } from "@/features/store/promotions/types";
+import { borderRadius, colors, spacing, typography } from "@/styles/theme";
+import { useRouter } from "expo-router";
+import { Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
 interface RecommendationsSectionProps {
   products: Product[];
@@ -51,19 +50,20 @@ export default function RecommendationsSection({
         contentContainerStyle={styles.scrollContent}
       >
         {productPromotions.map((item, idx) => {
-          const discount =
+          const discountLabel =
             item.promotion.type === "percentage"
-              ? `${item.promotion.discount}% OFF`
-              : `₱${item.promotion.discount} OFF`;
+              ? `${item.promotion.discount ?? 0}% OFF`
+              : `₱${item.promotion.discount ?? 0} OFF`;
           const originalPrice =
             typeof item.product.price === "string"
               ? parseFloat(item.product.price)
               : item.product.price ?? 0;
           if (!originalPrice) return null;
+          const discountValue = item.promotion.discount ?? 0;
           const discountedPrice =
             item.promotion.type === "percentage"
-              ? originalPrice * (1 - item.promotion.discount / 100)
-              : Math.max(0, originalPrice - item.promotion.discount);
+              ? originalPrice * (1 - discountValue / 100)
+              : Math.max(0, originalPrice - discountValue);
 
           return (
             <TouchableOpacity
@@ -81,7 +81,7 @@ export default function RecommendationsSection({
                 <View style={styles.placeholderImage} />
               )}
               <View style={styles.badge}>
-                <Text style={styles.badgeText}>{discount}</Text>
+                <Text style={styles.badgeText}>{discountLabel}</Text>
               </View>
               <View style={styles.cardContent}>
                 <Text style={styles.productName} numberOfLines={2}>
