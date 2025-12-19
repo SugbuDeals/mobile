@@ -4,6 +4,7 @@ import { useLogin } from "@/features/auth";
 import { useCatalog } from "@/features/catalog";
 import { useStore } from "@/features/store";
 import { uploadFile } from "@/utils/fileUpload";
+import { appendCustomCategory } from "@/utils/categoryHelpers";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import * as ImagePicker from "expo-image-picker";
 import { LinearGradient } from "expo-linear-gradient";
@@ -40,6 +41,8 @@ export default function AddProduct() {
   const [selectedCategoryId, setSelectedCategoryId] = useState<number | null>(null);
   const [showCategoryList, setShowCategoryList] = useState(false);
   const [showSubscriptionOverlay, setShowSubscriptionOverlay] = useState(false);
+  const [isOthersCategory, setIsOthersCategory] = useState(false);
+  const [customCategoryName, setCustomCategoryName] = useState("");
 
   const resetForm = () => {
     setProductName("");
@@ -51,6 +54,8 @@ export default function AddProduct() {
     setImageUrl(null);
     setSelectedCategoryId(null);
     setShowCategoryList(false);
+    setIsOthersCategory(false);
+    setCustomCategoryName("");
   };
 
   // Get product limit based on tier (defaults to BASIC if no tier)
@@ -186,6 +191,12 @@ export default function AddProduct() {
       hasErrors = true;
     }
 
+    // Validate custom category name if "Others" is selected
+    if (isOthersCategory && !customCategoryName.trim()) {
+      errors.customCategory = true;
+      hasErrors = true;
+    }
+
     if (hasErrors) {
       setValidationErrors(errors);
       let errorMessage = "Please fill in all required fields correctly.";
@@ -236,6 +247,12 @@ export default function AddProduct() {
         }
       }
 
+      // If custom category is used, append it to description in a structured way
+      let finalDescription = description.trim();
+      if (isOthersCategory && customCategoryName.trim()) {
+        finalDescription = appendCustomCategory(description.trim(), customCategoryName.trim());
+      }
+
       const productData: {
         name: string;
         description: string;
@@ -246,7 +263,7 @@ export default function AddProduct() {
         categoryId?: number;
       } = {
         name: productName.trim(),
-        description: description.trim(),
+        description: finalDescription,
         price: Number(price),
         stock: Number(stock),
         storeId: userStore.id, // Use user's store ID
@@ -415,7 +432,9 @@ export default function AddProduct() {
         >
           <Ionicons name="pricetags" size={18} color="#6B7280" />
           <Text style={{ marginLeft: 8, color: "#374151", fontSize: 16 }}>
-            {selectedCategoryId
+            {isOthersCategory && customCategoryName
+              ? `Others: ${customCategoryName}`
+              : selectedCategoryId
               ? categories.find((c) => c.id === selectedCategoryId)?.name || "Select category"
               : "Select category"}
           </Text>
@@ -427,6 +446,8 @@ export default function AddProduct() {
                 key={cat.id}
                 onPress={() => {
                   setSelectedCategoryId(cat.id);
+                  setIsOthersCategory(false);
+                  setCustomCategoryName("");
                   setShowCategoryList(false);
                 }}
                 style={{ paddingVertical: 10, paddingHorizontal: 12 }}
@@ -434,11 +455,50 @@ export default function AddProduct() {
                 <Text style={{ fontSize: 16, color: "#374151" }}>{cat.name}</Text>
               </TouchableOpacity>
             ))}
+            <TouchableOpacity
+              onPress={() => {
+                setIsOthersCategory(true);
+                setSelectedCategoryId(null);
+                setShowCategoryList(false);
+              }}
+              style={{ 
+                paddingVertical: 10, 
+                paddingHorizontal: 12,
+                borderTopWidth: categories.length > 0 ? 1 : 0,
+                borderTopColor: "#E5E7EB",
+                backgroundColor: isOthersCategory ? "#EFF6FF" : "transparent"
+              }}
+            >
+              <View style={{ flexDirection: "row", alignItems: "center" }}>
+                <Text style={{ fontSize: 16, color: "#374151", fontWeight: isOthersCategory ? "600" : "400" }}>
+                  Others
+                </Text>
+                {isOthersCategory && (
+                  <Ionicons name="checkmark-circle" size={18} color="#277874" style={{ marginLeft: 8 }} />
+                )}
+              </View>
+            </TouchableOpacity>
             {categories.length === 0 && (
               <View style={{ paddingVertical: 12, paddingHorizontal: 12 }}>
                 <Text style={{ fontSize: 14, color: "#6B7280" }}>No categories available</Text>
               </View>
             )}
+          </View>
+        )}
+        {isOthersCategory && (
+          <View style={{ marginTop: 8 }}>
+            <TextField
+              label="Custom Category Name"
+              placeholder="Enter category name (e.g., Sports Equipment, Pet Supplies)"
+              value={customCategoryName}
+              onChangeText={(text) => {
+                setCustomCategoryName(text);
+                if (validationErrors.customCategory) {
+                  setValidationErrors(prev => ({ ...prev, customCategory: false }));
+                }
+              }}
+              error={validationErrors.customCategory ? "Custom category name is required" : undefined}
+            />
           </View>
         )}
       </View>

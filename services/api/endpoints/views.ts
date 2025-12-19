@@ -91,7 +91,7 @@ export const viewsApi = {
   ): Promise<RetailerAnalyticsResponseDto> => {
     return getApiClient().get<RetailerAnalyticsResponseDto>(
       "/views/analytics/retailer",
-      params as Record<string, unknown>
+      params as unknown as Record<string, unknown>
     );
   },
 };

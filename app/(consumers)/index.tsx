@@ -153,7 +153,7 @@ export default function Home() {
   } = useLogin();
   const {
     state: { nearbyStores, loading, activePromotions, currentTier, stores },
-    action: { findNearbyStores, findActivePromotions, getCurrentTier },
+    action: { findNearbyStores, findActivePromotions, getCurrentTier, findStores },
   } = useStore();
   const {
     state: { categories, products },
@@ -165,6 +165,7 @@ export default function Home() {
   const stableFindActivePromotions = useStableThunk(findActivePromotions);
   const stableLoadCategories = useStableThunk(loadCategories);
   const stableLoadProducts = useStableThunk(loadProducts);
+  const stableFindStores = useStableThunk(findStores);
 
   const [selectedPromotion, setSelectedPromotion] = useState<{
     promotion: Promotion;
@@ -184,6 +185,8 @@ export default function Home() {
   useAsyncEffect(async () => {
     // Fetch tier first (don't await - let it load in background)
     getCurrentTier();
+    // Load all stores first so products/deals can verify store status immediately
+    stableFindStores();
     stableLoadCategories();
     stableLoadProducts();
     stableFindActivePromotions();
@@ -204,7 +207,7 @@ export default function Home() {
       // Silently handle location errors
       console.warn("Location permission error:", error);
     }
-  }, [stableLoadCategories, stableLoadProducts, stableFindActivePromotions, stableFindNearbyStores, getCurrentTier, radiusKm]);
+  }, [stableFindStores, stableLoadCategories, stableLoadProducts, stableFindActivePromotions, stableFindNearbyStores, getCurrentTier, radiusKm]);
 
   // Refresh promotions when screen comes into focus
   useFocusEffect(

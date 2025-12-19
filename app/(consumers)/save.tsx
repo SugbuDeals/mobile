@@ -54,12 +54,17 @@ export default function Save() {
       (product as any)?.categoryName ||
       (product as any)?.category;
     if (directCategory) return String(directCategory);
-    const categoryId =
-      (product as any)?.category?.id ?? (product as any)?.categoryId;
-    const match = (catalogState.categories || []).find(
-      (cat: Category) => String(cat.id) === String(categoryId)
+    
+    // Use the helper function that checks both categoryId and custom category
+    const { getProductCategoryName: getCategoryName } = require("@/utils/categoryHelpers");
+    const categoryName = getCategoryName(
+      {
+        categoryId: (product as any)?.category?.id ?? (product as any)?.categoryId,
+        description: product.description || null,
+      },
+      catalogState.categories || []
     );
-    return match?.name ? String(match.name) : "Uncategorized";
+    return categoryName || "Uncategorized";
   }, [catalogState.categories]);
 
   const savedProducts: SavedItem[] = useMemo(() => {

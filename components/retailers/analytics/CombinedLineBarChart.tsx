@@ -7,14 +7,23 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import Svg, { Circle, G, Line, Path, Rect, Text as SvgText } from 'react-native-svg';
+import Svg, {
+  Defs,
+  G,
+  Line,
+  LinearGradient,
+  Path,
+  Rect,
+  Stop,
+  Text as SvgText,
+} from 'react-native-svg';
 
-const { width } = Dimensions.get('window');
+const { width: screenWidth } = Dimensions.get('window');
 
 interface DataPoint {
   value: number;
   label: string;
-  pointLabel?: string; // Optional contextual label for the data point
+  pointLabel?: string;
   pointData?: {
     type: 'promotion' | 'product';
     data: any;
@@ -26,20 +35,25 @@ interface LineData {
   label: string;
   color: string;
   data: DataPoint[];
-  chartType?: 'bar' | 'line'; // Specify which chart type to use for this metric
+  chartType?: 'bar' | 'line';
 }
 
 interface Props {
   lines: LineData[];
   height?: number;
+  width?: number;
   onLinePress?: (key: string) => void;
   selectedLine?: string;
-  onPointLabelPress?: (pointData: { type: 'promotion' | 'product'; data: any } | undefined, date: string) => void;
+  onPointLabelPress?: (
+    pointData: { type: 'promotion' | 'product'; data: any } | undefined,
+    date: string
+  ) => void;
 }
 
 export const CombinedLineBarChart: React.FC<Props> = ({
   lines,
   height = 100,
+  width: customWidth,
   onLinePress,
   selectedLine,
   onPointLabelPress,
@@ -48,39 +62,41 @@ export const CombinedLineBarChart: React.FC<Props> = ({
   const padding = 30;
   const graphHeight = chartHeight - padding * 2;
 
-  const maxValue = Math.max(
-    ...lines.flatMap(line => line.data.map(d => d.value))
-  );
+  const allValues = lines.flatMap(l => l.data.map(d => d.value));
+  const maxValue = Math.max(...allValues, 1);
   const yScale = graphHeight / maxValue;
+
   const dataPointCount = lines[0]?.data.length || 1;
-  
-  // Calculate minimum width needed for all data points
-  const minPointSpacing = 25; // Minimum spacing between points for readability
-  const minChartWidth = Math.max(width - 72, dataPointCount * minPointSpacing + padding * 2);
-  const graphWidth = minChartWidth - padding * 2;
+  const availableWidth = screenWidth - 105;
+  const optimalSpacing = dataPointCount <= 8 ? 50 : dataPointCount <= 12 ? 40 : 35;
+  const calculatedWidth = dataPointCount * optimalSpacing + padding * 2;
+  const chartWidth = customWidth ?? Math.max(availableWidth, calculatedWidth);
+  const graphWidth = chartWidth - padding * 2;
   const xStep = dataPointCount > 1 ? graphWidth / (dataPointCount - 1) : 0;
-  
-  const barGroupWidth = Math.min(xStep * 0.7, 20); // Cap bar width for many data points
+
+  const barGroupWidth = Math.min(xStep * 0.7, 22);
   const barWidth = barGroupWidth / lines.length;
 
+  /* ---------------- Bars ---------------- */
+
   const renderBars = () => {
-    // Only render bars for metrics that should use bar charts
-    const barLines = lines.filter(line => line.chartType === 'bar' || !line.chartType);
-    if (barLines.length === 0) return null;
-    
-    return barLines.map((line, lineIndex) => {
-      return line.data.map((point, pointIndex) => {
-        // Only render bars for points with value > 0
-        if (point.value <= 0) return null;
-        
-        const barHeight = point.value * yScale;
-        // Center bars when there are fewer bar lines
-        const totalBarWidth = barGroupWidth * (barLines.length / lines.length);
-        const x = padding + pointIndex * xStep - totalBarWidth / 2 + lineIndex * barWidth;
+    const barLines = lines.filter(l => l.chartType !== 'line');
+    if (!barLines.length) return null;
+
+    return barLines.map((line, lineIndex) =>
+      line.data.map((point, pointIndex) => {
+        const barHeight = Math.max(0, point.value * yScale);
+        if (!barHeight) return null;
+
+        const x =
+          padding +
+          pointIndex * xStep -
+          barGroupWidth / 2 +
+          lineIndex * barWidth;
+
         const y = padding + graphHeight - barHeight;
-        
         const isSelected = selectedLine === line.key;
-        
+
         return (
           <Rect
             key={`bar-${line.key}-${pointIndex}`}
@@ -88,76 +104,85 @@ export const CombinedLineBarChart: React.FC<Props> = ({
             y={y}
             width={barWidth}
             height={barHeight}
-            fill={line.color}
-            opacity={isSelected ? 1 : 0.7}
+            rx={4}
+            ry={4}
+            fill={`url(#bar-${line.key})`}
+            opacity={isSelected ? 1 : 0.65}
             onPress={() => onLinePress?.(line.key)}
           />
         );
-      });
-    });
+      })
+    );
+  };
+
+  /* ---------------- Lines ---------------- */
+
+  const generateSmoothPath = (points: { x: number; y: number }[]) => {
+    if (points.length < 2) return '';
+    let d = `M ${points[0].x} ${points[0].y}`;
+    for (let i = 0; i < points.length - 1; i++) {
+      const p0 = points[i - 1] || points[i];
+      const p1 = points[i];
+      const p2 = points[i + 1];
+      const p3 = points[i + 2] || p2;
+
+      const tension = 0.25;
+      const cp1x = p1.x + (p2.x - p0.x) * tension;
+      const cp1y = p1.y + (p2.y - p0.y) * tension;
+      const cp2x = p2.x - (p3.x - p1.x) * tension;
+      const cp2y = p2.y - (p3.y - p1.y) * tension;
+
+      d += ` C ${cp1x} ${cp1y}, ${cp2x} ${cp2y}, ${p2.x} ${p2.y}`;
+    }
+    return d;
   };
 
   const renderLines = () => {
-    // Only render lines for metrics that should use line charts
-    const lineOnlyLines = lines.filter(line => line.chartType === 'line');
-    if (lineOnlyLines.length === 0) return null;
-    
-    return lineOnlyLines.map((line) => {
-      const linePoints = line.data.map((point, index) => ({
-        x: padding + index * xStep,
-        y: padding + graphHeight - point.value * yScale,
-        value: point.value,
-      }));
+    const lineData = lines.filter(l => l.chartType === 'line');
 
-      const linePath = linePoints
-        .map((point, i) => `${i === 0 ? 'M' : 'L'} ${point.x} ${point.y}`)
-        .join(' ');
+    return lineData.map(line => {
+      const points = line.data.map((p, i) => ({
+        x: padding + i * xStep,
+        y: padding + graphHeight - p.value * yScale,
+      }));
 
       const isSelected = selectedLine === line.key;
 
       return (
-        <G key={`line-${line.key}`}>
+        <G key={line.key}>
+          {isSelected && (
+            <Path
+              d={generateSmoothPath(points)}
+              stroke={line.color}
+              strokeWidth={6}
+              opacity={0.15}
+              fill="none"
+            />
+          )}
           <Path
-            d={linePath}
-            fill="none"
+            d={generateSmoothPath(points)}
             stroke={line.color}
-            strokeWidth={isSelected ? 3 : 2.5}
+            strokeWidth={isSelected ? 3 : 2}
+            opacity={isSelected ? 1 : selectedLine ? 0.25 : 0.7}
+            fill="none"
             strokeLinecap="round"
             strokeLinejoin="round"
-            opacity={isSelected ? 1 : 0.8}
             onPress={() => onLinePress?.(line.key)}
           />
-          {linePoints.map((point, i) => (
-            <Circle
-              key={`point-${line.key}-${i}`}
-              cx={point.x}
-              cy={point.y}
-              r={isSelected ? 5 : 4}
-              fill={line.color}
-              stroke="white"
-              strokeWidth="2"
-              onPress={() => onLinePress?.(line.key)}
-            />
-          ))}
         </G>
       );
     });
   };
 
-  const getYAxisTicks = () => {
-    const tickCount = 5;
-    const step = Math.ceil(maxValue / (tickCount - 1) / 10) * 10;
-    return Array.from({ length: tickCount }, (_, i) => i * step);
-  };
-
-  const yAxisTicks = getYAxisTicks();
+  const yAxisTicks = Array.from({ length: 5 }, (_, i) =>
+    Math.round((maxValue / 4) * i)
+  );
 
   return (
     <View>
       <View style={styles.legend}>
-        {lines.map((line) => {
+        {lines.map(line => {
           const isSelected = selectedLine === line.key;
-          const chartType = line.chartType || 'bar';
           return (
             <TouchableOpacity
               key={line.key}
@@ -168,140 +193,72 @@ export const CombinedLineBarChart: React.FC<Props> = ({
               onPress={() => onLinePress?.(line.key)}
             >
               <View style={[styles.legendColor, { backgroundColor: line.color }]} />
-              <Text
-                style={[
-                  styles.legendText,
-                  isSelected && styles.legendTextSelected,
-                ]}
-              >
+              <Text style={[styles.legendText, isSelected && styles.legendTextSelected]}>
                 {line.label}
               </Text>
-              
             </TouchableOpacity>
           );
         })}
       </View>
 
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={true}
-        contentContainerStyle={{ paddingRight: 10 }}
-        style={styles.chartScrollView}
-      >
-        <Svg width={minChartWidth} height={chartHeight}>
-        {yAxisTicks.map((tick, i) => {
-          const y = padding + graphHeight - (tick / maxValue) * graphHeight;
-          return (
-            <G key={`grid-${i}`}>
-              <Line
-                x1={padding}
-                y1={y}
-                x2={minChartWidth - padding}
-                y2={y}
-                stroke="#E5E7EB"
-                strokeWidth="2"
-              />
-              <SvgText
-                x={padding - 10}
-                y={y + 4}
-                fontSize="10"
-                fill="#6B7280"
-                textAnchor="end"
+      <ScrollView horizontal showsHorizontalScrollIndicator>
+        <Svg width={chartWidth} height={chartHeight}>
+          <Defs>
+            {lines.map(line => (
+              <LinearGradient
+                key={line.key}
+                id={`bar-${line.key}`}
+                x1="0"
+                y1="0"
+                x2="0"
+                y2="1"
               >
-                {tick}
-              </SvgText>
-            </G>
-          );
-        })}
+                <Stop offset="0%" stopColor={line.color} stopOpacity="0.95" />
+                <Stop offset="100%" stopColor={line.color} stopOpacity="0.65" />
+              </LinearGradient>
+            ))}
+          </Defs>
 
-        <Line
-          x1={padding}
-          y1={padding + graphHeight}
-          x2={minChartWidth - padding}
-          y2={padding + graphHeight}
-          stroke="#374151"
-          strokeWidth="2"
-        />
-        <Line
-          x1={padding}
-          y1={padding}
-          x2={padding}
-          y2={padding + graphHeight}
-          stroke="#374151"
-          strokeWidth="0"
-        />
-
-        {renderBars()}
-        {renderLines()}
-
-        {/* Render point labels above data points */}
-        {lines.map((line) => {
-          return line.data.map((point, i) => {
-            if (!point.pointLabel) return null;
-            
-            // Only show labels for the selected line when a legend is pressed
-            if (selectedLine && line.key !== selectedLine) return null;
-            
-            const pointValue = point.value;
-            const pointY = padding + graphHeight - pointValue * yScale;
-            const labelY = Math.max(padding - 5, pointY - 20); // Position above point, but not above chart
-            
-            // Calculate label width based on text length
-            const labelWidth = Math.min(point.pointLabel.length * 5 + 10, 80);
-            const isClickable = point.pointData && onPointLabelPress;
-            
+          {yAxisTicks.map((tick, i) => {
+            const y = padding + graphHeight - (tick / maxValue) * graphHeight;
             return (
-              <G 
-                key={`point-label-${line.key}-${i}`}
-                onPress={isClickable && point.pointData ? () => {
-                  onPointLabelPress(point.pointData, point.label);
-                } : undefined}
-              >
-                {/* Background rectangle for label */}
-                <Rect
-                  x={padding + i * xStep - labelWidth / 2}
-                  y={labelY - 8}
-                  width={labelWidth}
-                  height={16}
-                  fill="#FFFFFF"
-                  stroke={line.color}
-                  strokeWidth={isClickable ? "2" : "1"}
-                  rx="4"
-                  opacity={isClickable ? "1" : "0.95"}
+              <G key={i}>
+                <Line
+                  x1={padding}
+                  x2={chartWidth - padding}
+                  y1={y}
+                  y2={y}
+                  stroke="#E5E7EB"
+                  strokeDasharray="4 4"
                 />
-                {/* Label text */}
                 <SvgText
-                  x={padding + i * xStep}
-                  y={labelY + 4}
-                  fontSize="8"
-                  fill={line.color}
-                  textAnchor="middle"
-                  fontWeight="600"
+                  x={padding - 10}
+                  y={y + 4}
+                  fontSize={10}
+                  fill="#6B7280"
+                  textAnchor="end"
                 >
-                  {point.pointLabel}
+                  {tick}
                 </SvgText>
               </G>
             );
-          });
-        })}
+          })}
 
-        {lines[0].data.map((point, i) => {
-          const fontSize = dataPointCount > 8 ? 9 : 11;
-          const labelY = padding + graphHeight + (dataPointCount > 8 ? 20 : 25);
-          return (
+          {renderBars()}
+          {renderLines()}
+
+          {lines[0].data.map((p, i) => (
             <SvgText
-              key={`label-${i}`}
+              key={i}
               x={padding + i * xStep}
-              y={labelY}
-              fontSize={fontSize}
+              y={padding + graphHeight + 24}
+              fontSize={10}
               fill="#374151"
               textAnchor="middle"
-              fontWeight="500"
             >
-              {point.label}
+              {p.label}
             </SvgText>
-          );
-        })}
+          ))}
         </Svg>
       </ScrollView>
     </View>
@@ -309,30 +266,27 @@ export const CombinedLineBarChart: React.FC<Props> = ({
 };
 
 const styles = StyleSheet.create({
-  chartScrollView: {
-    marginHorizontal: 1, // Offset card padding for full-width scroll
-  },
   legend: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'center',
-    marginBottom: -8,
-    gap: 5,
+    gap: 6,
+    marginBottom: 6,
   },
   legendItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 4,
-    paddingHorizontal: 8,
-    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 10,
     backgroundColor: '#F9FAFB',
     borderWidth: 1,
     borderColor: '#E5E7EB',
   },
   legendItemSelected: {
-    backgroundColor: '#FFFFFF',
     borderColor: '#277874',
     borderWidth: 2,
+    backgroundColor: '#FFFFFF',
   },
   legendColor: {
     width: 12,
@@ -341,10 +295,9 @@ const styles = StyleSheet.create({
     marginRight: 6,
   },
   legendText: {
-    fontSize: 8,
+    fontSize: 9,
     color: '#6B7280',
     fontWeight: '500',
-    marginRight: 6,
   },
   legendTextSelected: {
     color: '#111827',

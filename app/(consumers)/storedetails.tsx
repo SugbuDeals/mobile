@@ -115,12 +115,15 @@ export default function StoreDetailsScreen() {
 
   const getProductCategoryName = React.useCallback(
     (product: CatalogProduct | StoreProduct): string => {
-      const categoryId = 'categoryId' in product ? product.categoryId : null;
-      if (categoryId == null) return "";
-      const match = (catalogCategories || []).find(
-        (cat: Category) => String(cat.id) === String(categoryId)
+      // Use the helper function that checks both categoryId and custom category
+      const { getProductCategoryName: getCategoryName } = require("@/utils/categoryHelpers");
+      return getCategoryName(
+        {
+          categoryId: 'categoryId' in product ? product.categoryId : null,
+          description: product.description || null,
+        },
+        catalogCategories || []
       );
-      return match?.name ? String(match.name) : "";
     },
     [catalogCategories]
   );
