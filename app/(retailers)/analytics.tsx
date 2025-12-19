@@ -2,13 +2,16 @@ import { CombinedLineBarChart } from "@/components/retailers/analytics/CombinedL
 import { useStore } from "@/features/store";
 import { viewsApi } from "@/services/api/endpoints/views";
 import type { DealType } from "@/services/api/types/swagger";
-import { getDealTypeLabel } from "@/utils/dealTypes";
+import { DEAL_TYPES, getDealTypeLabel } from "@/utils/dealTypes";
 import Ionicons from "@expo/vector-icons/Ionicons";
+import { LinearGradient } from "expo-linear-gradient";
 import { useFocusEffect } from "expo-router";
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
+  Alert,
   Modal,
+  Platform,
   ScrollView,
   StatusBar,
   StyleSheet,
@@ -32,14 +35,20 @@ export default function RetailerAnalytics() {
     date: string;
   } | null>(null);
   const [dailyViews, setDailyViews] = useState<Map<string, number>>(new Map());
-  const [loadingViews, setLoadingViews] = useState(false);
+
+  // Analytics Tools State
+  const [dateRange, setDateRange] = useState<'7days' | '30days' | '3months' | 'all'>('all');
+  const [showInsights, setShowInsights] = useState(true);
+  const [showDealTypes, setShowDealTypes] = useState(true);
+  const [showProducts, setShowProducts] = useState(true);
+  const [showViews, setShowViews] = useState(true);
+  const [showFiltersModal, setShowFiltersModal] = useState(false);
 
   // Fetch daily view data for recent days
   useEffect(() => {
     const fetchDailyViews = async () => {
       if (!userStore?.id || !analytics) return;
       
-      setLoadingViews(true);
       try {
         const now = new Date();
         const viewsMap = new Map<string, number>();
@@ -80,8 +89,6 @@ export default function RetailerAnalytics() {
       } catch (error) {
         console.error('Failed to fetch daily views:', error);
         setDailyViews(new Map());
-      } finally {
-        setLoadingViews(false);
       }
     };
     
@@ -112,275 +119,16 @@ export default function RetailerAnalytics() {
     });
   };
 
-  // Find the furthest promotion end date (limited to one month from today)
-  const furthestPromotionEndDate = useMemo(() => {
-    const now = new Date();
-    const oneMonthFromNow = new Date(now);
-    oneMonthFromNow.setMonth(oneMonthFromNow.getMonth() + 1);
-    oneMonthFromNow.setHours(23, 59, 59, 999);
-    
-    let furthestEndDate: Date | null = null;
-    
-    if (analytics?.promotions?.recent) {
-      analytics.promotions.recent.forEach((promo: any) => {
-        if (promo.endsAt) {
-          const endDate = new Date(promo.endsAt);
-          // Only consider end dates that are in the future and within one month
-          if (endDate > now && endDate <= oneMonthFromNow) {
-            if (!furthestEndDate || endDate > furthestEndDate) {
-              furthestEndDate = endDate;
-            }
-          }
-        }
-      });
-    }
-    
-    // If no promotion end date found, or furthest is beyond one month, use one month from now
-    if (furthestEndDate !== null) {
-      const furthest: Date = furthestEndDate;
-      if (furthest.getTime() <= oneMonthFromNow.getTime()) {
-        return furthest;
-      }
-    }
-    return oneMonthFromNow;
-  }, [analytics]);
-
-  // Collect all unique dates from products, promotions, and views
-  const allActivityDates = useMemo(() => {
-    const dateSet = new Set<string>();
-    const startOfDay = (date: Date) => {
-      const d = new Date(date);
-      d.setHours(0, 0, 0, 0);
-      return d.toISOString().split("T")[0];
-    };
-
-    // Add product creation dates
-    if (products) {
-      products.forEach((product: any) => {
-        if (product.createdAt) {
-          dateSet.add(startOfDay(new Date(product.createdAt)));
-        }
-      });
-    }
-
-    // Add promotion start and end dates
-    if (analytics?.promotions?.recent) {
-      analytics.promotions.recent.forEach((promo: any) => {
-        if (promo.startsAt) {
-          dateSet.add(startOfDay(new Date(promo.startsAt)));
-        }
-        if (promo.endsAt) {
-          dateSet.add(startOfDay(new Date(promo.endsAt)));
-        }
-      });
-    }
-
-    // Add view dates
-    dailyViews.forEach((_, dateKey) => {
-      if (dateKey) {
-        dateSet.add(dateKey);
-      }
-    });
-
-    return Array.from(dateSet).sort();
-  }, [products, analytics, dailyViews]);
-
-  // Generate expanded timeline data points that includes all activity dates and extends to furthest promotion end
-  const generateTimelineData = useMemo(() => {
-    const now = new Date();
-    const startOfDay = (date: Date) => {
-      const d = new Date(date);
-      d.setHours(0, 0, 0, 0);
-      return d;
-    };
-
-    const dateMap = new Map<string, { label: string; date: Date }>();
-    
-    // Add base timeline points
-    // Last 3 months
-    for (let i = 3; i >= 1; i--) {
-      const date = startOfDay(new Date(now.getFullYear(), now.getMonth() - i, 1));
-      const dateKey = date.toISOString().split("T")[0];
-      const monthName = date.toLocaleDateString("en-US", { month: "short" });
-      dateMap.set(dateKey, { label: monthName, date });
-    }
-  
-    // Current month days 1–3
-    const currentYear = now.getFullYear();
-    const currentMonth = now.getMonth();
-    const monthName = now.toLocaleDateString("en-US", { month: "short" });
-  
-    for (let day = 1; day <= 3; day++) {
-      const date = startOfDay(new Date(currentYear, currentMonth, day));
-      const dateKey = date.toISOString().split("T")[0];
-      dateMap.set(dateKey, { label: `${monthName} ${day}`, date });
-    }
-  
-    // Recent days (last 3 days)
-    for (let day = 3; day >= 1; day--) {
-      const date = startOfDay(new Date(now));
-      date.setDate(now.getDate() - day);
-      const dateKey = date.toISOString().split("T")[0];
-      const m = date.toLocaleDateString("en-US", { month: "short" });
-      const d = date.getDate();
-      dateMap.set(dateKey, { label: `${m} ${d}`, date });
-    }
-  
-    // Today
-    const todayKey = startOfDay(now).toISOString().split("T")[0];
-    dateMap.set(todayKey, { label: "Today", date: startOfDay(now) });
-
-    // Add all activity dates that aren't already in the timeline
-    allActivityDates.forEach((dateKey) => {
-      if (!dateMap.has(dateKey)) {
-        const date = startOfDay(new Date(dateKey));
-        const label = date.toLocaleDateString("en-US", {
-          month: "short",
-          day: "numeric",
-          year: date.getFullYear() !== now.getFullYear() ? "numeric" : undefined,
-        });
-        dateMap.set(dateKey, { label, date });
-      }
-    });
-
-    const today = startOfDay(now);
-    const endDate = startOfDay(furthestPromotionEndDate);
-    
-    // Add dates where promotions are active (between startsAt and endsAt)
-    // This ensures the line graph shows the full active period
-    if (analytics?.promotions?.recent) {
-      analytics.promotions.recent.forEach((promo: any) => {
-        if (promo.startsAt && promo.endsAt) {
-          const startDate = startOfDay(new Date(promo.startsAt));
-          const promoEndDate = startOfDay(new Date(promo.endsAt));
-          const furthestEnd = endDate;
-          
-          // Only add dates up to the furthest end date (capped at one month)
-          const effectiveEnd = promoEndDate <= furthestEnd ? promoEndDate : furthestEnd;
-          
-          // Add start date, end date, and key dates in between (not every day to avoid clutter)
-          const datesToAdd = [startDate];
-          
-          // If the period is short (<= 7 days), add all days
-          // If longer, add strategic dates: start, mid-point, and end
-          const daysDiff = Math.ceil((effectiveEnd.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
-          
-          if (daysDiff <= 7) {
-            // Add all days for short periods
-            const currentDate = new Date(startDate);
-            currentDate.setDate(currentDate.getDate() + 1);
-            while (currentDate <= effectiveEnd) {
-              datesToAdd.push(new Date(currentDate));
-              currentDate.setDate(currentDate.getDate() + 1);
-            }
-          } else {
-            // For longer periods, add strategic dates
-            const midDate = new Date(startDate);
-            midDate.setTime(startDate.getTime() + (effectiveEnd.getTime() - startDate.getTime()) / 2);
-            datesToAdd.push(startOfDay(midDate));
-            datesToAdd.push(effectiveEnd);
-          }
-          
-          // Add these dates to the timeline
-          datesToAdd.forEach((date) => {
-            if (date >= today && date <= furthestEnd) {
-              const dateKey = date.toISOString().split("T")[0];
-              if (!dateMap.has(dateKey)) {
-                const label = date.toLocaleDateString("en-US", {
-                  month: "short",
-                  day: "numeric",
-                  year: date.getFullYear() !== now.getFullYear() ? "numeric" : undefined,
-                });
-                dateMap.set(dateKey, { label, date });
-              }
-            }
-          });
-        }
-      });
-    }
-    
-    // Add strategic future milestone dates if we need to extend beyond activity dates
-    
-    if (endDate > today) {
-      // Add key intervals: tomorrow, 1 week, 2 weeks, then monthly milestones
-      const strategicIntervals = [1, 7, 14]; // days from today
-      
-      strategicIntervals.forEach((daysAhead) => {
-        const futureDate = new Date(today);
-        futureDate.setDate(futureDate.getDate() + daysAhead);
-        if (futureDate <= endDate) {
-          const dateKey = startOfDay(futureDate).toISOString().split("T")[0];
-          if (!dateMap.has(dateKey)) {
-            const date = startOfDay(futureDate);
-            const label = date.toLocaleDateString("en-US", {
-              month: "short",
-              day: "numeric",
-              year: date.getFullYear() !== now.getFullYear() ? "numeric" : undefined,
-            });
-            dateMap.set(dateKey, { label, date });
-          }
-        }
-      });
-      
-      // Always include the furthest end date
-      const endDateKey = endDate.toISOString().split("T")[0];
-      if (!dateMap.has(endDateKey)) {
-        const label = endDate.toLocaleDateString("en-US", {
-          month: "short",
-          day: "numeric",
-          year: endDate.getFullYear() !== now.getFullYear() ? "numeric" : undefined,
-        });
-        dateMap.set(endDateKey, { label, date: endDate });
-      }
-    }
-
-    // Convert to array and sort chronologically
-    const dataPoints = Array.from(dateMap.entries())
-      .map(([dateKey, data], index) => ({
-        label: data.label,
-        date: data.date,
-        dateKey,
-        index,
-      }))
-      .sort((a, b) => a.dateKey.localeCompare(b.dateKey))
-      .map((item, index) => ({
-        label: item.label,
-        date: item.date,
-        index,
-      }));
-  
-    return dataPoints;
-  }, [allActivityDates, furthestPromotionEndDate]);
-  
-  
-
-  // Color palette for different promotion types
-  const promotionTypeColors: Record<DealType, string> = {
+// Color palette for different promotion types
+  const promotionTypeColors = useMemo<Record<DealType, string>>(() => ({
     PERCENTAGE_DISCOUNT: "#FF6B6B", // Red
     FIXED_DISCOUNT: "#4ECDC4", // Teal
     BOGO: "#FFBE5D", // Orange
     BUNDLE: "#95E1D3", // Mint
     QUANTITY_DISCOUNT: "#F38181", // Pink
     VOUCHER: "#AA96DA", // Purple
-  };
+  }), []);
 
-  const dailyProductCounts = useMemo(() => {
-    const map = new Map<string, number>();
-  
-    if (!products || products.length === 0) return map;
-  
-    products.forEach((product: any) => {
-      if (!product.createdAt) return;
-  
-      const dateKey = new Date(product.createdAt)
-        .toISOString()
-        .split("T")[0]; // YYYY-MM-DD
-  
-      map.set(dateKey, (map.get(dateKey) || 0) + 1);
-    });
-  
-    return map;
-  }, [products]);
   // Group products by exact creation date for counting
   const productsByDateMap = useMemo(() => {
     if (!products || products.length === 0) return new Map<string, { count: number; products: any[] }>();
@@ -421,9 +169,19 @@ export default function RetailerAnalytics() {
     };
   
     analytics.promotions.recent.forEach((promo: any) => {
-      if (!promo.startsAt || !promo.dealType) return;
+      if (!promo.startsAt) return;
       
-      const dealType = promo.dealType as DealType;
+      // Get deal type, handling both new dealType field and legacy type field
+      let dealType = promo.dealType as DealType;
+      if (!dealType && promo.type) {
+        // Fallback for legacy promotions: infer deal type from type field
+        dealType = promo.type === "percentage" || promo.type === "PERCENTAGE"
+          ? "PERCENTAGE_DISCOUNT"
+          : "FIXED_DISCOUNT";
+      }
+      
+      if (!dealType) return; // Skip if we still don't have a valid deal type
+      
       const startDate = startOfDay(new Date(promo.startsAt));
       const endDate = promo.endsAt ? startOfDay(new Date(promo.endsAt)) : null;
       
@@ -458,134 +216,6 @@ export default function RetailerAnalytics() {
     return dateMap;
   }, [analytics]);
 
-  // Map products to timeline structure while counting by exact date
-  const productsByTimeline = useMemo(() => {
-    if (!products || products.length === 0) return [];
-  
-    const timeline = generateTimelineData;
-    const dateMap = productsByDateMap;
-  
-    const startOfDay = (date: Date) => {
-      const d = new Date(date);
-      d.setHours(0, 0, 0, 0);
-      return d;
-    };
-
-    const getDateKey = (date: Date) => {
-      return startOfDay(date).toISOString().split("T")[0]; // YYYY-MM-DD
-    };
-
-    return timeline.map((point, index) => {
-      const pointDate = startOfDay(point.date);
-      const dateKey = getDateKey(pointDate);
-      
-      // Count products created on that exact date
-      const dateData = dateMap.get(dateKey);
-      const createdProducts = dateData?.products || [];
-  
-      return {
-        index,
-        label: point.label,
-        date: pointDate,
-        count: createdProducts.length,
-        products: createdProducts,
-      };
-    });
-  }, [products, generateTimelineData, productsByDateMap]);
-  
-
-  // Helper function to generate optimized timeline starting from earliest data date
-  const generateOptimizedTimeline = useMemo(() => {
-    const startOfDay = (date: Date) => {
-      const d = new Date(date);
-      d.setHours(0, 0, 0, 0);
-      return d;
-    };
-
-    const getDateKey = (date: Date) => {
-      return startOfDay(date).toISOString().split("T")[0];
-    };
-
-    return (earliestDate: Date | null, datesWithData: Set<string>, maxPoints: number = 10) => {
-      const now = startOfDay(new Date());
-      
-      if (!earliestDate || datesWithData.size === 0) {
-        // Return last 7 days if no data
-        const timeline = [];
-        for (let i = 6; i >= 0; i--) {
-          const date = new Date(now);
-          date.setDate(date.getDate() - i);
-          const dateKey = getDateKey(date);
-          const label = i === 0 ? "Today" : date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
-          timeline.push({ label, date: startOfDay(date), dateKey });
-        }
-        return timeline;
-      }
-
-      const start = startOfDay(earliestDate);
-      const end = now;
-      const daysDiff = Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24));
-      
-      // If we have fewer days than max points, use all dates with data
-      if (daysDiff <= maxPoints) {
-        const sortedDates = Array.from(datesWithData).sort();
-        return sortedDates.map((dateKey) => {
-          const date = startOfDay(new Date(dateKey));
-          const isToday = dateKey === getDateKey(now);
-          const label = isToday ? "Today" : date.toLocaleDateString("en-US", { 
-            month: "short", 
-            day: "numeric",
-            year: date.getFullYear() !== now.getFullYear() ? "numeric" : undefined,
-          });
-          return { label, date, dateKey };
-        });
-      }
-
-      // Otherwise, sample dates intelligently
-      const timeline: Array<{ label: string; date: Date; dateKey: string }> = [];
-      
-      // Always include the start date
-      const startKey = getDateKey(start);
-      if (datesWithData.has(startKey)) {
-        timeline.push({
-          label: start.toLocaleDateString("en-US", { month: "short", day: "numeric" }),
-          date: start,
-          dateKey: startKey,
-        });
-      }
-
-      // Sample dates in between (prioritize dates with data)
-      const interval = Math.ceil(daysDiff / (maxPoints - 2)); // -2 for start and end
-      for (let i = interval; i < daysDiff; i += interval) {
-        const checkDate = new Date(start);
-        checkDate.setDate(checkDate.getDate() + i);
-        const dateKey = getDateKey(checkDate);
-        
-        // Prefer dates with data, but include some without to show progression
-        if (datesWithData.has(dateKey) || i % (interval * 2) === 0) {
-          const isToday = dateKey === getDateKey(now);
-          const label = isToday ? "Today" : checkDate.toLocaleDateString("en-US", { 
-            month: "short", 
-            day: "numeric",
-          });
-          timeline.push({ label, date: startOfDay(checkDate), dateKey });
-        }
-      }
-
-      // Always include today/end date
-      const endKey = getDateKey(end);
-      if (!timeline.find(t => t.dateKey === endKey)) {
-        timeline.push({
-          label: "Today",
-          date: end,
-          dateKey: endKey,
-        });
-      }
-
-      return timeline.sort((a, b) => a.dateKey.localeCompare(b.dateKey));
-    };
-  }, []);
-
   // Separate chart data: Deal Types
   const dealTypesChartData = useMemo(() => {
     if (!analytics) return [];
@@ -596,9 +226,6 @@ export default function RetailerAnalytics() {
       return d;
     };
     const getDateKey = (date: Date) => startOfDay(date).toISOString().split("T")[0];
-    const getMonthKey = (date: Date) => {
-      return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
-    };
 
     // Find earliest promotion start date and latest promotion end date
     let earliestDate: Date | null = null;
@@ -644,9 +271,7 @@ export default function RetailerAnalytics() {
     }
 
     // Generate timeline from earliest date to end date
-    const timeline: Array<{ label: string; date: Date; dateKey: string }> = [];
-    const currentMonth = now.getMonth();
-    const currentYear = now.getFullYear();
+    const timeline: { label: string; date: Date; dateKey: string }[] = [];
     
     // Add dates from earliest to one month from now
     const oneMonthAgo = new Date(now);
@@ -739,20 +364,27 @@ export default function RetailerAnalytics() {
     timeline.sort((a, b) => a.date.getTime() - b.date.getTime());
 
     // Group promotions by deal type and calculate counts by period
-    const grouped: Record<DealType, any[]> = {
-      PERCENTAGE_DISCOUNT: [],
-      FIXED_DISCOUNT: [],
-      BOGO: [],
-      BUNDLE: [],
-      QUANTITY_DISCOUNT: [],
-      VOUCHER: [],
-    };
+    // Initialize with all possible deal types from DEAL_TYPES
+    const grouped: Record<DealType, any[]> = {} as Record<DealType, any[]>;
+    DEAL_TYPES.forEach((deal) => {
+      grouped[deal.value] = [];
+    });
 
     const recentPromos = analytics.promotions.recent || [];
     recentPromos.forEach((promo: any) => {
       const dealType = promo.dealType as DealType;
+      // Handle both new dealType field and legacy type field
       if (dealType && grouped[dealType]) {
         grouped[dealType].push(promo);
+      } else if (!dealType && promo.type) {
+        // Fallback for legacy promotions without dealType
+        // Try to infer deal type from legacy type/discount format
+        const inferredType: DealType = promo.type === "percentage" || promo.type === "PERCENTAGE"
+          ? "PERCENTAGE_DISCOUNT"
+          : "FIXED_DISCOUNT";
+        if (grouped[inferredType]) {
+          grouped[inferredType].push(promo);
+        }
       }
     });
 
@@ -779,14 +411,11 @@ export default function RetailerAnalytics() {
       });
     };
 
-    const countsByType: Record<DealType, number[]> = {
-      PERCENTAGE_DISCOUNT: [0, 0, 0, 0],
-      FIXED_DISCOUNT: [0, 0, 0, 0],
-      BOGO: [0, 0, 0, 0],
-      BUNDLE: [0, 0, 0, 0],
-      QUANTITY_DISCOUNT: [0, 0, 0, 0],
-      VOUCHER: [0, 0, 0, 0],
-    };
+    // Initialize counts for all deal types
+    const countsByType: Record<DealType, number[]> = {} as Record<DealType, number[]>;
+    DEAL_TYPES.forEach((deal) => {
+      countsByType[deal.value] = [0, 0, 0, 0]; // [lastMonth, thisMonth, thisWeek, today]
+    });
 
     Object.keys(grouped).forEach((dealType) => {
       const typePromos = grouped[dealType as DealType];
@@ -805,7 +434,6 @@ export default function RetailerAnalytics() {
     // Generate contextual labels for each point with associated data
     const generatePointLabel = (idx: number, pointDate: Date, value: number, metricKey: string, dealType?: DealType) => {
       const labels: string[] = [];
-      const pointData: { type?: 'promotion' | 'product'; data?: any } | undefined = undefined;
       let resultPointData: { type: 'promotion' | 'product'; data: any } | undefined = undefined;
       
       const getDateKey = (date: Date) => {
@@ -865,7 +493,6 @@ export default function RetailerAnalytics() {
             if (isMonthlyPoint) {
               // For monthly points, use the value at the end of that month
               // This ensures the line graph shows proper rise/fall pattern
-              const monthKey = getMonthKey(pointDate);
               const monthEnd = new Date(pointDate.getFullYear(), pointDate.getMonth() + 1, 0);
               monthEnd.setHours(23, 59, 59, 999);
               const monthEndKey = getDateKey(monthEnd);
@@ -911,7 +538,7 @@ export default function RetailerAnalytics() {
     });
 
     return chartData;
-  }, [analytics, promotionsByDateMap]);
+  }, [analytics, promotionsByDateMap, promotionTypeColors]);
 
   // Separate chart data: Products
   const productsChartData = useMemo(() => {
@@ -965,7 +592,7 @@ export default function RetailerAnalytics() {
     }
 
     // Generate timeline: monthly points for old dates, daily for recent dates
-    const timeline: Array<{ label: string; date: Date; dateKey: string; isMonthly: boolean; monthKey?: string }> = [];
+    const timeline: { label: string; date: Date; dateKey: string; isMonthly: boolean; monthKey?: string }[] = [];
     
     // Add monthly points for dates older than 1 month
     // Get all unique months that have products and are older than 1 month
@@ -982,7 +609,7 @@ export default function RetailerAnalytics() {
     }
 
     // Create monthly timeline points
-    const monthlyTimelinePoints: Array<{ label: string; date: Date; dateKey: string; isMonthly: boolean; monthKey: string }> = [];
+    const monthlyTimelinePoints: { label: string; date: Date; dateKey: string; isMonthly: boolean; monthKey: string }[] = [];
     monthsWithProducts.forEach((monthKey) => {
       const [year, month] = monthKey.split('-').map(Number);
       const monthStart = new Date(year, month - 1, 1);
@@ -1146,6 +773,110 @@ export default function RetailerAnalytics() {
     ];
   }, [analytics, dailyViews]);
 
+  // Calculate Smart Insights
+  const smartInsights = useMemo(() => {
+    if (!analytics) return [];
+
+    const insights: { icon: string; color: string; title: string; description: string }[] = [];
+
+    // Best performing day
+    if (dailyViews.size > 0) {
+      let maxViews = 0;
+      let bestDay = '';
+      dailyViews.forEach((views, date) => {
+        if (views > maxViews) {
+          maxViews = views;
+          bestDay = date;
+        }
+      });
+      if (maxViews > 0) {
+        const date = new Date(bestDay);
+        const dayName = date.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' });
+        insights.push({
+          icon: 'trending-up',
+          color: '#10B981',
+          title: 'Best Day',
+          description: `${dayName} had ${maxViews} views`,
+        });
+      }
+    }
+
+    // Most popular promotion type
+    if (analytics.promotions?.recent) {
+      const typeCounts: Record<string, number> = {};
+      analytics.promotions.recent.forEach((promo: any) => {
+        // Get deal type, handling both new dealType field and legacy type field
+        let dealType = promo.dealType as DealType;
+        if (!dealType && promo.type) {
+          // Fallback for legacy promotions: infer deal type from type field
+          dealType = promo.type === "percentage" || promo.type === "PERCENTAGE"
+            ? "PERCENTAGE_DISCOUNT"
+            : "FIXED_DISCOUNT";
+        }
+        if (dealType) {
+          typeCounts[dealType] = (typeCounts[dealType] || 0) + 1;
+        }
+      });
+      const mostPopular = Object.entries(typeCounts).sort(([, a], [, b]) => b - a)[0];
+      if (mostPopular) {
+        insights.push({
+          icon: 'star',
+          color: '#F59E0B',
+          title: 'Popular Deal',
+          description: `${getDealTypeLabel(mostPopular[0] as DealType)} (${mostPopular[1]} deals)`,
+        });
+      }
+    }
+
+    // Growth trend
+    if (analytics.store.totalProducts > 0) {
+      const avgViewsPerProduct = analytics.summary.averageViewsPerProduct;
+      if (avgViewsPerProduct > 10) {
+        insights.push({
+          icon: 'rocket',
+          color: '#8B5CF6',
+          title: 'Strong Engagement',
+          description: `${Math.round(avgViewsPerProduct)} avg views per product`,
+        });
+      } else if (avgViewsPerProduct > 0) {
+        insights.push({
+          icon: 'information-circle',
+          color: '#3B82F6',
+          title: 'Growing',
+          description: `Keep adding quality content!`,
+        });
+      }
+    }
+
+    // Stock alert (if we have products with low stock)
+    if (products) {
+      const lowStockCount = products.filter((p: any) => (p.stock || 0) < 10 && (p.stock || 0) > 0).length;
+      if (lowStockCount > 0) {
+        insights.push({
+          icon: 'warning',
+          color: '#EF4444',
+          title: 'Stock Alert',
+          description: `${lowStockCount} product${lowStockCount > 1 ? 's' : ''} running low`,
+        });
+      }
+    }
+
+    return insights;
+  }, [analytics, dailyViews, products]);
+
+  // Export Data Function
+  const handleExport = async () => {
+    if (!analytics) return;
+
+    // In a real app, you'd use Share API or save to file
+    // For now, just show an alert with summary
+    Alert.alert(
+      'Analytics Summary',
+      `Products: ${analytics.store.totalProducts}\nViews: ${analytics.views.totalViews}\nPromotions: ${analytics.promotions.total}`,
+      [{ text: 'OK' }]
+    );
+  };
+
   const handleLinePress = (key: string) => {
     setSelectedMetric(key);
     setDetailModalVisible(true);
@@ -1160,9 +891,44 @@ export default function RetailerAnalytics() {
       const typeLabel = getDealTypeLabel(dealType);
       const typeColor = promotionTypeColors[dealType];
       
-      // Count promotions of this type
-      const typePromos = analytics.promotions.recent?.filter((p: any) => p.dealType === dealType) || [];
+      // Count promotions of this type, handling both new dealType field and legacy type field
+      const typePromos = analytics.promotions.recent?.filter((p: any) => {
+        // Check new dealType field first
+        if (p.dealType === dealType) return true;
+        
+        // Fallback for legacy promotions
+        if (!p.dealType && p.type) {
+          const inferredType: DealType = p.type === "percentage" || p.type === "PERCENTAGE"
+            ? "PERCENTAGE_DISCOUNT"
+            : "FIXED_DISCOUNT";
+          return inferredType === dealType;
+        }
+        
+        return false;
+      }) || [];
       const activeTypePromos = typePromos.filter((p: any) => p.active);
+      
+      // Calculate period-specific statistics for this deal type
+      const now = new Date();
+      const todayStart = new Date(now);
+      todayStart.setHours(0, 0, 0, 0);
+      const weekStart = new Date(now);
+      weekStart.setDate(weekStart.getDate() - 7);
+      weekStart.setHours(0, 0, 0, 0);
+      const monthStart = new Date(now);
+      monthStart.setMonth(monthStart.getMonth() - 1);
+      monthStart.setHours(0, 0, 0, 0);
+      
+      const filterByDate = (promotions: any[], start: Date, end?: Date) => {
+        return promotions.filter((p) => {
+          const startsAt = new Date(p.startsAt);
+          return startsAt >= start && (!end || startsAt <= end);
+        });
+      };
+      
+      const todayCount = filterByDate(typePromos, todayStart).length;
+      const weekCount = filterByDate(typePromos, weekStart).length;
+      const monthCount = filterByDate(typePromos, monthStart).length;
       
       return {
         title: `${typeLabel} Promotions`,
@@ -1172,9 +938,9 @@ export default function RetailerAnalytics() {
           { label: "Total", value: formatNumber(typePromos.length) },
           { label: "Active", value: formatNumber(activeTypePromos.length) },
           { label: "Inactive", value: formatNumber(typePromos.length - activeTypePromos.length) },
-          { label: "Today", value: formatNumber(analytics.promotions.byPeriod.today) },
-          { label: "This Week", value: formatNumber(analytics.promotions.byPeriod.thisWeek) },
-          { label: "This Month", value: formatNumber(analytics.promotions.byPeriod.thisMonth) },
+          { label: "Today", value: formatNumber(todayCount) },
+          { label: "This Week", value: formatNumber(weekCount) },
+          { label: "This Month", value: formatNumber(monthCount) },
         ],
       };
     }
@@ -1235,24 +1001,136 @@ export default function RetailerAnalytics() {
   const detailData = getDetailData();
 
   return (
-    <>
-      <StatusBar barStyle="dark-content" backgroundColor="#F9FAFB" />
-      <ScrollView style={analyticsStyles.container} showsVerticalScrollIndicator={false}>
+    <View style={analyticsStyles.container}>
+      <StatusBar barStyle="light-content" backgroundColor="transparent" />
+
+      {/* Header */}
+      <LinearGradient
+        colors={["#FFBE5D", "#277874"]}
+        style={analyticsStyles.header}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 0 }}
+      >
+        <View style={analyticsStyles.headerContent}>
+          <View style={analyticsStyles.headerIcon}>
+            <Ionicons name="stats-chart" size={24} color="#ffffff" />
+          </View>
+          <View style={analyticsStyles.headerText}>
+            <Text style={analyticsStyles.headerTitle}>Analytics Dashboard</Text>
+            <Text style={analyticsStyles.headerSubtitle}>Monitor Your Performance</Text>
+          </View>
+        </View>
+      </LinearGradient>
+
+      {/* Main Content */}
+      <ScrollView style={analyticsStyles.content} showsVerticalScrollIndicator={false}>
         
         <View style={analyticsStyles.section}>
-          <View style={analyticsStyles.sectionHeader}>
-            <View style={analyticsStyles.sectionHeaderContent}>
-              <Ionicons name="analytics" size={28} color="#277874" />
-              <View style={analyticsStyles.sectionTitleContainer}>
-                <Text style={analyticsStyles.sectionTitle}>Store Analytics Dashboard</Text>
-                <Text style={analyticsStyles.sectionSubtitle}>
-                  Monitor your store performance and promotion effectiveness
+
+          {/* Analytics Toolbar */}
+          <View style={analyticsStyles.toolbar}>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={analyticsStyles.toolbarScroll}>
+              {/* Date Range Filters */}
+              <TouchableOpacity
+                style={[analyticsStyles.toolbarButton, dateRange === '7days' && analyticsStyles.toolbarButtonActive]}
+                onPress={() => setDateRange('7days')}
+              >
+                <Ionicons name="calendar" size={16} color={dateRange === '7days' ? '#ffffff' : '#6B7280'} />
+                <Text style={[analyticsStyles.toolbarButtonText, dateRange === '7days' && analyticsStyles.toolbarButtonTextActive]}>
+                  7 Days
                 </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[analyticsStyles.toolbarButton, dateRange === '30days' && analyticsStyles.toolbarButtonActive]}
+                onPress={() => setDateRange('30days')}
+              >
+                <Ionicons name="calendar" size={16} color={dateRange === '30days' ? '#ffffff' : '#6B7280'} />
+                <Text style={[analyticsStyles.toolbarButtonText, dateRange === '30days' && analyticsStyles.toolbarButtonTextActive]}>
+                  30 Days
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[analyticsStyles.toolbarButton, dateRange === '3months' && analyticsStyles.toolbarButtonActive]}
+                onPress={() => setDateRange('3months')}
+              >
+                <Ionicons name="calendar" size={16} color={dateRange === '3months' ? '#ffffff' : '#6B7280'} />
+                <Text style={[analyticsStyles.toolbarButtonText, dateRange === '3months' && analyticsStyles.toolbarButtonTextActive]}>
+                  3 Months
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[analyticsStyles.toolbarButton, dateRange === 'all' && analyticsStyles.toolbarButtonActive]}
+                onPress={() => setDateRange('all')}
+              >
+                <Ionicons name="infinite" size={16} color={dateRange === 'all' ? '#ffffff' : '#6B7280'} />
+                <Text style={[analyticsStyles.toolbarButtonText, dateRange === 'all' && analyticsStyles.toolbarButtonTextActive]}>
+                  All Time
+                </Text>
+              </TouchableOpacity>
+
+              {/* Divider */}
+              <View style={analyticsStyles.toolbarDivider} />
+
+              {/* Chart Filters */}
+              <TouchableOpacity
+                style={analyticsStyles.toolbarButton}
+                onPress={() => setShowFiltersModal(true)}
+              >
+                <Ionicons name="options" size={16} color="#6B7280" />
+                <Text style={analyticsStyles.toolbarButtonText}>Filters</Text>
+              </TouchableOpacity>
+
+              {/* Export */}
+              <TouchableOpacity style={analyticsStyles.toolbarButton} onPress={handleExport}>
+                <Ionicons name="share-outline" size={16} color="#6B7280" />
+                <Text style={analyticsStyles.toolbarButtonText}>Export</Text>
+              </TouchableOpacity>
+
+              {/* Toggle Insights */}
+              <TouchableOpacity
+                style={[analyticsStyles.toolbarButton, showInsights && analyticsStyles.toolbarButtonActive]}
+                onPress={() => setShowInsights(!showInsights)}
+              >
+                <Ionicons name="bulb" size={16} color={showInsights ? '#ffffff' : '#6B7280'} />
+                <Text style={[analyticsStyles.toolbarButtonText, showInsights && analyticsStyles.toolbarButtonTextActive]}>
+                  Insights
+                </Text>
+              </TouchableOpacity>
+            </ScrollView>
+          </View>
+
+          {/* Smart Insights */}
+          {showInsights && smartInsights.length > 0 && (
+            <View style={analyticsStyles.insightsCard}>
+              <View style={analyticsStyles.insightsHeader}>
+                <Ionicons name="bulb" size={20} color="#F59E0B" />
+                <Text style={analyticsStyles.insightsTitle}>Smart Insights</Text>
+              </View>
+              <View style={analyticsStyles.insightsGrid}>
+                {smartInsights.map((insight, index) => (
+                  <View key={`insight-${index}-${insight.title}`} style={analyticsStyles.insightItem}>
+                    <View style={[analyticsStyles.insightIcon, { backgroundColor: `${insight.color}20` }]}>
+                      <Ionicons name={insight.icon as any} size={20} color={insight.color} />
+                    </View>
+                    <View style={analyticsStyles.insightContent}>
+                      <Text style={analyticsStyles.insightTitle} numberOfLines={1} ellipsizeMode="tail">
+                        {insight.title}
+                      </Text>
+                      <Text style={analyticsStyles.insightDescription} numberOfLines={2} ellipsizeMode="tail">
+                        {insight.description}
+                      </Text>
+                    </View>
+                  </View>
+                ))}
               </View>
             </View>
-          </View>
+          )}
+
           {/* Deal Types Chart */}
-          {dealTypesChartData.length > 0 && (
+          {showDealTypes && dealTypesChartData.length > 0 && (
             <View style={analyticsStyles.card}>
               <View style={analyticsStyles.cardHeader}>
                 <View>
@@ -1287,7 +1165,7 @@ export default function RetailerAnalytics() {
           )}
 
           {/* Products Chart */}
-          {productsChartData.length > 0 && (
+          {showProducts && productsChartData.length > 0 && (
             <View style={analyticsStyles.card}>
               <View style={analyticsStyles.cardHeader}>
                 <View>
@@ -1322,7 +1200,7 @@ export default function RetailerAnalytics() {
           )}
 
           {/* Views Chart */}
-          {viewsChartData.length > 0 && (
+          {showViews && viewsChartData.length > 0 && (
             <View style={analyticsStyles.card}>
               <View style={analyticsStyles.cardHeader}>
                 <View>
@@ -1358,11 +1236,9 @@ export default function RetailerAnalytics() {
         </View>
 
         <View style={analyticsStyles.section}>
-          <View style={analyticsStyles.sectionHeader}>
-            <View style={analyticsStyles.sectionHeaderContent}>
-              <Ionicons name="grid" size={24} color="#277874" />
-              <Text style={analyticsStyles.sectionTitle}>Key Metrics</Text>
-            </View>
+          <View style={analyticsStyles.keyMetricsHeader}>
+            <Ionicons name="grid" size={20} color="#277874" />
+            <Text style={analyticsStyles.keyMetricsTitle}>Key Metrics</Text>
           </View>
           <View style={analyticsStyles.statsGrid}>
             <TouchableOpacity
@@ -1401,6 +1277,7 @@ export default function RetailerAnalytics() {
         </View>
       </ScrollView>
 
+      {/* Modals */}
       <Modal
         visible={detailModalVisible}
         animationType="slide"
@@ -1428,7 +1305,7 @@ export default function RetailerAnalytics() {
 
                 <ScrollView style={analyticsStyles.modalBody} showsVerticalScrollIndicator={false}>
                   {detailData.metrics.map((metric, index) => (
-                    <View key={index} style={analyticsStyles.detailMetricRow}>
+                    <View key={`metric-${index}-${metric.label}`} style={analyticsStyles.detailMetricRow}>
                       <Text style={analyticsStyles.detailMetricLabel}>{metric.label}</Text>
                       <Text style={[analyticsStyles.detailMetricValue, { color: detailData.color }]}>
                         {metric.value}
@@ -1580,12 +1457,159 @@ export default function RetailerAnalytics() {
           </View>
         </View>
       </Modal>
-    </>
+
+      {/* Chart Filters Modal */}
+      <Modal
+        visible={showFiltersModal}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => setShowFiltersModal(false)}
+      >
+        <View style={analyticsStyles.modalOverlay}>
+          <View style={analyticsStyles.modalContent}>
+            <View style={analyticsStyles.modalHeader}>
+              <View style={[analyticsStyles.modalIconContainer, { backgroundColor: '#27787420' }]}>
+                <Ionicons name="options" size={32} color="#277874" />
+              </View>
+              <Text style={[analyticsStyles.modalTitle, { color: '#277874' }]}>
+                Chart Filters
+              </Text>
+              <TouchableOpacity
+                style={analyticsStyles.modalCloseButton}
+                onPress={() => setShowFiltersModal(false)}
+              >
+                <Ionicons name="close" size={24} color="#6B7280" />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView style={analyticsStyles.modalBody} showsVerticalScrollIndicator={false}>
+              <Text style={analyticsStyles.filterSectionTitle}>Show/Hide Charts</Text>
+              
+              {/* Deal Types Toggle */}
+              <TouchableOpacity
+                style={analyticsStyles.filterToggleRow}
+                onPress={() => setShowDealTypes(!showDealTypes)}
+              >
+                <View style={analyticsStyles.filterToggleLeft}>
+                  <View style={[analyticsStyles.filterToggleIcon, { backgroundColor: '#FEF3C7' }]}>
+                    <Ionicons name="ticket" size={20} color="#FFBE5D" />
+                  </View>
+                  <View>
+                    <Text style={analyticsStyles.filterToggleTitle}>Deal Types Chart</Text>
+                    <Text style={analyticsStyles.filterToggleSubtitle}>Promotion types over time</Text>
+                  </View>
+                </View>
+                <View style={[analyticsStyles.filterToggle, showDealTypes && analyticsStyles.filterToggleActive]}>
+                  {showDealTypes && <View style={analyticsStyles.filterToggleThumb} />}
+                </View>
+              </TouchableOpacity>
+
+              {/* Products Toggle */}
+              <TouchableOpacity
+                style={analyticsStyles.filterToggleRow}
+                onPress={() => setShowProducts(!showProducts)}
+              >
+                <View style={analyticsStyles.filterToggleLeft}>
+                  <View style={[analyticsStyles.filterToggleIcon, { backgroundColor: '#D1FAE5' }]}>
+                    <Ionicons name="cube" size={20} color="#277874" />
+                  </View>
+                  <View>
+                    <Text style={analyticsStyles.filterToggleTitle}>Products Chart</Text>
+                    <Text style={analyticsStyles.filterToggleSubtitle}>Product creation timeline</Text>
+                  </View>
+                </View>
+                <View style={[analyticsStyles.filterToggle, showProducts && analyticsStyles.filterToggleActive]}>
+                  {showProducts && <View style={analyticsStyles.filterToggleThumb} />}
+                </View>
+              </TouchableOpacity>
+
+              {/* Views Toggle */}
+              <TouchableOpacity
+                style={analyticsStyles.filterToggleRow}
+                onPress={() => setShowViews(!showViews)}
+              >
+                <View style={analyticsStyles.filterToggleLeft}>
+                  <View style={[analyticsStyles.filterToggleIcon, { backgroundColor: '#EDE9FE' }]}>
+                    <Ionicons name="eye" size={20} color="#8B5CF6" />
+                  </View>
+                  <View>
+                    <Text style={analyticsStyles.filterToggleTitle}>Views Chart</Text>
+                    <Text style={analyticsStyles.filterToggleSubtitle}>Customer engagement data</Text>
+                  </View>
+                </View>
+                <View style={[analyticsStyles.filterToggle, showViews && analyticsStyles.filterToggleActive]}>
+                  {showViews && <View style={analyticsStyles.filterToggleThumb} />}
+                </View>
+              </TouchableOpacity>
+
+              {/* Action Buttons */}
+              <View style={analyticsStyles.filterActions}>
+                <TouchableOpacity
+                  style={analyticsStyles.filterResetButton}
+                  onPress={() => {
+                    setShowDealTypes(true);
+                    setShowProducts(true);
+                    setShowViews(true);
+                  }}
+                >
+                  <Ionicons name="refresh" size={18} color="#277874" />
+                  <Text style={analyticsStyles.filterResetButtonText}>Show All</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={analyticsStyles.filterApplyButton}
+                  onPress={() => setShowFiltersModal(false)}
+                >
+                  <Text style={analyticsStyles.filterApplyButtonText}>Apply</Text>
+                </TouchableOpacity>
+              </View>
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
+    </View>
   );
 }
 
 const analyticsStyles = StyleSheet.create({
   container: {
+    flex: 1,
+    backgroundColor: "#F3F4F6",
+  },
+  header: {
+    paddingTop: Platform.OS === "ios" ? 50 : 20,
+    paddingVertical: 50,
+    paddingHorizontal: 20,
+  },
+  headerContent: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginTop: 20,
+  },
+  headerIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 8,
+    backgroundColor: "#277874",
+    justifyContent: "center",
+    alignItems: "center",
+    marginRight: 12,
+  },
+  headerText: {
+    flex: 1,
+  },
+  headerTitle: {
+    fontSize: 24,
+    fontWeight: "bold",
+    color: "#ffffff",
+    marginBottom: 4,
+  },
+  headerSubtitle: {
+    fontSize: 14,
+    color: "#ffffff",
+    opacity: 0.9,
+  },
+  content: {
     flex: 1,
     backgroundColor: "#F9FAFB",
   },
@@ -1621,29 +1645,19 @@ const analyticsStyles = StyleSheet.create({
   },
   section: {
     paddingHorizontal: 20,
-    marginVertical: 20,
+    paddingTop: 20,
+    paddingBottom: 20,
   },
-  sectionHeader: {
+  keyMetricsHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
     marginBottom: 16,
   },
-  sectionHeaderContent: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-    gap: 12,
-  },
-  sectionTitleContainer: {
-    flex: 1,
-  },
-  sectionTitle: {
-    fontSize: 22,
+  keyMetricsTitle: {
+    fontSize: 18,
     fontWeight: "700",
     color: "#111827",
-    marginBottom: 4,
-  },
-  sectionSubtitle: {
-    fontSize: 13,
-    color: "#6B7280",
-    lineHeight: 18,
   },
   card: {
     backgroundColor: "#FFFFFF",
@@ -1827,5 +1841,187 @@ const analyticsStyles = StyleSheet.create({
   },
   recentItemBadgeTextActive: {
     color: "#047857",
+  },
+  // Toolbar styles
+  toolbar: {
+    marginBottom: 16,
+  },
+  toolbarScroll: {
+    flexGrow: 0,
+  },
+  toolbarButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 20,
+    backgroundColor: "#F3F4F6",
+    marginRight: 8,
+  },
+  toolbarButtonActive: {
+    backgroundColor: "#277874",
+  },
+  toolbarButtonText: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: "#6B7280",
+  },
+  toolbarButtonTextActive: {
+    color: "#ffffff",
+  },
+  toolbarDivider: {
+    width: 1,
+    height: 24,
+    backgroundColor: "#E5E7EB",
+    marginHorizontal: 8,
+  },
+  // Insights styles
+  insightsCard: {
+    backgroundColor: "#FFFBEB",
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: "#FDE68A",
+  },
+  insightsHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginBottom: 12,
+  },
+  insightsTitle: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: "#92400E",
+  },
+  insightsGrid: {
+    gap: 12,
+  },
+  insightItem: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 12,
+  },
+  insightIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 10,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  insightContent: {
+    flex: 1,
+  },
+  insightTitle: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: "#78350F",
+    marginBottom: 2,
+  },
+  insightDescription: {
+    fontSize: 13,
+    color: "#92400E",
+    lineHeight: 18,
+  },
+  // Filter Modal styles
+  filterSectionTitle: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: "#374151",
+    marginBottom: 16,
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+  },
+  filterToggleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: "#F3F4F6",
+  },
+  filterToggleLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    flex: 1,
+  },
+  filterToggleIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 10,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  filterToggleTitle: {
+    fontSize: 15,
+    fontWeight: "600",
+    color: "#374151",
+    marginBottom: 2,
+  },
+  filterToggleSubtitle: {
+    fontSize: 12,
+    color: "#9CA3AF",
+  },
+  filterToggle: {
+    width: 48,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: "#E5E7EB",
+    justifyContent: "center",
+    paddingHorizontal: 2,
+  },
+  filterToggleActive: {
+    backgroundColor: "#277874",
+    alignItems: "flex-end",
+  },
+  filterToggleThumb: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: "#ffffff",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  filterActions: {
+    flexDirection: "row",
+    gap: 12,
+    marginTop: 24,
+    marginBottom: 12,
+  },
+  filterResetButton: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    paddingVertical: 14,
+    borderRadius: 12,
+    backgroundColor: "#F3F4F6",
+    borderWidth: 1,
+    borderColor: "#E5E7EB",
+  },
+  filterResetButtonText: {
+    fontSize: 15,
+    fontWeight: "600",
+    color: "#277874",
+  },
+  filterApplyButton: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 14,
+    borderRadius: 12,
+    backgroundColor: "#277874",
+  },
+  filterApplyButtonText: {
+    fontSize: 15,
+    fontWeight: "600",
+    color: "#ffffff",
   },
 });

@@ -1,9 +1,10 @@
+import { AdminToolsProvider } from "@/components/admin/AdminToolsProvider";
 import { useNotifications } from "@/features/notifications";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
-import { Tabs, useRouter, useFocusEffect } from "expo-router";
-import React, { useEffect, useCallback } from "react";
-import { Platform, StatusBar, StyleSheet, Text, TouchableOpacity, View, AppState } from "react-native";
+import { Tabs, useFocusEffect, useRouter } from "expo-router";
+import { useCallback, useEffect } from "react";
+import { AppState, Platform, StatusBar, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
 const AdminHeader = ({ title = "Dashboard", subtitle = "Welcome back, Admin!" }: { title?: string; subtitle?: string }) => {
   const router = useRouter();
@@ -12,7 +13,7 @@ const AdminHeader = ({ title = "Dashboard", subtitle = "Welcome back, Admin!" }:
   useEffect(() => {
     // Fetch unread count when header mounts
     action.getUnreadCount();
-  }, []);
+  }, [action]);
 
   // Refresh unread count when screen comes into focus
   useFocusEffect(
@@ -83,7 +84,7 @@ const AdminHeader = ({ title = "Dashboard", subtitle = "Welcome back, Admin!" }:
 
 export default function AdminLayout() {
   return (
-    <>
+    <AdminToolsProvider>
       <Tabs
         screenOptions={{
           tabBarActiveTintColor: "#1B6F5D",
@@ -181,6 +182,7 @@ export default function AdminLayout() {
           name="notifications"
           options={{
             title: "Notifications",
+            headerShown: false,
             header: () => <AdminHeader title="Notifications" subtitle="View your notifications" />,
             href: null, // Hide from tab bar
           }}
@@ -236,16 +238,16 @@ export default function AdminLayout() {
             title: "Settings",
             header: () => <AdminHeader title="Admin Settings" subtitle="Configure system settings" />,
             tabBarIcon: ({ color, size, focused }) => (
-              <Ionicons 
-                name={focused ? "settings" : "settings-outline"} 
-                size={size} 
-                color={color} 
+              <Ionicons
+                name={focused ? "settings" : "settings-outline"}
+                size={size}
+                color={color}
               />
             ),
           }}
         />
       </Tabs>
-    </>
+    </AdminToolsProvider>
   );
 }
 

@@ -3,9 +3,10 @@ import { useStore } from "@/features/store";
 import { useNearbyPromotionNotifications } from "@/hooks/useNearbyPromotionNotifications";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { LinearGradient } from "expo-linear-gradient";
-import { Tabs, useRouter, useFocusEffect } from "expo-router";
-import React, { useEffect, useCallback, useRef } from "react";
-import { Platform, StatusBar, StyleSheet, Text, TouchableOpacity, View, AppState, Animated } from "react-native";
+import { Tabs, useFocusEffect, useRouter } from "expo-router";
+import { useCallback, useEffect, useRef } from "react";
+import { Animated, AppState, Platform, StatusBar, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 const ConsumerHeader = () => {
   const router = useRouter();
@@ -140,13 +141,18 @@ export default function ConsumersLayout() {
   // Initialize nearby promotion notifications
   // This hook handles location tracking and notifications automatically
   useNearbyPromotionNotifications();
+  const insets = useSafeAreaInsets();
 
   return (
     <Tabs
         screenOptions={{
           tabBarActiveTintColor: "#277874",
           tabBarInactiveTintColor: "#6b7280",
-          tabBarStyle: styles.tabBar,
+          tabBarStyle: {
+            ...styles.tabBar,
+            paddingBottom: Math.max(insets.bottom, 5),
+            height: Platform.OS === "ios" ? 65 + insets.bottom : 60 + insets.bottom,
+          },
           header: () => <ConsumerHeader />,
         }}
       >
@@ -339,8 +345,6 @@ const styles = StyleSheet.create({
     backgroundColor: "#ffffff",
     borderTopWidth: 1,
     borderTopColor: "#e5e7eb",
-    paddingBottom: Platform.OS === "ios" ? 20 : 5,
     paddingTop: 5,
-    height: Platform.OS === "ios" ? 85 : 65,
   },
 });

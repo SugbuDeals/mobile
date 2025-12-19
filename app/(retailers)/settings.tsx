@@ -662,6 +662,29 @@ export default function Settings() {
           </View>
         </View>
 
+        {/* Subscription Section */}
+        <View style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <Ionicons name="star" size={20} color="#FFBE5D" />
+            <Text style={styles.sectionTitle}>Subscription</Text>
+          </View>
+
+          <TouchableOpacity
+            style={styles.subscriptionButton}
+            onPress={() => router.push("/(retailers)/subscription")}
+          >
+            <View style={styles.subscriptionButtonContent}>
+              <View style={styles.subscriptionTextContainer}>
+                <Text style={styles.subscriptionButtonTitle}>Manage Subscription</Text>
+                <Text style={styles.subscriptionButtonSubtitle}>
+                  Upgrade to PRO for extended features and analytics
+                </Text>
+              </View>
+              <Ionicons name="chevron-forward" size={24} color="#277874" />
+            </View>
+          </TouchableOpacity>
+        </View>
+
         {/* Account Actions Section */}
         <View style={styles.profileSection}>
           <View style={styles.profileInputGroup}>
@@ -998,5 +1021,33 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "600",
     color: "#ffffff",
+  },
+  subscriptionButton: {
+    backgroundColor: "#F9FAFB",
+    borderWidth: 1,
+    borderColor: "#E5E7EB",
+    borderRadius: 12,
+    padding: 16,
+    marginTop: 8,
+  },
+  subscriptionButtonContent: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  subscriptionTextContainer: {
+    flex: 1,
+    marginRight: 12,
+  },
+  subscriptionButtonTitle: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#277874",
+    marginBottom: 4,
+  },
+  subscriptionButtonSubtitle: {
+    fontSize: 14,
+    color: "#6B7280",
+    lineHeight: 20,
   },
 });

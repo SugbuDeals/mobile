@@ -1,37 +1,45 @@
+import { useAdminTools } from "@/components/admin/AdminToolsProvider";
 import { useLogin } from "@/features/auth";
 import type { UserResponseDto } from "@/features/auth/types";
 import { Ionicons } from "@expo/vector-icons";
-import React, { useEffect, useState } from "react";
+import { LinearGradient } from "expo-linear-gradient";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
-    ActivityIndicator,
-    Alert,
-    Dimensions,
-    Image,
-    Modal,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
+  ActivityIndicator,
+  Alert,
+  Dimensions,
+  Image,
+  Modal,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from "react-native";
 
 const { width } = Dimensions.get("window");
 
 // Metrics Cards Component
-const MetricsCard = ({ label, value, icon, color, bgColor }: {
+const MetricsCard = ({ label, value, icon, color, bgColor, gradientColors }: {
   label: string;
   value: string;
   icon: string;
   color: string;
   bgColor: string;
+  gradientColors?: readonly [string, string, ...string[]];
 }) => (
   <View style={styles.metricCard}>
     <View style={styles.metricHeader}>
       <Text style={styles.metricLabel}>{label}</Text>
-      <View style={[styles.metricIcon, { backgroundColor: bgColor }]}>
+      <LinearGradient
+        colors={gradientColors || [bgColor, bgColor] as [string, string]}
+        style={styles.metricIcon}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+      >
         <Ionicons name={icon as keyof typeof Ionicons.glyphMap} size={20} color={color} />
-      </View>
+      </LinearGradient>
     </View>
     <Text style={[styles.metricValue, { color }]}>{value}</Text>
   </View>
@@ -64,7 +72,10 @@ const UserCard = ({ user, onDelete, onEdit }: {
 
   return (
     <View style={styles.userCard}>
-      <Image source={{ uri: avatarUrl }} style={styles.userAvatar} />
+      <View style={styles.userAvatarWrapper}>
+        <Image source={{ uri: avatarUrl }} style={styles.userAvatar} />
+        <View style={styles.userAvatarShadow} />
+      </View>
       <View style={styles.userInfo}>
         <Text style={styles.userName}>{user.name || user.email}</Text>
         <Text style={styles.userEmail}>{user.email}</Text>
@@ -78,13 +89,17 @@ const UserCard = ({ user, onDelete, onEdit }: {
           style={styles.menuButton}
           onPress={() => onEdit(user)}
         >
-          <Ionicons name="create-outline" size={20} color="#3B82F6" />
+          <View style={styles.menuButtonIcon}>
+            <Ionicons name="create-outline" size={18} color="#3B82F6" />
+          </View>
         </TouchableOpacity>
         <TouchableOpacity 
           style={styles.menuButton}
           onPress={() => onDelete(user.id)}
         >
-          <Ionicons name="trash-outline" size={20} color="#DC2626" />
+          <View style={[styles.menuButtonIcon, styles.deleteButtonIcon]}>
+            <Ionicons name="trash-outline" size={18} color="#DC2626" />
+          </View>
         </TouchableOpacity>
       </View>
     </View>
@@ -102,17 +117,29 @@ const FilterButton = ({
   onPress: () => void; 
 }) => (
   <TouchableOpacity
-    style={[styles.filterButton, isSelected && styles.filterButtonSelected]}
+    style={styles.filterButton}
     onPress={onPress}
   >
-    <Text style={[styles.filterButtonText, isSelected && styles.filterButtonTextSelected]}>
-      {label}
-    </Text>
+    {isSelected ? (
+      <LinearGradient
+        colors={["#277874", "#1B6F5D"]}
+        style={styles.filterButtonGradient}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+      >
+        <Text style={styles.filterButtonTextSelected}>{label}</Text>
+      </LinearGradient>
+    ) : (
+      <View style={styles.filterButtonInactive}>
+        <Text style={styles.filterButtonText}>{label}</Text>
+      </View>
+    )}
   </TouchableOpacity>
 );
 
 export default function Users() {
   const { action, state } = useLogin();
+  const adminTools = useAdminTools();
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedUserType, setSelectedUserType] = useState("All");
   const [selectedStatus, setSelectedStatus] = useState("All");
@@ -145,20 +172,69 @@ export default function Users() {
   }, []);
 
   // Filter users based on search and filters
-  const filteredUsers = (state.allUsers || []).filter((user) => {
-    const matchesSearch = 
-      searchQuery === "" ||
-      user.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      user.email?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      false; // fullname removed per server.json
+  const filteredUsers = useMemo(() => {
+    return (state.allUsers || []).filter((user) => {
+      const matchesSearch = 
+        searchQuery === "" ||
+        user.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        user.email?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        false; // fullname removed per server.json
 
-    const matchesType = 
-      selectedUserType === "All" ||
-      user.role === selectedUserType ||
-      user.role === selectedUserType;
+      const matchesType = 
+        selectedUserType === "All" ||
+        user.role === selectedUserType ||
+        user.role === selectedUserType;
 
-    return matchesSearch && matchesType;
+      return matchesSearch && matchesType;
+    });
+  }, [state.allUsers, searchQuery, selectedUserType]);
+
+  // Use refs to access latest values without causing re-renders
+  const allUsersRef = useRef(state.allUsers);
+  const searchQueryRef = useRef(searchQuery);
+  const selectedUserTypeRef = useRef(selectedUserType);
+  const actionRef = useRef(action);
+
+  // Update refs when values change
+  useEffect(() => {
+    allUsersRef.current = state.allUsers;
+    searchQueryRef.current = searchQuery;
+    selectedUserTypeRef.current = selectedUserType;
+    actionRef.current = action;
   });
+
+  // Configure admin tools - only run once on mount
+  useEffect(() => {
+    adminTools.setRefreshHandler(() => {
+      actionRef.current.fetchAllUsers();
+    });
+    
+    adminTools.setExportHandler(() => {
+      // Get current filtered users at export time using refs
+      const currentFiltered = (allUsersRef.current || []).filter((user) => {
+        const matchesSearch = 
+          searchQueryRef.current === "" ||
+          user.name?.toLowerCase().includes(searchQueryRef.current.toLowerCase()) ||
+          user.email?.toLowerCase().includes(searchQueryRef.current.toLowerCase()) ||
+          false;
+        const matchesType = 
+          selectedUserTypeRef.current === "All" ||
+          user.role === selectedUserTypeRef.current ||
+          user.role === selectedUserTypeRef.current;
+        return matchesSearch && matchesType;
+      });
+      const usersData = JSON.stringify(currentFiltered, null, 2);
+      // In a real app, you'd use a file sharing library here
+      console.log("Users data:", usersData);
+    });
+
+    adminTools.setSearchHandler(() => {
+      // Search functionality - no popup needed
+    });
+
+    // Settings is now in tabbar, no need to hide it
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Only run once on mount
 
   // Calculate metrics
   const totalUsers = filteredUsers.length;
@@ -270,6 +346,9 @@ export default function Users() {
   return (
     <View style={styles.container}>
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+        {/* Welcome Section */}
+        
+
         {/* Key Metrics Cards */}
         <View style={styles.metricsSection}>
           <View style={styles.metricsGrid}>
@@ -277,29 +356,33 @@ export default function Users() {
               label="Total Users"
               value={totalUsers.toString()}
               icon="people"
-              color="#1B6F5D"
+              color="#FFFFFF"
               bgColor="#D1FAE5"
+              gradientColors={["#277874", "#1B6F5D"] as [string, string]}
             />
             <MetricsCard
               label="Consumers"
               value={consumers.toString()}
               icon="person"
-              color="#3B82F6"
+              color="#FFFFFF"
               bgColor="#DBEAFE"
+              gradientColors={["#3B82F6", "#2563EB"] as [string, string]}
             />
             <MetricsCard
               label="Retailers"
               value={retailers.toString()}
               icon="storefront"
-              color="#F59E0B"
+              color="#FFFFFF"
               bgColor="#FEF3C7"
+              gradientColors={["#F59E0B", "#D97706"] as [string, string]}
             />
             <MetricsCard
               label="Active Users"
               value={activeUsers.toString()}
               icon="checkmark-circle"
-              color="#10B981"
+              color="#FFFFFF"
               bgColor="#D1FAE5"
+              gradientColors={["#10B981", "#059669"] as [string, string]}
             />
           </View>
         </View>
@@ -307,10 +390,19 @@ export default function Users() {
         {/* User Management Section */}
         <View style={styles.userManagementSection}>
           <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>User Management</Text>
+            <View style={styles.sectionTitleContainer}>
+              <Text style={styles.sectionTitle}>Users</Text>
+            </View>
             <TouchableOpacity style={styles.addUserButton} onPress={handleAddUser}>
-              <Ionicons name="add" size={16} color="#ffffff" />
-              <Text style={styles.addUserText}>Add User</Text>
+              <LinearGradient
+                colors={["#FFBE5D", "#F59E0B"]}
+                style={styles.addUserButtonGradient}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+              >
+                <Ionicons name="add" size={18} color="#FFFFFF" />
+                <Text style={styles.addUserText}>Add User</Text>
+              </LinearGradient>
             </TouchableOpacity>
           </View>
 
@@ -404,10 +496,17 @@ export default function Users() {
                 <Text style={styles.cancelButtonText}>Cancel</Text>
               </TouchableOpacity>
               <TouchableOpacity
-                style={[styles.modalButton, styles.deleteButton]}
+                style={styles.modalButton}
                 onPress={confirmDeleteUser}
               >
-                <Text style={styles.deleteButtonText}>Delete</Text>
+                <LinearGradient
+                  colors={["#DC2626", "#B91C1C"]}
+                  style={styles.deleteButtonGradient}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                >
+                  <Text style={styles.deleteButtonText}>Delete</Text>
+                </LinearGradient>
               </TouchableOpacity>
             </View>
           </View>
@@ -464,20 +563,23 @@ export default function Users() {
                   {["CONSUMER", "RETAILER", "ADMIN"].map((role) => (
                     <TouchableOpacity
                       key={role}
-                      style={[
-                        styles.roleButton,
-                        editRole === role && styles.roleButtonSelected
-                      ]}
+                      style={styles.roleButton}
                       onPress={() => setEditRole(role)}
                     >
-                      <Text
-                        style={[
-                          styles.roleButtonText,
-                          editRole === role && styles.roleButtonTextSelected
-                        ]}
-                      >
-                        {role}
-                      </Text>
+                      {editRole === role ? (
+                        <LinearGradient
+                          colors={["#277874", "#1B6F5D"]}
+                          style={styles.roleButtonGradient}
+                          start={{ x: 0, y: 0 }}
+                          end={{ x: 1, y: 1 }}
+                        >
+                          <Text style={styles.roleButtonTextSelected}>{role}</Text>
+                        </LinearGradient>
+                      ) : (
+                        <View style={styles.roleButtonInactive}>
+                          <Text style={styles.roleButtonText}>{role}</Text>
+                        </View>
+                      )}
                     </TouchableOpacity>
               ))}
             </View>
@@ -492,15 +594,22 @@ export default function Users() {
                 <Text style={styles.cancelEditButtonText}>Cancel</Text>
               </TouchableOpacity>
               <TouchableOpacity
-                style={[styles.editModalButton, styles.saveButton]}
+                style={styles.editModalButton}
                 onPress={handleSaveEdit}
                 disabled={isSaving}
               >
-                {isSaving ? (
-                  <ActivityIndicator size="small" color="#ffffff" />
-                ) : (
-                  <Text style={styles.saveButtonText}>Save Changes</Text>
-                )}
+                <LinearGradient
+                  colors={["#277874", "#1B6F5D"]}
+                  style={styles.saveButtonGradient}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                >
+                  {isSaving ? (
+                    <ActivityIndicator size="small" color="#ffffff" />
+                  ) : (
+                    <Text style={styles.saveButtonText}>Save Changes</Text>
+                  )}
+                </LinearGradient>
               </TouchableOpacity>
             </View>
           </View>
@@ -569,20 +678,23 @@ export default function Users() {
                   {["CONSUMER", "RETAILER", "ADMIN"].map((role) => (
                     <TouchableOpacity
                       key={role}
-                      style={[
-                        styles.roleButton,
-                        addRole === role && styles.roleButtonSelected
-                      ]}
+                      style={styles.roleButton}
                       onPress={() => setAddRole(role as "CONSUMER" | "RETAILER" | "ADMIN")}
                     >
-                      <Text
-                        style={[
-                          styles.roleButtonText,
-                          addRole === role && styles.roleButtonTextSelected
-                        ]}
-                      >
-                        {role}
-                      </Text>
+                      {addRole === role ? (
+                        <LinearGradient
+                          colors={["#277874", "#1B6F5D"]}
+                          style={styles.roleButtonGradient}
+                          start={{ x: 0, y: 0 }}
+                          end={{ x: 1, y: 1 }}
+                        >
+                          <Text style={styles.roleButtonTextSelected}>{role}</Text>
+                        </LinearGradient>
+                      ) : (
+                        <View style={styles.roleButtonInactive}>
+                          <Text style={styles.roleButtonText}>{role}</Text>
+                        </View>
+                      )}
                     </TouchableOpacity>
             ))}
           </View>
@@ -603,15 +715,22 @@ export default function Users() {
                 <Text style={styles.cancelEditButtonText}>Cancel</Text>
               </TouchableOpacity>
               <TouchableOpacity
-                style={[styles.editModalButton, styles.saveButton]}
+                style={styles.editModalButton}
                 onPress={handleSaveAddUser}
                 disabled={isAdding}
               >
-                {isAdding ? (
-                  <ActivityIndicator size="small" color="#ffffff" />
-                ) : (
-                  <Text style={styles.saveButtonText}>Create User</Text>
-                )}
+                <LinearGradient
+                  colors={["#FFBE5D", "#F59E0B"]}
+                  style={styles.saveButtonGradient}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                >
+                  {isAdding ? (
+                    <ActivityIndicator size="small" color="#ffffff" />
+                  ) : (
+                    <Text style={styles.saveButtonText}>Create User</Text>
+                  )}
+                </LinearGradient>
               </TouchableOpacity>
             </View>
           </View>
@@ -631,10 +750,62 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
   },
   
+  // ===== GREETING SECTION =====
+  greetingSection: {
+    marginBottom: 20,
+    marginTop: 16,
+  },
+  greetingContent: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    backgroundColor: "#F0FDF4",
+    borderRadius: 16,
+    padding: 18,
+    shadowColor: "#277874",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  greetingTextContainer: {
+    flex: 1,
+  },
+  greetingTitle: {
+    fontSize: 22,
+    fontWeight: "bold",
+    color: "#111827",
+    marginBottom: 4,
+  },
+  greetingSubtitle: {
+    fontSize: 14,
+    color: "#4B5563",
+    fontWeight: "500",
+  },
+  greetingDecoration: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    justifyContent: "center",
+    alignItems: "center",
+    shadowColor: "#277874",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  aiIconGradient: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  
   // ===== METRICS SECTION =====
   metricsSection: {
+    marginTop: 16,
     marginBottom: 24,
-    marginTop: 20,
   },
   metricsGrid: {
     flexDirection: "row",
@@ -644,14 +815,14 @@ const styles = StyleSheet.create({
   },
   metricCard: {
     backgroundColor: "#ffffff",
-    borderRadius: 12,
-    padding: 16,
+    borderRadius: 16,
+    padding: 18,
     width: (width - 60) / 2,
-    shadowColor: "#277874",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.15,
-    shadowRadius: 4,
-    elevation: 3,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.12,
+    shadowRadius: 8,
+    elevation: 4,
   },
   metricHeader: {
     flexDirection: "row",
@@ -659,22 +830,27 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
   },
   metricLabel: {
-    fontSize: 14,
+    fontSize: 13,
     color: "#6B7280",
-    fontWeight: "500",
+    fontWeight: "600",
   },
   metricIcon: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     justifyContent: "center",
     alignItems: "center",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 3,
   },
   metricValue: {
-    fontSize: 26,
+    fontSize: 28,
     fontWeight: "900",
-    color: "#277874",
-    marginTop: 4,
+    color: "#111827",
+    marginTop: 6,
   },
 
   // ===== USER MANAGEMENT SECTION =====
@@ -687,23 +863,33 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginBottom: 16,
   },
+  sectionTitleContainer: {
+    flex: 1,
+  },
   sectionTitle: {
-    fontSize: 24,
-    fontWeight: "bold",
-    color: "#277874",
+    fontSize: 20,
+    fontWeight: "700",
+    color: "#111827",
   },
   addUserButton: {
+    borderRadius: 12,
+    overflow: "hidden",
+    shadowColor: "#FFBE5D",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 4,
+  },
+  addUserButtonGradient: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#FFBE5D",
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: 8,
+    paddingHorizontal: 18,
+    paddingVertical: 12,
   },
   addUserText: {
-    color: "#1f2937",
+    color: "#FFFFFF",
     fontSize: 14,
-    fontWeight: "600",
+    fontWeight: "700",
     marginLeft: 6,
   },
 
@@ -712,15 +898,15 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     backgroundColor: "#ffffff",
-    borderRadius: 12,
+    borderRadius: 14,
     paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingVertical: 14,
     marginBottom: 16,
     shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
-    elevation: 1,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 6,
+    elevation: 3,
   },
   searchIcon: {
     marginRight: 12,
@@ -747,23 +933,39 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   filterButton: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
     borderRadius: 20,
-    backgroundColor: "#f0f9f8",
-    borderWidth: 1,
-    borderColor: "#277874",
+    overflow: "hidden",
   },
-  filterButtonSelected: {
-    backgroundColor: "#277874",
+  filterButtonGradient: {
+    paddingHorizontal: 18,
+    paddingVertical: 12,
+    borderRadius: 20,
+    alignItems: "center",
+    justifyContent: "center",
+    shadowColor: "#277874",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  filterButtonInactive: {
+    paddingHorizontal: 18,
+    paddingVertical: 12,
+    backgroundColor: "#F3F4F6",
+    borderRadius: 20,
+    borderWidth: 1.5,
+    borderColor: "#E5E7EB",
+    alignItems: "center",
+    justifyContent: "center",
   },
   filterButtonText: {
     fontSize: 14,
-    fontWeight: "500",
-    color: "#277874",
+    fontWeight: "600",
+    color: "#374151",
   },
   filterButtonTextSelected: {
     color: "#ffffff",
+    fontWeight: "700",
   },
 
   // ===== USER LIST =====
@@ -774,19 +976,36 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     backgroundColor: "#ffffff",
-    borderRadius: 12,
+    borderRadius: 14,
     padding: 16,
-    shadowColor: "#277874",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
-    elevation: 1,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 6,
+    elevation: 3,
+    marginBottom: 2,
+  },
+  userAvatarWrapper: {
+    position: "relative",
+    marginRight: 14,
   },
   userAvatar: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    marginRight: 12,
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    zIndex: 1,
+    borderWidth: 2,
+    borderColor: "#FFFFFF",
+  },
+  userAvatarShadow: {
+    position: "absolute",
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    backgroundColor: "#E0F2F1",
+    top: 2,
+    left: 2,
+    zIndex: 0,
   },
   userInfo: {
     flex: 1,
@@ -815,20 +1034,32 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 4,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 12,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 20,
     backgroundColor: "#e0f2f1",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 1,
   },
   statusText: {
     fontSize: 12,
-    fontWeight: "500",
+    fontWeight: "600",
     color: "#277874",
   },
   menuButton: {
+    borderRadius: 8,
+    overflow: "hidden",
+  },
+  menuButtonIcon: {
     padding: 8,
-    borderRadius: 6,
-    backgroundColor: "#f0f9f8",
+    borderRadius: 8,
+    backgroundColor: "#F0FDF4",
+  },
+  deleteButtonIcon: {
+    backgroundColor: "#FEF2F2",
   },
 
   // ===== LOADING & ERROR STATES =====
@@ -870,10 +1101,15 @@ const styles = StyleSheet.create({
   },
   modalContent: {
     backgroundColor: "#ffffff",
-    borderRadius: 16,
+    borderRadius: 20,
     padding: 24,
     width: width - 80,
     alignItems: "center",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 12,
+    elevation: 8,
   },
   modalIcon: {
     marginBottom: 16,
@@ -897,10 +1133,13 @@ const styles = StyleSheet.create({
   },
   modalButton: {
     flex: 1,
-    paddingVertical: 12,
-    paddingHorizontal: 24,
-    borderRadius: 8,
-    alignItems: "center",
+    borderRadius: 10,
+    overflow: "hidden",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 3,
   },
   cancelButton: {
     backgroundColor: "#F3F4F6",
@@ -909,23 +1148,34 @@ const styles = StyleSheet.create({
     color: "#374151",
     fontSize: 16,
     fontWeight: "600",
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    textAlign: "center",
   },
-  deleteButton: {
-    backgroundColor: "#DC2626",
+  deleteButtonGradient: {
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    alignItems: "center",
+    borderRadius: 10,
   },
   deleteButtonText: {
     color: "#ffffff",
     fontSize: 16,
-    fontWeight: "600",
+    fontWeight: "700",
   },
 
   // ===== EDIT/ADD USER MODAL =====
   editModalContent: {
     backgroundColor: "#ffffff",
-    borderRadius: 20,
+    borderRadius: 24,
     width: width - 40,
     maxHeight: "80%",
     overflow: "hidden",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 12,
+    elevation: 8,
   },
   editModalHeader: {
     flexDirection: "row",
@@ -974,16 +1224,25 @@ const styles = StyleSheet.create({
     flexWrap: "wrap",
   },
   roleButton: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 8,
-    backgroundColor: "#F3F4F6",
-    borderWidth: 1,
-    borderColor: "#E5E7EB",
+    borderRadius: 10,
+    overflow: "hidden",
+    shadowColor: "#277874",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 1,
   },
-  roleButtonSelected: {
-    backgroundColor: "#277874",
-    borderColor: "#277874",
+  roleButtonGradient: {
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 10,
+    alignItems: "center",
+  },
+  roleButtonInactive: {
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    backgroundColor: "#F3F4F6",
+    borderRadius: 10,
   },
   roleButtonText: {
     fontSize: 14,
@@ -992,6 +1251,7 @@ const styles = StyleSheet.create({
   },
   roleButtonTextSelected: {
     color: "#ffffff",
+    fontWeight: "700",
   },
   editModalButtons: {
     flexDirection: "row",
@@ -1002,9 +1262,13 @@ const styles = StyleSheet.create({
   },
   editModalButton: {
     flex: 1,
-    paddingVertical: 12,
-    borderRadius: 8,
-    alignItems: "center",
+    borderRadius: 10,
+    overflow: "hidden",
+    shadowColor: "#277874",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 4,
   },
   cancelEditButton: {
     backgroundColor: "#F3F4F6",
@@ -1013,13 +1277,17 @@ const styles = StyleSheet.create({
     color: "#374151",
     fontSize: 16,
     fontWeight: "600",
+    paddingVertical: 12,
+    textAlign: "center",
   },
-  saveButton: {
-    backgroundColor: "#277874",
+  saveButtonGradient: {
+    paddingVertical: 12,
+    alignItems: "center",
+    borderRadius: 10,
   },
   saveButtonText: {
     color: "#ffffff",
     fontSize: 16,
-    fontWeight: "600",
+    fontWeight: "700",
   },
 });

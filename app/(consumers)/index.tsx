@@ -12,6 +12,7 @@ import { useStableThunk } from "@/hooks/useStableCallback";
 import { viewsApi } from "@/services/api/endpoints/views";
 import { filterPromotionsByPlacement, sortPromotionsByPriority } from "@/utils/dealPlacement";
 import Ionicons from "@expo/vector-icons/Ionicons";
+import { LinearGradient } from "expo-linear-gradient";
 import * as Location from "expo-location";
 import { useFocusEffect, useRouter } from "expo-router";
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -262,7 +263,14 @@ function Greeting({ name }: { name: string }) {
           </Text>
         </View>
         <View style={styles.greetingDecoration}>
-          <Ionicons name="sparkles" size={32} color="#FFBE5D" />
+          <LinearGradient
+              colors={["#FFBE5D", "#277874"]}
+              style={styles.aiIconGradient}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+            >
+            <Ionicons name="sparkles" size={32} color="#FFFFFF" />
+          </LinearGradient>
         </View>
       </View>
     </View>
@@ -1032,13 +1040,28 @@ const styles = StyleSheet.create({
     fontWeight: "500",
   },
   greetingDecoration: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
-    backgroundColor: "#FFBE5D",
-    opacity: 0.15,
-    alignItems: "center",
+    width: 46,
+    height: 46,
+    borderRadius: 18,
     justifyContent: "center",
+    alignItems: "center",
+    shadowColor: "#277874",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  aiIconGradient: {
+    width: 46,
+    height: 46,
+    borderRadius: 58,
+    justifyContent: "center",
+    alignItems: "center",
+    shadowColor: "#277874",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 3,
   },
 
   // SectionHeader Component

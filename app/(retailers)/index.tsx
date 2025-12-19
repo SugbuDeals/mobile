@@ -1,16 +1,21 @@
-import PromotionCard from "@/components/consumers/PromotionCard";
 import { useLogin } from "@/features/auth";
+import { useCatalog } from "@/features/catalog";
+import type { Product as CatalogProduct } from "@/features/catalog/types";
 import { useStore } from "@/features/store";
 import type { Promotion } from "@/features/store/promotions/types";
+import type { Product as StoreProduct } from "@/features/store/types";
 import { useStableThunk } from "@/hooks/useStableCallback";
+import { getNonVoucherDeals, getVouchersOnly } from "@/utils/dealPlacement";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { router, useFocusEffect } from "expo-router";
-import { useCallback, useEffect, useMemo, useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
+    Image,
     ImageBackground,
     ScrollView,
     StyleSheet,
     Text,
+    TextInput,
     TouchableOpacity,
     View
 } from "react-native";
@@ -20,45 +25,111 @@ const DEFAULT_BANNER = require("../../assets/images/index3.png");
 export default function RetailerDashboard() {
   const { state: { user } } = useLogin();
   const { action: { findActivePromotions, findProducts }, state: { userStore, activePromotions, loading, products } } = useStore();
+  const { state: { categories: catalogCategories, products: catalogProducts }, action: { loadCategories, loadProducts: loadCatalogProducts } } = useCatalog();
 
   // Stable thunk references to prevent unnecessary re-renders
   const stableFindActivePromotions = useStableThunk(findActivePromotions);
   const stableFindProducts = useStableThunk(findProducts);
+  const stableLoadCategories = useStableThunk(loadCategories);
+  const stableLoadCatalogProducts = useStableThunk(loadCatalogProducts);
 
   // Track last fetched store ID to prevent duplicate fetches
   const lastFetchedStoreIdRef = useRef<number | null>(null);
   const lastFetchedUserIdRef = useRef<number | null>(null);
 
-  // Group promotions by title to show as single promotions with multiple products
-  const groupedPromotions = useMemo(() => {
-    const groups: { [key: string]: Promotion[] } = {};
-    
-    activePromotions.forEach(promotion => {
-      // Group by title only, since products can have different discounts
-      const key = promotion.title;
-      if (!groups[key]) {
-        groups[key] = [];
-      }
-      groups[key].push(promotion);
+  // State for filtering
+  const [activeCategory, setActiveCategory] = useState("All");
+  const [query, setQuery] = useState("");
+
+  // Load categories and catalog products if not already loaded
+  useEffect(() => {
+    if (!catalogProducts || catalogProducts.length === 0) {
+      stableLoadCatalogProducts();
+    }
+    if (!catalogCategories || catalogCategories.length === 0) {
+      stableLoadCategories();
+    }
+  }, [catalogProducts, catalogCategories, stableLoadCatalogProducts, stableLoadCategories]);
+
+  // Get product category name helper
+  const getProductCategoryName = useCallback(
+    (product: CatalogProduct | StoreProduct): string => {
+      const { getProductCategoryName: getCategoryName } = require("@/utils/categoryHelpers");
+      return getCategoryName(
+        {
+          categoryId: 'categoryId' in product ? product.categoryId : null,
+          description: product.description || null,
+        },
+        catalogCategories || []
+      );
+    },
+    [catalogCategories]
+  );
+
+  // Get store categories from products
+  const storeCategories = useMemo(() => {
+    const storeId = userStore?.id;
+    const allProducts = [...(catalogProducts || []), ...(products || [])];
+    const source = allProducts.filter((p: CatalogProduct | StoreProduct) =>
+      storeId == null ? true : p.storeId === storeId
+    );
+    const unique = new Set<string>();
+    source.forEach((p: CatalogProduct | StoreProduct) => {
+      const categoryName = getProductCategoryName(p);
+      if (categoryName) unique.add(categoryName);
     });
-    
-    // Convert groups to array and sort by creation date
-    return Object.values(groups).map(group => ({
-      ...group[0], // Use first promotion as base
-      productIds: group.map(p => p.productId), // Collect all product IDs
-      products: group.map(p => p.productId), // For compatibility
-      // Store individual product discounts for display
-      productDiscounts: group.map(p => ({
-        productId: p.productId,
-        discount: p.discount,
-        type: p.type
-      }))
-    })).sort((a, b) => {
-      const aDate = typeof a.startsAt === 'string' ? new Date(a.startsAt).getTime() : 0;
-      const bDate = typeof b.startsAt === 'string' ? new Date(b.startsAt).getTime() : 0;
-      return bDate - aDate;
-    });
-  }, [activePromotions]);
+    return Array.from(unique).sort((a, b) => a.localeCompare(b));
+  }, [catalogProducts, products, userStore?.id, getProductCategoryName]);
+
+  const categories = useMemo(
+    () => ["All", ...storeCategories],
+    [storeCategories]
+  );
+
+  // Combine promotions with products
+  const storePromotions = useMemo(() => {
+    const storeId = userStore?.id;
+    if (storeId == null) return [];
+    const promoList = Array.isArray(activePromotions) ? activePromotions : [];
+    const allProducts = [...(catalogProducts || []), ...(products || [])];
+    return promoList.reduce<{ promotion: Promotion; product: CatalogProduct | StoreProduct }[]>(
+      (acc, promo: Promotion) => {
+        if (!promo?.active) return acc;
+        const product = allProducts.find((p: CatalogProduct | StoreProduct) => p.id === promo.productId);
+        if (!product || (product as any).isActive === false) return acc;
+        if (product.storeId !== storeId) return acc;
+        acc.push({ promotion: promo, product });
+        return acc;
+      },
+      []
+    );
+  }, [activePromotions, catalogProducts, products, userStore?.id]);
+
+  // Separate vouchers from regular promotions
+  const storeVouchers = useMemo(() => {
+    const vouchers = getVouchersOnly(
+      storePromotions.map((sp) => sp.promotion)
+    );
+    return storePromotions.filter((sp) =>
+      vouchers.some((v) => v.id === sp.promotion.id)
+    );
+  }, [storePromotions]);
+
+  const regularPromotions = useMemo(() => {
+    const nonVouchers = getNonVoucherDeals(
+      storePromotions.map((sp) => sp.promotion)
+    );
+    return storePromotions.filter((sp) =>
+      nonVouchers.some((nv) => nv.id === sp.promotion.id)
+    );
+  }, [storePromotions]);
+
+  // Reset category if it's no longer available
+  useEffect(() => {
+    if (activeCategory !== "All" && !storeCategories.includes(activeCategory)) {
+      setActiveCategory("All");
+    }
+  }, [storeCategories, activeCategory]);
 
   // Fetch data when user or userStore changes
   useEffect(() => {
@@ -184,7 +255,11 @@ export default function RetailerDashboard() {
                 <Ionicons name="cube" size={20} color="#277874" />
               </View>
               <View style={styles.statContent}>
-                <Text style={styles.statValue}>{products.length || 0}</Text>
+                <Text style={styles.statValue}>
+                  {[...(catalogProducts || []), ...(products || [])].filter((p: CatalogProduct | StoreProduct) => 
+                    p.storeId === userStore?.id
+                  ).length || 0}
+                </Text>
                 <Text style={styles.statLabel}>Products</Text>
               </View>
             </View>
@@ -193,7 +268,7 @@ export default function RetailerDashboard() {
                 <Ionicons name="ticket" size={20} color="#FFBE5D" />
               </View>
               <View style={styles.statContent}>
-                <Text style={styles.statValue}>{groupedPromotions.length || 0}</Text>
+                <Text style={styles.statValue}>{storePromotions.length || 0}</Text>
                 <Text style={styles.statLabel}>Promotions</Text>
               </View>
             </View>
@@ -219,7 +294,265 @@ export default function RetailerDashboard() {
         </View>
       </View>
 
-      {/* Active Promotions */}
+      {/* Promotions and Products Section */}
+      <RetailerDealsAndVouchers
+        promotions={regularPromotions}
+        vouchers={storeVouchers}
+      />
+
+      {/* Categories Bar */}
+      <CategoriesBar
+        categories={categories}
+        active={activeCategory}
+        onChange={setActiveCategory}
+      />
+
+      {/* Search Bar */}
+      <StoreSearch value={query} onChange={setQuery} />
+
+      {/* Products Grid */}
+      <ProductsGrid
+        storeId={userStore?.id}
+        category={activeCategory}
+        query={query}
+        products={[...(catalogProducts || []), ...(products || [])]}
+        getProductCategoryName={getProductCategoryName}
+      />
+
+      <View style={{ height: 40 }} />
+    </ScrollView>
+  );
+}
+
+// CategoriesBar Component
+function CategoriesBar({
+  categories,
+  active,
+  onChange,
+}: {
+  categories: string[];
+  active: string;
+  onChange: (c: string) => void;
+}) {
+  return (
+    <ScrollView
+      horizontal
+      showsHorizontalScrollIndicator={false}
+      contentContainerStyle={barStyles.row}
+    >
+      {categories.map((c) => (
+        <TouchableOpacity
+          key={c}
+          onPress={() => onChange(c)}
+          style={[
+            barStyles.pill,
+            active === c ? barStyles.pillActive : barStyles.pillInactive,
+          ]}
+        >
+          <Text
+            style={[
+              barStyles.text,
+              active === c ? barStyles.textActive : barStyles.textInactive,
+            ]}
+          >
+            {c}
+          </Text>
+        </TouchableOpacity>
+      ))}
+    </ScrollView>
+  );
+}
+
+// StoreSearch Component
+function StoreSearch({
+  value,
+  onChange,
+}: {
+  value: string;
+  onChange: (t: string) => void;
+}) {
+  return (
+    <View style={styles.section}>
+      <TextInput
+        placeholder="Search products..."
+        value={value}
+        onChangeText={onChange}
+        style={searchStyles.input}
+        placeholderTextColor="#9CA3AF"
+      />
+    </View>
+  );
+}
+
+// ProductsGrid Component
+function ProductsGrid({
+  storeId,
+  query = "",
+  category = "All",
+  products = [],
+  getProductCategoryName,
+}: {
+  storeId?: number;
+  query?: string;
+  category?: string;
+  products?: (CatalogProduct | StoreProduct)[];
+  getProductCategoryName: (product: CatalogProduct | StoreProduct) => string;
+}) {
+  const { state: { activePromotions } } = useStore();
+  
+  const getDiscounted = useCallback((p: CatalogProduct | StoreProduct) => {
+    const promo = (activePromotions as Promotion[])?.find?.((ap: Promotion) => ap.productId === p.id && ap.active === true);
+    if (!promo) return undefined;
+    const base = Number(p.price);
+    if (!isFinite(base)) return undefined;
+    const type = String(promo.type || '').toLowerCase();
+    const value = Number(promo.discount || 0);
+    if (type === 'percentage') return Math.max(0, base * (1 - value / 100));
+    if (type === 'fixed') return Math.max(0, base - value);
+    return undefined;
+  }, [activePromotions]);
+
+  const filtered = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    const source = (products || []).filter((p: CatalogProduct | StoreProduct) => {
+      // Filter by storeId
+      if (storeId != null && p.storeId !== storeId) return false;
+      
+      // Only show active products
+      if ((p as any).isActive === false) return false;
+      
+      return true;
+    });
+    return source.filter((p: CatalogProduct | StoreProduct) => {
+      const matchesQuery =
+        q.length === 0 || String(p.name).toLowerCase().includes(q);
+      const productCategoryName = getProductCategoryName(p);
+      const matchesCategory =
+        category === "All" ||
+        productCategoryName.toLowerCase() === category.toLowerCase();
+      return matchesQuery && matchesCategory;
+    });
+  }, [products, storeId, query, category, getProductCategoryName]);
+
+  const handleProductPress = (p: CatalogProduct | StoreProduct) => {
+    router.push({
+      pathname: "/(retailers)/products",
+      params: {
+        productId: p.id?.toString(),
+      },
+    });
+  };
+
+  return (
+    <View style={styles.section}>
+      <View style={styles.sectionHeader}>
+        <Text style={styles.sectionTitle}>Your Products</Text>
+        <TouchableOpacity 
+          style={styles.createPromotionButton}
+          onPress={() => router.push("/(retailers)/add-product")}
+        >
+          <Ionicons name="add" size={16} color="#ffffff" />
+          <Text style={styles.createPromotionButtonText}>Add</Text>
+        </TouchableOpacity>
+      </View>
+      <View style={gridStyles.grid}>
+        {filtered.length > 0 ? (
+          filtered.map((p: CatalogProduct | StoreProduct, index) => (
+            <TouchableOpacity
+              key={`product-${p.id}-${index}`}
+              style={gridStyles.card}
+              onPress={() => handleProductPress(p)}
+              activeOpacity={0.8}
+            >
+              {typeof (p as any).imageUrl === 'string' && (p as any).imageUrl.length > 0 ? (
+                <Image source={{ uri: (p as any).imageUrl }} style={gridStyles.image} />
+              ) : (
+                <Image
+                  source={require("../../assets/images/partial-react-logo.png")}
+                  style={gridStyles.image}
+                />
+              )}
+              <View style={gridStyles.textArea}>
+                <Text style={gridStyles.productName}>{p.name}</Text>
+                {p.price != null && (() => {
+                  const dp = getDiscounted(p);
+                  return dp !== undefined ? (
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                      <Text style={gridStyles.priceOld}>₱{Number(p.price).toFixed(2)}</Text>
+                      <Text style={gridStyles.price}>₱{dp.toFixed(2)}</Text>
+                    </View>
+                  ) : (
+                    <Text style={gridStyles.price}>₱{Number(p.price).toFixed(2)}</Text>
+                  );
+                })()}
+              </View>
+            </TouchableOpacity>
+          ))
+        ) : (
+          <View style={styles.emptyContainer}>
+            <Ionicons name="cube-outline" size={48} color="#9CA3AF" />
+            <Text style={styles.emptyText}>No products found</Text>
+            <Text style={styles.emptySubtext}>
+              {query ? "Try a different search term" : "Add your first product to get started!"}
+            </Text>
+            {!query && (
+              <TouchableOpacity 
+                style={styles.emptyActionButton}
+                onPress={() => router.push("/(retailers)/add-product")}
+              >
+                <Text style={styles.emptyActionButtonText}>Add Product</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+        )}
+      </View>
+    </View>
+  );
+}
+
+// RetailerDealsAndVouchers Component
+function RetailerDealsAndVouchers({
+  promotions,
+  vouchers,
+}: {
+  promotions: { promotion: Promotion; product: CatalogProduct | StoreProduct }[];
+  vouchers: { promotion: Promotion; product: CatalogProduct | StoreProduct }[];
+}) {
+  const [showVouchers, setShowVouchers] = useState(false);
+
+  const handleDealPress = (product: CatalogProduct | StoreProduct, promo: Promotion) => {
+    router.push({
+      pathname: "/(retailers)/promotions",
+      params: {
+        promotionId: promo?.id?.toString(),
+      },
+    });
+  };
+
+  const getDealIcon = (dealType?: string) => {
+    switch (dealType) {
+      case "PERCENTAGE_DISCOUNT": return "percent-outline";
+      case "FIXED_DISCOUNT": return "cash-outline";
+      case "BOGO": return "gift-outline";
+      case "BUNDLE": return "apps-outline";
+      case "QUANTITY_DISCOUNT": return "layers-outline";
+      default: return "pricetag-outline";
+    }
+  };
+
+  const getDealColor = (dealType?: string) => {
+    switch (dealType) {
+      case "PERCENTAGE_DISCOUNT": return "#FF9800";
+      case "FIXED_DISCOUNT": return "#4CAF50";
+      case "BOGO": return "#9C27B0";
+      case "BUNDLE": return "#2196F3";
+      case "QUANTITY_DISCOUNT": return "#009688";
+      default: return "#F59E0B";
+    }
+  };
+
+  if (promotions.length === 0 && vouchers.length === 0) {
+    return (
       <View style={styles.section}>
         <View style={styles.sectionHeader}>
           <Text style={styles.sectionTitle}>Active Promotions</Text>
@@ -231,31 +564,106 @@ export default function RetailerDashboard() {
             <Text style={styles.createPromotionButtonText}>Create</Text>
           </TouchableOpacity>
         </View>
-        <View>
-          {loading ? (
-            <View style={styles.loadingContainer}>
-              <Text style={styles.loadingText}>Loading promotions...</Text>
-            </View>
-          ) : groupedPromotions.length > 0 ? (
-            groupedPromotions.map((promotion) => (
-              <PromotionCard key={`${promotion.title}-${promotion.discount}-${promotion.type}`} promotion={promotion} />
-            ))
-          ) : (
-            <View style={styles.emptyContainer}>
-              <Ionicons name="ticket-outline" size={48} color="#9CA3AF" />
-              <Text style={styles.emptyText}>No active promotions</Text>
-              <Text style={styles.emptySubtext}>Create your first promotion to boost sales!</Text>
-              <TouchableOpacity 
-                style={styles.emptyActionButton}
-                onPress={() => router.push("/(retailers)/promotions")}
+        <View style={styles.emptyContainer}>
+          <Ionicons name="ticket-outline" size={48} color="#9CA3AF" />
+          <Text style={styles.emptyText}>No active promotions</Text>
+          <Text style={styles.emptySubtext}>Create your first promotion to boost sales!</Text>
+          <TouchableOpacity 
+            style={styles.emptyActionButton}
+            onPress={() => router.push("/(retailers)/promotions")}
+          >
+            <Text style={styles.emptyActionButtonText}>Create Promotion</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    );
+  }
+
+  return (
+    <View style={styles.section}>
+      <View style={styles.sectionHeader}>
+        <Text style={styles.sectionTitle}>Active Promotions</Text>
+        <TouchableOpacity 
+          style={styles.createPromotionButton}
+          onPress={() => router.push("/(retailers)/promotions")}
+        >
+          <Ionicons name="add" size={16} color="#ffffff" />
+          <Text style={styles.createPromotionButtonText}>Create</Text>
+        </TouchableOpacity>
+      </View>
+
+      {/* Active Deals Section */}
+      {promotions.length > 0 && (
+        <>
+          <Text style={dealsStyles.sectionTitle}>Active Deals</Text>
+          <View style={dealsStyles.dealsGrid}>
+            {promotions.map(({ promotion, product }, index) => (
+              <TouchableOpacity
+                key={`promo-${promotion.id}-${product.id}-${index}`}
+                style={[dealsStyles.dealBox, { borderColor: getDealColor(promotion.dealType) }]}
+                onPress={() => handleDealPress(product, promotion)}
+                activeOpacity={0.7}
               >
-                <Text style={styles.emptyActionButtonText}>Create Promotion</Text>
+                <Ionicons 
+                  name={getDealIcon(promotion.dealType) as any} 
+                  size={24} 
+                  color={getDealColor(promotion.dealType)} 
+                />
+                <Text style={dealsStyles.dealType} numberOfLines={1}>
+                  {promotion.dealType?.replace(/_/g, ' ') || 'DEAL'}
+                </Text>
+                <Text style={dealsStyles.dealTitle} numberOfLines={2}>
+                  {promotion.title}
+                </Text>
               </TouchableOpacity>
+            ))}
+          </View>
+        </>
+      )}
+      
+      {/* Vouchers Section */}
+      {vouchers.length > 0 && (
+        <View style={dealsStyles.vouchersSection}>
+          <TouchableOpacity
+            style={dealsStyles.voucherButton}
+            onPress={() => setShowVouchers(!showVouchers)}
+            activeOpacity={0.8}
+          >
+            <View style={dealsStyles.voucherHeader}>
+              <Ionicons name="ticket" size={20} color="#E53935" />
+              <Text style={dealsStyles.voucherButtonText}>
+                Vouchers ({vouchers.length})
+              </Text>
+            </View>
+            <Ionicons 
+              name={showVouchers ? "chevron-up" : "chevron-down"} 
+              size={20} 
+              color="#E53935" 
+            />
+          </TouchableOpacity>
+          
+          {showVouchers && (
+            <View style={dealsStyles.vouchersList}>
+              {vouchers.map(({ promotion, product }, index) => (
+                <TouchableOpacity
+                  key={`voucher-${promotion.id}-${product.id}-${index}`}
+                  style={dealsStyles.voucherItem}
+                  onPress={() => handleDealPress(product, promotion)}
+                  activeOpacity={0.7}
+                >
+                  <View style={dealsStyles.voucherIconContainer}>
+                    <Ionicons name="ticket-outline" size={18} color="#E53935" />
+                  </View>
+                  <Text style={dealsStyles.voucherItemTitle} numberOfLines={2}>
+                    {promotion.title}
+                  </Text>
+                </TouchableOpacity>
+              ))}
             </View>
           )}
         </View>
-      </View>
-    </ScrollView>
+      )}
+    </View>
   );
 }
 
@@ -502,5 +910,175 @@ const styles = StyleSheet.create({
     color: "#ffffff",
     fontSize: 14,
     fontWeight: "600",
+  },
+});
+
+const barStyles = StyleSheet.create({
+  row: { 
+    paddingHorizontal: 20,
+    columnGap: 10,
+    marginBottom: 12,
+  },
+  pill: { 
+    paddingHorizontal: 16, 
+    paddingVertical: 10, 
+    borderRadius: 100 
+  },
+  pillActive: { backgroundColor: "#277874" },
+  pillInactive: { backgroundColor: "#E5E7EB" },
+  text: { fontWeight: "600", fontSize: 14 },
+  textActive: { color: "#fff" },
+  textInactive: { color: "#6B7280" },
+});
+
+const searchStyles = StyleSheet.create({
+  input: {
+    backgroundColor: "#E5E7EB",
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    fontSize: 14,
+  },
+});
+
+const gridStyles = StyleSheet.create({
+  grid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    justifyContent: "space-between",
+  },
+  card: {
+    width: "48%",
+    backgroundColor: "#ffffff",
+    borderRadius: 16,
+    paddingTop: 0,
+    paddingBottom: 12,
+    paddingHorizontal: 0,
+    marginBottom: 12,
+    elevation: 4,
+    shadowColor: "#000",
+    shadowOpacity: 0.1,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 4 },
+  },
+  image: {
+    width: "100%",
+    height: 120,
+    resizeMode: "cover",
+    borderTopLeftRadius: 16,
+    borderTopRightRadius: 16,
+    borderBottomLeftRadius: 0,
+    borderBottomRightRadius: 0,
+    marginBottom: 0,
+  },
+  textArea: { 
+    paddingHorizontal: 12, 
+    paddingTop: 8, 
+    paddingBottom: 10 
+  },
+  productName: { 
+    fontWeight: "700", 
+    fontSize: 14,
+    color: "#1f2937",
+    marginBottom: 4,
+  },
+  price: { 
+    color: "#277874", 
+    fontWeight: "900", 
+    fontSize: 14,
+  },
+  priceOld: { 
+    color: "#9CA3AF", 
+    textDecorationLine: 'line-through', 
+    fontSize: 12,
+  },
+});
+
+const dealsStyles = StyleSheet.create({
+  sectionTitle: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: "#111827",
+    marginBottom: 12,
+    marginTop: 8,
+  },
+  dealsGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+    marginBottom: 16,
+  },
+  dealBox: {
+    width: "48%",
+    backgroundColor: "#fff",
+    borderRadius: 12,
+    padding: 12,
+    borderWidth: 2,
+    borderColor: "#E5E7EB",
+    minHeight: 100,
+  },
+  dealType: {
+    fontSize: 10,
+    fontWeight: "600",
+    color: "#6B7280",
+    textTransform: "uppercase",
+    marginTop: 6,
+    marginBottom: 4,
+  },
+  dealTitle: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#111827",
+    lineHeight: 18,
+  },
+  vouchersSection: {
+    marginTop: 8,
+  },
+  voucherButton: {
+    backgroundColor: "#FEE2E2",
+    borderRadius: 12,
+    padding: 14,
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: "#FCA5A5",
+  },
+  voucherHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  voucherButtonText: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#E53935",
+  },
+  vouchersList: {
+    marginTop: 10,
+    gap: 8,
+  },
+  voucherItem: {
+    backgroundColor: "#fff",
+    borderRadius: 10,
+    padding: 12,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    borderWidth: 1,
+    borderColor: "#FCA5A5",
+  },
+  voucherIconContainer: {
+    width: 28,
+    height: 28,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  voucherItemTitle: {
+    flex: 1,
+    fontSize: 14,
+    fontWeight: "500",
+    color: "#111827",
+    lineHeight: 18,
   },
 });

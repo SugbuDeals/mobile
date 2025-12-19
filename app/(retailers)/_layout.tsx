@@ -5,8 +5,9 @@ import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { LinearGradient } from "expo-linear-gradient";
 import { Tabs, router, useFocusEffect } from "expo-router";
-import React, { useCallback, useEffect } from "react";
+import React, { useCallback, useEffect, useRef } from "react";
 import {
+  Animated,
   AppState,
   Platform,
   StatusBar,
@@ -15,6 +16,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 const RetailerHeader = () => {
   const dispatch = useAppDispatch();
@@ -24,6 +26,8 @@ const RetailerHeader = () => {
     action: { getCurrentTier },
     state: { currentTier },
   } = useStore();
+  const pulseAnim = useRef(new Animated.Value(1)).current;
+  const hasUnread = (state.unreadCount ?? 0) > 0;
 
   useEffect(() => {
     // Fetch unread count when header mounts
@@ -51,6 +55,35 @@ const RetailerHeader = () => {
       subscription.remove();
     };
   }, [action]);
+
+  // Animate notification icon when there are unread notifications
+  useEffect(() => {
+    if (hasUnread) {
+      // Continuous pulse animation
+      Animated.loop(
+        Animated.sequence([
+          Animated.timing(pulseAnim, {
+            toValue: 1.15,
+            duration: 800,
+            useNativeDriver: true,
+          }),
+          Animated.timing(pulseAnim, {
+            toValue: 1,
+            duration: 800,
+            useNativeDriver: true,
+          }),
+        ])
+      ).start();
+    } else {
+      // Stop animation and reset to normal size
+      pulseAnim.stopAnimation();
+      Animated.timing(pulseAnim, {
+        toValue: 1,
+        duration: 200,
+        useNativeDriver: true,
+      }).start();
+    }
+  }, [hasUnread, pulseAnim]);
 
   const isPro = currentTier?.tier === "PRO";
 
@@ -97,23 +130,19 @@ const RetailerHeader = () => {
           <TouchableOpacity
             style={styles.notificationContainer}
             onPress={() => router.push("/(retailers)/notifications")}
+            activeOpacity={0.7}
           >
-            <Ionicons
-              name={
-                state.unreadCount > 0
-                  ? "notifications"
-                  : "notifications-outline"
-              }
-              size={20}
-              color="#ffffff"
-            />
-            {state.unreadCount > 0 && (
-              <View style={styles.badge}>
-                <Text style={styles.badgeText}>
-                  {state.unreadCount > 99 ? "99+" : state.unreadCount}
-                </Text>
-              </View>
-            )}
+            <Animated.View
+              style={{
+                transform: [{ scale: pulseAnim }],
+              }}
+            >
+              <Ionicons 
+                name="notifications" 
+                size={20} 
+                color={hasUnread ? "#EF4444" : "#ffffff"}
+              />
+            </Animated.View>
           </TouchableOpacity>
 
           {/* Role switcher moved to settings page for dual accounts */}
@@ -159,6 +188,8 @@ export default function RetailersLayout() {
   // Load user's store data for all retailer pages
   const { userStore, storeLoading } = useStoreManagement();
   const { user, loading: authLoading } = useAppSelector((state) => state.auth);
+  const insets = useSafeAreaInsets();
+  
   // Check if retailer needs to complete setup (no store created yet)
   React.useEffect(() => {
     // Wait for auth and store loading to complete
@@ -192,7 +223,11 @@ export default function RetailersLayout() {
       screenOptions={{
         tabBarActiveTintColor: "#FFBE5D",
         tabBarInactiveTintColor: "#6b7280",
-        tabBarStyle: styles.tabBar,
+        tabBarStyle: {
+          ...styles.tabBar,
+          paddingBottom: Math.max(insets.bottom, 5),
+          height: Platform.OS === "ios" ? 65 + insets.bottom : 60 + insets.bottom,
+        },
         header: () => <RetailerHeader />,
       }}
     >
@@ -239,8 +274,7 @@ export default function RetailersLayout() {
         name="notifications"
         options={{
           title: "Notifications",
-          headerShown: true,
-          header: () => <RetailerHeader />,
+          headerShown: false,
           href: null,
         }}
       />
@@ -262,7 +296,7 @@ export default function RetailersLayout() {
         name="analytics"
         options={{
           title: "Analytics",
-          headerShown: true,
+          headerShown: false,
           tabBarIcon: ({ color, size = 24 }) => (
             <Ionicons name="stats-chart" color={color} size={size} />
           ),
@@ -273,9 +307,7 @@ export default function RetailersLayout() {
         options={{
           title: "Subscription",
           headerShown: false,
-          tabBarIcon: ({ color, size = 24 }) => (
-            <Ionicons name="card" color={color} size={size} />
-          ),
+          href: null,
         }}
       />
       <Tabs.Screen
@@ -423,25 +455,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     position: "relative",
   },
-  badge: {
-    position: "absolute",
-    top: 4,
-    right: 4,
-    backgroundColor: "#EF4444",
-    borderRadius: 10,
-    minWidth: 18,
-    height: 18,
-    paddingHorizontal: 4,
-    justifyContent: "center",
-    alignItems: "center",
-    borderWidth: 2,
-    borderColor: "#277874",
-  },
-  badgeText: {
-    color: "#ffffff",
-    fontSize: 10,
-    fontWeight: "700",
-  },
   unverifiedBanner: {
     marginTop: 6,
     marginHorizontal: 2,
@@ -474,8 +487,6 @@ const styles = StyleSheet.create({
     backgroundColor: "#ffffff",
     borderTopWidth: 1,
     borderTopColor: "#e5e7eb",
-    paddingBottom: Platform.OS === "ios" ? 20 : 5,
     paddingTop: 5,
-    height: Platform.OS === "ios" ? 85 : 65,
   },
 });

@@ -9,7 +9,7 @@ import type { VoucherVerificationResponseDto } from "@/services/api/types/swagge
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { CameraView, useCameraPermissions } from "expo-camera";
 import { LinearGradient } from "expo-linear-gradient";
-import React, { useState } from "react";
+import { useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -129,7 +129,7 @@ export default function VoucherScannerScreen() {
       <View style={styles.container}>
         <StatusBar barStyle="light-content" backgroundColor="transparent" />
         <View style={styles.centerContainer}>
-          <ActivityIndicator size="large" color="#8B5CF6" />
+          <ActivityIndicator size="large" color="#277874" />
         </View>
       </View>
     );
@@ -138,29 +138,32 @@ export default function VoucherScannerScreen() {
   if (!permission.granted) {
     return (
       <View style={styles.container}>
-        <StatusBar barStyle="light-content" backgroundColor="transparent" />
-        
         {/* Header */}
-        <LinearGradient
-          colors={["#8B5CF6", "#6D28D9"]}
-          style={styles.header}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 0 }}
-        >
-          <View style={styles.headerContent}>
-            <View style={styles.headerIcon}>
-              <Ionicons name="qr-code-outline" size={24} color="#ffffff" />
+        <View style={styles.headerShadowContainer}>
+          <LinearGradient
+            colors={["#FFBE5D", "#277874"]}
+            style={styles.headerContainer}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
+          >
+            <StatusBar barStyle="light-content" translucent backgroundColor="transparent" />
+            <View style={styles.headerContent}>
+              <View style={styles.headerLeft}>
+                <View style={styles.headerIcon}>
+                  <Ionicons name="qr-code-outline" size={24} color="#ffffff" />
+                </View>
+                <View style={styles.headerText}>
+                  <Text style={styles.headerTitle}>Voucher Scanner</Text>
+                  <Text style={styles.headerSubtitle}>Scan & Verify Vouchers</Text>
+                </View>
+              </View>
             </View>
-            <View style={styles.headerText}>
-              <Text style={styles.headerTitle}>Voucher Scanner</Text>
-              <Text style={styles.headerSubtitle}>Scan & Verify Vouchers</Text>
-            </View>
-          </View>
-        </LinearGradient>
+          </LinearGradient>
+        </View>
 
         <View style={styles.permissionContainer}>
           <View style={styles.permissionIcon}>
-            <Ionicons name="camera-outline" size={64} color="#8B5CF6" />
+            <Ionicons name="camera-outline" size={64} color="#277874" />
           </View>
           <Text style={styles.permissionTitle}>Camera Permission Required</Text>
           <Text style={styles.permissionText}>
@@ -180,25 +183,28 @@ export default function VoucherScannerScreen() {
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="transparent" />
-
       {/* Header */}
-      <LinearGradient
-        colors={["#8B5CF6", "#6D28D9"]}
-        style={styles.header}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 0 }}
-      >
-        <View style={styles.headerContent}>
-          <View style={styles.headerIcon}>
-            <Ionicons name="qr-code-outline" size={24} color="#ffffff" />
+      <View style={styles.headerShadowContainer}>
+        <LinearGradient
+          colors={["#FFBE5D", "#277874"]}
+          style={styles.headerContainer}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 0 }}
+        >
+          <StatusBar barStyle="light-content" translucent backgroundColor="transparent" />
+          <View style={styles.headerContent}>
+            <View style={styles.headerLeft}>
+              <View style={styles.headerIcon}>
+                <Ionicons name="qr-code-outline" size={24} color="#ffffff" />
+              </View>
+              <View style={styles.headerText}>
+                <Text style={styles.headerTitle}>Voucher Scanner</Text>
+                <Text style={styles.headerSubtitle}>Scan & Verify Vouchers</Text>
+              </View>
+            </View>
           </View>
-          <View style={styles.headerText}>
-            <Text style={styles.headerTitle}>Voucher Scanner</Text>
-            <Text style={styles.headerSubtitle}>Scan & Verify Vouchers</Text>
-          </View>
-        </View>
-      </LinearGradient>
+        </LinearGradient>
+      </View>
 
       {/* Main Content */}
       <ScrollView style={styles.content} contentContainerStyle={styles.contentContainer}>
@@ -216,7 +222,7 @@ export default function VoucherScannerScreen() {
                 <View style={styles.stepNumber}>
                   <Text style={styles.stepNumberText}>2</Text>
                 </View>
-                <Text style={styles.stepText}>Tap "Start Scanning" button below</Text>
+                <Text style={styles.stepText}>Tap &quot;Start Scanning&quot; button below.</Text>
               </View>
               <View style={styles.instructionStep}>
                 <View style={styles.stepNumber}>
@@ -244,7 +250,7 @@ export default function VoucherScannerScreen() {
               style={styles.manualButton}
               onPress={() => setShowManualInput(true)}
             >
-              <Ionicons name="create-outline" size={20} color="#8B5CF6" />
+              <Ionicons name="create-outline" size={20} color="#277874" />
               <Text style={styles.manualButtonText}>Enter Token Manually</Text>
             </TouchableOpacity>
           </View>
@@ -283,7 +289,7 @@ export default function VoucherScannerScreen() {
 
         {isProcessing && (
           <View style={styles.processingContainer}>
-            <ActivityIndicator size="large" color="#8B5CF6" />
+            <ActivityIndicator size="large" color="#277874" />
             <Text style={styles.processingText}>Verifying voucher...</Text>
           </View>
         )}
@@ -347,13 +353,17 @@ export default function VoucherScannerScreen() {
                       <View style={styles.detailRow}>
                         <Ionicons name="person" size={18} color="#6B7280" />
                         <Text style={styles.detailLabel}>Name:</Text>
-                        <Text style={styles.detailValue}>{verificationResult.userName}</Text>
+                        <Text style={styles.detailValue} numberOfLines={1} ellipsizeMode="tail">
+                          {verificationResult.userName}
+                        </Text>
                       </View>
 
                       <View style={styles.detailRow}>
                         <Ionicons name="card" size={18} color="#6B7280" />
                         <Text style={styles.detailLabel}>Tier:</Text>
-                        <Text style={styles.detailValue}>{verificationResult.subscriptionTier}</Text>
+                        <Text style={styles.detailValue} numberOfLines={1} ellipsizeMode="tail">
+                          {verificationResult.subscriptionTier}
+                        </Text>
                       </View>
 
                       <View style={styles.detailRow}>
@@ -367,7 +377,9 @@ export default function VoucherScannerScreen() {
                       <View style={styles.detailRow}>
                         <Ionicons name="ticket" size={18} color="#6B7280" />
                         <Text style={styles.detailLabel}>Promotion:</Text>
-                        <Text style={styles.detailValue}>{verificationResult.promotionTitle}</Text>
+                        <Text style={styles.detailValue} numberOfLines={2} ellipsizeMode="tail">
+                          {verificationResult.promotionTitle}
+                        </Text>
                       </View>
                     </View>
 
@@ -412,7 +424,7 @@ export default function VoucherScannerScreen() {
                   style={styles.scanAnotherButton}
                   onPress={handleReset}
                 >
-                  <Ionicons name="scan" size={20} color="#8B5CF6" />
+                  <Ionicons name="scan" size={20} color="#277874" />
                   <Text style={styles.scanAnotherButtonText}>Scan Another Voucher</Text>
                 </TouchableOpacity>
               </ScrollView>
@@ -473,15 +485,32 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: "#F3F4F6",
   },
-  header: {
-    paddingTop: Platform.OS === "ios" ? 50 : 20,
-    paddingVertical: 50,
-    paddingHorizontal: 20,
+  headerShadowContainer: {
+    elevation: 8,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 12,
+    backgroundColor: "transparent",
+    overflow: "hidden",
+  },
+  headerContainer: {
+    paddingTop: Platform.OS === "ios" ? 40 : (StatusBar.currentHeight || 0) + 4,
+    paddingBottom: 10,
+    paddingHorizontal: 16,
+    overflow: "hidden",
   },
   headerContent: {
     flexDirection: "row",
     alignItems: "center",
-    marginTop: 20,
+    marginTop: 4,
+    justifyContent: "space-between",
+    backgroundColor: "transparent",
+  },
+  headerLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+    flex: 1,
   },
   headerIcon: {
     width: 40,
@@ -508,13 +537,10 @@ const styles = StyleSheet.create({
   },
   content: {
     flex: 1,
-    marginTop: -20,
   },
   contentContainer: {
     flexGrow: 1,
     backgroundColor: "#ffffff",
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
     padding: 20,
   },
   centerContainer: {
@@ -532,7 +558,7 @@ const styles = StyleSheet.create({
     width: 120,
     height: 120,
     borderRadius: 60,
-    backgroundColor: "#F3E8FF",
+    backgroundColor: "#E0F2F1",
     justifyContent: "center",
     alignItems: "center",
     marginBottom: 24,
@@ -554,7 +580,7 @@ const styles = StyleSheet.create({
   permissionButton: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#8B5CF6",
+    backgroundColor: "#277874",
     paddingVertical: 14,
     paddingHorizontal: 24,
     borderRadius: 12,
@@ -590,7 +616,7 @@ const styles = StyleSheet.create({
     width: 28,
     height: 28,
     borderRadius: 14,
-    backgroundColor: "#8B5CF6",
+    backgroundColor: "#277874",
     justifyContent: "center",
     alignItems: "center",
   },
@@ -609,7 +635,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "#8B5CF6",
+    backgroundColor: "#277874",
     paddingVertical: 16,
     borderRadius: 12,
     gap: 10,
@@ -624,15 +650,15 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "#F3E8FF",
+    backgroundColor: "#E0F2F1",
     paddingVertical: 14,
     borderRadius: 12,
     gap: 8,
     borderWidth: 1,
-    borderColor: "#8B5CF6",
+    borderColor: "#277874",
   },
   manualButtonText: {
-    color: "#8B5CF6",
+    color: "#277874",
     fontSize: 16,
     fontWeight: "600",
   },
@@ -660,7 +686,7 @@ const styles = StyleSheet.create({
     position: "absolute",
     width: 30,
     height: 30,
-    borderColor: "#8B5CF6",
+    borderColor: "#277874",
     borderWidth: 4,
   },
   topLeft: {
@@ -696,7 +722,7 @@ const styles = StyleSheet.create({
   },
   cancelButton: {
     position: "absolute",
-    bottom: 40,
+    bottom: 60,
     left: 0,
     right: 0,
     flexDirection: "row",
@@ -861,15 +887,15 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "#F3E8FF",
+    backgroundColor: "#E0F2F1",
     paddingVertical: 14,
     borderRadius: 12,
     gap: 8,
     borderWidth: 1,
-    borderColor: "#8B5CF6",
+    borderColor: "#277874",
   },
   scanAnotherButtonText: {
-    color: "#8B5CF6",
+    color: "#277874",
     fontSize: 16,
     fontWeight: "600",
   },
@@ -899,7 +925,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "#8B5CF6",
+    backgroundColor: "#277874",
     paddingVertical: 14,
     borderRadius: 12,
     gap: 8,
@@ -910,5 +936,6 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
 });
+
 
 

@@ -1,9 +1,10 @@
+import { useAdminTools } from "@/components/admin/AdminToolsProvider";
 import { useLogin } from "@/features/auth";
 import { useCatalog } from "@/features/catalog";
 import { useStore } from "@/features/store";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
-import React, { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import {
     ActivityIndicator,
     Dimensions,
@@ -12,7 +13,7 @@ import {
     StyleSheet,
     Text,
     TouchableOpacity,
-    View,
+    View
 } from "react-native";
 
 const { width } = Dimensions.get("window");
@@ -22,6 +23,7 @@ export default function AdminDashboard() {
   const { action: storeActions, state: { promotions, products, stores, subscriptionAnalytics, loading: storeLoading } } = useStore();
   const { state: catalogState, action: catalogActions } = useCatalog();
   const router = useRouter();
+  const adminTools = useAdminTools();
 
   useEffect(() => {
     // Fetch all data needed for dashboard
@@ -35,6 +37,54 @@ export default function AdminDashboard() {
     storeActions.getSubscriptionAnalytics();
     catalogActions.loadCategories();
   }, []);
+
+  // Use refs to access latest values and actions without causing re-renders
+  const storesRef = useRef(stores);
+  const productsRef = useRef(products);
+  const promotionsRef = useRef(promotions);
+  const allUsersRef = useRef(authState.allUsers);
+  const authActionsRef = useRef(authActions);
+  const storeActionsRef = useRef(storeActions);
+  const catalogActionsRef = useRef(catalogActions);
+
+  // Update refs when values change
+  useEffect(() => {
+    storesRef.current = stores;
+    productsRef.current = products;
+    promotionsRef.current = promotions;
+    allUsersRef.current = authState.allUsers;
+    authActionsRef.current = authActions;
+    storeActionsRef.current = storeActions;
+    catalogActionsRef.current = catalogActions;
+  });
+
+  // Configure admin tools for dashboard - only run once on mount
+  useEffect(() => {
+    adminTools.setRefreshHandler(() => {
+      authActionsRef.current.fetchAllUsers();
+      storeActionsRef.current.findPromotions();
+      storeActionsRef.current.findProducts();
+      storeActionsRef.current.findStores();
+      storeActionsRef.current.getSubscriptionAnalytics();
+      catalogActionsRef.current.loadCategories();
+    });
+
+    adminTools.setExportHandler(() => {
+      const dashboardData = {
+        timestamp: new Date().toISOString(),
+        metrics: {
+          totalUsers: allUsersRef.current?.length || 0,
+          totalStores: storesRef.current.length,
+          totalProducts: productsRef.current.length,
+          totalPromotions: promotionsRef.current.length,
+        },
+      };
+      console.log("Dashboard data:", JSON.stringify(dashboardData, null, 2));
+    });
+
+    adminTools.setShowSearch(false); // Dashboard doesn't need search
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Only run once on mount
 
   // Calculate today's date for filtering
   const getTodayStart = () => {
@@ -257,7 +307,7 @@ export default function AdminDashboard() {
               <Text style={styles.overviewSub}>Total categories</Text>
               <TouchableOpacity 
                 style={styles.overviewButton}
-                onPress={() => router.push("/(admin)/settings")}
+                onPress={() => router.push("/(admin)/deals")}
               >
                 <Text style={styles.overviewButtonText}>Manage</Text>
                 <Ionicons name="chevron-forward" size={16} color="#8B5CF6" />

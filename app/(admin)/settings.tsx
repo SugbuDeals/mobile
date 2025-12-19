@@ -1,8 +1,9 @@
 import { logout } from "@/features/auth/slice";
 import { useAppDispatch } from "@/store/hooks";
 import { Ionicons } from "@expo/vector-icons";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { router } from "expo-router";
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import {
     ActivityIndicator,
     Alert,
@@ -13,7 +14,6 @@ import {
     TouchableOpacity,
     View,
 } from "react-native";
-import AsyncStorage from "@react-native-async-storage/async-storage";
 
 const SETTINGS_STORAGE_KEY = "@admin_settings";
 
@@ -75,7 +75,7 @@ export default function AdminSettings() {
       }
     } catch (error) {
       console.error("Error loading settings:", error);
-      Alert.alert("Error", "Failed to load settings");
+      // Silently handle error - no popup needed
     } finally {
       setIsLoading(false);
     }

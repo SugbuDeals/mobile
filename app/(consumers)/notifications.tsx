@@ -1,24 +1,24 @@
 import { useNotifications } from "@/features/notifications";
 import type { Notification } from "@/features/notifications/types";
 import {
-  formatNotificationTime,
-  getNotificationColor,
-  getNotificationTypeTitle,
+    formatNotificationTime,
+    getNotificationColor,
+    getNotificationTypeTitle,
 } from "@/utils/notifications";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { LinearGradient } from "expo-linear-gradient";
-import { useRouter, useFocusEffect } from "expo-router";
-import React, { useEffect, useState, useCallback } from "react";
+import { useFocusEffect, useRouter } from "expo-router";
+import { useCallback, useEffect, useState } from "react";
 import {
-  ActivityIndicator,
-  Platform,
-  SafeAreaView,
-  ScrollView,
-  StatusBar,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
+    ActivityIndicator,
+    Platform,
+    SafeAreaView,
+    ScrollView,
+    StatusBar,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View,
 } from "react-native";
 
 // Helper function to get icon for notification type
@@ -255,63 +255,79 @@ export default function Notifications() {
               const typeTitle = getNotificationTypeTitle(notification.type);
               const isMarkingAsRead = markingAsRead === notification.id;
               
+              const cardContent = (
+                <View style={styles.cardContent}>
+                  <View
+                    style={[
+                      styles.iconWrap,
+                      {
+                        backgroundColor: `${color}15`,
+                        borderColor: color,
+                      },
+                    ]}
+                  >
+                    <Ionicons 
+                      name={getNotificationIcon(notification.type)} 
+                      size={20} 
+                      color={color} 
+                    />
+                  </View>
+                  <View style={styles.body}>
+                    <View style={styles.rowTop}>
+                      <View style={styles.titleContainer}>
+                        <Text
+                          style={[
+                            styles.cardTitle,
+                            !notification.read && styles.unreadTitle,
+                          ]}
+                          numberOfLines={1}
+                        >
+                          {notification.title}
+                        </Text>
+                        {!notification.read && !isMarkingAsRead && (
+                          <View style={[styles.unreadDot, { backgroundColor: color }]} />
+                        )}
+                      </View>
+                      <Text style={styles.time}>{time}</Text>
+                    </View>
+                    <Text style={styles.typeLabel}>{typeTitle}</Text>
+                    <Text style={styles.desc} numberOfLines={2}>
+                      {notification.message}
+                    </Text>
+                  </View>
+                  {isMarkingAsRead && (
+                    <View style={styles.loadingIndicator}>
+                      <ActivityIndicator size="small" color="#3B82F6" />
+                    </View>
+                  )}
+                </View>
+              );
+
+              const cardStyle = [
+                styles.card,
+                !notification.read && styles.unreadCard,
+                isMarkingAsRead && styles.readingCard,
+              ];
+
+              if (isMarkingAsRead) {
+                return (
+                  <View
+                    key={notification.id}
+                    style={cardStyle}
+                  >
+                    {cardContent}
+                  </View>
+                );
+              }
+
               return (
                 <TouchableOpacity
                   key={notification.id}
-                  style={[
-                    styles.card,
-                    !notification.read && styles.unreadCard,
-                    isMarkingAsRead && styles.readingCard,
-                  ]}
+                  style={cardStyle}
                   onPress={() => handleNotificationPress(notification)}
-                  disabled={isMarkingAsRead}
                   activeOpacity={0.6}
                 >
-                  <View style={styles.cardContent}>
-                    <View
-                      style={[
-                        styles.iconWrap,
-                        {
-                          backgroundColor: `${color}15`,
-                          borderColor: color,
-                        },
-                      ]}
-                    >
-                      <Ionicons 
-                        name={getNotificationIcon(notification.type)} 
-                        size={20} 
-                        color={color} 
-                      />
-                    </View>
-                    <View style={styles.body}>
-                      <View style={styles.rowTop}>
-                        <View style={styles.titleContainer}>
-                          <Text
-                            style={[
-                              styles.cardTitle,
-                              !notification.read && styles.unreadTitle,
-                            ]}
-                            numberOfLines={1}
-                          >
-                            {notification.title}
-                          </Text>
-                          {!notification.read && !isMarkingAsRead && (
-                            <View style={[styles.unreadDot, { backgroundColor: color }]} />
-                          )}
-                        </View>
-                        <Text style={styles.time}>{time}</Text>
-                      </View>
-                      <Text style={styles.typeLabel}>{typeTitle}</Text>
-                      <Text style={styles.desc} numberOfLines={2}>
-                        {notification.message}
-                      </Text>
-                    </View>
-                    {isMarkingAsRead && (
-                      <View style={styles.loadingIndicator}>
-                        <ActivityIndicator size="small" color="#3B82F6" />
-                      </View>
-                    )}
-                  </View>
+                  {cardContent}
                 </TouchableOpacity>
               );
             })}
@@ -464,8 +480,7 @@ const styles = StyleSheet.create({
     borderLeftColor: "#3B82F6",
   },
   readingCard: {
-    backgroundColor: "#F9FAFB",
-    opacity: 0.9,
+    opacity: 0.8,
   },
   cardContent: {
     flexDirection: "row",
