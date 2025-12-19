@@ -481,14 +481,8 @@ function ProductCard({
   const activePromotion = React.useMemo(() => {
     if (!productId) return undefined;
     
-    // First, try to find a direct promotion match
-    const directMatch = (activePromotions || []).find(
-      (p: Promotion) => p.productId === productId && p.active === true
-    );
-    
-    if (directMatch) return directMatch;
-    
-    // For bundle deals, check if this product is part of any bundle's promotionProducts
+    // For bundle deals, first check if this product is part of any bundle's promotionProducts
+    // This ensures bundle section stays visible when navigating between bundle items
     const bundleMatch = (activePromotions || []).find((p: Promotion) => {
       if (!p.active || p.dealType !== 'BUNDLE') return false;
       
@@ -497,7 +491,14 @@ function ProductCard({
       return promotionProducts.some((pp: any) => pp.productId === productId);
     });
     
-    return bundleMatch;
+    if (bundleMatch) return bundleMatch;
+    
+    // Then, try to find a direct promotion match for non-bundle deals
+    const directMatch = (activePromotions || []).find(
+      (p: Promotion) => p.productId === productId && p.active === true
+    );
+    
+    return directMatch;
   }, [activePromotions, productId]);
 
   // Get all products in the bundle if this is a bundle deal
