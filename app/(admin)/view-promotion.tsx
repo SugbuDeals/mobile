@@ -1,9 +1,9 @@
 import { useLogin } from "@/features/auth";
 import { useStore } from "@/features/store";
-import { Ionicons } from "@expo/vector-icons";
-import React, { useEffect, useMemo, useState } from "react";
-import { ActivityIndicator, Alert, ScrollView, StyleSheet, Switch, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { formatDealDetails, getDealTypeLabel } from "@/utils/dealTypes";
+import { Ionicons } from "@expo/vector-icons";
+import { useEffect, useMemo, useState } from "react";
+import { ActivityIndicator, Alert, ScrollView, StyleSheet, Switch, Text, TextInput, TouchableOpacity, View } from "react-native";
 
 export default function AdminViewPromotions() {
   const { state: storeState, action: storeActions } = useStore();
@@ -34,8 +34,8 @@ export default function AdminViewPromotions() {
     return map;
   }, [storeState.stores]);
 
-  const isOrphanPromotion = (productId: number | null) => {
-    if (!productId) return true; // Null productId means orphan
+  const isOrphanPromotion = (productId: number | null | undefined) => {
+    if (!productId) return true; // Null or undefined productId means orphan
     const product = storeState.products.find((p) => p.id === productId);
     if (!product) return true;
     const store = storeById.get(product.storeId);
@@ -171,7 +171,7 @@ export default function AdminViewPromotions() {
                           {promo.active ? "Active" : "Inactive"}
                         </Text>
                       </View>
-                      {isOrphanPromotion(promo.productId) && (
+                      {isOrphanPromotion(promo.productId ?? null) && (
                         <View style={[styles.metaPill, styles.deletePill]}>
                           <Ionicons name="alert-circle" size={14} color="#991B1B" />
                           <Text style={[styles.metaText, { color: "#991B1B" }]}>Recommended to delete</Text>

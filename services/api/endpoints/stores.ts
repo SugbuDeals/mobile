@@ -13,20 +13,17 @@
 
 import { getApiClient } from "../client";
 import type {
-  StoreResponseDto,
-  StoreWithDistanceResponseDto,
-  CreateStoreDTO,
-  UpdateStoreDTO,
-  ManageStoreStatusDTO,
+    CreateStoreDTO,
+    ManageStoreStatusDTO,
+    StoreResponseDto,
+    StoreWithDistanceResponseDto,
+    UpdateStoreDTO,
 } from "../types/swagger";
 
 // Re-export Swagger types for convenience
 export type {
-  StoreResponseDto,
-  StoreWithDistanceResponseDto,
-  CreateStoreDTO,
-  UpdateStoreDTO,
-  ManageStoreStatusDTO,
+    CreateStoreDTO, ManageStoreStatusDTO, StoreResponseDto,
+    StoreWithDistanceResponseDto, UpdateStoreDTO
 };
 
 export interface FindStoresParams {
@@ -41,6 +38,56 @@ export interface FindNearbyStoresParams {
   longitude: number;
   radius?: number;
   radiusKm?: number;
+}
+
+export interface GetStoreWithFullDetailsParams {
+  includeProducts?: boolean; // Include products in the response (default: true)
+  includePromotions?: boolean; // Include promotions for each product (default: true)
+  onlyActivePromotions?: boolean; // Filter to only active promotions (default: true)
+  [key: string]: string | number | boolean | undefined;
+}
+
+// Response types for stores with full details
+export interface StoreWithFullDetailsDto extends StoreResponseDto {
+  products?: Array<{
+    id: number;
+    name: string;
+    price: string;
+    stock: number;
+    isActive: boolean;
+    promotions?: Array<{
+      id: number;
+      title: string;
+      dealType: string;
+      percentageOff?: number | null;
+      active: boolean;
+    }>;
+  }>;
+}
+
+export interface NearbyStoreWithPromotionsDto {
+  stores: Array<StoreWithDistanceResponseDto>;
+  promotions: Array<{
+    id: number;
+    title: string;
+    dealType: string;
+    percentageOff?: number | null;
+    active: boolean;
+    products: Array<{
+      id: number;
+      name: string;
+      price: string;
+      store: {
+        id: number;
+        name: string;
+      };
+    }>;
+  }>;
+  searchParams: {
+    latitude: number;
+    longitude: number;
+    radiusKm: number;
+  };
 }
 
 export const storesApi = {
@@ -147,6 +194,60 @@ export const storesApi = {
    */
   deleteStore: (storeId: number): Promise<StoreResponseDto> => {
     return getApiClient().delete<StoreResponseDto>(`/store/${storeId}`);
+  },
+
+  /**
+   * Retrieves a store with all its products and their active promotions
+   * Use query parameters to control which data is included for optimal performance
+   * Perfect for store detail pages
+   * Operation: StoreController_getStoreWithProductsAndPromotions
+   * Endpoint: GET /store/{id}/full
+   * 
+   * @param storeId - Store ID
+   * @param params - Optional query parameters to control which data is included
+   */
+  getStoreWithFullDetails: (
+    storeId: number,
+    params?: GetStoreWithFullDetailsParams
+  ): Promise<StoreWithFullDetailsDto> => {
+    return getApiClient().get<StoreWithFullDetailsDto>(`/store/${storeId}/full`, params);
+  },
+
+  /**
+   * Returns stores within a specified radius with their active promotions
+   * Perfect for location-based deal discovery
+   * Operation: StoreController_findNearbyWithPromotions
+   * Endpoint: GET /store/nearby-with-promotions
+   * 
+   * @param params - Location parameters (latitude, longitude, radius)
+   */
+  findNearbyStoresWithPromotions: (
+    params: FindNearbyStoresParams
+  ): Promise<NearbyStoreWithPromotionsDto> => {
+    const queryParams: {
+      latitude: number;
+      longitude: number;
+      radius?: number;
+    } = {
+      latitude: params.latitude,
+      longitude: params.longitude,
+    };
+    
+    // Always include radius to avoid backend default of 10km
+    // Prefer radiusKm, fallback to radius, or default to 1km (BASIC tier limit)
+    if (params.radiusKm !== undefined) {
+      queryParams.radius = params.radiusKm;
+    } else if (params.radius !== undefined) {
+      queryParams.radius = params.radius;
+    } else {
+      // Default to 1km (BASIC tier limit) if not provided
+      queryParams.radius = 1;
+    }
+    
+    return getApiClient().get<NearbyStoreWithPromotionsDto>(
+      "/store/nearby-with-promotions",
+      queryParams
+    );
   },
 };
 

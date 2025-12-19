@@ -7,6 +7,7 @@ import { useStore } from "@/features/store";
 import type { Promotion } from "@/features/store/promotions/types";
 import type { Store } from "@/features/store/stores/types";
 import { promotionsApi } from "@/services/api/endpoints/promotions";
+import { viewsApi } from "@/services/api/endpoints/views";
 import type { VoucherTokenResponseDto } from "@/services/api/types/swagger";
 import { formatDealDetails } from "@/utils/dealTypes";
 import Ionicons from "@expo/vector-icons/Ionicons";
@@ -81,6 +82,19 @@ export default function ProductDetailScreen() {
       findStoreById(productStoreId);
     }
   }, [productStoreId, findStoreById]);
+
+  // Record view when product is viewed
+  React.useEffect(() => {
+    if (productId && Number.isFinite(productId) && productId > 0) {
+      viewsApi.recordView({
+        entityType: "PRODUCT",
+        entityId: productId,
+      }).catch((error) => {
+        // Silently fail - view recording is not critical
+        console.debug("Failed to record product view:", error);
+      });
+    }
+  }, [productId]);
   const storeFromList = stores.find((s: Store) => s.id === productStoreId);
   const storeFromSelected =
     selectedStore && selectedStore.id === productStoreId

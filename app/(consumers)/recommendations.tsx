@@ -3,7 +3,7 @@ import { useStore } from "@/features/store";
 import type { Promotion } from "@/features/store/promotions/types";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { useRouter } from "expo-router";
-import React, { useEffect, useMemo } from "react";
+import { useEffect, useMemo } from "react";
 import {
     Image,
     SafeAreaView,
@@ -33,8 +33,8 @@ export default function AllRecommendations() {
   const promotionMap = useMemo(() => {
     const map = new Map<number, Promotion>();
     activePromotions.forEach(promotion => {
-      if (promotion.productId !== null) {
-        map.set(promotion.productId, promotion);
+      if (promotion.productId !== null && promotion.productId !== undefined) {
+        map.set(promotion.productId as number, promotion);
       }
     });
     return map;
@@ -43,10 +43,11 @@ export default function AllRecommendations() {
   // Calculate discounted price
   const getDiscountedPrice = (originalPrice: number | string, promotion: Promotion) => {
     const price = typeof originalPrice === 'string' ? parseFloat(originalPrice) : originalPrice;
+    const discount = promotion.discount ?? 0;
     if (promotion.type === 'percentage') {
-      return price * (1 - promotion.discount / 100);
+      return price * (1 - discount / 100);
     } else {
-      return Math.max(0, price - promotion.discount);
+      return Math.max(0, price - discount);
     }
   };
 

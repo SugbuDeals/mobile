@@ -44,3 +44,8 @@ export * from "./endpoints/ai";
 // API Endpoints - Files
 export * from "./endpoints/files";
 
+// API Endpoints - Views
+export * from "./endpoints/views";
+// Re-export ListViewsParamsExtended from views endpoint (extended version with index signature)
+export type { ListViewsParamsExtended as ListViewsParams } from "./endpoints/views";
+

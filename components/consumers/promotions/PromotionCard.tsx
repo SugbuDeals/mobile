@@ -3,11 +3,10 @@
  * Displays promotion details for all 6 deal types
  */
 
-import React from "react";
-import { View, Text, StyleSheet, TouchableOpacity } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
 import type { PromotionResponseDto } from "@/services/api/types/swagger";
-import { formatDealDetails, getDealTypeLabel, calculatePromotionPrice } from "@/utils/dealTypes";
+import { calculatePromotionPrice, formatDealDetails, getDealTypeLabel } from "@/utils/dealTypes";
+import { Ionicons } from "@expo/vector-icons";
+import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
 interface PromotionCardProps {
   promotion: PromotionResponseDto;
@@ -107,7 +106,7 @@ export default function PromotionCard({ promotion, productName, productPrice, on
 function getDealIcon(dealType: string): any {
   switch (dealType) {
     case "PERCENTAGE_DISCOUNT":
-      return "percent";
+      return "pricetag-outline";
     case "FIXED_DISCOUNT":
       return "cash";
     case "BOGO":

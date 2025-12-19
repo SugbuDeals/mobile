@@ -11,58 +11,32 @@ export * from "./swagger";
 
 // Re-export commonly used types for convenience
 export type {
-  // Auth
-  LoginDTO,
-  RegisterDTO,
-  UserResponseDto,
-  AuthResponseDto,
-  UpdateUserDTO,
-  // Store
-  StoreResponseDto,
-  StoreWithDistanceResponseDto,
-  CreateStoreDTO,
-  UpdateStoreDTO,
-  ManageStoreStatusDTO,
-  // Product
-  ProductResponseDto,
-  CreateProductDTO,
-  UpdateProductDTO,
-  UpdateProductStatusDTO,
-  // Promotion
-  PromotionResponseDto,
-  CreatePromotionDto,
-  UpdatePromotionDto,
-  AddProductsToPromotionDto,
-  // Category
-  CategoryResponseDto,
-  CreateCategoryDTO,
-  UpdateCategoryDTO,
-  // Notification
-  NotificationResponseDto,
-  CreateNotificationDto,
-  NotificationType,
-  // Subscription
-  SubscriptionTierResponseDto,
-  SubscriptionAnalyticsDto,
-  SubscriptionTier,
-  RoleTierCountDto,
-  ByRoleAndTierDto,
-  RevenueDto,
-  // Bookmark
-  StoreBookmarkResponseDto,
-  ProductBookmarkResponseDto,
-  StoreBookmarkDto,
-  ProductBookmarkDto,
-  ListBookmarksDto,
-  // AI
-  ChatRequestDto,
-  ChatResponseDto,
-  ProductRecommendationItemDto,
-  StoreRecommendationItemDto,
-  PromotionRecommendationItemDto,
-  // File
-  FileUploadResponse,
-  FileDeleteResponse,
-  ClearAllFilesResponse,
+    AddProductsToPromotionDto, AuthResponseDto, ByRoleAndTierDto,
+    // Category
+    CategoryResponseDto,
+    // AI
+    ChatRequestDto,
+    ChatResponseDto, ClearAllFilesResponse, CreateCategoryDTO, CreateNotificationDto, CreateProductDTO, CreatePromotionDto, CreateStoreDTO,
+    // Views
+    EntityType, FileDeleteResponse,
+    // File
+    FileUploadResponse, ListBookmarksDto,
+    // Auth
+    LoginDTO, ManageStoreStatusDTO,
+    // Notification
+    NotificationResponseDto, NotificationType, ProductBookmarkDto, ProductBookmarkResponseDto, ProductRecommendationItemDto,
+    // Product
+    ProductResponseDto, PromotionRecommendationItemDto,
+    // Promotion
+    PromotionResponseDto, RecordViewDto, RegisterDTO, RevenueDto, RoleTierCountDto, StoreBookmarkDto,
+    // Bookmark
+    StoreBookmarkResponseDto, StoreRecommendationItemDto,
+    // Store
+    StoreResponseDto,
+    StoreWithDistanceResponseDto, SubscriptionAnalyticsDto,
+    SubscriptionTier,
+    // Subscription
+    SubscriptionTierResponseDto, UpdateCategoryDTO, UpdateProductDTO,
+    UpdateProductStatusDTO, UpdatePromotionDto, UpdateStoreDTO, UpdateUserDTO, UserResponseDto, ViewCountResponseDto, ViewResponseDto
 } from "./swagger";
 

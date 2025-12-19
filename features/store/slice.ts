@@ -3,9 +3,10 @@
  */
 
 import { combineReducers } from "@reduxjs/toolkit";
-import { storesReducer } from "./stores/slice";
+import { analyticsReducer } from "./analytics/slice";
 import { productsReducer } from "./products/slice";
 import { promotionsReducer } from "./promotions/slice";
+import { storesReducer } from "./stores/slice";
 import { subscriptionsReducer } from "./subscriptions/slice";
 
 // Combine all domain reducers
@@ -14,22 +15,19 @@ export const storeReducer = combineReducers({
   products: productsReducer,
   promotions: promotionsReducer,
   subscriptions: subscriptionsReducer,
+  analytics: analyticsReducer,
 });
 
 // Re-export actions from all domains
-export * from "./stores/slice";
+export * from "./analytics/slice";
 export {
-  clearProducts,
-  setComponentLoading as setProductComponentLoading,
-  clearComponentLoading as clearProductComponentLoading,
-  productsReducer,
-  selectIsDeletingProduct,
+    clearComponentLoading as clearProductComponentLoading, clearProducts, productsReducer,
+    selectIsDeletingProduct, setComponentLoading as setProductComponentLoading
 } from "./products/slice";
 export {
-  clearPromotions,
-  setComponentLoading as setPromotionComponentLoading,
-  clearComponentLoading as clearPromotionComponentLoading,
-  promotionsReducer,
-  selectIsUpdatingPromotion,
+    clearComponentLoading as clearPromotionComponentLoading, clearPromotions, promotionsReducer,
+    selectIsUpdatingPromotion, setComponentLoading as setPromotionComponentLoading
 } from "./promotions/slice";
+export * from "./stores/slice";
 export * from "./subscriptions/slice";
+

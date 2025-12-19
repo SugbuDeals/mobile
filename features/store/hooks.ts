@@ -17,8 +17,10 @@ import * as promotionsSelectors from "./promotions/selectors";
 import * as promotionsThunks from "./promotions/thunks";
 
 // Subscription domain hooks
-import * as subscriptionsSelectors from "./subscriptions/selectors";
 import * as subscriptionsThunks from "./subscriptions/thunks";
+
+// Analytics domain hooks
+import * as analyticsThunks from "./analytics/thunks";
 
 /**
  * Hook for store operations
@@ -152,6 +154,27 @@ export function useSubscriptions() {
 }
 
 /**
+ * Hook for analytics operations
+ */
+export function useAnalytics() {
+  const dispatch = useAppDispatch();
+  const analyticsState = useAppSelector((state) => state.store.analytics);
+
+  return {
+    state: {
+      analytics: analyticsState.analytics,
+      loading: analyticsState.loading,
+      error: analyticsState.error,
+    },
+    actions: {
+      getRetailerAnalytics: (params: Parameters<typeof analyticsThunks.getRetailerAnalytics>[0]) =>
+        dispatch(analyticsThunks.getRetailerAnalytics(params)),
+      clearAnalytics: () => dispatch({ type: "analytics/clearAnalytics" }),
+    },
+  };
+}
+
+/**
  * Combined hook for all store operations (backward compatibility)
  */
 export function useStore() {
@@ -159,6 +182,7 @@ export function useStore() {
   const products = useProducts();
   const promotions = usePromotions();
   const subscriptions = useSubscriptions();
+  const analytics = useAnalytics();
 
   return {
     state: {
@@ -171,16 +195,19 @@ export function useStore() {
       activePromotions: promotions.state.activePromotions,
       currentTier: subscriptions.state.currentTier,
       subscriptionAnalytics: subscriptions.state.subscriptionAnalytics,
+      analytics: analytics.state.analytics,
       loading:
         stores.state.loading ||
         products.state.loading ||
         promotions.state.loading ||
-        subscriptions.state.loading,
+        subscriptions.state.loading ||
+        analytics.state.loading,
       error:
         stores.state.error ||
         products.state.error ||
         promotions.state.error ||
-        subscriptions.state.error,
+        subscriptions.state.error ||
+        analytics.state.error,
     },
     action: {
       // Store actions
@@ -210,6 +237,9 @@ export function useStore() {
       upgradeToPro: subscriptions.actions.upgradeToPro,
       downgradeToBasic: subscriptions.actions.downgradeToBasic,
       getSubscriptionAnalytics: subscriptions.actions.getSubscriptionAnalytics,
+      // Analytics actions
+      getRetailerAnalytics: analytics.actions.getRetailerAnalytics,
+      clearAnalytics: analytics.actions.clearAnalytics,
     },
   };
 }

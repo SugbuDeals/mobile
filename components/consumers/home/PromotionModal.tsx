@@ -1,17 +1,18 @@
-import React from "react";
-import {
-  StyleSheet,
-  ScrollView,
-  Text,
-  TouchableOpacity,
-  View,
-  Image,
-} from "react-native";
-import { useRouter } from "expo-router";
 import { Modal } from "@/components/Modal";
-import { colors, spacing, borderRadius, typography } from "@/styles/theme";
 import type { Product } from "@/features/catalog/types";
 import type { Promotion } from "@/features/store/promotions/types";
+import { viewsApi } from "@/services/api/endpoints/views";
+import { borderRadius, colors, spacing, typography } from "@/styles/theme";
+import { useRouter } from "expo-router";
+import { useEffect } from "react";
+import {
+    Image,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View,
+} from "react-native";
 
 interface PromotionModalProps {
   promotion: Promotion;
@@ -43,10 +44,11 @@ export default function PromotionModal({
   };
 
   const getDiscountedPrice = (originalPrice: number, promo: Promotion) => {
+    const discount = promo.discount ?? 0;
     if (promo.type === "percentage") {
-      return originalPrice * (1 - promo.discount / 100);
+      return originalPrice * (1 - discount / 100);
     } else {
-      return Math.max(0, originalPrice - promo.discount);
+      return Math.max(0, originalPrice - discount);
     }
   };
 
@@ -71,6 +73,19 @@ export default function PromotionModal({
     promotion.type === "percentage"
       ? `${promotion.discount}% OFF`
       : `₱${promotion.discount} OFF`;
+
+  // Record view when promotion modal is opened
+  useEffect(() => {
+    if (promotion?.id && Number.isFinite(promotion.id) && promotion.id > 0) {
+      viewsApi.recordView({
+        entityType: "PROMOTION",
+        entityId: promotion.id,
+      }).catch((error) => {
+        // Silently fail - view recording is not critical
+        console.debug("Failed to record promotion view:", error);
+      });
+    }
+  }, [promotion?.id]);
 
   return (
     <Modal

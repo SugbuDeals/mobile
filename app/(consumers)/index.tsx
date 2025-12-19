@@ -9,19 +9,20 @@ import { useStore } from "@/features/store";
 import type { Promotion } from "@/features/store/promotions/types";
 import { useAsyncEffect } from "@/hooks/useAsyncEffect";
 import { useStableThunk } from "@/hooks/useStableCallback";
+import { viewsApi } from "@/services/api/endpoints/views";
 import { filterPromotionsByPlacement, sortPromotionsByPriority } from "@/utils/dealPlacement";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Location from "expo-location";
 import { useFocusEffect, useRouter } from "expo-router";
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
-  Image,
-  Modal,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
+    Image,
+    Modal,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View,
 } from "react-native";
 
 type Router = ReturnType<typeof useRouter>;
@@ -325,6 +326,19 @@ function PromotionModal({
     });
     onClose();
   };
+
+  // Record view when promotion modal is opened
+  useEffect(() => {
+    if (promotion?.id && Number.isFinite(promotion.id) && promotion.id > 0) {
+      viewsApi.recordView({
+        entityType: "PROMOTION",
+        entityId: promotion.id,
+      }).catch((error) => {
+        // Silently fail - view recording is not critical
+        console.debug("Failed to record promotion view:", error);
+      });
+    }
+  }, [promotion?.id]);
 
   // Get deal-specific information for display
   const getDealInfo = (promo: Promotion, productPrice: number | string) => {
