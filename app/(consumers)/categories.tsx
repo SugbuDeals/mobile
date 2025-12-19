@@ -188,12 +188,15 @@ export default function CategoriesPage() {
 
   const getProductCategoryName = useCallback(
     (product: CatalogProduct | StoreProduct): string => {
-      const categoryId = 'categoryId' in product ? product.categoryId : undefined;
-      if (!categoryId) return "";
-      const match = (categories || []).find(
-        (cat: Category) => String(cat.id) === String(categoryId)
+      // Use the helper function that checks both categoryId and custom category
+      const { getProductCategoryName: getCategoryName } = require("@/utils/categoryHelpers");
+      return getCategoryName(
+        {
+          categoryId: 'categoryId' in product ? product.categoryId : null,
+          description: product.description || null,
+        },
+        categories || []
       );
-      return match?.name ? String(match.name) : "";
     },
     [categories]
   );

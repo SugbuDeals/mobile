@@ -67,10 +67,11 @@ export const markAsRead = createAsyncThunk<
   Notification,
   number,
   { rejectValue: { message: string }; state: RootState }
->("notifications/markAsRead", async (id, { rejectWithValue }) => {
+>("notifications/markAsRead", async (id, { rejectWithValue, dispatch }) => {
   try {
     const result = await notificationsApi.markAsRead(id);
-    // Return NotificationResponseDto as-is (Notification is alias)
+    // Automatically refresh unread count
+    dispatch(getUnreadCount());
     return result;
   } catch (error: unknown) {
     return rejectWithValue({
@@ -90,9 +91,11 @@ export const markAllAsRead = createAsyncThunk<
   { rejectValue: { message: string }; state: RootState }
 >(
   "notifications/markAllAsRead",
-  async (_, { rejectWithValue }) => {
+  async (_, { rejectWithValue, dispatch }) => {
     try {
       await notificationsApi.markAllAsRead();
+      // Automatically refresh unread count
+      dispatch(getUnreadCount());
       return;
     } catch (error: any) {
       return rejectWithValue({
@@ -111,9 +114,11 @@ export const deleteNotification = createAsyncThunk<
   { rejectValue: { message: string }; state: RootState }
 >(
   "notifications/deleteNotification",
-  async (id, { rejectWithValue }) => {
+  async (id, { rejectWithValue, dispatch }) => {
     try {
       await notificationsApi.deleteNotification(id);
+      // Automatically refresh unread count
+      dispatch(getUnreadCount());
       // Return a minimal notification object for the reducer
       return {
         id,
@@ -145,9 +150,11 @@ export const createNotification = createAsyncThunk<
   { rejectValue: { message: string }; state: RootState }
 >(
   "notifications/createNotification",
-  async (notificationData, { rejectWithValue }) => {
+  async (notificationData, { rejectWithValue, dispatch }) => {
     try {
       const result = await notificationsApi.createNotification(notificationData);
+      // Automatically refresh unread count
+      dispatch(getUnreadCount());
       // Map API response to Notification format
       return {
         id: result.id,

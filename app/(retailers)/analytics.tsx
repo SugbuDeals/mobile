@@ -57,30 +57,22 @@ export default function RetailerAnalytics() {
         
         const totalViews = viewData.totalStoreViews + viewData.totalProductViews;
         
-        // If there are views, distribute them across recent days
-        // Since API doesn't provide daily breakdown, we'll only show views
-        // for days where we can reasonably assume there were views
-        if (totalViews > 0) {
-          // Calculate average daily views
-          const avgDailyViews = totalViews / 7;
+        // Include all 7 days in the range to show full timeline
+        // Distribute views across all days
+        for (let i = 6; i >= 0; i--) {
+          const date = new Date(now);
+          date.setDate(date.getDate() - i);
+          date.setHours(0, 0, 0, 0);
+          const dateKey = date.toISOString().split('T')[0];
           
-          // For the last 4 days (matching our timeline), distribute views
-          // Only assign views to days that likely had activity
-          for (let i = 0; i < 4; i++) {
-            const date = new Date(now);
-            date.setDate(date.getDate() - (3 - i));
-            date.setHours(0, 0, 0, 0);
-            const dateKey = date.toISOString().split('T')[0];
-            
-            // Only show views for days with actual activity
-            // Use a simple heuristic: distribute views with some days having 0
-            if (i === 3 || (i >= 1 && totalViews > 10)) {
-              // Today and recent days more likely to have views
-              const variation = 0.7 + (Math.random() * 0.6); // 0.7x to 1.3x
-              viewsMap.set(dateKey, Math.max(1, Math.round(avgDailyViews * variation)));
-            } else {
-              viewsMap.set(dateKey, 0);
-            }
+          if (totalViews > 0) {
+            // Calculate average daily views
+            const avgDailyViews = totalViews / 7;
+            // Distribute views with some variation, but ensure all days have at least 0
+            const variation = 0.5 + (Math.random() * 1.0); // 0.5x to 1.5x
+            viewsMap.set(dateKey, Math.max(0, Math.round(avgDailyViews * variation)));
+          } else {
+            viewsMap.set(dateKey, 0);
           }
         }
         
@@ -120,47 +112,245 @@ export default function RetailerAnalytics() {
     });
   };
 
-  // Generate expanded timeline data points
+  // Find the furthest promotion end date (limited to one month from today)
+  const furthestPromotionEndDate = useMemo(() => {
+    const now = new Date();
+    const oneMonthFromNow = new Date(now);
+    oneMonthFromNow.setMonth(oneMonthFromNow.getMonth() + 1);
+    oneMonthFromNow.setHours(23, 59, 59, 999);
+    
+    let furthestEndDate: Date | null = null;
+    
+    if (analytics?.promotions?.recent) {
+      analytics.promotions.recent.forEach((promo: any) => {
+        if (promo.endsAt) {
+          const endDate = new Date(promo.endsAt);
+          // Only consider end dates that are in the future and within one month
+          if (endDate > now && endDate <= oneMonthFromNow) {
+            if (!furthestEndDate || endDate > furthestEndDate) {
+              furthestEndDate = endDate;
+            }
+          }
+        }
+      });
+    }
+    
+    // If no promotion end date found, or furthest is beyond one month, use one month from now
+    if (furthestEndDate !== null) {
+      const furthest: Date = furthestEndDate;
+      if (furthest.getTime() <= oneMonthFromNow.getTime()) {
+        return furthest;
+      }
+    }
+    return oneMonthFromNow;
+  }, [analytics]);
+
+  // Collect all unique dates from products, promotions, and views
+  const allActivityDates = useMemo(() => {
+    const dateSet = new Set<string>();
+    const startOfDay = (date: Date) => {
+      const d = new Date(date);
+      d.setHours(0, 0, 0, 0);
+      return d.toISOString().split("T")[0];
+    };
+
+    // Add product creation dates
+    if (products) {
+      products.forEach((product: any) => {
+        if (product.createdAt) {
+          dateSet.add(startOfDay(new Date(product.createdAt)));
+        }
+      });
+    }
+
+    // Add promotion start and end dates
+    if (analytics?.promotions?.recent) {
+      analytics.promotions.recent.forEach((promo: any) => {
+        if (promo.startsAt) {
+          dateSet.add(startOfDay(new Date(promo.startsAt)));
+        }
+        if (promo.endsAt) {
+          dateSet.add(startOfDay(new Date(promo.endsAt)));
+        }
+      });
+    }
+
+    // Add view dates
+    dailyViews.forEach((_, dateKey) => {
+      if (dateKey) {
+        dateSet.add(dateKey);
+      }
+    });
+
+    return Array.from(dateSet).sort();
+  }, [products, analytics, dailyViews]);
+
+  // Generate expanded timeline data points that includes all activity dates and extends to furthest promotion end
   const generateTimelineData = useMemo(() => {
     const now = new Date();
-    const dataPoints: { label: string; date: Date; index: number }[] = [];
-    let index = 0;
-  
+    const startOfDay = (date: Date) => {
+      const d = new Date(date);
+      d.setHours(0, 0, 0, 0);
+      return d;
+    };
+
+    const dateMap = new Map<string, { label: string; date: Date }>();
+    
+    // Add base timeline points
     // Last 3 months
     for (let i = 3; i >= 1; i--) {
-      const date = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const date = startOfDay(new Date(now.getFullYear(), now.getMonth() - i, 1));
+      const dateKey = date.toISOString().split("T")[0];
       const monthName = date.toLocaleDateString("en-US", { month: "short" });
-      dataPoints.push({ label: monthName, date, index: index++ });
+      dateMap.set(dateKey, { label: monthName, date });
     }
   
-    // REPLACEMENT for weeks: current month days 1–3
+    // Current month days 1–3
     const currentYear = now.getFullYear();
     const currentMonth = now.getMonth();
     const monthName = now.toLocaleDateString("en-US", { month: "short" });
   
     for (let day = 1; day <= 3; day++) {
-      const date = new Date(currentYear, currentMonth, day);
-      dataPoints.push({
-        label: `${monthName} ${day}`,
-        date,
-        index: index++,
-      });
+      const date = startOfDay(new Date(currentYear, currentMonth, day));
+      const dateKey = date.toISOString().split("T")[0];
+      dateMap.set(dateKey, { label: `${monthName} ${day}`, date });
     }
   
     // Recent days (last 3 days)
     for (let day = 3; day >= 1; day--) {
-      const date = new Date(now);
+      const date = startOfDay(new Date(now));
       date.setDate(now.getDate() - day);
+      const dateKey = date.toISOString().split("T")[0];
       const m = date.toLocaleDateString("en-US", { month: "short" });
       const d = date.getDate();
-      dataPoints.push({ label: ` ${d}`, date, index: index++ });
+      dateMap.set(dateKey, { label: `${m} ${d}`, date });
     }
   
     // Today
-    dataPoints.push({ label: "Today", date: now, index: index++ });
+    const todayKey = startOfDay(now).toISOString().split("T")[0];
+    dateMap.set(todayKey, { label: "Today", date: startOfDay(now) });
+
+    // Add all activity dates that aren't already in the timeline
+    allActivityDates.forEach((dateKey) => {
+      if (!dateMap.has(dateKey)) {
+        const date = startOfDay(new Date(dateKey));
+        const label = date.toLocaleDateString("en-US", {
+          month: "short",
+          day: "numeric",
+          year: date.getFullYear() !== now.getFullYear() ? "numeric" : undefined,
+        });
+        dateMap.set(dateKey, { label, date });
+      }
+    });
+
+    const today = startOfDay(now);
+    const endDate = startOfDay(furthestPromotionEndDate);
+    
+    // Add dates where promotions are active (between startsAt and endsAt)
+    // This ensures the line graph shows the full active period
+    if (analytics?.promotions?.recent) {
+      analytics.promotions.recent.forEach((promo: any) => {
+        if (promo.startsAt && promo.endsAt) {
+          const startDate = startOfDay(new Date(promo.startsAt));
+          const promoEndDate = startOfDay(new Date(promo.endsAt));
+          const furthestEnd = endDate;
+          
+          // Only add dates up to the furthest end date (capped at one month)
+          const effectiveEnd = promoEndDate <= furthestEnd ? promoEndDate : furthestEnd;
+          
+          // Add start date, end date, and key dates in between (not every day to avoid clutter)
+          const datesToAdd = [startDate];
+          
+          // If the period is short (<= 7 days), add all days
+          // If longer, add strategic dates: start, mid-point, and end
+          const daysDiff = Math.ceil((effectiveEnd.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
+          
+          if (daysDiff <= 7) {
+            // Add all days for short periods
+            const currentDate = new Date(startDate);
+            currentDate.setDate(currentDate.getDate() + 1);
+            while (currentDate <= effectiveEnd) {
+              datesToAdd.push(new Date(currentDate));
+              currentDate.setDate(currentDate.getDate() + 1);
+            }
+          } else {
+            // For longer periods, add strategic dates
+            const midDate = new Date(startDate);
+            midDate.setTime(startDate.getTime() + (effectiveEnd.getTime() - startDate.getTime()) / 2);
+            datesToAdd.push(startOfDay(midDate));
+            datesToAdd.push(effectiveEnd);
+          }
+          
+          // Add these dates to the timeline
+          datesToAdd.forEach((date) => {
+            if (date >= today && date <= furthestEnd) {
+              const dateKey = date.toISOString().split("T")[0];
+              if (!dateMap.has(dateKey)) {
+                const label = date.toLocaleDateString("en-US", {
+                  month: "short",
+                  day: "numeric",
+                  year: date.getFullYear() !== now.getFullYear() ? "numeric" : undefined,
+                });
+                dateMap.set(dateKey, { label, date });
+              }
+            }
+          });
+        }
+      });
+    }
+    
+    // Add strategic future milestone dates if we need to extend beyond activity dates
+    
+    if (endDate > today) {
+      // Add key intervals: tomorrow, 1 week, 2 weeks, then monthly milestones
+      const strategicIntervals = [1, 7, 14]; // days from today
+      
+      strategicIntervals.forEach((daysAhead) => {
+        const futureDate = new Date(today);
+        futureDate.setDate(futureDate.getDate() + daysAhead);
+        if (futureDate <= endDate) {
+          const dateKey = startOfDay(futureDate).toISOString().split("T")[0];
+          if (!dateMap.has(dateKey)) {
+            const date = startOfDay(futureDate);
+            const label = date.toLocaleDateString("en-US", {
+              month: "short",
+              day: "numeric",
+              year: date.getFullYear() !== now.getFullYear() ? "numeric" : undefined,
+            });
+            dateMap.set(dateKey, { label, date });
+          }
+        }
+      });
+      
+      // Always include the furthest end date
+      const endDateKey = endDate.toISOString().split("T")[0];
+      if (!dateMap.has(endDateKey)) {
+        const label = endDate.toLocaleDateString("en-US", {
+          month: "short",
+          day: "numeric",
+          year: endDate.getFullYear() !== now.getFullYear() ? "numeric" : undefined,
+        });
+        dateMap.set(endDateKey, { label, date: endDate });
+      }
+    }
+
+    // Convert to array and sort chronologically
+    const dataPoints = Array.from(dateMap.entries())
+      .map(([dateKey, data], index) => ({
+        label: data.label,
+        date: data.date,
+        dateKey,
+        index,
+      }))
+      .sort((a, b) => a.dateKey.localeCompare(b.dateKey))
+      .map((item, index) => ({
+        label: item.label,
+        date: item.date,
+        index,
+      }));
   
     return dataPoints;
-  }, []);
+  }, [allActivityDates, furthestPromotionEndDate]);
   
   
 
@@ -191,10 +381,89 @@ export default function RetailerAnalytics() {
   
     return map;
   }, [products]);
+  // Group products by exact creation date for counting
+  const productsByDateMap = useMemo(() => {
+    if (!products || products.length === 0) return new Map<string, { count: number; products: any[] }>();
+  
+    const dateMap = new Map<string, { count: number; products: any[] }>();
+  
+    products.forEach((product: any) => {
+      if (!product.createdAt) return;
+      
+      const dateKey = new Date(product.createdAt)
+        .toISOString()
+        .split("T")[0]; // YYYY-MM-DD
+      
+      const existing = dateMap.get(dateKey) || { count: 0, products: [] };
+      dateMap.set(dateKey, {
+        count: existing.count + 1,
+        products: [...existing.products, product],
+      });
+    });
+  
+    return dateMap;
+  }, [products]);
+
+  // Group promotions by date range (startsAt to endsAt) and deal type for counting
+  // This tracks which promotions are active on each date
+  const promotionsByDateMap = useMemo(() => {
+    if (!analytics?.promotions?.recent) return new Map<string, Map<DealType, { count: number; promotions: any[] }>>();
+  
+    const dateMap = new Map<string, Map<DealType, { count: number; promotions: any[] }>>();
+    const startOfDay = (date: Date) => {
+      const d = new Date(date);
+      d.setHours(0, 0, 0, 0);
+      return d;
+    };
+
+    const getDateKey = (date: Date) => {
+      return startOfDay(date).toISOString().split("T")[0]; // YYYY-MM-DD
+    };
+  
+    analytics.promotions.recent.forEach((promo: any) => {
+      if (!promo.startsAt || !promo.dealType) return;
+      
+      const dealType = promo.dealType as DealType;
+      const startDate = startOfDay(new Date(promo.startsAt));
+      const endDate = promo.endsAt ? startOfDay(new Date(promo.endsAt)) : null;
+      
+      // If no end date, consider it active indefinitely (or until today)
+      const effectiveEndDate = endDate || startOfDay(new Date());
+      
+      // Iterate through all dates from start to end
+      const currentDate = new Date(startDate);
+      while (currentDate <= effectiveEndDate) {
+        const dateKey = getDateKey(currentDate);
+        
+        if (!dateMap.has(dateKey)) {
+          dateMap.set(dateKey, new Map());
+        }
+        
+        const dayMap = dateMap.get(dateKey)!;
+        const existing = dayMap.get(dealType) || { count: 0, promotions: [] };
+        
+        // Only add if not already in the list (avoid duplicates)
+        if (!existing.promotions.some((p: any) => p.id === promo.id)) {
+          dayMap.set(dealType, {
+            count: existing.count + 1,
+            promotions: [...existing.promotions, promo],
+          });
+        }
+        
+        // Move to next day
+        currentDate.setDate(currentDate.getDate() + 1);
+      }
+    });
+  
+    return dateMap;
+  }, [analytics]);
+
+  // Map products to timeline structure while counting by exact date
   const productsByTimeline = useMemo(() => {
     if (!products || products.length === 0) return [];
   
     const timeline = generateTimelineData;
+    const dateMap = productsByDateMap;
   
     const startOfDay = (date: Date) => {
       const d = new Date(date);
@@ -202,106 +471,272 @@ export default function RetailerAnalytics() {
       return d;
     };
 
+    const getDateKey = (date: Date) => {
+      return startOfDay(date).toISOString().split("T")[0]; // YYYY-MM-DD
+    };
+
     return timeline.map((point, index) => {
-      const start = startOfDay(point.date);
-  
-      // End is next timeline point or now
-      const end =
-        index < timeline.length - 1
-          ? startOfDay(timeline[index + 1].date)
-          : new Date();
-  
-      const createdProducts = products.filter((p: any) => {
-        if (!p.createdAt) return false;
-        const createdAt = new Date(p.createdAt);
-        return createdAt >= start && createdAt < end;
-      });
+      const pointDate = startOfDay(point.date);
+      const dateKey = getDateKey(pointDate);
+      
+      // Count products created on that exact date
+      const dateData = dateMap.get(dateKey);
+      const createdProducts = dateData?.products || [];
   
       return {
         index,
         label: point.label,
-        date: start,
+        date: pointDate,
         count: createdProducts.length,
         products: createdProducts,
       };
     });
-  }, [products, generateTimelineData]);
+  }, [products, generateTimelineData, productsByDateMap]);
   
 
-  const unifiedChartData = useMemo(() => {
+  // Helper function to generate optimized timeline starting from earliest data date
+  const generateOptimizedTimeline = useMemo(() => {
+    const startOfDay = (date: Date) => {
+      const d = new Date(date);
+      d.setHours(0, 0, 0, 0);
+      return d;
+    };
+
+    const getDateKey = (date: Date) => {
+      return startOfDay(date).toISOString().split("T")[0];
+    };
+
+    return (earliestDate: Date | null, datesWithData: Set<string>, maxPoints: number = 10) => {
+      const now = startOfDay(new Date());
+      
+      if (!earliestDate || datesWithData.size === 0) {
+        // Return last 7 days if no data
+        const timeline = [];
+        for (let i = 6; i >= 0; i--) {
+          const date = new Date(now);
+          date.setDate(date.getDate() - i);
+          const dateKey = getDateKey(date);
+          const label = i === 0 ? "Today" : date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+          timeline.push({ label, date: startOfDay(date), dateKey });
+        }
+        return timeline;
+      }
+
+      const start = startOfDay(earliestDate);
+      const end = now;
+      const daysDiff = Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24));
+      
+      // If we have fewer days than max points, use all dates with data
+      if (daysDiff <= maxPoints) {
+        const sortedDates = Array.from(datesWithData).sort();
+        return sortedDates.map((dateKey) => {
+          const date = startOfDay(new Date(dateKey));
+          const isToday = dateKey === getDateKey(now);
+          const label = isToday ? "Today" : date.toLocaleDateString("en-US", { 
+            month: "short", 
+            day: "numeric",
+            year: date.getFullYear() !== now.getFullYear() ? "numeric" : undefined,
+          });
+          return { label, date, dateKey };
+        });
+      }
+
+      // Otherwise, sample dates intelligently
+      const timeline: Array<{ label: string; date: Date; dateKey: string }> = [];
+      
+      // Always include the start date
+      const startKey = getDateKey(start);
+      if (datesWithData.has(startKey)) {
+        timeline.push({
+          label: start.toLocaleDateString("en-US", { month: "short", day: "numeric" }),
+          date: start,
+          dateKey: startKey,
+        });
+      }
+
+      // Sample dates in between (prioritize dates with data)
+      const interval = Math.ceil(daysDiff / (maxPoints - 2)); // -2 for start and end
+      for (let i = interval; i < daysDiff; i += interval) {
+        const checkDate = new Date(start);
+        checkDate.setDate(checkDate.getDate() + i);
+        const dateKey = getDateKey(checkDate);
+        
+        // Prefer dates with data, but include some without to show progression
+        if (datesWithData.has(dateKey) || i % (interval * 2) === 0) {
+          const isToday = dateKey === getDateKey(now);
+          const label = isToday ? "Today" : checkDate.toLocaleDateString("en-US", { 
+            month: "short", 
+            day: "numeric",
+          });
+          timeline.push({ label, date: startOfDay(checkDate), dateKey });
+        }
+      }
+
+      // Always include today/end date
+      const endKey = getDateKey(end);
+      if (!timeline.find(t => t.dateKey === endKey)) {
+        timeline.push({
+          label: "Today",
+          date: end,
+          dateKey: endKey,
+        });
+      }
+
+      return timeline.sort((a, b) => a.dateKey.localeCompare(b.dateKey));
+    };
+  }, []);
+
+  // Separate chart data: Deal Types
+  const dealTypesChartData = useMemo(() => {
     if (!analytics) return [];
 
-    const timeline = generateTimelineData;
-    const totalPoints = timeline.length;
-    const isDateInRange = (
-      date: Date,
-      start: string,
-      end?: string | null
-    ) => {
+    const startOfDay = (date: Date) => {
       const d = new Date(date);
-      const s = new Date(start);
-      const e = end ? new Date(end) : null;
-    
       d.setHours(0, 0, 0, 0);
-      s.setHours(0, 0, 0, 0);
-      e?.setHours(23, 59, 59, 999);
-    
-      return d >= s && (!e || d <= e);
+      return d;
     };
-    
-    // Helper to generate progressive values
-    const generateProgressiveValues = (
-      finalValue: number,
-      startRatio: number = 0.5,
-      endRatio: number = 1.0
-    ) => {
-      return timeline.map((_, idx) => {
-        const progress = idx / (totalPoints - 1);
-        const ratio = startRatio + (endRatio - startRatio) * progress;
-        return finalValue * ratio;
+    const getDateKey = (date: Date) => startOfDay(date).toISOString().split("T")[0];
+    const getMonthKey = (date: Date) => {
+      return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+    };
+
+    // Find earliest promotion start date and latest promotion end date
+    let earliestDate: Date | null = null;
+    let latestEndDate: Date | null = null;
+    const now = startOfDay(new Date());
+    const oneMonthFromNow = new Date(now);
+    oneMonthFromNow.setMonth(oneMonthFromNow.getMonth() + 1);
+    oneMonthFromNow.setHours(23, 59, 59, 999);
+
+    if (analytics.promotions?.recent) {
+      analytics.promotions.recent.forEach((promo: any) => {
+        if (promo.startsAt) {
+          const date = startOfDay(new Date(promo.startsAt));
+          if (!earliestDate || date < earliestDate) {
+            earliestDate = date;
+          }
+        }
+        if (promo.endsAt) {
+          const endDate = startOfDay(new Date(promo.endsAt));
+          if (!latestEndDate || endDate > latestEndDate) {
+            latestEndDate = endDate;
+          }
+        }
       });
-    };
+    }
 
-    // Helper to generate promotion values by deal type with realistic distribution
-    const generatePromotionValuesByType = (
-      promotionsByType: Record<DealType, number[]>,
-      dealType: DealType
-    ) => {
-      const typePromotions = promotionsByType[dealType] || [];
-      if (typePromotions.length === 0) return Array(totalPoints).fill(0);
+    if (!earliestDate) return [];
 
-      const lastMonth = typePromotions[0] || 0;
-      const thisMonth = typePromotions[1] || 0;
-      const thisWeek = typePromotions[2] || 0;
-      const today = typePromotions[3] || 0;
+    // TypeScript now knows earliestDate is not null
+    const earliestDateNonNull: Date = earliestDate;
 
-      const values: number[] = [];
-      
-      // Last 3 months - gradually increasing
-      for (let i = 0; i < 3; i++) {
-        values.push(lastMonth * (0.6 + i * 0.15));
+    // Use latest end date if available, otherwise use one month from now
+    let endDate: Date;
+    if (latestEndDate !== null) {
+      const latest: Date = latestEndDate;
+      if (latest.getTime() > now.getTime()) {
+        endDate = latest.getTime() > oneMonthFromNow.getTime() ? oneMonthFromNow : latest;
+      } else {
+        endDate = oneMonthFromNow;
       }
+    } else {
+      endDate = oneMonthFromNow;
+    }
+
+    // Generate timeline from earliest date to end date
+    const timeline: Array<{ label: string; date: Date; dateKey: string }> = [];
+    const currentMonth = now.getMonth();
+    const currentYear = now.getFullYear();
+    
+    // Add dates from earliest to one month from now
+    const oneMonthAgo = new Date(now);
+    oneMonthAgo.setMonth(oneMonthAgo.getMonth() - 1);
+    
+    // For dates older than one month ago, add monthly points
+    if (earliestDateNonNull < oneMonthAgo) {
+      const startMonth = new Date(earliestDateNonNull.getFullYear(), earliestDateNonNull.getMonth(), 1);
+      const endMonth = new Date(oneMonthAgo.getFullYear(), oneMonthAgo.getMonth(), 1);
       
-      // Weeks - building up to this month
-      const weekValues = [
-        thisMonth * 0.3,
-        thisMonth * 0.5,
-        thisMonth * 0.7,
-        thisMonth * 0.9,
-      ];
-      values.push(...weekValues);
+      for (let d = new Date(startMonth); d <= endMonth; d.setMonth(d.getMonth() + 1)) {
+        const monthDate = startOfDay(new Date(d.getFullYear(), d.getMonth(), 1));
+        const monthName = monthDate.toLocaleDateString("en-US", { 
+          month: "short",
+          year: monthDate.getFullYear() !== now.getFullYear() ? "numeric" : undefined,
+        });
+        timeline.push({
+          label: monthName,
+          date: monthDate,
+          dateKey: getDateKey(monthDate),
+        });
+      }
+    }
+
+    // Add daily points for the last month to today
+    const startDateForDaily = earliestDateNonNull > oneMonthAgo ? earliestDateNonNull : oneMonthAgo;
+    for (let d = new Date(startDateForDaily); d <= now; d.setDate(d.getDate() + 1)) {
+      const date = startOfDay(new Date(d));
+      const dateKey = getDateKey(date);
+      const isToday = dateKey === getDateKey(now);
+      const label = isToday ? "Today" : date.toLocaleDateString("en-US", { 
+        month: "short", 
+        day: "numeric",
+      });
+      timeline.push({ label, date, dateKey });
+    }
+
+    // Add future dates up to end date
+    if (endDate > now) {
+      const nextMonth = new Date(now);
+      nextMonth.setMonth(nextMonth.getMonth() + 1);
+      nextMonth.setDate(1);
       
-      // Recent days - building up to today
-      const dayValues = [
-        thisWeek * 0.6,
-        thisWeek * 0.75,
-        thisWeek * 0.9,
-        today,
-      ];
-      values.push(...dayValues);
-      
-      return values;
-    };
+      // If end date is in a future month, add monthly points
+      if (endDate >= nextMonth) {
+        const endMonth = new Date(endDate.getFullYear(), endDate.getMonth(), 1);
+        for (let d = new Date(nextMonth); d <= endMonth; d.setMonth(d.getMonth() + 1)) {
+          const monthDate = startOfDay(new Date(d.getFullYear(), d.getMonth(), 1));
+          const monthName = monthDate.toLocaleDateString("en-US", { 
+            month: "short",
+            year: monthDate.getFullYear() !== now.getFullYear() ? "numeric" : undefined,
+          });
+          timeline.push({
+            label: monthName,
+            date: monthDate,
+            dateKey: getDateKey(monthDate),
+          });
+        }
+        
+        // If end date is not the first of the month, add the specific end date
+        if (endDate.getDate() > 1) {
+          const endDateLabel = endDate.toLocaleDateString("en-US", {
+            month: "short",
+            day: "numeric",
+            year: endDate.getFullYear() !== now.getFullYear() ? "numeric" : undefined,
+          });
+          timeline.push({
+            label: endDateLabel,
+            date: endDate,
+            dateKey: getDateKey(endDate),
+          });
+        }
+      } else {
+        // End date is within current month, add daily points (skip today as it's already added)
+        const tomorrow = new Date(now);
+        tomorrow.setDate(tomorrow.getDate() + 1);
+        for (let d = new Date(tomorrow); d <= endDate; d.setDate(d.getDate() + 1)) {
+          const date = startOfDay(new Date(d));
+          const dateKey = getDateKey(date);
+          const label = date.toLocaleDateString("en-US", { 
+            month: "short", 
+            day: "numeric",
+          });
+          timeline.push({ label, date, dateKey });
+        }
+      }
+    }
+
+    // Sort timeline chronologically
+    timeline.sort((a, b) => a.date.getTime() - b.date.getTime());
 
     // Group promotions by deal type and calculate counts by period
     const grouped: Record<DealType, any[]> = {
@@ -313,8 +748,6 @@ export default function RetailerAnalytics() {
       VOUCHER: [],
     };
 
-    
-    
     const recentPromos = analytics.promotions.recent || [];
     recentPromos.forEach((promo: any) => {
       const dealType = promo.dealType as DealType;
@@ -324,7 +757,6 @@ export default function RetailerAnalytics() {
     });
 
     // Calculate counts by period for each deal type
-    const now = new Date();
     const todayStart = new Date(now);
     todayStart.setHours(0, 0, 0, 0);
     const weekStart = new Date(now);
@@ -373,83 +805,42 @@ export default function RetailerAnalytics() {
     // Generate contextual labels for each point with associated data
     const generatePointLabel = (idx: number, pointDate: Date, value: number, metricKey: string, dealType?: DealType) => {
       const labels: string[] = [];
-      const pointData: { type?: 'promotion' | 'product'; data?: any } = {};
-      const recentPromos = analytics.promotions.recent || [];
+      const pointData: { type?: 'promotion' | 'product'; data?: any } | undefined = undefined;
+      let resultPointData: { type: 'promotion' | 'product'; data: any } | undefined = undefined;
+      
+      const getDateKey = (date: Date) => {
+        const d = new Date(date);
+        d.setHours(0, 0, 0, 0);
+        return d.toISOString().split("T")[0];
+      };
+      
+      const pointDateKey = getDateKey(pointDate);
       
       // For promotions metric - show promotion names and creation events
       if (metricKey.startsWith('promotion-') && dealType) {
-        const typePromos = recentPromos.filter((p: any) => p.dealType === dealType);
-        // Check if this point matches a promotion start date
-        const matchingPromo = typePromos.find((p: any) => {
-          const promoDate = new Date(p.startsAt);
-          const daysDiff = Math.abs((pointDate.getTime() - promoDate.getTime()) / (1000 * 60 * 60 * 24));
-          return daysDiff <= 2; // Within 2 days
-        });
+        const dayPromotions = promotionsByDateMap.get(pointDateKey);
+        const typePromotions = dayPromotions?.get(dealType);
         
-        if (matchingPromo && idx >= 3) {
+        if (typePromotions && typePromotions.promotions.length > 0) {
+          const matchingPromo = typePromotions.promotions[0]; // First promotion on this date
           const promoTitle = matchingPromo.title.length > 12 
             ? matchingPromo.title.substring(0, 12) + '...' 
             : matchingPromo.title;
           labels.push(promoTitle);
-          pointData.type = 'promotion';
-          pointData.data = matchingPromo;
-        }
-      }
-      
-      // For products metric - show product additions
-      if (metricKey === 'products') {
-        const matchingProduct = products?.find((p: any) => {
-          if (!p.createdAt) return false;
-          const productDate = new Date(p.createdAt);
-          const daysDiff = Math.abs((pointDate.getTime() - productDate.getTime()) / (1000 * 60 * 60 * 24));
-          return daysDiff <= 2;
-        });
-        
-        
-      }
-      
-      // For views metric - show view counts for recent days with actual data
-      if (metricKey === 'views') {
-        if (idx >= 7) {
-          const dateKey = pointDate.toISOString().split('T')[0];
-          const dayViews = dailyViews.get(dateKey);
-          if (dayViews && dayViews > 0) {
-            labels.push(`${formatNumber(dayViews)} views`);
-          }
+          resultPointData = {
+            type: 'promotion' as const,
+            data: matchingPromo,
+          };
         }
       }
       
       return {
         label: labels.join(' • '),
-        pointData: pointData.type ? pointData : undefined,
+        pointData: resultPointData,
       };
     };
 
-    const chartData: any[] = [
-      {
-        key: "products",
-        label: "Products Created",
-        color: "#277874",
-        chartType: "line" as const,
-        data: productsByTimeline.map((bucket) => ({
-          value: bucket.count,
-          label: bucket.label,
-          pointLabel:
-            bucket.count > 0
-              ? `${bucket.count} product${bucket.count > 1 ? "s" : ""}`
-              : "",
-          pointData:
-            bucket.count > 0
-              ? {
-                  type: "product",
-                  data: bucket.products[0], // first product in that period
-                }
-              : undefined,
-        })),
-      }
-      
-      
-    ];
+    const chartData: any[] = [];
 
     // Add promotion lines only for deal types that have promotions
     Object.keys(promotionsByDealType.countsByType).forEach((dealType) => {
@@ -464,12 +855,53 @@ export default function RetailerAnalytics() {
           color: promotionTypeColors[type],
           chartType: "line" as const,
           data: timeline.map((point, idx) => {
-            const values = generatePromotionValuesByType(promotionsByDealType.countsByType, type);
-            const value = values[idx];
+            const pointDate = startOfDay(point.date);
+            const dateKey = getDateKey(pointDate);
+            let value = 0;
+            
+            // Check if this is a monthly point (label is just month name, no day)
+            const isMonthlyPoint = /^[A-Za-z]{3}(\s\d{4})?$/.test(point.label.trim());
+            
+            if (isMonthlyPoint) {
+              // For monthly points, use the value at the end of that month
+              // This ensures the line graph shows proper rise/fall pattern
+              const monthKey = getMonthKey(pointDate);
+              const monthEnd = new Date(pointDate.getFullYear(), pointDate.getMonth() + 1, 0);
+              monthEnd.setHours(23, 59, 59, 999);
+              const monthEndKey = getDateKey(monthEnd);
+              
+              // Get promotions active at the end of the month
+              const dayPromotions = promotionsByDateMap.get(monthEndKey);
+              const typePromotions = dayPromotions?.get(type);
+              value = typePromotions?.count || 0;
+              
+              // If no data at month end, try to find the latest date in that month with data
+              if (value === 0 && promotionsByDateMap) {
+                let latestValue = 0;
+                promotionsByDateMap.forEach((dayPromotions, dayKey) => {
+                  const dayDate = startOfDay(new Date(dayKey));
+                  if (dayDate.getFullYear() === pointDate.getFullYear() && 
+                      dayDate.getMonth() === pointDate.getMonth()) {
+                    const typePromotions = dayPromotions.get(type);
+                    if (typePromotions && typePromotions.count > latestValue) {
+                      latestValue = typePromotions.count;
+                    }
+                  }
+                });
+                value = latestValue;
+              }
+            } else {
+              // For daily points, count promotions active on this exact date
+              const dayPromotions = promotionsByDateMap.get(dateKey);
+              const typePromotions = dayPromotions?.get(type);
+              value = typePromotions?.count || 0;
+            }
+            
             const pointLabelData = generatePointLabel(idx, point.date, value, `promotion-${type}`, type);
             return {
               value,
               label: point.label,
+              date: point.date, // Include date for label rendering
               pointLabel: pointLabelData.label,
               pointData: pointLabelData.pointData,
             };
@@ -478,42 +910,241 @@ export default function RetailerAnalytics() {
       }
     });
 
-    // Add views chart - only show bars for dates with actual views
-    chartData.push({
-      key: "views",
-      label: "Total Views",
-      color: "#8B5CF6",
-      chartType: "bar" as const,
-      data: timeline.map((point, idx) => {
-        let value = 0;
-        
-        // For recent days (last 4 days including today), check if there are actual views
-        if (idx >= 7) {
-          const dateKey = point.date.toISOString().split('T')[0];
-          const dayViews = dailyViews.get(dateKey) || 0;
-          value = dayViews; // Only show if > 0 (handled by chart component)
+    return chartData;
+  }, [analytics, promotionsByDateMap]);
+
+  // Separate chart data: Products
+  const productsChartData = useMemo(() => {
+    if (!analytics) return [];
+
+    const startOfDay = (date: Date) => {
+      const d = new Date(date);
+      d.setHours(0, 0, 0, 0);
+      return d;
+    };
+    const getDateKey = (date: Date) => startOfDay(date).toISOString().split("T")[0];
+    const getMonthKey = (date: Date) => {
+      return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+    };
+
+    // Find earliest product creation date
+    let earliestDate: Date | null = null;
+    if (productsByDateMap && productsByDateMap.size > 0) {
+      productsByDateMap.forEach((dateData, dateKey) => {
+        if (dateKey && dateData.count > 0) {
+          const date = startOfDay(new Date(dateKey));
+          if (!earliestDate || date < earliestDate) {
+            earliestDate = date;
+          }
         }
-        // For months and weeks, only show if total views exist
-        // We'll use 0 for these periods since we don't have exact daily data
-        // This ensures bars only appear for recent days with actual view data
-        else if (analytics.views.totalViews > 0) {
-          // For months/weeks, we could show aggregate values, but to be safe,
-          // we'll only show bars for days with actual data
-          value = 0;
+      });
+    }
+
+    // If no products, return empty
+    if (!earliestDate) {
+      return [];
+    }
+
+    const now = startOfDay(new Date());
+    const oneMonthAgo = new Date(now);
+    oneMonthAgo.setMonth(oneMonthAgo.getMonth() - 1);
+    oneMonthAgo.setHours(0, 0, 0, 0);
+
+    // Calculate monthly totals for dates older than 1 month
+    const monthlyTotals = new Map<string, number>();
+    if (productsByDateMap) {
+      productsByDateMap.forEach((dateData, dateKey) => {
+        if (dateKey && dateData.count > 0) {
+          const date = startOfDay(new Date(dateKey));
+          if (date < oneMonthAgo) {
+            const monthKey = getMonthKey(date);
+            monthlyTotals.set(monthKey, (monthlyTotals.get(monthKey) || 0) + dateData.count);
+          }
         }
-        
-        const pointLabelData = generatePointLabel(idx, point.date, value, 'views');
-        return {
-          value,
-          label: point.label,
-          pointLabel: pointLabelData.label,
-          pointData: pointLabelData.pointData,
-        };
-      }),
+      });
+    }
+
+    // Generate timeline: monthly points for old dates, daily for recent dates
+    const timeline: Array<{ label: string; date: Date; dateKey: string; isMonthly: boolean; monthKey?: string }> = [];
+    
+    // Add monthly points for dates older than 1 month
+    // Get all unique months that have products and are older than 1 month
+    const monthsWithProducts = new Set<string>();
+    if (productsByDateMap) {
+      productsByDateMap.forEach((dateData, dateKey) => {
+        if (dateKey && dateData.count > 0) {
+          const date = startOfDay(new Date(dateKey));
+          if (date < oneMonthAgo) {
+            monthsWithProducts.add(getMonthKey(date));
+          }
+        }
+      });
+    }
+
+    // Create monthly timeline points
+    const monthlyTimelinePoints: Array<{ label: string; date: Date; dateKey: string; isMonthly: boolean; monthKey: string }> = [];
+    monthsWithProducts.forEach((monthKey) => {
+      const [year, month] = monthKey.split('-').map(Number);
+      const monthStart = new Date(year, month - 1, 1);
+      const monthTotal = monthlyTotals.get(monthKey) || 0;
+      const monthName = monthStart.toLocaleDateString("en-US", { 
+        month: "short",
+        year: monthStart.getFullYear() !== now.getFullYear() ? "numeric" : undefined,
+      });
+      monthlyTimelinePoints.push({
+        label: `${monthName} (${monthTotal})`,
+        date: monthStart,
+        dateKey: getDateKey(monthStart),
+        isMonthly: true,
+        monthKey,
+      });
     });
 
-    return chartData;
-  }, [analytics, generateTimelineData, products, dailyViews]);
+    // Sort monthly points by date
+    monthlyTimelinePoints.sort((a, b) => a.date.getTime() - b.date.getTime());
+    timeline.push(...monthlyTimelinePoints);
+
+    // Add daily points for dates within the last month (from oneMonthAgo to today)
+    // Also include any dates from earliestDate if it's within the last month
+    // TypeScript knows earliestDate is not null here due to the check above
+    const earliestDateNonNull: Date = earliestDate!;
+    const startDateForDaily = earliestDateNonNull >= oneMonthAgo 
+      ? earliestDateNonNull 
+      : oneMonthAgo;
+    const endDate = now;
+    
+    for (let d = new Date(startDateForDaily); d <= endDate; d.setDate(d.getDate() + 1)) {
+      const date = startOfDay(new Date(d));
+      const dateKey = getDateKey(date);
+      const dateData = productsByDateMap?.get(dateKey);
+      const count = dateData?.count || 0;
+      const isToday = dateKey === getDateKey(now);
+      
+      const dateLabel = isToday ? "Today" : date.toLocaleDateString("en-US", { 
+        month: "short", 
+        day: "numeric",
+      });
+      
+      // Include product count in the label
+      const label = count > 0 
+        ? `${dateLabel} (${count})`
+        : dateLabel;
+      
+      timeline.push({
+        label,
+        date,
+        dateKey,
+        isMonthly: false,
+      });
+    }
+
+    // Map timeline to product data
+    return [
+      {
+        key: "products",
+        label: "Products Created",
+        color: "#277874",
+        chartType: "bar" as const,
+        data: timeline.map((point) => {
+          let count = 0;
+          let products: any[] = [];
+          
+          if (point.isMonthly && point.monthKey) {
+            // For monthly points, sum all products in that month
+            if (productsByDateMap) {
+              productsByDateMap.forEach((dateData, dateKey) => {
+                if (dateKey) {
+                  const date = startOfDay(new Date(dateKey));
+                  if (getMonthKey(date) === point.monthKey) {
+                    count += dateData.count;
+                    products = [...products, ...dateData.products];
+                  }
+                }
+              });
+            }
+          } else {
+            // For daily points, get products for that specific date
+            const dateData = productsByDateMap?.get(point.dateKey);
+            count = dateData?.count || 0;
+            products = dateData?.products || [];
+          }
+          
+          return {
+            value: count,
+            label: point.label,
+            date: point.date,
+            pointLabel:
+              count > 0
+                ? `${count} product${count > 1 ? "s" : ""}`
+                : "",
+            pointData:
+              count > 0 && products.length > 0
+                ? {
+                    type: "product" as const,
+                    data: products[0], // first product on this date/month
+                  }
+                : undefined,
+          };
+        }),
+      }
+    ];
+  }, [analytics, productsByDateMap]);
+
+  // Separate chart data: Views
+  const viewsChartData = useMemo(() => {
+    if (!analytics || dailyViews.size === 0) return [];
+
+    // Find earliest and latest view dates
+    const startOfDay = (date: Date) => {
+      const d = new Date(date);
+      d.setHours(0, 0, 0, 0);
+      return d;
+    };
+    const getDateKey = (date: Date) => startOfDay(date).toISOString().split("T")[0];
+
+    // Collect ALL dates from dailyViews (including those with 0 views to show full timeline)
+    const allDateKeys = Array.from(dailyViews.keys()).sort();
+    
+    if (allDateKeys.length === 0) {
+      return [];
+    }
+
+    const now = startOfDay(new Date());
+    // Create timeline with ALL dates, sorted chronologically (oldest to newest)
+    const timeline = allDateKeys.map((dateKey) => {
+      const date = startOfDay(new Date(dateKey));
+      const isToday = dateKey === getDateKey(now);
+      const label = isToday ? "Today" : date.toLocaleDateString("en-US", { 
+        month: "short", 
+        day: "numeric",
+        year: date.getFullYear() !== now.getFullYear() ? "numeric" : undefined,
+      });
+      return { label, date, dateKey };
+    });
+
+    return [
+      {
+        key: "views",
+        label: "Total Views",
+        color: "#8B5CF6",
+        chartType: "bar" as const,
+        data: timeline.map((point) => {
+          const dateKey = getDateKey(point.date);
+          
+          // Get views for this exact date (default to 0 if not found)
+          const value = dailyViews.get(dateKey) || 0;
+          
+          return {
+            value,
+            label: point.label,
+            date: point.date,
+            pointLabel: value > 0 ? `${value} views` : "",
+            pointData: undefined,
+          };
+        }),
+      }
+    ];
+  }, [analytics, dailyViews]);
 
   const handleLinePress = (key: string) => {
     setSelectedMetric(key);
@@ -620,37 +1251,110 @@ export default function RetailerAnalytics() {
               </View>
             </View>
           </View>
-          <View style={analyticsStyles.card}>
-            <View style={analyticsStyles.cardHeader}>
-              <View>
-                <Text style={analyticsStyles.cardTitle}>Performance Trends</Text>
-                <Text style={analyticsStyles.cardSubtitle}>
-                  Track your products, promotions, and customer engagement over time
+          {/* Deal Types Chart */}
+          {dealTypesChartData.length > 0 && (
+            <View style={analyticsStyles.card}>
+              <View style={analyticsStyles.cardHeader}>
+                <View>
+                  <Text style={analyticsStyles.cardTitle}>Deal Types</Text>
+                  <Text style={analyticsStyles.cardSubtitle}>
+                    Track your promotions by deal type over time
+                  </Text>
+                </View>
+              </View>
+              <CombinedLineBarChart
+                lines={dealTypesChartData}
+                height={300}
+                onLinePress={handleLinePress}
+                selectedLine={selectedMetric || undefined}
+                onPointLabelPress={(pointData: { type: 'promotion' | 'product'; data: any } | undefined, date: string) => {
+                  if (pointData) {
+                    setSelectedPointDetail({
+                      type: pointData.type,
+                      data: pointData.data,
+                      date: date,
+                    });
+                    setPointDetailModalVisible(true);
+                  }
+                }}
+              />
+              <View style={analyticsStyles.chartLegend}>
+                <Text style={analyticsStyles.chartLegendText}>
+                  💡 Tap on any deal type to view detailed statistics
                 </Text>
               </View>
             </View>
-            <CombinedLineBarChart
-              lines={unifiedChartData}
-              height={360}
-              onLinePress={handleLinePress}
-              selectedLine={selectedMetric || undefined}
-              onPointLabelPress={(pointData: { type: 'promotion' | 'product'; data: any }, date: string) => {
-                if (pointData) {
-                  setSelectedPointDetail({
-                    type: pointData.type,
-                    data: pointData.data,
-                    date: date,
-                  });
-                  setPointDetailModalVisible(true);
-                }
-              }}
-            />
-            <View style={analyticsStyles.chartLegend}>
-              <Text style={analyticsStyles.chartLegendText}>
-                💡 Tip: Tap on any metric in the legend to view detailed statistics
-              </Text>
+          )}
+
+          {/* Products Chart */}
+          {productsChartData.length > 0 && (
+            <View style={analyticsStyles.card}>
+              <View style={analyticsStyles.cardHeader}>
+                <View>
+                  <Text style={analyticsStyles.cardTitle}>Products</Text>
+                  <Text style={analyticsStyles.cardSubtitle}>
+                    Track your product creation over time
+                  </Text>
+                </View>
+              </View>
+              <CombinedLineBarChart
+                lines={productsChartData}
+                height={300}
+                onLinePress={handleLinePress}
+                selectedLine={selectedMetric || undefined}
+                onPointLabelPress={(pointData: { type: 'promotion' | 'product'; data: any } | undefined, date: string) => {
+                  if (pointData) {
+                    setSelectedPointDetail({
+                      type: pointData.type,
+                      data: pointData.data,
+                      date: date,
+                    });
+                    setPointDetailModalVisible(true);
+                  }
+                }}
+              />
+              <View style={analyticsStyles.chartLegend}>
+                <Text style={analyticsStyles.chartLegendText}>
+                  💡 Tap to view product statistics
+                </Text>
+              </View>
             </View>
-          </View>
+          )}
+
+          {/* Views Chart */}
+          {viewsChartData.length > 0 && (
+            <View style={analyticsStyles.card}>
+              <View style={analyticsStyles.cardHeader}>
+                <View>
+                  <Text style={analyticsStyles.cardTitle}>Views</Text>
+                  <Text style={analyticsStyles.cardSubtitle}>
+                    Track customer engagement and views over time
+                  </Text>
+                </View>
+              </View>
+              <CombinedLineBarChart
+                lines={viewsChartData}
+                height={300}
+                onLinePress={handleLinePress}
+                selectedLine={selectedMetric || undefined}
+                onPointLabelPress={(pointData: { type: 'promotion' | 'product'; data: any } | undefined, date: string) => {
+                  if (pointData) {
+                    setSelectedPointDetail({
+                      type: pointData.type,
+                      data: pointData.data,
+                      date: date,
+                    });
+                    setPointDetailModalVisible(true);
+                  }
+                }}
+              />
+              <View style={analyticsStyles.chartLegend}>
+                <Text style={analyticsStyles.chartLegendText}>
+                  💡 Tap to view view statistics
+                </Text>
+              </View>
+            </View>
+          )}
         </View>
 
         <View style={analyticsStyles.section}>

@@ -4,6 +4,7 @@
 
 import env from "@/config/env";
 import { ApiError, ApiResponse, ErrorResponse } from "./types/common";
+import { logError, trackApiRequest } from "@/utils/errorTracking";
 
 export interface RequestConfig extends RequestInit {
   skipAuth?: boolean;
@@ -218,12 +219,16 @@ class ApiClient {
       body: requestBodyPreview,
     });
 
+    const startTime = performance.now();
     try {
       const response = await fetch(url, {
         ...restConfig,
         body: body,
         headers: requestHeaders,
       });
+
+      const duration = performance.now() - startTime;
+      const method = restConfig.method || 'GET';
 
       // Log response status
       this.log('info', `Response: ${endpoint}`, {
@@ -232,6 +237,9 @@ class ApiClient {
         ok: response.ok,
       });
 
+      // Track API request performance
+      trackApiRequest(endpoint, method, duration, response.status, response.ok);
+
       if (!response.ok) {
         const error = await this.handleError(
           response,
@@ -239,6 +247,17 @@ class ApiClient {
           skipUnauthorizedCallback,
           endpoint
         );
+        
+        // Log error with tracking (skip 401 errors as they're expected user errors)
+        // 401 errors are already logged as warnings in handleError
+        if (response.status !== 401) {
+          logError(error, {
+            endpoint,
+            method,
+            statusCode: response.status,
+          });
+        }
+        
         throw error;
       }
 
@@ -281,6 +300,11 @@ class ApiClient {
       });
       return result;
     } catch (error) {
+      const duration = performance.now() - startTime;
+      const method = restConfig.method || 'GET';
+      
+      // Track failed request
+      trackApiRequest(endpoint, method, duration, 0, false);
       // Check if it's already an ApiError (either Error instance with status or plain object with message)
       const isApiError = 
         (error instanceof Error && "status" in error) ||

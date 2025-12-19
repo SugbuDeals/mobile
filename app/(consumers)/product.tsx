@@ -12,7 +12,7 @@ import type { VoucherTokenResponseDto } from "@/services/api/types/swagger";
 import { formatDealDetails } from "@/utils/dealTypes";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -25,7 +25,7 @@ import {
   StyleSheet,
   Text,
   TouchableOpacity,
-  View,
+  View
 } from "react-native";
 import QRCode from "react-native-qrcode-svg";
 
@@ -450,6 +450,17 @@ function ProductCard({
     }
   };
 
+  // Log QR code generation (no longer needed for image display, but useful for debugging)
+  useEffect(() => {
+    if (voucherToken?.token) {
+      const tokenValue = String(voucherToken.token);
+      console.log('=== QR CODE GENERATION ===');
+      console.log('QR Code Token Value:', tokenValue);
+      console.log('QR Code Token Length:', tokenValue.length);
+      console.log('QR Code Token Preview:', tokenValue.substring(0, 50) + '...');
+    }
+  }, [voucherToken?.token]);
+
   const handleBundleProductPress = (product: Product) => {
     if (product.id === productId) return; // Don't navigate to current product
     
@@ -470,14 +481,8 @@ function ProductCard({
   const activePromotion = React.useMemo(() => {
     if (!productId) return undefined;
     
-    // First, try to find a direct promotion match
-    const directMatch = (activePromotions || []).find(
-      (p: Promotion) => p.productId === productId && p.active === true
-    );
-    
-    if (directMatch) return directMatch;
-    
-    // For bundle deals, check if this product is part of any bundle's promotionProducts
+    // For bundle deals, first check if this product is part of any bundle's promotionProducts
+    // This ensures bundle section stays visible when navigating between bundle items
     const bundleMatch = (activePromotions || []).find((p: Promotion) => {
       if (!p.active || p.dealType !== 'BUNDLE') return false;
       
@@ -486,7 +491,14 @@ function ProductCard({
       return promotionProducts.some((pp: any) => pp.productId === productId);
     });
     
-    return bundleMatch;
+    if (bundleMatch) return bundleMatch;
+    
+    // Then, try to find a direct promotion match for non-bundle deals
+    const directMatch = (activePromotions || []).find(
+      (p: Promotion) => p.productId === productId && p.active === true
+    );
+    
+    return directMatch;
   }, [activePromotions, productId]);
 
   // Get all products in the bundle if this is a bundle deal
@@ -783,7 +795,7 @@ function ProductCard({
         animationType="slide"
         onRequestClose={() => setShowVoucherModal(false)}
       >
-        <View style={prodStyles.modalOverlay}>
+        <SafeAreaView style={prodStyles.modalOverlay}>
           <View style={prodStyles.voucherModalContent}>
             <View style={prodStyles.modalHeader}>
               <Text style={prodStyles.modalTitle}>Your Voucher</Text>
@@ -796,27 +808,18 @@ function ProductCard({
             </View>
 
             {!voucherToken ? (
-              <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: 20, backgroundColor: '#FEE2E2' }}>
+              <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: 20 }}>
                 <ActivityIndicator size="large" color="#8B5CF6" />
                 <Text style={{ marginTop: 16, fontSize: 14, color: '#111827', fontWeight: '600' }}>
                   Loading voucher...
-                </Text>
-                <Text style={{ marginTop: 8, fontSize: 12, color: '#6B7280' }}>
-                  VoucherToken: {JSON.stringify(voucherToken)}
                 </Text>
               </View>
             ) : (
               <ScrollView 
                 style={prodStyles.voucherModalScroll}
                 contentContainerStyle={prodStyles.voucherModalScrollContent}
+                showsVerticalScrollIndicator={true}
               >
-                {/* Test View - Remove after testing */}
-                <View style={{ backgroundColor: '#DCFCE7', padding: 16, marginBottom: 16, width: '100%' }}>
-                  <Text style={{ fontSize: 14, fontWeight: '600', color: '#047857' }}>
-                    ✓ Modal Content is Rendering!
-                  </Text>
-                </View>
-
                 {/* Status Badge */}
                 <View style={prodStyles.voucherStatusBadge}>
                   <View style={prodStyles.voucherStatusDot} />
@@ -830,37 +833,29 @@ function ProductCard({
 
                 {/* QR Code */}
                 <View style={prodStyles.qrCodeContainer}>
-                  {(() => {
-                    console.log("=== QR CODE RENDER CHECK ===");
-                    console.log("voucherToken object:", voucherToken);
-                    console.log("voucherToken keys:", Object.keys(voucherToken || {}));
-                    console.log("voucherToken.token value:", voucherToken?.token);
-                    console.log("Token type:", typeof voucherToken?.token);
-                    console.log("Token is string:", typeof voucherToken?.token === 'string');
-                    console.log("Token length:", voucherToken?.token?.length);
-                    console.log("Token exists check:", !!voucherToken?.token);
-                    console.log("Full condition:", voucherToken?.token && typeof voucherToken.token === 'string' && voucherToken.token.length > 0);
-                    
-                    // Check if token might be nested
-                    if (voucherToken && typeof voucherToken === 'object') {
-                      console.log("Checking for nested data...");
-                      console.log("voucherToken.data:", (voucherToken as any).data);
-                      console.log("voucherToken.data?.token:", (voucherToken as any).data?.token);
-                    }
-                    return null;
-                  })()}
                   {voucherToken?.token && typeof voucherToken.token === 'string' && voucherToken.token.length > 0 ? (
-                    <QRCode
-                      key={voucherToken.token}
-                      value={String(voucherToken.token)}
-                      size={240}
-                      backgroundColor="white"
-                      color="black"
-                      quietZone={10}
-                      enableLinearGradient={false}
-                    />
+                    <>
+                      {/* Display QR Code directly */}
+                      <View style={prodStyles.qrCodeWrapper}>
+                        <QRCode
+                          value={String(voucherToken.token)}
+                          size={240}
+                          color="black"
+                          backgroundColor="white"
+                        />
+                      </View>
+                    </>
                   ) : (
                     <View style={{ width: 240, height: 240, justifyContent: 'center', alignItems: 'center', backgroundColor: '#F3F4F6', borderRadius: 8 }}>
+                      {(() => {
+                        console.log('=== QR CODE GENERATION FAILED ===');
+                        console.log('voucherToken:', voucherToken);
+                        console.log('voucherToken?.token:', voucherToken?.token);
+                        console.log('Token type:', typeof voucherToken?.token);
+                        console.log('Token length:', voucherToken?.token?.length || 0);
+                        console.log('Full voucherToken object:', JSON.stringify(voucherToken, null, 2));
+                        return null;
+                      })()}
                       <Ionicons name="alert-circle" size={48} color="#EF4444" />
                       <Text style={{ marginTop: 12, fontSize: 14, color: '#6B7280', textAlign: 'center' }}>
                         Unable to generate QR code{'\n'}
@@ -872,22 +867,6 @@ function ProductCard({
                     </View>
                   )}
                 </View>
-
-                {/* Debug Info - Remove this after testing */}
-                {__DEV__ && (
-                  <View style={{ backgroundColor: '#FEF3C7', padding: 12, borderRadius: 8, marginBottom: 20, width: '100%' }}>
-                    <Text style={{ fontSize: 12, fontWeight: '600', color: '#92400E', marginBottom: 4 }}>Debug Info:</Text>
-                    <Text style={{ fontSize: 11, color: '#92400E' }}>Token exists: {voucherToken.token ? 'Yes' : 'No'}</Text>
-                    <Text style={{ fontSize: 11, color: '#92400E' }}>Token type: {typeof voucherToken.token}</Text>
-                    <Text style={{ fontSize: 11, color: '#92400E' }}>Token length: {voucherToken.token?.length || 0}</Text>
-                    <Text style={{ fontSize: 11, color: '#92400E' }} numberOfLines={3} ellipsizeMode="tail">
-                      Token preview: {voucherToken.token ? voucherToken.token.substring(0, 80) + '...' : 'N/A'}
-                    </Text>
-                    <Text style={{ fontSize: 11, color: '#92400E', marginTop: 8 }}>
-                      Full voucherToken object keys: {Object.keys(voucherToken || {}).join(', ')}
-                    </Text>
-                  </View>
-                )}
 
                 {/* Voucher Details */}
                 <View style={prodStyles.voucherDetails}>
@@ -950,7 +929,7 @@ function ProductCard({
               </ScrollView>
             )}
           </View>
-        </View>
+        </SafeAreaView>
       </Modal>
     </>
   );
@@ -1073,7 +1052,7 @@ const prodStyles = StyleSheet.create({
   modalOverlay: {
     flex: 1,
     backgroundColor: "rgba(0, 0, 0, 0.5)",
-    justifyContent: "flex-start",
+    justifyContent: "flex-end",
   },
   modalContent: {
     backgroundColor: "#ffffff",
@@ -1247,14 +1226,17 @@ const prodStyles = StyleSheet.create({
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
     maxHeight: "90%",
-    overflow: "hidden",
+    minHeight: "70%",
+    flex: 1,
   },
   voucherModalScroll: {
     flex: 1,
   },
   voucherModalScrollContent: {
     padding: 20,
+    paddingBottom: 40,
     alignItems: "center",
+    flexGrow: 1,
   },
   voucherStatusBadge: {
     flexDirection: "row",
@@ -1294,6 +1276,31 @@ const prodStyles = StyleSheet.create({
     elevation: 3,
     alignItems: "center",
     justifyContent: "center",
+    alignSelf: "center",
+    width: 288, // 240 (QR size) + 24*2 (padding)
+    minHeight: 288, // 240 (QR size) + 24*2 (padding)
+  },
+  qrCodeWrapper: {
+    alignItems: "center",
+    justifyContent: "center",
+    width: 240,
+    height: 240,
+  },
+  qrCodeImage: {
+    width: 240,
+    height: 240,
+  },
+  qrCodeLoadingContainer: {
+    width: 240,
+    height: 240,
+    justifyContent: "center",
+    alignItems: "center",
+    gap: 12,
+  },
+  qrCodeLoadingText: {
+    fontSize: 14,
+    color: "#6B7280",
+    fontWeight: "500",
   },
   voucherDetails: {
     width: "100%",

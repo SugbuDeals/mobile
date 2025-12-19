@@ -45,8 +45,9 @@ const notificationSlice = createSlice({
         state.loading = false;
         state.error = null;
         state.notifications = action.payload;
-        // Calculate unread count from the notifications array
-        state.unreadCount = action.payload.filter((n) => !n.read).length;
+        // DO NOT update unread count here - it should ONLY come from getUnreadCount API call
+        // This prevents race conditions where getNotifications overwrites the correct count
+        // The unread count is managed separately via getUnreadCount API call
       })
       .addCase(getNotifications.rejected, (state, action) => {
         state.loading = false;
@@ -59,6 +60,8 @@ const notificationSlice = createSlice({
         // Don't set loading to true for unread count to avoid UI flicker
       })
       .addCase(getUnreadCount.fulfilled, (state, action) => {
+        // Always update with the accurate count from API (source of truth)
+        // This will override any count calculated from getNotifications
         state.unreadCount = action.payload;
       })
       .addCase(getUnreadCount.rejected, (state, action) => {
@@ -79,14 +82,9 @@ const notificationSlice = createSlice({
           (n) => n.id === action.payload.id
         );
         if (index !== -1) {
-          // Check if notification was previously unread
-          const wasUnread = !state.notifications[index].read;
           state.notifications[index] = action.payload;
-          // Decrease unread count if notification was previously unread
-          if (wasUnread && action.payload.read) {
-            state.unreadCount = Math.max(0, state.unreadCount - 1);
-          }
         }
+        // Unread count will be refreshed via getUnreadCount() call
       })
       .addCase(markAsRead.rejected, (state, action) => {
         state.loading = false;
@@ -109,7 +107,7 @@ const notificationSlice = createSlice({
           ...n,
           read: true,
         }));
-        state.unreadCount = 0;
+        // Unread count will be refreshed via getUnreadCount() call
       })
       .addCase(markAllAsRead.rejected, (state, action) => {
         state.loading = false;
@@ -125,18 +123,11 @@ const notificationSlice = createSlice({
       .addCase(deleteNotification.fulfilled, (state, action) => {
         state.loading = false;
         state.error = null;
-        // Find the notification before removing it
-        const notification = state.notifications.find(
-          (n) => n.id === action.payload.id
-        );
         // Remove the notification from the list
         state.notifications = state.notifications.filter(
           (n) => n.id !== action.payload.id
         );
-        // Decrease unread count if notification was unread
-        if (notification && !notification.read) {
-          state.unreadCount = Math.max(0, state.unreadCount - 1);
-        }
+        // Unread count will be refreshed via getUnreadCount() call
       })
       .addCase(deleteNotification.rejected, (state, action) => {
         state.loading = false;
@@ -154,10 +145,7 @@ const notificationSlice = createSlice({
         state.error = null;
         // Add the new notification to the list
         state.notifications.unshift(action.payload);
-        // Increase unread count if notification is unread
-        if (!action.payload.read) {
-          state.unreadCount += 1;
-        }
+        // Unread count will be refreshed via getUnreadCount() call
       })
       .addCase(createNotification.rejected, (state, action) => {
         state.loading = false;

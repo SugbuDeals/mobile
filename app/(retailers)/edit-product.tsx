@@ -3,6 +3,7 @@ import { useLogin } from "@/features/auth";
 import { useCatalog } from "@/features/catalog";
 import { useStore } from "@/features/store";
 import { uploadFile } from "@/utils/fileUpload";
+import { extractCustomCategory, appendCustomCategory } from "@/utils/categoryHelpers";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import * as ImagePicker from "expo-image-picker";
 import { LinearGradient } from "expo-linear-gradient";
@@ -40,6 +41,8 @@ export default function EditProduct() {
   const [uploadingImage, setUploadingImage] = useState(false);
   const [selectedCategoryId, setSelectedCategoryId] = useState<number | null>(null);
   const [showCategoryList, setShowCategoryList] = useState(false);
+  const [isOthersCategory, setIsOthersCategory] = useState(false);
+  const [customCategoryName, setCustomCategoryName] = useState("");
 
   // Request image picker permissions
   useEffect(() => {
@@ -78,12 +81,27 @@ export default function EditProduct() {
         if (productToEdit) {
           setCurrentProduct(productToEdit);
           setProductName(productToEdit.name);
-          setDescription(productToEdit.description || "");
+          
+          // Extract custom category from description if present
+          const { cleanDescription, customCategory } = extractCustomCategory(productToEdit.description);
+          setDescription(cleanDescription);
+          
           setPrice(productToEdit.price?.toString() || "");
           setStock(productToEdit.stock?.toString() || "");
           setIsActive(productToEdit.isActive !== false);
           const categoryId = productToEdit.categoryId ?? null;
-          setSelectedCategoryId(typeof categoryId === "number" ? categoryId : categoryId ? Number(categoryId) : null);
+          
+          // Check if product has custom category
+          if (customCategory) {
+            setIsOthersCategory(true);
+            setCustomCategoryName(customCategory);
+            setSelectedCategoryId(null);
+          } else {
+            setIsOthersCategory(false);
+            setCustomCategoryName("");
+            setSelectedCategoryId(typeof categoryId === "number" ? categoryId : categoryId ? Number(categoryId) : null);
+          }
+          
           // Set existing image URL if available
           if (productToEdit.imageUrl) {
             setImageUrl(productToEdit.imageUrl);
@@ -226,6 +244,12 @@ export default function EditProduct() {
       return;
     }
 
+    // Validate custom category name if "Others" is selected
+    if (isOthersCategory && !customCategoryName.trim()) {
+      Alert.alert("Error", "Please enter a custom category name or select a category from the list.");
+      return;
+    }
+
     setIsSubmitting(true);
     
     try {
@@ -243,10 +267,16 @@ export default function EditProduct() {
         }
       }
 
+      // If custom category is used, append it to description in a structured way
+      let finalDescription = description.trim();
+      if (isOthersCategory && customCategoryName.trim()) {
+        finalDescription = appendCustomCategory(description.trim(), customCategoryName.trim());
+      }
+
       const updateData: any = {
         id: Number(productId),
         name: productName.trim(),
-        description: description.trim(),
+        description: finalDescription,
         price: Number(price),
         stock: Number(stock),
         ...(imageUrl && { imageUrl }), // Include imageUrl if available
@@ -353,7 +383,9 @@ export default function EditProduct() {
             >
               <Ionicons name="pricetags" size={18} color="#6B7280" />
               <Text style={{ marginLeft: 8, color: "#374151", fontSize: 16 }}>
-                {selectedCategoryId
+                {isOthersCategory && customCategoryName
+                  ? `Others: ${customCategoryName}`
+                  : selectedCategoryId
                   ? categories.find((c) => String(c.id) === String(selectedCategoryId))?.name || "Select category"
                   : "Select category"}
               </Text>
@@ -365,6 +397,8 @@ export default function EditProduct() {
                     key={cat.id}
                     onPress={() => {
                       setSelectedCategoryId(cat.id);
+                      setIsOthersCategory(false);
+                      setCustomCategoryName("");
                       setShowCategoryList(false);
                     }}
                     style={{ paddingVertical: 10, paddingHorizontal: 12 }}
@@ -372,22 +406,44 @@ export default function EditProduct() {
                     <Text style={{ fontSize: 16, color: "#374151" }}>{cat.name}</Text>
                   </TouchableOpacity>
                 ))}
+                <TouchableOpacity
+                  onPress={() => {
+                    setIsOthersCategory(true);
+                    setSelectedCategoryId(null);
+                    setShowCategoryList(false);
+                  }}
+                  style={{ 
+                    paddingVertical: 10, 
+                    paddingHorizontal: 12,
+                    borderTopWidth: categories.length > 0 ? 1 : 0,
+                    borderTopColor: "#E5E7EB",
+                    backgroundColor: isOthersCategory ? "#EFF6FF" : "transparent"
+                  }}
+                >
+                  <View style={{ flexDirection: "row", alignItems: "center" }}>
+                    <Text style={{ fontSize: 16, color: "#374151", fontWeight: isOthersCategory ? "600" : "400" }}>
+                      Others
+                    </Text>
+                    {isOthersCategory && (
+                      <Ionicons name="checkmark-circle" size={18} color="#277874" style={{ marginLeft: 8 }} />
+                    )}
+                  </View>
+                </TouchableOpacity>
                 {categories.length === 0 && (
                   <View style={{ paddingVertical: 12, paddingHorizontal: 12 }}>
                     <Text style={{ fontSize: 14, color: "#6B7280" }}>No categories available</Text>
                   </View>
                 )}
-                {selectedCategoryId && (
-                  <TouchableOpacity
-                    onPress={() => {
-                      setSelectedCategoryId(null);
-                      setShowCategoryList(false);
-                    }}
-                    style={{ paddingVertical: 10, paddingHorizontal: 12, borderTopWidth: 1, borderTopColor: "#E5E7EB" }}
-                  >
-                    <Text style={{ fontSize: 14, color: "#DC2626" }}>Clear selection</Text>
-                  </TouchableOpacity>
-                )}
+              </View>
+            )}
+            {isOthersCategory && (
+              <View style={{ marginTop: 8 }}>
+                <TextField
+                  label="Custom Category Name"
+                  placeholder="Enter category name (e.g., Sports Equipment, Pet Supplies)"
+                  value={customCategoryName}
+                  onChangeText={setCustomCategoryName}
+                />
               </View>
             )}
           </View>

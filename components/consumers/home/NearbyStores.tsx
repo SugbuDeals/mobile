@@ -144,7 +144,7 @@ export default function NearbyStores({ stores, loading }: NearbyStoresProps) {
 
 const styles = StyleSheet.create({
   section: {
-    marginBottom: spacing.xl,
+    marginBottom: spacing.md,
   },
   storesContainer: {
     paddingHorizontal: spacing.lg,

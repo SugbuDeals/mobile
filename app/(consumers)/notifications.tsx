@@ -3,11 +3,12 @@ import type { Notification } from "@/features/notifications/types";
 import {
   formatNotificationTime,
   getNotificationColor,
+  getNotificationTypeTitle,
 } from "@/utils/notifications";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { LinearGradient } from "expo-linear-gradient";
-import { useRouter } from "expo-router";
-import React, { useEffect, useState } from "react";
+import { useRouter, useFocusEffect } from "expo-router";
+import React, { useEffect, useState, useCallback } from "react";
 import {
   ActivityIndicator,
   Platform,
@@ -20,23 +21,72 @@ import {
   View,
 } from "react-native";
 
+// Helper function to get icon for notification type
+function getNotificationIcon(type: string): keyof typeof Ionicons.glyphMap {
+  const iconMap: Record<string, keyof typeof Ionicons.glyphMap> = {
+    PRODUCT_CREATED: "cube",
+    PRODUCT_PRICE_CHANGED: "pricetag",
+    PRODUCT_STOCK_CHANGED: "layers",
+    PRODUCT_STATUS_CHANGED: "information-circle",
+    PROMOTION_CREATED: "gift",
+    PROMOTION_STARTED: "flash",
+    PROMOTION_ENDING_SOON: "time",
+    PROMOTION_ENDED: "checkmark-circle",
+    PROMOTION_NEARBY: "location",
+    STORE_VERIFIED: "checkmark-circle",
+    STORE_CREATED: "storefront",
+    STORE_UNDER_REVIEW: "hourglass",
+    SUBSCRIPTION_JOINED: "star",
+    SUBSCRIPTION_CANCELLED: "close-circle",
+    SUBSCRIPTION_EXPIRED: "alert-circle",
+    SUBSCRIPTION_RENEWED: "refresh",
+    SUBSCRIPTION_ENDING_SOON: "time",
+    SUBSCRIPTION_AVAILABLE: "sparkles",
+    CONSUMER_WELCOME: "hand-left",
+    GPS_REMINDER: "navigate",
+    QUESTIONABLE_PRICING_PRODUCT: "warning",
+    QUESTIONABLE_PRICING_PROMOTION: "warning",
+  };
+  return iconMap[type] || "notifications";
+}
+
 export default function Notifications() {
   const router = useRouter();
   const { action, state } = useNotifications();
   const [markingAsRead, setMarkingAsRead] = useState<number | null>(null);
   const [markingAllAsRead, setMarkingAllAsRead] = useState(false);
+  const [deletingAll, setDeletingAll] = useState(false);
 
   useEffect(() => {
-    // Fetch notifications when component mounts
-    action.getNotifications({ skip: 0, take: 50 });
-    action.getUnreadCount();
+    // Fetch notifications when component mounts, then refresh unread count
+    const fetchData = async () => {
+      await action.getNotifications({ skip: 0, take: 50 });
+      // Always refresh unread count after fetching notifications to ensure accuracy
+      action.getUnreadCount();
+    };
+    fetchData();
   }, [action]);
+
+  // Refresh notifications when screen comes into focus
+  useFocusEffect(
+    useCallback(() => {
+      const fetchData = async () => {
+        await action.getNotifications({ skip: 0, take: 50 });
+        // Always refresh unread count after fetching notifications to ensure accuracy
+        action.getUnreadCount();
+      };
+      fetchData();
+    }, [action])
+  );
 
   const handleMarkAsRead = async (id: number) => {
     try {
       setMarkingAsRead(id);
       await action.markAsRead(id);
-      // Unread count is automatically updated in the slice
+      // Refresh notifications list to ensure UI reflects the read status
+      await action.getNotifications({ skip: 0, take: 50 });
+      // Refresh unread count to update header bell icon
+      action.getUnreadCount();
     } catch (error) {
       console.error("Error marking notification as read:", error);
     } finally {
@@ -48,9 +98,10 @@ export default function Notifications() {
     try {
       setMarkingAllAsRead(true);
       await action.markAllAsRead();
-      // Refresh notifications list to ensure UI is updated
-      action.getNotifications({ skip: 0, take: 50 });
-      // Unread count is automatically updated in the slice
+      // Refresh notifications list to ensure UI is updated, then refresh count
+      await action.getNotifications({ skip: 0, take: 50 });
+      // Always refresh unread count after fetching notifications to ensure accuracy
+      action.getUnreadCount();
     } catch (error) {
       console.error("Error marking all as read:", error);
     } finally {
@@ -58,13 +109,39 @@ export default function Notifications() {
     }
   };
 
-  const handleNotificationPress = (notification: Notification) => {
-    // Mark as read when pressed
+  const handleDeleteAll = async () => {
+    try {
+      setDeletingAll(true);
+      // Get all notifications except welcome notifications
+      const notificationsToDelete = state.notifications.filter(
+        (notification) => notification.type !== "CONSUMER_WELCOME"
+      );
+      
+      // Delete each notification
+      await Promise.all(
+        notificationsToDelete.map((notification) =>
+          action.deleteNotification(notification.id)
+        )
+      );
+      
+      // Refresh notifications list, then refresh count
+      await action.getNotifications({ skip: 0, take: 50 });
+      // Always refresh unread count after fetching notifications to ensure accuracy
+      action.getUnreadCount();
+    } catch (error) {
+      console.error("Error deleting all notifications:", error);
+    } finally {
+      setDeletingAll(false);
+    }
+  };
+
+  const handleNotificationPress = async (notification: Notification) => {
+    // Mark as read when pressed (if unread) - don't await to avoid blocking UI
     if (!notification.read) {
-      handleMarkAsRead(notification.id);
+      handleMarkAsRead(notification.id).catch(console.error);
     }
     
-    // Navigate based on notification type
+    // Navigate immediately based on notification type
     if (notification.storeId) {
       // Navigate to store details page
       router.push({
@@ -74,11 +151,23 @@ export default function Notifications() {
         },
       });
     } else if (notification.productId) {
-      // Navigate to product page if needed
-      // router.push(`/product/${notification.productId}`);
+      // Navigate to product page
+      router.push({
+        pathname: "/(consumers)/product",
+        params: {
+          productId: notification.productId.toString(),
+        },
+      });
     } else if (notification.promotionId) {
-      // Navigate to promotion page if needed
-      // router.push(`/promotion/${notification.promotionId}`);
+      // If promotion has a store, navigate to store
+      if (notification.storeId) {
+        router.push({
+          pathname: "/(consumers)/storedetails",
+          params: { 
+            storeId: notification.storeId.toString(),
+          },
+        });
+      }
     }
   };
 
@@ -105,7 +194,22 @@ export default function Notifications() {
               <Ionicons name="arrow-back" size={24} color="#ffffff" />
             </TouchableOpacity>
             <Text style={styles.headerTitle}>Notifications</Text>
-            <View style={styles.headerPlaceholder} />
+            {state.notifications.length > 0 && (
+              <TouchableOpacity
+                style={styles.deleteAllButton}
+                onPress={handleDeleteAll}
+                disabled={deletingAll}
+              >
+                {deletingAll ? (
+                  <ActivityIndicator size="small" color="#ffffff" />
+                ) : (
+                  <Ionicons name="trash-outline" size={20} color="#ffffff" />
+                )}
+              </TouchableOpacity>
+            )}
+            {state.notifications.length === 0 && (
+              <View style={styles.headerPlaceholder} />
+            )}
           </View>
         </LinearGradient>
       </View>
@@ -121,9 +225,35 @@ export default function Notifications() {
             contentContainerStyle={styles.content}
             showsVerticalScrollIndicator={false}
           >
+            {state.notifications.length > 0 && (
+              <View style={styles.sectionHeader}>
+                <Text style={styles.sectionTitle}>
+                  {state.unreadCount > 0 
+                    ? `${state.unreadCount} New Notification${state.unreadCount > 1 ? 's' : ''}`
+                    : 'All Notifications'}
+                </Text>
+                <TouchableOpacity
+                  style={styles.markAllReadButton}
+                  onPress={handleMarkAllAsRead}
+                  disabled={markingAllAsRead || state.unreadCount === 0}
+                >
+                  {markingAllAsRead ? (
+                    <ActivityIndicator size="small" color="#277874" />
+                  ) : (
+                    <>
+                      <Ionicons name="checkmark-done" size={16} color="#277874" />
+                      <Text style={styles.markAllReadText}>Mark All Read</Text>
+                    </>
+                  )}
+                </TouchableOpacity>
+              </View>
+            )}
+            
             {state.notifications.map((notification) => {
               const color = getNotificationColor(notification.type);
               const time = formatNotificationTime(notification.createdAt);
+              const typeTitle = getNotificationTypeTitle(notification.type);
+              const isMarkingAsRead = markingAsRead === notification.id;
               
               return (
                 <TouchableOpacity
@@ -131,67 +261,72 @@ export default function Notifications() {
                   style={[
                     styles.card,
                     !notification.read && styles.unreadCard,
+                    isMarkingAsRead && styles.readingCard,
                   ]}
                   onPress={() => handleNotificationPress(notification)}
-                  disabled={markingAsRead === notification.id}
+                  disabled={isMarkingAsRead}
+                  activeOpacity={0.6}
                 >
-                  <View
-                    style={[
-                      styles.iconWrap,
-                      {
-                        backgroundColor: `${color}22`,
-                        borderColor: color,
-                      },
-                    ]}
-                  >
-                    <View style={[styles.dot, { backgroundColor: color }]} />
-                  </View>
-                  <View style={styles.body}>
-                    <View style={styles.rowTop}>
-                      <Text
-                        style={[
-                          styles.cardTitle,
-                          !notification.read && styles.unreadTitle,
-                        ]}
-                      >
-                        {notification.title}
-                      </Text>
-                      <Text style={styles.time}>{time}</Text>
+                  <View style={styles.cardContent}>
+                    <View
+                      style={[
+                        styles.iconWrap,
+                        {
+                          backgroundColor: `${color}15`,
+                          borderColor: color,
+                        },
+                      ]}
+                    >
+                      <Ionicons 
+                        name={getNotificationIcon(notification.type)} 
+                        size={20} 
+                        color={color} 
+                      />
                     </View>
-                    <Text style={styles.desc}>{notification.message}</Text>
+                    <View style={styles.body}>
+                      <View style={styles.rowTop}>
+                        <View style={styles.titleContainer}>
+                          <Text
+                            style={[
+                              styles.cardTitle,
+                              !notification.read && styles.unreadTitle,
+                            ]}
+                            numberOfLines={1}
+                          >
+                            {notification.title}
+                          </Text>
+                          {!notification.read && !isMarkingAsRead && (
+                            <View style={[styles.unreadDot, { backgroundColor: color }]} />
+                          )}
+                        </View>
+                        <Text style={styles.time}>{time}</Text>
+                      </View>
+                      <Text style={styles.typeLabel}>{typeTitle}</Text>
+                      <Text style={styles.desc} numberOfLines={2}>
+                        {notification.message}
+                      </Text>
+                    </View>
+                    {isMarkingAsRead && (
+                      <View style={styles.loadingIndicator}>
+                        <ActivityIndicator size="small" color="#3B82F6" />
+                      </View>
+                    )}
                   </View>
-                  {markingAsRead === notification.id ? (
-                    <ActivityIndicator size="small" color="#3B82F6" />
-                  ) : !notification.read ? (
-                    <View style={styles.unreadIndicator} />
-                  ) : null}
                 </TouchableOpacity>
               );
             })}
             {state.notifications.length === 0 && (
               <View style={styles.emptyContainer}>
-                <Ionicons name="notifications-outline" size={64} color="#D1D5DB" />
+                <View style={styles.emptyIconContainer}>
+                  <Ionicons name="notifications-outline" size={80} color="#D1D5DB" />
+                </View>
                 <Text style={styles.emptyText}>You&apos;re all caught up!</Text>
                 <Text style={styles.emptySubtext}>
-                  No notifications at the moment
+                  No notifications at the moment. Check back later for updates.
                 </Text>
               </View>
             )}
           </ScrollView>
-
-          {state.notifications.length > 0 && (
-            <TouchableOpacity
-              style={styles.clearBtnFixed}
-              onPress={handleMarkAllAsRead}
-              disabled={markingAllAsRead}
-            >
-              {markingAllAsRead ? (
-                <ActivityIndicator size="small" color="#6B7280" />
-              ) : (
-                <Text style={styles.clearText}>Mark All as Read</Text>
-              )}
-            </TouchableOpacity>
-          )}
         </>
       )}
 
@@ -205,7 +340,7 @@ export default function Notifications() {
 }
 
 const styles = StyleSheet.create({
-  safeArea: { flex: 1, backgroundColor: "#fff" },
+  safeArea: { flex: 1, backgroundColor: "#F9FAFB" },
   headerShadowContainer: {
     elevation: 8,
     shadowColor: "#000",
@@ -247,10 +382,45 @@ const styles = StyleSheet.create({
   headerPlaceholder: {
     width: 40,
   },
+  deleteAllButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: "rgba(255, 255, 255, 0.2)",
+    justifyContent: "center",
+    alignItems: "center",
+  },
   content: { 
-    paddingHorizontal: 20, 
-    paddingTop: 20,
-    paddingBottom: Platform.OS === "ios" ? 120 : 100 
+    paddingHorizontal: 16, 
+    paddingTop: 16,
+    paddingBottom: Platform.OS === "ios" ? 80 : 60 
+  },
+  sectionHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 12,
+    paddingHorizontal: 4,
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: "700",
+    color: "#111827",
+    flex: 1,
+  },
+  markAllReadButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#E0F2F1",
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 8,
+    gap: 6,
+  },
+  markAllReadText: {
+    color: "#277874",
+    fontWeight: "600",
+    fontSize: 13,
   },
   loadingContainer: {
     flex: 1,
@@ -262,22 +432,6 @@ const styles = StyleSheet.create({
     color: "#6B7280",
     fontSize: 14,
   },
-  clearBtnFixed: {
-    position: "absolute",
-    left: 20,
-    right: 20,
-    bottom: Platform.OS === "ios" ? 90 : 70,
-    backgroundColor: "#F3F4F6",
-    borderRadius: 12,
-    paddingVertical: 14,
-    alignItems: "center",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: -2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 5,
-  },
-  clearText: { color: "#6B7280", fontWeight: "700" },
   errorContainer: {
     position: "absolute",
     bottom: 20,
@@ -294,61 +448,115 @@ const styles = StyleSheet.create({
   },
   // Card
   card: {
-    flexDirection: "row",
-    alignItems: "center",
     backgroundColor: "#F9FAFB",
-    padding: 14,
-    borderRadius: 12,
-    marginBottom: 10,
-    position: "relative",
+    borderRadius: 16,
+    marginBottom: 12,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
+    overflow: "hidden",
   },
   unreadCard: {
     backgroundColor: "#EFF6FF",
-    borderLeftWidth: 3,
+    borderLeftWidth: 4,
     borderLeftColor: "#3B82F6",
   },
+  readingCard: {
+    backgroundColor: "#F9FAFB",
+    opacity: 0.9,
+  },
+  cardContent: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    padding: 16,
+  },
+  loadingIndicator: {
+    marginLeft: 8,
+    justifyContent: "center",
+    alignItems: "center",
+    minWidth: 24,
+  },
   iconWrap: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    width: 48,
+    height: 48,
+    borderRadius: 24,
     alignItems: "center",
     justifyContent: "center",
     marginRight: 12,
-    borderWidth: 1,
+    borderWidth: 2,
   },
-  dot: { width: 12, height: 12, borderRadius: 999 },
   body: { flex: 1 },
   rowTop: {
     flexDirection: "row",
     justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 4,
+    alignItems: "flex-start",
+    marginBottom: 6,
   },
-  cardTitle: { fontWeight: "600", fontSize: 15 },
+  titleContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    flex: 1,
+    marginRight: 8,
+  },
+  cardTitle: { 
+    fontWeight: "600", 
+    fontSize: 16,
+    color: "#111827",
+    flex: 1,
+  },
   unreadTitle: { fontWeight: "700" },
-  time: { color: "#9CA3AF", fontSize: 12 },
-  desc: { color: "#6B7280", fontSize: 14 },
-  unreadIndicator: {
+  unreadDot: {
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: "#3B82F6",
-    marginLeft: 8,
+    marginLeft: 6,
+  },
+  typeLabel: {
+    fontSize: 12,
+    fontWeight: "500",
+    color: "#6B7280",
+    marginBottom: 4,
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+  },
+  time: { 
+    color: "#9CA3AF", 
+    fontSize: 12,
+    fontWeight: "500",
+  },
+  desc: { 
+    color: "#374151", 
+    fontSize: 14,
+    lineHeight: 20,
   },
   emptyContainer: {
     alignItems: "center",
-    paddingTop: 60,
+    paddingTop: 80,
     paddingBottom: 40,
+    paddingHorizontal: 40,
+  },
+  emptyIconContainer: {
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    backgroundColor: "#F3F4F6",
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: 24,
   },
   emptyText: {
-    color: "#6B7280",
-    fontSize: 16,
-    fontWeight: "600",
+    color: "#111827",
+    fontSize: 20,
+    fontWeight: "700",
     marginTop: 16,
+    marginBottom: 8,
   },
   emptySubtext: {
-    color: "#9CA3AF",
-    fontSize: 14,
-    marginTop: 4,
+    color: "#6B7280",
+    fontSize: 15,
+    textAlign: "center",
+    lineHeight: 22,
   },
 });

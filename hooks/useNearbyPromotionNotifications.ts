@@ -1,10 +1,12 @@
 import { useStore } from "@/features/store";
+import { useNotifications } from "@/features/notifications";
+import { useAppSelector } from "@/store/hooks";
 import { calculateDistance } from "@/utils/distance";
 import { getNotificationPreference } from "@/utils/notificationPreferences";
 import * as Location from "expo-location";
 import { useRouter } from "expo-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Alert, AppState, AppStateStatus } from "react-native";
+import { AppState, AppStateStatus } from "react-native";
 
 const LOCATION_CHECK_INTERVAL = 60000; // 60 seconds - minimal data usage
 const MIN_DISTANCE_CHANGE_KM = 0.1; // Only check if moved at least 100m
@@ -30,6 +32,8 @@ export function useNearbyPromotionNotifications() {
     state: { activePromotions, currentTier, stores, products },
     action: { findActivePromotions, getCurrentTier },
   } = useStore();
+  const { action: notificationActions } = useNotifications();
+  const currentUser = useAppSelector((state) => state.auth.user);
 
   const [isEnabled, setIsEnabled] = useState(true);
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
@@ -134,7 +138,7 @@ export function useNearbyPromotionNotifications() {
         }
       }
 
-      // Show notifications for new nearby promotions
+      // Create notifications for new nearby promotions
       for (const { promotion, distance, storeName, storeId } of nearbyPromotions) {
         // Mark as notified
         notifiedPromotionsRef.current.set(promotion.id, {
@@ -143,34 +147,28 @@ export function useNearbyPromotionNotifications() {
           notifiedAt: Date.now(),
         });
 
-        // Show notification
-        const distanceText = distance < 1 ? `${(distance * 1000).toFixed(0)}m` : `${distance.toFixed(1)}km`;
-
-        Alert.alert(
-          "🎉 Promotion Nearby!",
-          `${promotion.title} at ${storeName} (${distanceText} away)`,
-          [
-            {
-              text: "Dismiss",
-              style: "cancel",
-            },
-            {
-              text: "View Store",
-              onPress: () => {
-                router.push({
-                  pathname: "/(consumers)/storedetails",
-                  params: {
-                    storeId: storeId.toString(),
-                  },
-                });
-              },
-            },
-          ],
-          { cancelable: true }
-        );
+        // Create notification in database (only if user is logged in)
+        if (currentUser?.id) {
+          const distanceText = distance < 1 ? `${(distance * 1000).toFixed(0)}m` : `${distance.toFixed(1)}km`;
+          
+          notificationActions.createNotification({
+            userId: Number(currentUser.id),
+            type: "PROMOTION_NEARBY",
+            title: "🎉 Promotion Nearby!",
+            message: `${promotion.title} at ${storeName} (${distanceText} away)`,
+            storeId: storeId,
+            promotionId: promotion.id,
+          }).then(() => {
+            // Refresh unread count after creating notification to ensure accuracy
+            notificationActions.getUnreadCount();
+          }).catch((error) => {
+            // Silently handle errors to avoid annoying users
+            console.warn("Failed to create nearby promotion notification:", error);
+          });
+        }
       }
     },
-    [activePromotions, radiusKm, notificationsEnabled, productToStoreMap]
+    [activePromotions, radiusKm, notificationsEnabled, productToStoreMap, currentUser?.id, notificationActions]
   );
 
   // Get current location and check for promotions

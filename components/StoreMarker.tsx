@@ -14,6 +14,8 @@ export interface StoreMarkerProps {
   onCalloutPress?: (store: Store) => void;
   /** Whether to show callout by default */
   showsCallout?: boolean;
+  /** Whether this marker is selected/highlighted */
+  isSelected?: boolean;
 }
 
 /**
@@ -40,6 +42,7 @@ export default function StoreMarker({
   onPress,
   onCalloutPress,
   showsCallout = true,
+  isSelected = false,
 }: StoreMarkerProps) {
   // Validate coordinates
   const hasValidCoordinates =
@@ -71,17 +74,29 @@ export default function StoreMarker({
     <View style={styles.markerContainer}>
       <Image
         source={{ uri: store.imageUrl }}
-        style={styles.markerImage}
+        style={[
+          styles.markerImage,
+          isSelected && styles.markerImageSelected
+        ]}
         resizeMode="cover"
       />
-      <View style={styles.markerPin} />
+      <View style={[
+        styles.markerPin,
+        isSelected && styles.markerPinSelected
+      ]} />
     </View>
   ) : (
     <View style={styles.markerContainer}>
-      <View style={styles.markerIconContainer}>
+      <View style={[
+        styles.markerIconContainer,
+        isSelected && styles.markerIconContainerSelected
+      ]}>
         <Ionicons name="storefront" size={20} color={colors.white} />
       </View>
-      <View style={styles.markerPin} />
+      <View style={[
+        styles.markerPin,
+        isSelected && styles.markerPinSelected
+      ]} />
     </View>
   );
 
@@ -94,6 +109,8 @@ export default function StoreMarker({
       onCalloutPress={handleCalloutPress}
       tracksViewChanges={false}
       anchor={{ x: 0.5, y: 1 }}
+      zIndex={isSelected ? 1000 : 1}
+      identifier={store.id?.toString()}
     >
       {markerContent}
     </Marker>
@@ -138,6 +155,32 @@ const styles = StyleSheet.create({
     borderRightColor: "transparent",
     borderTopColor: colors.primary,
     marginTop: -2,
+  },
+  markerImageSelected: {
+    borderColor: colors.secondaryDark,
+    borderWidth: 4,
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+  },
+  markerIconContainerSelected: {
+    backgroundColor: colors.secondaryDark,
+    borderColor: colors.secondaryDark,
+    borderWidth: 4,
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    shadowColor: colors.secondaryDark,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.5,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  markerPinSelected: {
+    borderLeftWidth: 8,
+    borderRightWidth: 8,
+    borderTopWidth: 12,
+    borderTopColor: colors.secondaryDark,
   },
 });
 

@@ -1,5 +1,6 @@
 import { useLogin } from "@/features/auth";
 import { useStore } from "@/features/store";
+import { useNotifications } from "@/features/notifications";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { LinearGradient } from "expo-linear-gradient";
 import { useFocusEffect, useRouter } from "expo-router";
@@ -22,6 +23,7 @@ export default function Subscription() {
     action: { getCurrentTier, upgradeToPro, downgradeToBasic },
     state: { currentTier, loading },
   } = useStore();
+  const { action: notificationActions } = useNotifications();
 
   const [isProcessing, setIsProcessing] = useState(false);
 
@@ -49,6 +51,24 @@ export default function Subscription() {
             try {
               setIsProcessing(true);
               await upgradeToPro().unwrap();
+              
+              // Create a thank you notification for subscribing
+              if (user?.id) {
+                try {
+                  await notificationActions.createNotification({
+                    userId: Number(user.id),
+                    type: "SUBSCRIPTION_JOINED",
+                    title: "🎉 Thank You for Subscribing!",
+                    message: "Welcome to PRO! You now have access to extended features including discovering deals up to 3km away. Enjoy exploring more stores and better deals!",
+                  });
+                  // Refresh unread count to show the new notification
+                  notificationActions.getUnreadCount();
+                } catch (notifError) {
+                  // Silently handle notification creation errors - don't block the upgrade
+                  console.warn("Failed to create subscription notification:", notifError);
+                }
+              }
+              
               Alert.alert("Success", "Successfully upgraded to PRO tier!");
               getCurrentTier(); // Refresh tier info
             } catch (error: unknown) {
