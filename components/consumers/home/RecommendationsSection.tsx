@@ -106,7 +106,7 @@ export default function RecommendationsSection({
 
 const styles = StyleSheet.create({
   section: {
-    marginBottom: spacing.lg,
+    marginBottom: spacing.md,
   },
   scrollContent: {
     paddingHorizontal: spacing.lg,

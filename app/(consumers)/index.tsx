@@ -223,7 +223,7 @@ export default function Home() {
 
   return (
     <>
-      <ScrollView style={styles.container}>
+      <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
         <Greeting name={displayName} />
         <Categories categories={displayCategories.slice(0, 4)} router={router} />
         <Recommendations 
@@ -253,11 +253,18 @@ export default function Home() {
 
 function Greeting({ name }: { name: string }) {
   return (
-    <View style={styles.section}>
-      <Text style={styles.greetingTitle}>Hello, {name}! 👋</Text>
-      <Text style={styles.greetingSubtitle}>
-        What would you like to shop today?
-      </Text>
+    <View style={styles.greetingSection}>
+      <View style={styles.greetingContent}>
+        <View style={styles.greetingTextContainer}>
+          <Text style={styles.greetingTitle}>Hello, {name}! 👋</Text>
+          <Text style={styles.greetingSubtitle}>
+            What would you like to shop today?
+          </Text>
+        </View>
+        <View style={styles.greetingDecoration}>
+          <Ionicons name="sparkles" size={32} color="#FFBE5D" />
+        </View>
+      </View>
     </View>
   );
 }
@@ -285,11 +292,12 @@ function Categories({ categories, router }: { categories: Category[]; router: Ro
           return (
             <View key={cat.id} style={styles.gridItem}>
               <TouchableOpacity 
-                activeOpacity={0.8}
+                activeOpacity={0.7}
                 onPress={() => handleCategoryPress(cat)}
+                style={styles.categoryButton}
               >
                 <View style={styles.iconWrap}>
-                  <Ionicons name={iconName} size={24} color="#277874" />
+                  <Ionicons name={iconName} size={26} color="#277874" />
                 </View>
               </TouchableOpacity>
               <Text style={styles.caption} numberOfLines={1}>
@@ -992,19 +1000,45 @@ const styles = StyleSheet.create({
     backgroundColor: "#ffffff",
   },
   section: {
-    marginVertical: 15,
+    marginVertical: 8,
   },
 
   // Greeting Component
+  greetingSection: {
+    marginBottom: 4,
+    marginTop: 8,
+  },
+  greetingContent: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    backgroundColor: "#F0FDF4",
+    borderRadius: 16,
+    padding: 18,
+    marginHorizontal: -2,
+  },
+  greetingTextContainer: {
+    flex: 1,
+  },
   greetingTitle: {
-    fontSize: 24,
+    fontSize: 26,
     fontWeight: "bold",
-    color: "#000000",
-    marginBottom: 5,
+    color: "#111827",
+    marginBottom: 6,
   },
   greetingSubtitle: {
-    fontSize: 16,
-    color: "#6b7280",
+    fontSize: 15,
+    color: "#4B5563",
+    fontWeight: "500",
+  },
+  greetingDecoration: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    backgroundColor: "#FFBE5D",
+    opacity: 0.15,
+    alignItems: "center",
+    justifyContent: "center",
   },
 
   // SectionHeader Component
@@ -1012,34 +1046,48 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginTop: 10,
-    marginBottom: 6,
+    marginTop: 4,
+    marginBottom: 10,
+    paddingHorizontal: 2,
   },
   header: {
-    fontSize: 15,
-    fontWeight: "600",
+    fontSize: 18,
+    fontWeight: "700",
+    color: "#111827",
   },
   link: {
-    fontSize: 13,
-    color: "#D97706",
+    fontSize: 14,
+    color: "#FFBE5D",
+    fontWeight: "600",
   },
 
   // Categories Component
   grid: {
     flexDirection: "row",
     justifyContent: "space-between",
+    paddingHorizontal: 2,
   },
   gridItem: {
     alignItems: "center",
+    flex: 1,
+  },
+  categoryButton: {
+    width: "100%",
+    alignItems: "center",
   },
   iconWrap: {
-    width: 55,
-    height: 55,
-    borderRadius: "100%",
-    backgroundColor: "#E5F3F0",
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: "#E0F2F1",
     alignItems: "center",
     justifyContent: "center",
-    marginBottom: 5,
+    marginBottom: 6,
+    shadowColor: "#277874",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
   },
   icon: {
     width: 22,
@@ -1048,23 +1096,31 @@ const styles = StyleSheet.create({
   },
   caption: {
     fontSize: 12,
+    color: "#374151",
+    fontWeight: "500",
   },
 
   // Tab Selector Styles
   tabSelector: {
     flexDirection: "row",
     marginBottom: 12,
-    marginTop: 6,
+    marginTop: 4,
     gap: 8,
+    paddingHorizontal: 2,
   },
   tab: {
-    paddingVertical: 8,
-    paddingHorizontal: 16,
+    paddingVertical: 9,
+    paddingHorizontal: 18,
     borderRadius: 20,
     backgroundColor: "#F3F4F6",
   },
   tabActive: {
     backgroundColor: "#FFBE5D",
+    shadowColor: "#FFBE5D",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 3,
   },
   tabText: {
     fontSize: 14,
@@ -1073,6 +1129,7 @@ const styles = StyleSheet.create({
   },
   tabTextActive: {
     color: "#ffffff",
+    fontWeight: "700",
   },
 
   // Recommendations Component
@@ -1094,13 +1151,14 @@ const styles = StyleSheet.create({
   card: {
     width: 240,
     backgroundColor: "#FFFFFF",
-    borderRadius: 12,
+    borderRadius: 14,
     shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 4,
-    elevation: 2,
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.12,
+    shadowRadius: 6,
+    elevation: 3,
     overflow: "hidden",
+    marginRight: 12,
   },
   imageWrap: {
     position: "relative",
@@ -1191,17 +1249,19 @@ const styles = StyleSheet.create({
     alignItems: "center",
     backgroundColor: "#FFFFFF",
     height: 80,
-    borderRadius: 10,
+    borderRadius: 12,
     paddingVertical: 10,
     paddingHorizontal: 10,
     marginTop: 5,
     marginBottom: 8,
     shadowColor: "#000",
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.2,
-    shadowRadius: 10,
-    elevation: 2,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 6,
+    elevation: 3,
     overflow: "hidden",
+    borderWidth: 1,
+    borderColor: "#F3F4F6",
   },
   storeIcon: {
     width: 30,

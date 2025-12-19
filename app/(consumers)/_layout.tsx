@@ -4,8 +4,8 @@ import { useNearbyPromotionNotifications } from "@/hooks/useNearbyPromotionNotif
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { LinearGradient } from "expo-linear-gradient";
 import { Tabs, useRouter, useFocusEffect } from "expo-router";
-import React, { useEffect, useCallback } from "react";
-import { Platform, StatusBar, StyleSheet, Text, TouchableOpacity, View, AppState } from "react-native";
+import React, { useEffect, useCallback, useRef } from "react";
+import { Platform, StatusBar, StyleSheet, Text, TouchableOpacity, View, AppState, Animated } from "react-native";
 
 const ConsumerHeader = () => {
   const router = useRouter();
@@ -14,6 +14,8 @@ const ConsumerHeader = () => {
     action: { getCurrentTier },
     state: { currentTier },
   } = useStore();
+  const pulseAnim = useRef(new Animated.Value(1)).current;
+  const hasUnread = (state.unreadCount ?? 0) > 0;
 
   useEffect(() => {
     // Fetch unread count when header mounts
@@ -42,70 +44,93 @@ const ConsumerHeader = () => {
     };
   }, [action]);
 
+  // Animate notification icon when there are unread notifications
+  useEffect(() => {
+    if (hasUnread) {
+      // Continuous pulse animation
+      Animated.loop(
+        Animated.sequence([
+          Animated.timing(pulseAnim, {
+            toValue: 1.15,
+            duration: 800,
+            useNativeDriver: true,
+          }),
+          Animated.timing(pulseAnim, {
+            toValue: 1,
+            duration: 800,
+            useNativeDriver: true,
+          }),
+        ])
+      ).start();
+    } else {
+      // Stop animation and reset to normal size
+      pulseAnim.stopAnimation();
+      Animated.timing(pulseAnim, {
+        toValue: 1,
+        duration: 200,
+        useNativeDriver: true,
+      }).start();
+    }
+  }, [hasUnread, pulseAnim]);
+
   const isPro = currentTier?.tier === "PRO";
 
   return (
-    <View style={styles.headerShadowContainer}>
+    <View style={styles.headerWrapper}>
       <LinearGradient
         colors={["#FFBE5D", "#277874"]}
         style={styles.headerContainer}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 0 }}
       >
-        <StatusBar
-          barStyle="light-content"
-          translucent
-          backgroundColor="transparent"
-        />
-        <View style={styles.headerContent}>
-          {/* Shopping Cart Icon */}
-          <View style={styles.iconContainer}>
-            <Ionicons name="cart" size={20} color="#ffffff" />
+      <StatusBar
+        barStyle="light-content"
+        translucent
+        backgroundColor="transparent"
+      />
+      <View style={styles.headerContent}>
+        {/* App Title with PRO Badge */}
+        <View style={styles.titleContainer}>
+          <View style={styles.titleRow}>
+            <Text style={styles.headerTitle}>SugbuDeals</Text>
+            {isPro && (
+              <View style={styles.proBadge}>
+                <Ionicons name="star" size={12} color="#FFBE5D" />
+                <Text style={styles.proBadgeText}>PRO</Text>
+              </View>
+            )}
           </View>
+        </View>
 
-          {/* App Title and Tagline */}
-          <View style={styles.titleContainer}>
-            <View style={styles.titleRow}>
-              <Text style={styles.headerTitle}>
-                SugbuDeals
-              </Text>
-              {isPro && (
-                <View style={styles.proBadge}>
-                  <Ionicons name="star" size={14} color="#FFBE5D" />
-                  <Text style={styles.proBadgeText}>PRO</Text>
-                </View>
-              )}
-            </View>
-            <Text style={styles.headerSubtitle}>Explore Deals!</Text>
-          </View>
-
+        {/* Action Icons */}
         <View style={styles.actionsRow}>
           <TouchableOpacity
             style={styles.notificationContainer}
             onPress={() => router.push("/(consumers)/notifications")}
+            activeOpacity={0.7}
           >
-            <Ionicons 
-              name={state.unreadCount > 0 ? "notifications" : "notifications-outline"} 
-              size={20} 
-              color="#ffffff" 
-            />
-            {state.unreadCount > 0 && (
-              <View style={styles.badge}>
-                <Text style={styles.badgeText}>
-                  {state.unreadCount > 99 ? "99+" : state.unreadCount}
-                </Text>
-              </View>
-            )}
+            <Animated.View
+              style={{
+                transform: [{ scale: pulseAnim }],
+              }}
+            >
+              <Ionicons 
+                name="notifications" 
+                size={22} 
+                color={hasUnread ? "#EF4444" : "#ffffff"}
+              />
+            </Animated.View>
           </TouchableOpacity>
 
           <TouchableOpacity
             style={styles.profileContainer}
             onPress={() => router.push("/(consumers)/profile")}
+            activeOpacity={0.7}
           >
-            <Ionicons name="person" size={20} color="#ffffff" />
+            <Ionicons name="person" size={22} color="#ffffff" />
           </TouchableOpacity>
         </View>
-        </View>
+      </View>
       </LinearGradient>
     </View>
   );
@@ -218,19 +243,27 @@ export default function ConsumersLayout() {
 }
 
 const styles = StyleSheet.create({
-  headerShadowContainer: {
-    elevation: 8,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 12,
+  headerWrapper: {
+    backgroundColor: "transparent",
     borderBottomLeftRadius: 40,
     borderBottomRightRadius: 40,
+    overflow: "hidden",
+    ...Platform.select({
+      ios: {
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.15,
+        shadowRadius: 12,
+      },
+      android: {
+        // No elevation to avoid background box
+      },
+    }),
   },
   headerContainer: {
     paddingTop: Platform.OS === "ios" ? 50 : StatusBar.currentHeight || 0,
-    paddingBottom: 8,
-    paddingHorizontal: 16,
+    paddingBottom: 12,
+    paddingHorizontal: 20,
     borderBottomLeftRadius: 40,
     borderBottomRightRadius: 40,
     overflow: "hidden",
@@ -246,46 +279,34 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-  },
-  iconContainer: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: "#277874",
-    justifyContent: "center",
-    alignItems: "center",
+    width: "100%",
   },
   titleContainer: {
     flex: 1,
-    alignItems: "center",
-    marginHorizontal: 10,
+    alignItems: "flex-start",
   },
   titleRow: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "center",
     gap: 8,
   },
   headerTitle: {
-    fontSize: 24,
+    fontSize: 26,
     fontWeight: "bold",
     color: "#ffffff",
-    textAlign: "center",
     letterSpacing: 0.5,
   },
   proBadge: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 4,
-    backgroundColor: "rgba(255, 255, 255, 0.25)",
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: "rgba(255, 190, 93, 0.5)",
+    gap: 3,
+    backgroundColor: "rgba(255, 255, 255, 0.2)",
+    paddingHorizontal: 6,
+    paddingVertical: 3,
+    borderRadius: 10,
   },
   proBadgeText: {
-    fontSize: 11,
+    fontSize: 10,
     fontWeight: "700",
     color: "#FFBE5D",
     letterSpacing: 0.5,
@@ -293,54 +314,26 @@ const styles = StyleSheet.create({
   headerTitleCompact: {
     fontSize: 18,
   },
-  headerSubtitle: {
-    fontSize: 14,
-    color: "#ffffff",
-    opacity: 0.9,
-    marginTop: 2,
-    textAlign: "center",
-  },
   notificationContainer: {
-    width: 30,
-    height: 40,
-    borderRadius: 10,
-    backgroundColor: "rgba(255, 255, 255, 0.3)",
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: "rgba(255, 255, 255, 0.2)",
     justifyContent: "center",
     alignItems: "center",
-    position: "relative",
-  },
-  badge: {
-    position: "absolute",
-    top: 4,
-    right: 4,
-    backgroundColor: "#EF4444",
-    borderRadius: 10,
-    minWidth: 18,
-    height: 18,
-    paddingHorizontal: 4,
-    justifyContent: "center",
-    alignItems: "center",
-    borderWidth: 2,
-    borderColor: "#277874",
-  },
-  badgeText: {
-    color: "#ffffff",
-    fontSize: 10,
-    fontWeight: "700",
   },
   profileContainer: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: "#277874",
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: "rgba(255, 255, 255, 0.2)",
     justifyContent: "center",
     alignItems: "center",
-    marginLeft: 10,
+    marginLeft: 8,
   },
   actionsRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 8,
   },
   tabBar: {
     backgroundColor: "#ffffff",
