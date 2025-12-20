@@ -2,23 +2,24 @@ import { useLogin } from "@/features/auth";
 import { useStore } from "@/features/store";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import {
-  ActivityIndicator,
-  Alert,
-  Image,
-  ScrollView,
-  StyleSheet,
-  Switch,
-  Text,
-  TouchableOpacity,
-  View,
+    ActivityIndicator,
+    Alert,
+    Image,
+    ScrollView,
+    StyleSheet,
+    Switch,
+    Text,
+    TouchableOpacity,
+    View,
 } from "react-native";
 
 export default function AdminViewStores() {
   const { state: storeState, action: storeActions } = useStore();
   const { state: authState, action: authActions } = useLogin();
   const [storeActionLoading, setStoreActionLoading] = useState<Record<number, boolean>>({});
+  const [compactView, setCompactView] = useState(false);
   const router = useRouter();
 
   useEffect(() => {
@@ -85,9 +86,21 @@ export default function AdminViewStores() {
       <ScrollView style={styles.content} contentContainerStyle={styles.contentContainer} showsVerticalScrollIndicator={false}>
         <View style={styles.headerRow}>
           <Text style={styles.title}>Stores</Text>
-          <View style={styles.countBadge}>
-            <Ionicons name="storefront" color="#277874" size={16} />
-            <Text style={styles.countText}>{storeState.stores?.length || 0}</Text>
+          <View style={styles.headerRight}>
+            <TouchableOpacity
+              style={styles.viewToggle}
+              onPress={() => setCompactView(!compactView)}
+            >
+              <Ionicons 
+                name={compactView ? "grid" : "list"} 
+                size={18} 
+                color="#277874" 
+              />
+            </TouchableOpacity>
+            <View style={styles.countBadge}>
+              <Ionicons name="storefront" color="#277874" size={16} />
+              <Text style={styles.countText}>{storeState.stores?.length || 0}</Text>
+            </View>
           </View>
         </View>
 
@@ -102,64 +115,34 @@ export default function AdminViewStores() {
             {storeState.stores.map((store) => (
               <TouchableOpacity
                 key={store.id}
-                style={styles.card}
+                style={[styles.card, compactView && styles.cardCompact]}
                 activeOpacity={0.9}
                 onPress={() => handleOpenStoreDetails(store.id, store.name)}
               >
-                <Image
-                  source={{ uri: store.imageUrl || "https://via.placeholder.com/64x64.png?text=S" }}
-                  style={styles.thumbnail}
-                />
-                <View style={styles.cardBody}>
-                  <Text style={styles.cardTitle}>{store.name}</Text>
-                  <Text style={styles.cardSub} numberOfLines={2}>{store.description}</Text>
-                  <View style={styles.metaRow}>
-                    <View style={[styles.metaPill, { backgroundColor: store.verificationStatus === "VERIFIED" ? "#D1FAE5" : "#F3F4F6" }]}>
-                      <Ionicons name={store.verificationStatus === "VERIFIED" ? "shield-checkmark" : "shield-outline"} size={14} color={store.verificationStatus === "VERIFIED" ? "#10B981" : "#6B7280"} />
-                      <Text style={[styles.metaText, { color: store.verificationStatus === "VERIFIED" ? "#065F46" : "#374151" }]}>
-                        {store.verificationStatus === "VERIFIED" ? "Verified" : "Unverified"}
-                      </Text>
-                    </View>
-                    <View style={[styles.metaPill, { backgroundColor: store.isActive === false ? "#FEE2E2" : "#E0F2F1" }]}>
-                      <Ionicons name={store.isActive === false ? "power" : "flash"} size={14} color={store.isActive === false ? "#B91C1C" : "#047857"} />
-                      <Text style={[styles.metaText, { color: store.isActive === false ? "#991B1B" : "#065F46" }]}>
-                        {store.isActive === false ? "Disabled" : "Active"}
-                      </Text>
-                    </View>
-                    {store.ownerId && authState.allUsers && authState.allUsers.length > 0 && !authState.allUsers.some((u) => u.id === store.ownerId) && (
-                      <View style={[styles.metaPill, styles.deletePill]}>
-                        <Ionicons name="alert-circle" size={14} color="#991B1B" />
-                        <Text style={[styles.metaText, { color: "#991B1B" }]}>Recommended to delete</Text>
-                      </View>
-                    )}
-                  </View>
-                  <View style={styles.statusControls}>
-                    <TouchableOpacity
-                      style={[
-                        styles.actionButton,
-                        store.verificationStatus === "VERIFIED" ? styles.unverifyButton : styles.verifyButton,
-                        storeActionLoading[store.id] && styles.actionButtonDisabled,
-                      ]}
-                      onPress={() => handleToggleVerification(store.id, store.verificationStatus)}
-                      disabled={!!storeActionLoading[store.id]}
-                    >
-                      {storeActionLoading[store.id] ? (
-                        <ActivityIndicator size="small" color="#FFFFFF" />
-                      ) : (
-                        <>
-                          <Ionicons
-                            name={store.verificationStatus === "VERIFIED" ? "shield-outline" : "shield-checkmark"}
-                            size={16}
-                            color="#FFFFFF"
-                          />
-                          <Text style={styles.actionButtonText}>
-                            {store.verificationStatus === "VERIFIED" ? "Unverify" : "Verify"}
+                {compactView ? (
+                  <>
+                    <Image
+                      source={{ uri: store.imageUrl || "https://via.placeholder.com/64x64.png?text=S" }}
+                      style={styles.thumbnailCompact}
+                    />
+                    <View style={styles.cardBodyCompact}>
+                      <Text style={styles.cardTitleCompact} numberOfLines={1}>{store.name}</Text>
+                      <View style={styles.metaRowCompact}>
+                        <View style={[styles.metaPillCompact, { backgroundColor: store.verificationStatus === "VERIFIED" ? "#D1FAE5" : "#F3F4F6" }]}>
+                          <Ionicons name={store.verificationStatus === "VERIFIED" ? "shield-checkmark" : "shield-outline"} size={10} color={store.verificationStatus === "VERIFIED" ? "#10B981" : "#6B7280"} />
+                          <Text style={[styles.metaTextCompact, { color: store.verificationStatus === "VERIFIED" ? "#065F46" : "#374151" }]}>
+                            {store.verificationStatus === "VERIFIED" ? "Verified" : "Unverified"}
                           </Text>
-                        </>
-                      )}
-                    </TouchableOpacity>
-                    <View style={styles.switchRow}>
-                      <Text style={styles.switchLabel}>{store.isActive === false ? "Disabled" : "Active"}</Text>
+                        </View>
+                        <View style={[styles.metaPillCompact, { backgroundColor: store.isActive === false ? "#FEE2E2" : "#E0F2F1" }]}>
+                          <Ionicons name={store.isActive === false ? "power" : "flash"} size={10} color={store.isActive === false ? "#B91C1C" : "#047857"} />
+                          <Text style={[styles.metaTextCompact, { color: store.isActive === false ? "#991B1B" : "#065F46" }]}>
+                            {store.isActive === false ? "Disabled" : "Active"}
+                          </Text>
+                        </View>
+                      </View>
+                    </View>
+                    <View style={styles.actionsCompact}>
                       <Switch
                         value={store.isActive !== false}
                         onValueChange={(value) => handleToggleStoreActive(store.id, value)}
@@ -167,13 +150,100 @@ export default function AdminViewStores() {
                         trackColor={{ false: "#FECACA", true: "#A7F3D0" }}
                         disabled={!!storeActionLoading[store.id]}
                       />
+                      {storeActionLoading[store.id] ? (
+                        <ActivityIndicator size="small" color="#277874" />
+                      ) : (
+                        <TouchableOpacity
+                          style={[
+                            styles.actionButtonCompact,
+                            store.verificationStatus === "VERIFIED" ? styles.unverifyButton : styles.verifyButton,
+                          ]}
+                          onPress={() => handleToggleVerification(store.id, store.verificationStatus)}
+                          disabled={!!storeActionLoading[store.id]}
+                        >
+                          <Ionicons
+                            name={store.verificationStatus === "VERIFIED" ? "shield-outline" : "shield-checkmark"}
+                            size={14}
+                            color="#FFFFFF"
+                          />
+                        </TouchableOpacity>
+                      )}
                     </View>
-                    
-                  </View>
-                </View>
-                <View style={styles.chevron}>
-                  <Ionicons name="chevron-forward" size={20} color="#9CA3AF" />
-                </View>
+                    <View style={styles.chevron}>
+                      <Ionicons name="chevron-forward" size={16} color="#9CA3AF" />
+                    </View>
+                  </>
+                ) : (
+                  <>
+                    <Image
+                      source={{ uri: store.imageUrl || "https://via.placeholder.com/64x64.png?text=S" }}
+                      style={styles.thumbnail}
+                    />
+                    <View style={styles.cardBody}>
+                      <Text style={styles.cardTitle}>{store.name}</Text>
+                      <Text style={styles.cardSub} numberOfLines={2}>{store.description}</Text>
+                      <View style={styles.metaRow}>
+                        <View style={[styles.metaPill, { backgroundColor: store.verificationStatus === "VERIFIED" ? "#D1FAE5" : "#F3F4F6" }]}>
+                          <Ionicons name={store.verificationStatus === "VERIFIED" ? "shield-checkmark" : "shield-outline"} size={12} color={store.verificationStatus === "VERIFIED" ? "#10B981" : "#6B7280"} />
+                          <Text style={[styles.metaText, { color: store.verificationStatus === "VERIFIED" ? "#065F46" : "#374151" }]}>
+                            {store.verificationStatus === "VERIFIED" ? "Verified" : "Unverified"}
+                          </Text>
+                        </View>
+                        <View style={[styles.metaPill, { backgroundColor: store.isActive === false ? "#FEE2E2" : "#E0F2F1" }]}>
+                          <Ionicons name={store.isActive === false ? "power" : "flash"} size={12} color={store.isActive === false ? "#B91C1C" : "#047857"} />
+                          <Text style={[styles.metaText, { color: store.isActive === false ? "#991B1B" : "#065F46" }]}>
+                            {store.isActive === false ? "Disabled" : "Active"}
+                          </Text>
+                        </View>
+                        {store.ownerId && authState.allUsers && authState.allUsers.length > 0 && !authState.allUsers.some((u) => u.id === store.ownerId) && (
+                          <View style={[styles.metaPill, styles.deletePill]}>
+                            <Ionicons name="alert-circle" size={12} color="#991B1B" />
+                            <Text style={[styles.metaText, { color: "#991B1B" }]}>Orphan</Text>
+                          </View>
+                        )}
+                      </View>
+                      <View style={styles.statusControls}>
+                        <TouchableOpacity
+                          style={[
+                            styles.actionButton,
+                            store.verificationStatus === "VERIFIED" ? styles.unverifyButton : styles.verifyButton,
+                            storeActionLoading[store.id] && styles.actionButtonDisabled,
+                          ]}
+                          onPress={() => handleToggleVerification(store.id, store.verificationStatus)}
+                          disabled={!!storeActionLoading[store.id]}
+                        >
+                          {storeActionLoading[store.id] ? (
+                            <ActivityIndicator size="small" color="#FFFFFF" />
+                          ) : (
+                            <>
+                              <Ionicons
+                                name={store.verificationStatus === "VERIFIED" ? "shield-outline" : "shield-checkmark"}
+                                size={16}
+                                color="#FFFFFF"
+                              />
+                              <Text style={styles.actionButtonText}>
+                                {store.verificationStatus === "VERIFIED" ? "Unverify" : "Verify"}
+                              </Text>
+                            </>
+                          )}
+                        </TouchableOpacity>
+                        <View style={styles.switchRow}>
+                          <Text style={styles.switchLabel}>{store.isActive === false ? "Disabled" : "Active"}</Text>
+                          <Switch
+                            value={store.isActive !== false}
+                            onValueChange={(value) => handleToggleStoreActive(store.id, value)}
+                            thumbColor="#ffffff"
+                            trackColor={{ false: "#FECACA", true: "#A7F3D0" }}
+                            disabled={!!storeActionLoading[store.id]}
+                          />
+                        </View>
+                      </View>
+                    </View>
+                    <View style={styles.chevron}>
+                      <Ionicons name="chevron-forward" size={20} color="#9CA3AF" />
+                    </View>
+                  </>
+                )}
               </TouchableOpacity>
             ))}
           </View>
@@ -202,6 +272,16 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginBottom: 12,
   },
+  headerRight: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+  },
+  viewToggle: {
+    padding: 6,
+    borderRadius: 8,
+    backgroundColor: "#f0f9f8",
+  },
   title: {
     fontSize: 20,
     fontWeight: "bold",
@@ -226,17 +306,18 @@ const styles = StyleSheet.create({
   card: {
     backgroundColor: "#ffffff",
     borderRadius: 12,
-    padding: 12,
+    padding: 16,
     flexDirection: "row",
-    alignItems: "center",
+    alignItems: "flex-start",
     borderWidth: 1,
     borderColor: "#E5E7EB",
+    marginBottom: 12,
   },
   thumbnail: {
-    width: 56,
-    height: 56,
-    borderRadius: 8,
-    marginRight: 12,
+    width: 64,
+    height: 64,
+    borderRadius: 10,
+    marginRight: 14,
     backgroundColor: "#F3F4F6",
   },
   cardBody: {
@@ -246,39 +327,44 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "700",
     color: "#1F2937",
-    marginBottom: 2,
+    marginBottom: 4,
   },
   cardSub: {
     fontSize: 13,
     color: "#6B7280",
-    marginBottom: 8,
+    marginBottom: 10,
+    lineHeight: 18,
   },
   metaRow: {
     flexDirection: "row",
     flexWrap: "wrap",
-    gap: 8,
+    gap: 6,
+    marginBottom: 10,
   },
   metaPill: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 6,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 999,
+    gap: 5,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
   },
   deletePill: {
     backgroundColor: "#FEE2E2",
   },
   metaText: {
-    fontSize: 12,
-    fontWeight: "700",
+    fontSize: 11,
+    fontWeight: "600",
   },
   statusControls: {
-    marginTop: 12,
+    marginTop: 8,
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
     gap: 12,
+    paddingTop: 10,
+    borderTopWidth: 1,
+    borderTopColor: "#F3F4F6",
   },
   actionButton: {
     flexDirection: "row",
@@ -330,6 +416,8 @@ const styles = StyleSheet.create({
   },
   chevron: {
     padding: 6,
+    alignSelf: "center",
+    marginTop: 4,
   },
   emptyState: {
     alignItems: "center",
@@ -356,6 +444,56 @@ const styles = StyleSheet.create({
     marginTop: 12,
     fontSize: 16,
     color: "#277874",
+  },
+  // Compact view styles - single line horizontal layout
+  cardCompact: {
+    padding: 8,
+    marginBottom: 6,
+    alignItems: "center",
+    minHeight: 48,
+    flexDirection: "row",
+  },
+  thumbnailCompact: {
+    width: 36,
+    height: 36,
+    borderRadius: 6,
+    marginRight: 8,
+  },
+  cardBodyCompact: {
+    flex: 1,
+    justifyContent: "center",
+  },
+  cardTitleCompact: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: "#1F2937",
+    marginBottom: 2,
+  },
+  metaRowCompact: {
+    flexDirection: "row",
+    gap: 4,
+    flexWrap: "wrap",
+  },
+  metaPillCompact: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 3,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+  },
+  metaTextCompact: {
+    fontSize: 9,
+    fontWeight: "600",
+  },
+  actionsCompact: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  actionButtonCompact: {
+    padding: 4,
+    borderRadius: 6,
   },
 });
 

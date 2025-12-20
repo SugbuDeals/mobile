@@ -120,7 +120,25 @@ export type Promotion = {
   endsAt: string | null; // Nullable per server.json
   active: boolean;
   discount: number;
-  productId: number | null; // Nullable per server.json
+  productId: number | null; // Nullable per server.json - legacy field, use promotionProducts for multi-product promotions
+  promotionProducts?: Array<{
+    id: number;
+    promotionId: number;
+    productId: number;
+    createdAt: string;
+    product?: {
+      id: number;
+      name: string;
+      description: string;
+      price: string;
+      stock: number;
+      createdAt: string;
+      isActive: boolean;
+      storeId: number;
+      categoryId: number | null;
+      imageUrl: string | null;
+    };
+  }>; // Array of products in this promotion - use this for multi-product promotions
 };
 
 export type CreatePromotionDTO = {

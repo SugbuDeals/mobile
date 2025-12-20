@@ -1,6 +1,7 @@
 import { useLogin } from "@/features/auth";
 import { logout } from "@/features/auth/slice";
 import { useStore } from "@/features/store";
+import { reportsApi } from "@/services/api/endpoints/reports";
 import { useAppDispatch } from "@/store/hooks";
 
 import { uploadFile } from "@/utils/fileUpload";
@@ -11,6 +12,7 @@ import * as Location from "expo-location";
 import { router } from "expo-router";
 import React, { useMemo, useState } from "react";
 import {
+    ActivityIndicator,
     Alert, Image, Platform,
     ScrollView,
     StatusBar,
@@ -52,6 +54,8 @@ export default function Settings() {
   const [latitude, setLatitude] = useState<number | undefined>(undefined);
   const [longitude, setLongitude] = useState<number | undefined>(undefined);
   const [isGettingLocation, setIsGettingLocation] = useState(false);
+  const [storeReports, setStoreReports] = useState<any[]>([]);
+  const [loadingStoreReports, setLoadingStoreReports] = useState(false);
 
   // Store data is already loaded by useStoreManagement hook in the layout
   // No need to load it again here
@@ -68,8 +72,23 @@ export default function Settings() {
       setAddress(userStore.address || "");
       setLatitude(userStore.latitude ?? undefined);
       setLongitude(userStore.longitude ?? undefined);
+      loadStoreReports();
     }
   }, [userStore]);
+
+  const loadStoreReports = async () => {
+    if (!userStore?.id) return;
+    
+    setLoadingStoreReports(true);
+    try {
+      const reports = await reportsApi.getReportsByStore(userStore.id, { take: 100 });
+      setStoreReports(reports);
+    } catch (error) {
+      console.error("Failed to load store reports:", error);
+    } finally {
+      setLoadingStoreReports(false);
+    }
+  };
 
   const handleEditStore = () => {
     setIsEditingStore(true);
@@ -662,6 +681,95 @@ export default function Settings() {
           </View>
         </View>
 
+        {/* Reports Section */}
+        <View style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <Ionicons name="flag" size={20} color="#277874" />
+            <Text style={styles.sectionTitle}>Reports</Text>
+          </View>
+
+          <TouchableOpacity
+            style={styles.subscriptionButton}
+            onPress={() => router.push("/(retailers)/my-reports")}
+          >
+            <View style={styles.subscriptionButtonContent}>
+              <View style={styles.subscriptionTextContainer}>
+                <Text style={styles.subscriptionButtonTitle}>My Reports</Text>
+                <Text style={styles.subscriptionButtonSubtitle}>
+                  View and track your submitted reports
+                </Text>
+              </View>
+              <Ionicons name="chevron-forward" size={24} color="#277874" />
+            </View>
+          </TouchableOpacity>
+
+          {/* Store Reports Received Section */}
+          {userStore && (
+            <View style={styles.storeReportsSection}>
+              <Text style={styles.storeReportsTitle}>Reports on Your Store</Text>
+              {loadingStoreReports ? (
+                <View style={styles.reportsLoadingContainer}>
+                  <ActivityIndicator size="small" color="#277874" />
+                  <Text style={styles.reportsLoadingText}>Loading...</Text>
+                </View>
+              ) : storeReports.length > 0 ? (
+                <View style={styles.storeReportsStats}>
+                  <View style={styles.reportStatItem}>
+                    <Text style={styles.reportStatLabel}>Total</Text>
+                    <Text style={styles.reportStatValue}>{storeReports.length}</Text>
+                  </View>
+                  <View style={styles.reportStatItem}>
+                    <Text style={styles.reportStatLabel}>Resolved</Text>
+                    <Text style={[styles.reportStatValue, { color: "#10B981" }]}>
+                      {storeReports.filter((r) => r.status === "RESOLVED").length}
+                    </Text>
+                  </View>
+                  <View style={styles.reportStatItem}>
+                    <Text style={styles.reportStatLabel}>Dismissed</Text>
+                    <Text style={[styles.reportStatValue, { color: "#6B7280" }]}>
+                      {storeReports.filter((r) => r.status === "DISMISSED").length}
+                    </Text>
+                  </View>
+                  <View style={styles.reportStatItem}>
+                    <Text style={styles.reportStatLabel}>Pending</Text>
+                    <Text style={[styles.reportStatValue, { color: "#F59E0B" }]}>
+                      {storeReports.filter((r) => r.status === "PENDING").length}
+                    </Text>
+                  </View>
+                </View>
+              ) : (
+                <Text style={styles.noReportsText}>No reports received on your store</Text>
+              )}
+              <Text style={styles.storeReportsNote}>
+                These are reports submitted against your store. Please ensure you follow community guidelines.
+              </Text>
+            </View>
+          )}
+        </View>
+
+        {/* Subscription Section */}
+        <View style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <Ionicons name="star" size={20} color="#FFBE5D" />
+            <Text style={styles.sectionTitle}>Subscription</Text>
+          </View>
+
+          <TouchableOpacity
+            style={styles.subscriptionButton}
+            onPress={() => router.push("/(retailers)/subscription")}
+          >
+            <View style={styles.subscriptionButtonContent}>
+              <View style={styles.subscriptionTextContainer}>
+                <Text style={styles.subscriptionButtonTitle}>Manage Subscription</Text>
+                <Text style={styles.subscriptionButtonSubtitle}>
+                  Upgrade to PRO for extended features and analytics
+                </Text>
+              </View>
+              <Ionicons name="chevron-forward" size={24} color="#277874" />
+            </View>
+          </TouchableOpacity>
+        </View>
+
         {/* Account Actions Section */}
         <View style={styles.profileSection}>
           <View style={styles.profileInputGroup}>
@@ -998,5 +1106,93 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "600",
     color: "#ffffff",
+  },
+  subscriptionButton: {
+    backgroundColor: "#F9FAFB",
+    borderWidth: 1,
+    borderColor: "#E5E7EB",
+    borderRadius: 12,
+    padding: 16,
+    marginTop: 8,
+  },
+  subscriptionButtonContent: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  subscriptionTextContainer: {
+    flex: 1,
+    marginRight: 12,
+  },
+  subscriptionButtonTitle: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#277874",
+    marginBottom: 4,
+  },
+  subscriptionButtonSubtitle: {
+    fontSize: 14,
+    color: "#6B7280",
+    lineHeight: 20,
+  },
+  storeReportsSection: {
+    marginTop: 16,
+    padding: 16,
+    backgroundColor: "#F9FAFB",
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "#E5E7EB",
+  },
+  storeReportsTitle: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#111827",
+    marginBottom: 12,
+  },
+  storeReportsStats: {
+    flexDirection: "row",
+    gap: 12,
+    marginBottom: 12,
+  },
+  reportStatItem: {
+    flex: 1,
+    backgroundColor: "#FFF",
+    padding: 12,
+    borderRadius: 8,
+    alignItems: "center",
+  },
+  reportStatLabel: {
+    fontSize: 12,
+    color: "#6B7280",
+    marginBottom: 4,
+  },
+  reportStatValue: {
+    fontSize: 20,
+    fontWeight: "bold",
+    color: "#277874",
+  },
+  reportsLoadingContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    padding: 20,
+    gap: 8,
+  },
+  reportsLoadingText: {
+    fontSize: 14,
+    color: "#6B7280",
+  },
+  noReportsText: {
+    fontSize: 14,
+    color: "#9CA3AF",
+    fontStyle: "italic",
+    textAlign: "center",
+    padding: 12,
+  },
+  storeReportsNote: {
+    fontSize: 12,
+    color: "#6B7280",
+    marginTop: 8,
+    lineHeight: 18,
   },
 });

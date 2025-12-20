@@ -1,5 +1,4 @@
 import { useLogin } from "@/features/auth";
-import type { UserResponseDto } from "@/features/auth/types";
 import { logout } from "@/features/auth/slice";
 import { fetchUserById } from "@/features/auth/thunk";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
@@ -8,15 +7,15 @@ import { getNotificationPreference, setNotificationPreference } from "@/utils/no
 import Ionicons from "@expo/vector-icons/Ionicons";
 import * as ImagePicker from "expo-image-picker";
 import { router } from "expo-router";
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import {
-  Alert,
-  Image,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
+    Alert,
+    Image,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View,
 } from "react-native";
 import Button from "../../components/Button";
 import TextField from "../../components/TextField";
@@ -339,6 +338,27 @@ export default function Profile() {
               Get notified about nearby promotions when you're close to stores
             </Text>
           </View>
+        </View>
+
+        <View style={styles.card}>
+          <View style={styles.cardHeader}>
+            <Ionicons name="flag-outline" size={18} color="#277874" />
+            <Text style={styles.cardTitle}>Reports</Text>
+          </View>
+          <TouchableOpacity
+            style={styles.subscriptionButton}
+            onPress={() => router.push("/(consumers)/my-reports")}
+          >
+            <View style={styles.subscriptionButtonContent}>
+              <View>
+                <Text style={styles.subscriptionButtonTitle}>My Reports</Text>
+                <Text style={styles.subscriptionButtonSubtitle}>
+                  View and track your submitted reports
+                </Text>
+              </View>
+              <Ionicons name="chevron-forward" size={20} color="#277874" />
+            </View>
+          </TouchableOpacity>
         </View>
 
         <View style={styles.card}>

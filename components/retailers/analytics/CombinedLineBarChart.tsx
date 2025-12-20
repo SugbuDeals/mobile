@@ -1,21 +1,21 @@
 import React from 'react';
 import {
-  Dimensions,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
+    Dimensions,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View,
 } from 'react-native';
 import Svg, {
-  Defs,
-  G,
-  Line,
-  LinearGradient,
-  Path,
-  Rect,
-  Stop,
-  Text as SvgText,
+    Defs,
+    G,
+    Line,
+    LinearGradient,
+    Path,
+    Rect,
+    Stop,
+    Text as SvgText,
 } from 'react-native-svg';
 
 const { width: screenWidth } = Dimensions.get('window');
@@ -83,10 +83,11 @@ export const CombinedLineBarChart: React.FC<Props> = ({
     const barLines = lines.filter(l => l.chartType !== 'line');
     if (!barLines.length) return null;
 
-    return barLines.map((line, lineIndex) =>
-      line.data.map((point, pointIndex) => {
+    const bars: React.JSX.Element[] = [];
+    barLines.forEach((line, lineIndex) => {
+      line.data.forEach((point, pointIndex) => {
         const barHeight = Math.max(0, point.value * yScale);
-        if (!barHeight) return null;
+        if (!barHeight) return;
 
         const x =
           padding +
@@ -97,7 +98,7 @@ export const CombinedLineBarChart: React.FC<Props> = ({
         const y = padding + graphHeight - barHeight;
         const isSelected = selectedLine === line.key;
 
-        return (
+        bars.push(
           <Rect
             key={`bar-${line.key}-${pointIndex}`}
             x={x}
@@ -111,8 +112,9 @@ export const CombinedLineBarChart: React.FC<Props> = ({
             onPress={() => onLinePress?.(line.key)}
           />
         );
-      })
-    );
+      });
+    });
+    return bars;
   };
 
   /* ---------------- Lines ---------------- */
@@ -247,9 +249,9 @@ export const CombinedLineBarChart: React.FC<Props> = ({
           {renderBars()}
           {renderLines()}
 
-          {lines[0].data.map((p, i) => (
+          {lines[0]?.data.map((p, i) => (
             <SvgText
-              key={i}
+              key={`xaxis-label-${i}-${p.label}`}
               x={padding + i * xStep}
               y={padding + graphHeight + 24}
               fontSize={10}

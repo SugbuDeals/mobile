@@ -1,14 +1,14 @@
 import DealBadge from "@/components/consumers/deals/DealBadge";
 import {
-    ChatResponse,
-    InsightsPanel,
-    PromotionCard,
-    QueryHistoryModal,
-    RecommendationCard,
-    RecommendationTabs,
-    SearchPrompt,
-    StoreCard,
-    type RecommendationTab,
+  ChatResponse,
+  InsightsPanel,
+  PromotionCard,
+  QueryHistoryModal,
+  RecommendationCard,
+  RecommendationTabs,
+  SearchPrompt,
+  StoreCard,
+  type RecommendationTab,
 } from "@/components/consumers/explore";
 import type { Product } from "@/features/catalog/types";
 import { useStore } from "@/features/store";
@@ -21,7 +21,8 @@ import { productsApi } from "@/services/api/endpoints/products";
 import { promotionsApi } from "@/services/api/endpoints/promotions";
 import { storesApi } from "@/services/api/endpoints/stores";
 import { viewsApi } from "@/services/api/endpoints/views";
-import type { PromotionRecommendationItemDto } from "@/services/api/types/swagger";
+import { reviewsApi } from "@/services/api/endpoints/reviews";
+import type { PromotionRecommendationItemDto, StoreRatingStatsDto } from "@/services/api/types/swagger";
 import { borderRadius, colors, shadows, spacing, typography } from "@/styles/theme";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { LinearGradient } from "expo-linear-gradient";
@@ -29,17 +30,17 @@ import * as Location from "expo-location";
 import { useFocusEffect, useRouter } from "expo-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
-    ActivityIndicator,
-    Animated,
-    Image,
-    KeyboardAvoidingView,
-    Modal,
-    Platform,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View,
+  ActivityIndicator,
+  Animated,
+  Image,
+  KeyboardAvoidingView,
+  Modal,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from "react-native";
 
 interface RecommendationItem {
@@ -71,6 +72,7 @@ export default function Explore() {
     products: Array<{ product: Product; promotion: Promotion }>;
   } | null>(null);
   const fadeAnim = useRef(new Animated.Value(0)).current;
+  const [storeRatingStats, setStoreRatingStats] = useState<Record<number, StoreRatingStatsDto | null>>({});
   
   const {
     state: { nearbyStores, currentTier },
@@ -99,6 +101,37 @@ export default function Explore() {
   const { history: queryHistory, addEntry } = useQueryHistory();
 
   const { aiResponse, insightsSummary, recommendations, highlight, elaboration, intent, products, stores, promotions } = response;
+
+  // Fetch rating stats for stores when stores change
+  useEffect(() => {
+    if (stores.length === 0) {
+      setStoreRatingStats({});
+      return;
+    }
+
+    const fetchRatingStats = async () => {
+      const statsPromises = stores.map(async (store) => {
+        if (!store.id) return null;
+        try {
+          const stats = await reviewsApi.getStoreRatingStats(store.id);
+          return { storeId: store.id, stats: stats || null };
+        } catch {
+          return { storeId: store.id, stats: null };
+        }
+      });
+
+      const results = await Promise.all(statsPromises);
+      const newMap: Record<number, StoreRatingStatsDto | null> = {};
+      results.forEach((result) => {
+        if (result) {
+          newMap[result.storeId] = result.stats;
+        }
+      });
+      setStoreRatingStats(newMap);
+    };
+
+    fetchRatingStats();
+  }, [stores]);
 
   const hasResults = useMemo(
     () => (aiResponse != null && aiResponse.trim().length > 0) || products.length > 0 || stores.length > 0 || promotions.length > 0,
@@ -317,9 +350,21 @@ export default function Explore() {
             const product = await productsApi.findProductById(pp.productId);
             if (product) {
               // Convert the promotion details to Promotion type
+              // Ensure dealType is preserved - if missing, derive from type field
+              let dealType = promotionDetails.dealType;
+              if (!dealType && promotionDetails.type) {
+                const typeUpper = String(promotionDetails.type).toUpperCase();
+                if (typeUpper === "PERCENTAGE" || typeUpper.includes("PERCENTAGE")) {
+                  dealType = "PERCENTAGE_DISCOUNT";
+                } else if (typeUpper === "FIXED" || typeUpper.includes("FIXED")) {
+                  dealType = "FIXED_DISCOUNT";
+                }
+              }
+              
               const promo: Promotion = {
                 ...promotionDetails,
                 productId: pp.productId,
+                dealType: dealType ?? promotionDetails.dealType,
                 type: promotionDetails.type?.toLowerCase() as "percentage" | "fixed" | undefined,
               };
               
@@ -347,9 +392,21 @@ export default function Explore() {
       
       // If we have products, show the modal
       if (productPromotions.length > 0) {
+        // Ensure dealType is preserved - if missing, derive from type field
+        let dealType = promotionDetails.dealType;
+        if (!dealType && promotionDetails.type) {
+          const typeUpper = String(promotionDetails.type).toUpperCase();
+          if (typeUpper === "PERCENTAGE" || typeUpper.includes("PERCENTAGE")) {
+            dealType = "PERCENTAGE_DISCOUNT";
+          } else if (typeUpper === "FIXED" || typeUpper.includes("FIXED")) {
+            dealType = "FIXED_DISCOUNT";
+          }
+        }
+        
         const mainPromotion: Promotion = {
           ...promotionDetails,
           productId: promotionDetails.productId ?? null,
+          dealType: dealType ?? promotionDetails.dealType,
           type: promotionDetails.type?.toLowerCase() as "percentage" | "fixed" | undefined,
         };
         
@@ -557,6 +614,7 @@ export default function Explore() {
                       <StoreCard
                         key={`store-${store.id}-${idx}`}
                         store={store}
+                        ratingStats={store.id ? storeRatingStats[store.id] : null}
                       />
                     ))}
 
@@ -1025,9 +1083,11 @@ function ExplorePromotionModal({
                       }
                       style={exploreModalStyles.modalProductImage}
                     />
-                    {productPromo.dealType && (
+                    {productPromo.dealType && 
+                     typeof productPromo.dealType === "string" &&
+                     ["PERCENTAGE_DISCOUNT", "FIXED_DISCOUNT", "BOGO", "BUNDLE", "QUANTITY_DISCOUNT", "VOUCHER"].includes(productPromo.dealType) && (
                       <View style={exploreModalStyles.modalProductBadge}>
-                        <DealBadge dealType={productPromo.dealType} size="small" />
+                        <DealBadge dealType={productPromo.dealType as any} size="small" />
                       </View>
                     )}
                   </View>

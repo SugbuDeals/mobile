@@ -2,10 +2,11 @@ import { useStore } from "@/features/store";
 import { productsApi } from "@/services/api/endpoints/products";
 import { promotionsApi } from "@/services/api/endpoints/promotions";
 import { storesApi } from "@/services/api/endpoints/stores";
-import type { PromotionRecommendationItemDto } from "@/services/api/types/swagger";
+import type { PromotionRecommendationItemDto, PromotionResponseDto } from "@/services/api/types/swagger";
+import { formatDealDetails, getDealTypeLabel } from "@/utils/dealTypes";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { useRouter } from "expo-router";
-import React, { useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { ActivityIndicator, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
 interface PromotionCardProps {
@@ -43,13 +44,124 @@ export default function PromotionCard({ promotion, onPress }: PromotionCardProps
     return now >= startsAt && (!endsAt || now <= endsAt);
   }, [promotion.startsAt, promotion.endsAt]);
 
+  // Convert PromotionRecommendationItemDto to a format compatible with formatDealDetails
+  const promotionForFormatting = useMemo((): PromotionResponseDto | null => {
+    // Derive dealType from type field
+    let dealType: "PERCENTAGE_DISCOUNT" | "FIXED_DISCOUNT" | "BOGO" | "BUNDLE" | "QUANTITY_DISCOUNT" | "VOUCHER" = "PERCENTAGE_DISCOUNT";
+    
+    if (promotion.type) {
+      const typeUpper = String(promotion.type).toUpperCase();
+      if (typeUpper.includes("PERCENTAGE") || typeUpper === "PERCENTAGE") {
+        dealType = "PERCENTAGE_DISCOUNT";
+      } else if (typeUpper.includes("FIXED") || typeUpper === "FIXED") {
+        dealType = "FIXED_DISCOUNT";
+      } else if (typeUpper.includes("BOGO")) {
+        dealType = "BOGO";
+      } else if (typeUpper.includes("BUNDLE")) {
+        dealType = "BUNDLE";
+      } else if (typeUpper.includes("QUANTITY")) {
+        dealType = "QUANTITY_DISCOUNT";
+      } else if (typeUpper.includes("VOUCHER")) {
+        dealType = "VOUCHER";
+      }
+    }
+
+    // Create a minimal PromotionResponseDto for formatting
+    // Note: For complex deal types (BOGO, BUNDLE, etc.), we may not have all fields
+    // so we'll use formatDealDetails with what we have, and it will fall back to "Special deal"
+    const promo: PromotionResponseDto = {
+      id: promotion.id,
+      title: promotion.title,
+      dealType,
+      description: promotion.description,
+      startsAt: promotion.startsAt,
+      endsAt: promotion.endsAt,
+      active: true,
+      // Map discount to appropriate field based on dealType
+      // Only set if discount is a valid number
+      percentageOff: dealType === "PERCENTAGE_DISCOUNT" && promotion.discount != null && !isNaN(promotion.discount) ? promotion.discount : null,
+      fixedAmountOff: dealType === "FIXED_DISCOUNT" && promotion.discount != null && !isNaN(promotion.discount) ? promotion.discount : null,
+      voucherValue: dealType === "VOUCHER" && promotion.discount != null && !isNaN(promotion.discount) ? promotion.discount : null,
+      // Legacy fields
+      type: promotion.type,
+      discount: promotion.discount,
+    };
+
+    return promo;
+  }, [promotion]);
+
   const discountText = useMemo(() => {
-    const promoType = promotion.type?.toUpperCase() || "PERCENTAGE";
-    if (promoType === "PERCENTAGE" || promoType === "percentage") {
+    if (!promotionForFormatting) {
+      // Fallback if promotion is invalid
+      if (promotion.discount != null && !isNaN(promotion.discount)) {
+        const promoType = promotion.type?.toUpperCase() || "PERCENTAGE";
+        if (promoType.includes("FIXED") || promoType === "FIXED") {
+          return `₱${promotion.discount} OFF`;
+        }
+        return `${promotion.discount}% OFF`;
+      }
+      return "Special Deal";
+    }
+    
+    const dealType = promotionForFormatting.dealType;
+    
+    // For complex deal types (BOGO, BUNDLE, QUANTITY_DISCOUNT, VOUCHER), we may not have all required fields
+    // Check if we have the necessary fields before using formatDealDetails
+    const needsSpecialHandling = 
+      (dealType === "BOGO" && (!promotionForFormatting.buyQuantity || !promotionForFormatting.getQuantity)) ||
+      (dealType === "BUNDLE" && !promotionForFormatting.bundlePrice) ||
+      (dealType === "QUANTITY_DISCOUNT" && (!promotionForFormatting.minQuantity || !promotionForFormatting.quantityDiscount)) ||
+      (dealType === "VOUCHER" && !promotionForFormatting.voucherValue);
+    
+    if (needsSpecialHandling) {
+      // For complex deal types without required fields, use the deal type label
+      const label = getDealTypeLabel(dealType);
+      return label || "Special Deal";
+    }
+    
+    // Use formatDealDetails which handles all deal types properly
+    const formatted = formatDealDetails(promotionForFormatting);
+    
+    // Check if formatted string contains "null", "undefined", or "NaN" (which means formatDealDetails got invalid values)
+    if (formatted.includes("null") || formatted.includes("undefined") || formatted.includes("NaN")) {
+      // For complex deal types, use the label
+      if (dealType === "BOGO" || dealType === "BUNDLE" || dealType === "QUANTITY_DISCOUNT" || dealType === "VOUCHER") {
+        const label = getDealTypeLabel(dealType);
+        return label || "Special Deal";
+      }
+      // For simple deal types, fallback to simple format using discount field
+      if (promotion.discount != null && !isNaN(promotion.discount)) {
+        const promoType = promotion.type?.toUpperCase() || "PERCENTAGE";
+        if (promoType.includes("FIXED") || promoType === "FIXED") {
+          return `₱${promotion.discount} OFF`;
+        }
+        return `${promotion.discount}% OFF`;
+      }
+      return "Special Deal";
+    }
+    
+    // If formatDealDetails returns "Special deal" and we have discount, use a fallback
+    if (formatted === "Special deal" && promotion.discount != null && !isNaN(promotion.discount)) {
+      // For complex deal types, use the label
+      if (dealType === "BOGO" || dealType === "BUNDLE" || dealType === "QUANTITY_DISCOUNT" || dealType === "VOUCHER") {
+        const label = getDealTypeLabel(dealType);
+        return label || "Special Deal";
+      }
+      const promoType = promotion.type?.toUpperCase() || "PERCENTAGE";
+      if (promoType.includes("FIXED") || promoType === "FIXED") {
+        return `₱${promotion.discount} OFF`;
+      }
       return `${promotion.discount}% OFF`;
     }
-    return `₱${promotion.discount} OFF`;
-  }, [promotion.type, promotion.discount]);
+    
+    return formatted;
+  }, [promotionForFormatting, promotion.discount, promotion.type]);
+
+  const dealTypeLabel = useMemo(() => {
+    if (!promotionForFormatting) return "Special Deal";
+    const label = getDealTypeLabel(promotionForFormatting.dealType);
+    return label || "Special Deal";
+  }, [promotionForFormatting]);
 
   const handleArrowPress = async (e: any) => {
     e.stopPropagation(); // Prevent card press from firing
@@ -208,12 +320,14 @@ export default function PromotionCard({ promotion, onPress }: PromotionCardProps
               {promotion.title}
             </Text>
             <Text style={styles.storeLocation} numberOfLines={2}>
-              {promotion.description || "Promotion"}
+              {dealTypeLabel || promotion.description || "Promotion"}
             </Text>
           </View>
         </View>
         <View style={styles.discountBadge}>
-          <Text style={styles.discountBadgeText}>{discountText}</Text>
+          <Text style={styles.discountBadgeText} numberOfLines={1}>
+            {discountText}
+          </Text>
         </View>
       </View>
 

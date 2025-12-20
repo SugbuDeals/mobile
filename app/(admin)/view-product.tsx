@@ -1,8 +1,9 @@
+import { useAdminTools } from "@/components/admin/AdminToolsProvider";
 import { useCatalog } from "@/features/catalog";
 import { useStore } from "@/features/store";
 import type { Product } from "@/features/store/products/types";
 import { Ionicons } from "@expo/vector-icons";
-import React, { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { ActivityIndicator, Alert, Dimensions, Image, Modal, ScrollView, StyleSheet, Switch, Text, TextInput, TouchableOpacity, View } from "react-native";
 
 const { width } = Dimensions.get("window");
@@ -10,8 +11,10 @@ const { width } = Dimensions.get("window");
 export default function AdminViewProducts() {
   const { state: storeState, action: storeActions } = useStore();
   const { state: catalogState, action: catalogActions } = useCatalog();
+  const adminTools = useAdminTools();
   const [query, setQuery] = useState("");
   const [productStatusLoading, setProductStatusLoading] = useState<Record<number, boolean>>({});
+  const [compactView, setCompactView] = useState(false);
   
   // Edit modal state
   const [showEditModal, setShowEditModal] = useState(false);
@@ -33,6 +36,42 @@ export default function AdminViewProducts() {
     storeActions.findStores();
     catalogActions.loadCategories();
   }, []);
+
+  // Use refs to access latest values without causing re-renders
+  const productsRef = useRef(storeState.products);
+  const queryRef = useRef(query);
+  const storeActionsRef = useRef(storeActions);
+  const catalogActionsRef = useRef(catalogActions);
+
+  // Update refs when values change
+  useEffect(() => {
+    productsRef.current = storeState.products;
+    queryRef.current = query;
+    storeActionsRef.current = storeActions;
+    catalogActionsRef.current = catalogActions;
+  });
+
+  // Configure admin tools - only run once on mount
+  useEffect(() => {
+    adminTools.setRefreshHandler(() => {
+      storeActionsRef.current.findProducts();
+      storeActionsRef.current.findStores();
+      catalogActionsRef.current.loadCategories();
+    });
+
+    adminTools.setExportHandler(() => {
+      const currentProducts = productsRef.current.filter((p) =>
+        (p.name || "").toLowerCase().includes(queryRef.current.toLowerCase())
+      );
+      const productsData = JSON.stringify(currentProducts, null, 2);
+      console.log("Products data:", productsData);
+    });
+
+    adminTools.setSearchHandler(() => {
+      // Search functionality - no popup needed
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Only run once on mount
 
   const categoryMap = useMemo(() => {
     const map: Record<number, string> = {};
@@ -163,9 +202,21 @@ export default function AdminViewProducts() {
       <ScrollView style={styles.content} contentContainerStyle={styles.contentContainer} showsVerticalScrollIndicator={false}>
         <View style={styles.headerRow}>
           <Text style={styles.title}>Products</Text>
-          <View style={styles.countBadge}>
-            <Ionicons name="cube-outline" color="#277874" size={16} />
-            <Text style={styles.countText}>{storeState.products?.length || 0}</Text>
+          <View style={styles.headerRight}>
+            <TouchableOpacity
+              style={styles.viewToggle}
+              onPress={() => setCompactView(!compactView)}
+            >
+              <Ionicons 
+                name={compactView ? "grid" : "list"} 
+                size={18} 
+                color="#277874" 
+              />
+            </TouchableOpacity>
+            <View style={styles.countBadge}>
+              <Ionicons name="cube-outline" color="#277874" size={16} />
+              <Text style={styles.countText}>{storeState.products?.length || 0}</Text>
+            </View>
           </View>
         </View>
 
@@ -189,53 +240,29 @@ export default function AdminViewProducts() {
         ) : (
           <View style={styles.list}>
             {products.map((product) => (
-              <View key={product.id} style={styles.card}>
-                <Image
-                  source={{ uri: product.imageUrl || "https://via.placeholder.com/64x64.png?text=P" }}
-                  style={styles.thumbnail}
-                />
-                <View style={styles.cardBody}>
-                  <Text style={styles.cardTitle}>{product.name}</Text>
-                  <Text style={styles.cardSub} numberOfLines={2}>
-                    {product.description}
-                  </Text>
-                  <View style={styles.metaRow}>
-                    <View style={[styles.metaPill, { backgroundColor: "#e0f2f1" }]}>
-                      <Ionicons name="pricetag" size={14} color="#277874" />
-                      <Text style={[styles.metaText, { color: "#277874" }]}>₱{Number(product.price).toLocaleString()}</Text>
-                    </View>
-                    <View style={[styles.metaPill, { backgroundColor: "#fef3c7" }]}>
-                      <Ionicons name="cube" size={14} color="#F59E0B" />
-                      <Text style={[styles.metaText, { color: "#B45309" }]}>Stock: {product.stock}</Text>
-                    </View>
-                    <View style={[styles.metaPill, { backgroundColor: product.isActive ? "#D1FAE5" : "#F3F4F6" }]}>
-                      <Ionicons name={product.isActive ? "checkmark-circle" : "pause-circle"} size={14} color={product.isActive ? "#10B981" : "#6B7280"} />
-                      <Text style={[styles.metaText, { color: product.isActive ? "#065F46" : "#374151" }]}>
-                        {product.isActive ? "Active" : "Inactive"}
-                      </Text>
-                    </View>
-                    <View style={[styles.metaPill, { backgroundColor: "#E0E7FF" }]}>
-                      <Ionicons name="albums" size={14} color="#4338CA" />
-                      <Text style={[styles.metaText, { color: "#312E81" }]} numberOfLines={1}>
-                        {getCategoryLabel(product)}
-                      </Text>
-                    </View>
-                    {product.categoryId && (
-                      <View style={[styles.metaPill, { backgroundColor: "#F3F4F6" }]}>
-                        <Ionicons name="pricetags" size={14} color="#4B5563" />
-                        <Text style={[styles.metaText, { color: "#374151" }]}>ID: {product.categoryId}</Text>
+              <View key={product.id} style={[styles.card, compactView && styles.cardCompact]}>
+                {compactView ? (
+                  <>
+                    <Image
+                      source={{ uri: product.imageUrl || "https://via.placeholder.com/64x64.png?text=P" }}
+                      style={styles.thumbnailCompact}
+                    />
+                    <View style={styles.cardBodyCompact}>
+                      <Text style={styles.cardTitleCompact} numberOfLines={1}>{product.name}</Text>
+                      <View style={styles.metaRowCompact}>
+                        <View style={[styles.metaPillCompact, { backgroundColor: "#e0f2f1" }]}>
+                          <Ionicons name="pricetag" size={10} color="#277874" />
+                          <Text style={[styles.metaTextCompact, { color: "#277874" }]}>₱{Number(product.price).toLocaleString()}</Text>
+                        </View>
+                        <View style={[styles.metaPillCompact, { backgroundColor: product.isActive ? "#D1FAE5" : "#F3F4F6" }]}>
+                          <Ionicons name={product.isActive ? "checkmark-circle" : "pause-circle"} size={10} color={product.isActive ? "#10B981" : "#6B7280"} />
+                          <Text style={[styles.metaTextCompact, { color: product.isActive ? "#065F46" : "#374151" }]}>
+                            {product.isActive ? "Active" : "Inactive"}
+                          </Text>
+                        </View>
                       </View>
-                    )}
-                    {isOrphanProduct(product.storeId) && (
-                      <View style={[styles.metaPill, styles.deletePill]}>
-                        <Ionicons name="alert-circle" size={14} color="#991B1B" />
-                        <Text style={[styles.metaText, { color: "#991B1B" }]}>Recommended to delete</Text>
-                      </View>
-                    )}
-                  </View>
-                  <View style={styles.productActions}>
-                    <View style={styles.switchRow}>
-                      <Text style={styles.switchLabel}>{product.isActive ? "Active" : "Disabled"}</Text>
+                    </View>
+                    <View style={styles.actionsCompact}>
                       <Switch
                         value={!!product.isActive}
                         onValueChange={(value) => handleToggleProductActive(product.id, value)}
@@ -243,28 +270,99 @@ export default function AdminViewProducts() {
                         thumbColor="#FFFFFF"
                         disabled={!!productStatusLoading[product.id]}
                       />
+                      {productStatusLoading[product.id] ? (
+                        <ActivityIndicator size="small" color="#277874" />
+                      ) : (
+                        <>
+                          <TouchableOpacity 
+                            style={styles.editButtonCompact}
+                            onPress={() => handleEditProduct(product)}
+                          >
+                            <Ionicons name="create-outline" size={14} color="#277874" />
+                          </TouchableOpacity>
+                          <TouchableOpacity 
+                            style={styles.deleteButtonCompact}
+                            onPress={() => handleDeleteProduct(product.id)}
+                          >
+                            <Ionicons name="trash-outline" size={14} color="#DC2626" />
+                          </TouchableOpacity>
+                        </>
+                      )}
                     </View>
-                    {productStatusLoading[product.id] && (
-                      <ActivityIndicator size="small" color="#277874" />
-                    )}
-                  </View>
-                  <View style={styles.actionButtonsRow}>
-                    <TouchableOpacity 
-                      style={styles.editButton}
-                      onPress={() => handleEditProduct(product)}
-                    >
-                      <Ionicons name="create-outline" size={18} color="#277874" />
-                      <Text style={styles.editButtonText}>Edit</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity 
-                      style={styles.deleteButton}
-                      onPress={() => handleDeleteProduct(product.id)}
-                    >
-                      <Ionicons name="trash-outline" size={18} color="#DC2626" />
-                      <Text style={styles.deleteButtonText}>Delete</Text>
-                    </TouchableOpacity>
-                  </View>
-                </View>
+                  </>
+                ) : (
+                  <>
+                    <Image
+                      source={{ uri: product.imageUrl || "https://via.placeholder.com/64x64.png?text=P" }}
+                      style={styles.thumbnail}
+                    />
+                    <View style={styles.cardBody}>
+                      <Text style={styles.cardTitle}>{product.name}</Text>
+                      <Text style={styles.cardSub} numberOfLines={2}>
+                        {product.description}
+                      </Text>
+                      <View style={styles.metaRow}>
+                        <View style={[styles.metaPill, { backgroundColor: "#e0f2f1" }]}>
+                          <Ionicons name="pricetag" size={14} color="#277874" />
+                          <Text style={[styles.metaText, { color: "#277874" }]}>₱{Number(product.price).toLocaleString()}</Text>
+                        </View>
+                        <View style={[styles.metaPill, { backgroundColor: "#fef3c7" }]}>
+                          <Ionicons name="cube" size={14} color="#F59E0B" />
+                          <Text style={[styles.metaText, { color: "#B45309" }]}>Stock: {product.stock}</Text>
+                        </View>
+                        <View style={[styles.metaPill, { backgroundColor: product.isActive ? "#D1FAE5" : "#F3F4F6" }]}>
+                          <Ionicons name={product.isActive ? "checkmark-circle" : "pause-circle"} size={14} color={product.isActive ? "#10B981" : "#6B7280"} />
+                          <Text style={[styles.metaText, { color: product.isActive ? "#065F46" : "#374151" }]}>
+                            {product.isActive ? "Active" : "Inactive"}
+                          </Text>
+                        </View>
+                        <View style={[styles.metaPill, { backgroundColor: "#E0E7FF" }]}>
+                          <Ionicons name="albums" size={12} color="#4338CA" />
+                          <Text style={[styles.metaText, { color: "#312E81" }]} numberOfLines={1}>
+                            {getCategoryLabel(product)}
+                          </Text>
+                        </View>
+                        {isOrphanProduct(product.storeId) && (
+                          <View style={[styles.metaPill, styles.deletePill]}>
+                            <Ionicons name="alert-circle" size={14} color="#991B1B" />
+                            <Text style={[styles.metaText, { color: "#991B1B" }]}>Recommended to delete</Text>
+                          </View>
+                        )}
+                      </View>
+                      <View style={styles.productActions}>
+                        <View style={styles.switchRow}>
+                          <Text style={styles.switchLabel}>{product.isActive ? "Active" : "Disabled"}</Text>
+                          <Switch
+                            value={!!product.isActive}
+                            onValueChange={(value) => handleToggleProductActive(product.id, value)}
+                            trackColor={{ false: "#FECACA", true: "#A7F3D0" }}
+                            thumbColor="#FFFFFF"
+                            disabled={!!productStatusLoading[product.id]}
+                          />
+                        </View>
+                        {productStatusLoading[product.id] && (
+                          <ActivityIndicator size="small" color="#277874" />
+                        )}
+                      </View>
+                      <View style={styles.actionButtonsRow}>
+                        <TouchableOpacity 
+                          style={styles.editButton}
+                          onPress={() => handleEditProduct(product)}
+                        >
+                          <Ionicons name="create-outline" size={18} color="#277874" />
+                          <Text style={styles.editButtonText}>Edit</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity 
+                          style={styles.deleteButton}
+                          onPress={() => handleDeleteProduct(product.id)}
+                        >
+                          <Ionicons name="trash-outline" size={18} color="#DC2626" />
+                          <Text style={styles.deleteButtonText}>Delete</Text>
+                        </TouchableOpacity>
+                      </View>
+                    </View>
+                  </>
+                )}
               </View>
             ))}
           </View>
@@ -468,6 +566,16 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginBottom: 12,
   },
+  headerRight: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+  },
+  viewToggle: {
+    padding: 6,
+    borderRadius: 8,
+    backgroundColor: "#f0f9f8",
+  },
   title: {
     fontSize: 20,
     fontWeight: "bold",
@@ -508,17 +616,18 @@ const styles = StyleSheet.create({
   card: {
     backgroundColor: "#ffffff",
     borderRadius: 12,
-    padding: 12,
+    padding: 16,
     flexDirection: "row",
-    alignItems: "center",
+    alignItems: "flex-start",
     borderWidth: 1,
     borderColor: "#E5E7EB",
+    marginBottom: 12,
   },
   thumbnail: {
-    width: 56,
-    height: 56,
-    borderRadius: 8,
-    marginRight: 12,
+    width: 64,
+    height: 64,
+    borderRadius: 10,
+    marginRight: 14,
     backgroundColor: "#F3F4F6",
   },
   cardBody: {
@@ -528,38 +637,43 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "700",
     color: "#1F2937",
-    marginBottom: 2,
+    marginBottom: 4,
   },
   cardSub: {
     fontSize: 13,
     color: "#6B7280",
-    marginBottom: 8,
+    marginBottom: 10,
+    lineHeight: 18,
   },
   metaRow: {
     flexDirection: "row",
     flexWrap: "wrap",
-    gap: 8,
+    gap: 6,
+    marginBottom: 10,
   },
   metaPill: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 6,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 999,
+    gap: 5,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
   },
   deletePill: {
     backgroundColor: "#FEE2E2",
   },
   metaText: {
-    fontSize: 12,
-    fontWeight: "700",
+    fontSize: 11,
+    fontWeight: "600",
   },
   productActions: {
-    marginTop: 10,
+    marginTop: 8,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
+    paddingTop: 10,
+    borderTopWidth: 1,
+    borderTopColor: "#F3F4F6",
   },
   switchRow: {
     flexDirection: "row",
@@ -572,7 +686,7 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
   actionButtonsRow: {
-    marginTop: 10,
+    marginTop: 8,
     flexDirection: "row",
     gap: 8,
   },
@@ -808,6 +922,58 @@ const styles = StyleSheet.create({
     color: "#ffffff",
     fontSize: 16,
     fontWeight: "600",
+  },
+  // Compact view styles - single line horizontal layout
+  cardCompact: {
+    padding: 8,
+    marginBottom: 6,
+    alignItems: "center",
+    minHeight: 48,
+    flexDirection: "row",
+  },
+  thumbnailCompact: {
+    width: 36,
+    height: 36,
+    borderRadius: 6,
+    marginRight: 8,
+  },
+  cardBodyCompact: {
+    flex: 1,
+    justifyContent: "center",
+  },
+  cardTitleCompact: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: "#1F2937",
+    marginBottom: 2,
+  },
+  metaRowCompact: {
+    flexDirection: "row",
+    gap: 4,
+    flexWrap: "wrap",
+  },
+  metaPillCompact: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 3,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+  },
+  metaTextCompact: {
+    fontSize: 9,
+    fontWeight: "600",
+  },
+  actionsCompact: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  editButtonCompact: {
+    padding: 4,
+  },
+  deleteButtonCompact: {
+    padding: 4,
   },
 });
 

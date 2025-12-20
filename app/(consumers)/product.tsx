@@ -9,6 +9,7 @@ import type { Store } from "@/features/store/stores/types";
 import { promotionsApi } from "@/services/api/endpoints/promotions";
 import { viewsApi } from "@/services/api/endpoints/views";
 import type { VoucherTokenResponseDto } from "@/services/api/types/swagger";
+import { getVouchersOnly } from "@/utils/dealPlacement";
 import { formatDealDetails } from "@/utils/dealTypes";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { useLocalSearchParams, useRouter } from "expo-router";
@@ -393,60 +394,49 @@ function ProductCard({
     state: { products: allProducts },
   } = useCatalog();
 
-  // Generate voucher function
-  const handleGenerateVoucher = async () => {
-    console.log("=== GENERATE VOUCHER STARTED ===");
-    console.log("ProductId:", productId);
-    console.log("Active Promotion:", activePromotion);
-    console.log("Store ID:", params.storeId);
+  // Get voucher promotions that include this product
+  const productVoucherPromotions = useMemo(() => {
+    if (!productId || !params.storeId) return [];
+    const allVouchers = getVouchersOnly(activePromotions || []);
     
-    if (!productId || !activePromotion || !params.storeId) {
-      console.error("Missing required info for voucher generation");
-      Alert.alert("Error", "Missing required information to generate voucher");
+    // Filter vouchers that include this specific product
+    return allVouchers.filter((voucher: Promotion) => {
+      // Check if voucher has this product via promotionProducts
+      if (voucher.promotionProducts && Array.isArray(voucher.promotionProducts) && voucher.promotionProducts.length > 0) {
+        return voucher.promotionProducts.some((pp: any) => pp.productId === productId);
+      }
+      // Fallback to single productId
+      return voucher.productId === productId;
+    });
+  }, [activePromotions, productId, params.storeId]);
+
+  // Generate voucher function
+  const handleGenerateVoucher = async (promotionId: number) => {
+    if (!params.storeId || !productId) {
+      Alert.alert("Error", "Store or product information is missing");
       return;
     }
 
     setIsGeneratingVoucher(true);
-    console.log("Generating voucher token...");
     
     try {
       const response = await promotionsApi.generateVoucherToken({
-        promotionId: activePromotion.id,
+        promotionId,
         storeId: Number(params.storeId),
         productId: productId,
       });
       
-      console.log("=== VOUCHER TOKEN RESPONSE ===");
-      console.log("Full Response:", JSON.stringify(response, null, 2));
-      console.log("Response type:", typeof response);
-      console.log("Response is array:", Array.isArray(response));
-      console.log("Response keys:", Object.keys(response || {}));
-      console.log("Token value:", response?.token);
-      console.log("Token type:", typeof response?.token);
-      console.log("Token length:", response?.token?.length);
-      
-      // Check if response is nested under 'data' property
       const actualData = (response as any)?.data || response;
-      console.log("Actual data (after checking for nested data):", actualData);
-      console.log("Actual data token:", actualData?.token);
-      
-      console.log("Setting voucherToken state...");
       setVoucherToken(actualData);
-      console.log("Opening modal...");
       setShowVoucherModal(true);
-      console.log("Modal should be open now");
     } catch (error: any) {
-      console.error("=== ERROR GENERATING VOUCHER ===");
-      console.error("Error:", error);
-      console.error("Error message:", error?.message);
-      console.error("Error response:", error?.response?.data);
+      console.error("Error generating voucher:", error);
       Alert.alert(
         "Failed to Generate Voucher",
         error?.response?.data?.message || error?.message || "Please try again later"
       );
     } finally {
       setIsGeneratingVoucher(false);
-      console.log("=== GENERATE VOUCHER COMPLETE ===");
     }
   };
 
@@ -648,23 +638,24 @@ function ProductCard({
             </View>
           )}
 
-          {/* Voucher Generation Button */}
-          {activePromotion && activePromotion.dealType === 'VOUCHER' && (
+          {/* Voucher Button - Show if there are any voucher promotions for this product */}
+          {productVoucherPromotions.length > 0 && (
             <TouchableOpacity
               style={prodStyles.voucherButton}
-              onPress={handleGenerateVoucher}
+              onPress={() => {
+                // If multiple vouchers, use the first one; otherwise use the only one
+                const promotion = productVoucherPromotions[0];
+                handleGenerateVoucher(promotion.id);
+              }}
               disabled={isGeneratingVoucher}
               activeOpacity={0.7}
             >
-              {isGeneratingVoucher ? (
-                <ActivityIndicator color="#fff" size="small" />
-              ) : (
-                <>
-                  <Ionicons name="qr-code" size={20} color="#fff" />
-                  <Text style={prodStyles.voucherButtonText}>
-                    Generate Voucher QR Code
-                  </Text>
-                </>
+              <Ionicons name="ticket" size={20} color="#FFFFFF" />
+              <Text style={prodStyles.voucherButtonText}>
+                {isGeneratingVoucher ? "Generating..." : "Generate Voucher QR Code"}
+              </Text>
+              {isGeneratingVoucher && (
+                <ActivityIndicator size="small" color="#FFFFFF" style={{ marginLeft: 8 }} />
               )}
             </TouchableOpacity>
           )}
@@ -1203,22 +1194,134 @@ const prodStyles = StyleSheet.create({
     fontWeight: "700",
     color: "#047857",
   },
-  // Voucher button styles
+  // Voucher dropdown styles
+  voucherDropdownContainer: {
+    marginBottom: 12,
+  },
   voucherButton: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: "#8B5CF6",
-    paddingVertical: 14,
+    paddingVertical: 16,
     paddingHorizontal: 20,
-    borderRadius: 10,
-    marginBottom: 12,
-    gap: 8,
+    borderRadius: 12,
+    marginBottom: 5,
+    gap: 10,
   },
   voucherButtonText: {
-    color: "#fff",
+    color: "#FFFFFF",
     fontSize: 16,
+    fontWeight: "600",
+  },
+  voucherDropdownButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    backgroundColor: "#F3F4F6",
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: "#E5E7EB",
+  },
+  voucherDropdownButtonContent: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    flex: 1,
+  },
+  voucherDropdownButtonText: {
+    color: "#111827",
+    fontSize: 16,
+    fontWeight: "600",
+  },
+  voucherDropdownList: {
+    marginTop: 8,
+    backgroundColor: "#FFFFFF",
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: "#E5E7EB",
+    overflow: "hidden",
+  },
+  voucherKindWrapper: {
+    borderBottomWidth: 1,
+    borderBottomColor: "#F3F4F6",
+  },
+  voucherKindWrapperLast: {
+    borderBottomWidth: 0,
+  },
+  voucherKindDropdown: {
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    backgroundColor: "#F9FAFB",
+    borderLeftWidth: 3,
+    borderLeftColor: "#8B5CF6",
+  },
+  voucherKindHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  voucherKindInfo: {
+    flex: 1,
+    marginRight: 12,
+  },
+  voucherKindTitle: {
+    fontSize: 15,
+    fontWeight: "600",
+    color: "#111827",
+    marginBottom: 4,
+  },
+  voucherKindMeta: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+  },
+  voucherKindValue: {
+    fontSize: 14,
     fontWeight: "700",
+    color: "#8B5CF6",
+  },
+  voucherKindRemaining: {
+    fontSize: 12,
+    color: "#6B7280",
+  },
+  voucherProductsList: {
+    backgroundColor: "#FFFFFF",
+    paddingVertical: 4,
+    borderTopWidth: 1,
+    borderTopColor: "#E5E7EB",
+    marginLeft: 16,
+    borderLeftWidth: 2,
+    borderLeftColor: "#E5E7EB",
+  },
+  voucherProductItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: "#F3F4F6",
+    backgroundColor: "#FFFFFF",
+  },
+  voucherProductItemLast: {
+    borderBottomWidth: 0,
+  },
+  voucherProductInfo: {
+    flex: 1,
+    marginRight: 12,
+  },
+  voucherProductName: {
+    fontSize: 14,
+    fontWeight: "500",
+    color: "#111827",
+    marginBottom: 4,
+  },
+  voucherProductPrice: {
+    fontSize: 13,
+    color: "#6B7280",
   },
   // Voucher modal styles
   voucherModalContent: {

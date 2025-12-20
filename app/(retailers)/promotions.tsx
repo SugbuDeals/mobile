@@ -14,6 +14,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import React, { useEffect, useState } from "react";
 import {
     Alert,
+    Modal,
     Platform,
     ScrollView,
     StatusBar,
@@ -56,6 +57,28 @@ export default function PromotionsNew() {
   const [showStartDatePicker, setShowStartDatePicker] = useState(false);
   const [showEndDatePicker, setShowEndDatePicker] = useState(false);
 
+  // Search and filter state
+  const [searchQuery, setSearchQuery] = useState("");
+  const [statusFilter, setStatusFilter] = useState<"all" | "active" | "upcoming" | "expired">("all");
+  const [sortBy, setSortBy] = useState<"date" | "title" | "type">("date");
+  
+  // View mode and detail modal state
+  const [viewMode, setViewMode] = useState<"detailed" | "compact">("detailed");
+  const [selectedPromotion, setSelectedPromotion] = useState<any>(null);
+  const [showDetailsModal, setShowDetailsModal] = useState(false);
+
+  // Open promotion details
+  const openPromotionDetails = (promo: any) => {
+    setSelectedPromotion(promo);
+    setShowDetailsModal(true);
+  };
+
+  // Close promotion details
+  const closePromotionDetails = () => {
+    setShowDetailsModal(false);
+    setSelectedPromotion(null);
+  };
+
   // Initialize
   useEffect(() => {
     if (user?.id && !userStore) {
@@ -80,21 +103,134 @@ export default function PromotionsNew() {
   const storeActivePromotions = React.useMemo(() => {
     if (!storeId) return [];
     const storeProductIds = new Set(retailerProducts.map((product) => product.id));
-    return (activePromotions || []).filter((promotion) =>
-      promotion.productId !== null && promotion.productId !== undefined && storeProductIds.has(promotion.productId as number)
-    );
+    return (activePromotions || []).filter((promotion) => {
+      // Check if promotion has products from this store
+      // First check promotionProducts array (for multi-product promotions)
+      if (promotion.promotionProducts && Array.isArray(promotion.promotionProducts) && promotion.promotionProducts.length > 0) {
+        return promotion.promotionProducts.some((pp: any) => 
+          pp.productId && storeProductIds.has(pp.productId)
+        );
+      }
+      // Fallback to single productId for backward compatibility
+      return promotion.productId !== null && promotion.productId !== undefined && storeProductIds.has(promotion.productId as number);
+    });
   }, [activePromotions, retailerProducts, storeId]);
 
+  // Helper to check promotion status
+  const getPromotionStatus = (promo: any): "active" | "upcoming" | "expired" => {
+    const now = new Date();
+    const start = promo.startsAt ? new Date(promo.startsAt) : null;
+    const end = promo.endsAt ? new Date(promo.endsAt) : null;
+
+    if (start && start > now) return "upcoming";
+    if (end && end < now) return "expired";
+    return "active";
+  };
+
+  // Filtered and sorted promotions
+  const filteredPromotions = React.useMemo(() => {
+    let filtered = storeActivePromotions;
+
+    // Apply search filter
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase();
+      filtered = filtered.filter((promo) => {
+        const product = retailerProducts.find((p) => p.id === promo.productId);
+        return (
+          promo.title.toLowerCase().includes(query) ||
+          (product && product.name.toLowerCase().includes(query)) ||
+          (promo.description && promo.description.toLowerCase().includes(query))
+        );
+      });
+    }
+
+    // Apply status filter
+    if (statusFilter !== "all") {
+      filtered = filtered.filter((promo) => getPromotionStatus(promo) === statusFilter);
+    }
+
+    // Apply sorting
+    filtered = [...filtered].sort((a, b) => {
+      if (sortBy === "date") {
+        const dateA = a.startsAt ? new Date(a.startsAt).getTime() : 0;
+        const dateB = b.startsAt ? new Date(b.startsAt).getTime() : 0;
+        return dateB - dateA; // Most recent first
+      } else if (sortBy === "title") {
+        return a.title.localeCompare(b.title);
+      } else if (sortBy === "type") {
+        return a.dealType.localeCompare(b.dealType);
+      }
+      return 0;
+    });
+
+    return filtered;
+  }, [storeActivePromotions, searchQuery, statusFilter, sortBy, retailerProducts]);
+
+  // Get all product IDs that are in active promotions (for filtering/display)
+  const promotedProductIds = React.useMemo(() => {
+    const productIds = new Set<number>();
+    
+    storeActivePromotions.forEach((promotion) => {
+      // If promotion has promotionProducts array, add all product IDs
+      if (promotion.promotionProducts && Array.isArray(promotion.promotionProducts) && promotion.promotionProducts.length > 0) {
+        promotion.promotionProducts.forEach((pp: any) => {
+          if (pp.productId) {
+            productIds.add(pp.productId);
+          }
+        });
+      }
+      // Also add the single productId if present (for backward compatibility)
+      if (promotion.productId !== null && promotion.productId !== undefined) {
+        productIds.add(promotion.productId as number);
+      }
+    });
+    
+    return productIds;
+  }, [storeActivePromotions]);
+
+  // Get product IDs that are in voucher promotions (for voucher-specific filtering)
+  const voucherProductIds = React.useMemo(() => {
+    const productIds = new Set<number>();
+    
+    const voucherPromotions = storeActivePromotions.filter((p) => p.dealType === "VOUCHER");
+    voucherPromotions.forEach((promotion) => {
+      if (promotion.promotionProducts && Array.isArray(promotion.promotionProducts) && promotion.promotionProducts.length > 0) {
+        promotion.promotionProducts.forEach((pp: any) => {
+          if (pp.productId) {
+            productIds.add(pp.productId);
+          }
+        });
+      }
+      if (promotion.productId !== null && promotion.productId !== undefined) {
+        productIds.add(promotion.productId as number);
+      }
+    });
+    
+    return productIds;
+  }, [storeActivePromotions]);
+
   // Get available products (not in active promotions)
+  // When creating a voucher, exclude products already in voucher promotions
   const availableProducts = React.useMemo(() => {
-    const promotedProductIds = storeActivePromotions.map((p) => p.productId);
-    return retailerProducts.filter((p) => !promotedProductIds.includes(p.id));
-  }, [retailerProducts, storeActivePromotions]);
+    if (dealType === "VOUCHER") {
+      // For vouchers, exclude products already in voucher promotions
+      return retailerProducts.filter((p) => !voucherProductIds.has(p.id));
+    }
+    // For other deal types, exclude products in any active promotion
+    return retailerProducts.filter((p) => !promotedProductIds.has(p.id));
+  }, [retailerProducts, promotedProductIds, voucherProductIds, dealType]);
 
   // Handle field changes
   const handleFieldChange = (field: keyof CreatePromotionDto, value: any) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
   };
+
+  // Set default voucher quantity when VOUCHER deal type is selected
+  useEffect(() => {
+    if (dealType === "VOUCHER" && !formData.voucherQuantity) {
+      setFormData((prev) => ({ ...prev, voucherQuantity: 100 }));
+    }
+  }, [dealType]);
 
   // Toggle product selection
   const toggleProductSelection = (productId: number) => {
@@ -162,6 +298,8 @@ export default function PromotionsNew() {
       endsAt: endDate.toISOString(),
       productIds: selectedProductIds,
       active: true,
+      // Set default voucher quantity if VOUCHER type and not specified (handle null, undefined, or 0)
+      ...(dealType === "VOUCHER" && (!formData.voucherQuantity || formData.voucherQuantity <= 0) ? { voucherQuantity: 100 } : {}),
     } as CreatePromotionDto;
 
     // Validate deal-specific fields
@@ -344,6 +482,14 @@ export default function PromotionsNew() {
                 <Text style={styles.infoText}>Bundle deals require at least 2 products</Text>
               </View>
             )}
+            {dealType === "VOUCHER" && voucherProductIds.size > 0 && (
+              <View style={styles.infoBox}>
+                <Ionicons name="information-circle" size={16} color="#F59E0B" />
+                <Text style={styles.infoText}>
+                  {voucherProductIds.size} product{voucherProductIds.size !== 1 ? "s are" : " is"} already in a voucher promotion and cannot be selected
+                </Text>
+              </View>
+            )}
 
             {productsLoading ? (
               <View style={styles.loadingContainer}>
@@ -372,8 +518,10 @@ export default function PromotionsNew() {
                       </View>
 
                       <View style={styles.productInfo}>
-                        <Text style={styles.productName}>{product.name}</Text>
-                        <Text style={styles.productPrice}>₱{product.price}</Text>
+                        <Text style={styles.productName} numberOfLines={1} ellipsizeMode="tail">
+                          {product.name}
+                        </Text>
+                        <Text style={styles.productPrice} numberOfLines={1}>₱{product.price}</Text>
                         <Text style={styles.productStock}>Stock: {product.stock}</Text>
                       </View>
 
@@ -420,16 +568,245 @@ export default function PromotionsNew() {
           {storeActivePromotions.length > 0 && (
             <View style={styles.activeSection}>
               <View style={styles.sectionHeader}>
-                <Text style={styles.sectionTitle}>Active Promotions</Text>
-                <View style={styles.countBadge}>
-                  <Text style={styles.countText}>{storeActivePromotions.length}</Text>
+                <View style={styles.sectionTitleContainer}>
+                  <Text style={styles.sectionTitle}>Active Promotions</Text>
+                  <View style={styles.countBadge}>
+                    <Text style={styles.countText}>{filteredPromotions.length}</Text>
+                  </View>
+                </View>
+                
+                {/* View Mode Toggle */}
+                <View style={styles.viewToggle}>
+                  <TouchableOpacity
+                    style={[styles.viewButton, viewMode === "detailed" && styles.viewButtonActive]}
+                    onPress={() => setViewMode("detailed")}
+                  >
+                    <Ionicons
+                      name="list"
+                      size={18}
+                      color={viewMode === "detailed" ? "#ffffff" : "#6B7280"}
+                    />
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.viewButton, viewMode === "compact" && styles.viewButtonActive]}
+                    onPress={() => setViewMode("compact")}
+                  >
+                    <Ionicons
+                      name="reorder-three"
+                      size={18}
+                      color={viewMode === "compact" ? "#ffffff" : "#6B7280"}
+                    />
+                  </TouchableOpacity>
                 </View>
               </View>
 
-              {storeActivePromotions.map((promo) => {
+              {/* Search Bar */}
+              <View style={styles.searchContainer}>
+                <View style={styles.searchInputContainer}>
+                  <Ionicons name="search" size={20} color="#9CA3AF" />
+                  <TextInput
+                    style={styles.searchInput}
+                    placeholder="Search promotions or products..."
+                    value={searchQuery}
+                    onChangeText={setSearchQuery}
+                    placeholderTextColor="#9CA3AF"
+                  />
+                  {searchQuery.length > 0 && (
+                    <TouchableOpacity onPress={() => setSearchQuery("")}>
+                      <Ionicons name="close-circle" size={20} color="#9CA3AF" />
+                    </TouchableOpacity>
+                  )}
+                </View>
+              </View>
+
+              {/* Filter Chips */}
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                style={styles.filterChipsContainer}
+                contentContainerStyle={styles.filterChipsContent}
+              >
+                <TouchableOpacity
+                  style={[styles.filterChip, statusFilter === "all" && styles.filterChipActive]}
+                  onPress={() => setStatusFilter("all")}
+                >
+                  <Text style={[styles.filterChipText, statusFilter === "all" && styles.filterChipTextActive]}>
+                    All
+                  </Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[styles.filterChip, statusFilter === "active" && styles.filterChipActive]}
+                  onPress={() => setStatusFilter("active")}
+                >
+                  <Ionicons
+                    name="flame"
+                    size={14}
+                    color={statusFilter === "active" ? "#ffffff" : "#10B981"}
+                  />
+                  <Text style={[styles.filterChipText, statusFilter === "active" && styles.filterChipTextActive]}>
+                    Active
+                  </Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[styles.filterChip, statusFilter === "upcoming" && styles.filterChipActive]}
+                  onPress={() => setStatusFilter("upcoming")}
+                >
+                  <Ionicons
+                    name="time"
+                    size={14}
+                    color={statusFilter === "upcoming" ? "#ffffff" : "#3B82F6"}
+                  />
+                  <Text style={[styles.filterChipText, statusFilter === "upcoming" && styles.filterChipTextActive]}>
+                    Upcoming
+                  </Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[styles.filterChip, statusFilter === "expired" && styles.filterChipActive]}
+                  onPress={() => setStatusFilter("expired")}
+                >
+                  <Ionicons
+                    name="close-circle"
+                    size={14}
+                    color={statusFilter === "expired" ? "#ffffff" : "#EF4444"}
+                  />
+                  <Text style={[styles.filterChipText, statusFilter === "expired" && styles.filterChipTextActive]}>
+                    Expired
+                  </Text>
+                </TouchableOpacity>
+              </ScrollView>
+
+              {/* Sort Options */}
+              <View style={styles.sortContainer}>
+                <Text style={styles.sortLabel}>Sort by:</Text>
+                <View style={styles.sortButtons}>
+                  <TouchableOpacity
+                    style={[styles.sortButton, sortBy === "date" && styles.sortButtonActive]}
+                    onPress={() => setSortBy("date")}
+                  >
+                    <Ionicons
+                      name="calendar"
+                      size={14}
+                      color={sortBy === "date" ? "#ffffff" : "#6B7280"}
+                    />
+                    <Text style={[styles.sortButtonText, sortBy === "date" && styles.sortButtonTextActive]}>
+                      Date
+                    </Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={[styles.sortButton, sortBy === "title" && styles.sortButtonActive]}
+                    onPress={() => setSortBy("title")}
+                  >
+                    <Ionicons
+                      name="text"
+                      size={14}
+                      color={sortBy === "title" ? "#ffffff" : "#6B7280"}
+                    />
+                    <Text style={[styles.sortButtonText, sortBy === "title" && styles.sortButtonTextActive]}>
+                      Title
+                    </Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={[styles.sortButton, sortBy === "type" && styles.sortButtonActive]}
+                    onPress={() => setSortBy("type")}
+                  >
+                    <Ionicons
+                      name="pricetag"
+                      size={14}
+                      color={sortBy === "type" ? "#ffffff" : "#6B7280"}
+                    />
+                    <Text style={[styles.sortButtonText, sortBy === "type" && styles.sortButtonTextActive]}>
+                      Type
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+
+              {/* Results Summary */}
+              {(searchQuery || statusFilter !== "all") && (
+                <View style={styles.resultsSummary}>
+                  <Text style={styles.resultsSummaryText}>
+                    {filteredPromotions.length} of {storeActivePromotions.length} promotions
+                  </Text>
+                  {(searchQuery || statusFilter !== "all") && (
+                    <TouchableOpacity
+                      onPress={() => {
+                        setSearchQuery("");
+                        setStatusFilter("all");
+                      }}
+                      style={styles.clearFiltersButton}
+                    >
+                      <Text style={styles.clearFiltersText}>Clear filters</Text>
+                    </TouchableOpacity>
+                  )}
+                </View>
+              )}
+
+              {filteredPromotions.length === 0 && (
+                <View style={styles.emptyStateContainer}>
+                  <Ionicons name="search-outline" size={48} color="#9CA3AF" />
+                  <Text style={styles.emptyStateTitle}>No promotions found</Text>
+                  <Text style={styles.emptyStateText}>
+                    {searchQuery
+                      ? "Try adjusting your search or filters"
+                      : statusFilter !== "all"
+                      ? `No ${statusFilter} promotions`
+                      : "Create your first promotion above"}
+                  </Text>
+                </View>
+              )}
+
+              {filteredPromotions.map((promo) => {
                 const product = retailerProducts.find((p) => p.id === promo.productId);
                 if (!product) return null;
 
+                const status = getPromotionStatus(promo);
+                const statusConfig = {
+                  active: { color: "#10B981", bg: "#D1FAE5", icon: "flame" as const },
+                  upcoming: { color: "#3B82F6", bg: "#DBEAFE", icon: "time" as const },
+                  expired: { color: "#EF4444", bg: "#FEE2E2", icon: "close-circle" as const },
+                };
+
+                // Compact View Mode
+                if (viewMode === "compact") {
+                  return (
+                    <TouchableOpacity
+                      key={promo.id}
+                      style={styles.compactCard}
+                      onPress={() => openPromotionDetails(promo)}
+                      activeOpacity={0.7}
+                    >
+                      <View style={styles.compactCardContent}>
+                        <View style={styles.compactCardLeft}>
+                          <View style={[styles.compactStatusIndicator, { backgroundColor: statusConfig[status].color }]} />
+                          <View style={styles.compactCardInfo}>
+                            <Text style={styles.compactCardTitle} numberOfLines={1}>
+                              {promo.title}
+                            </Text>
+                            <Text style={styles.compactCardSubtitle} numberOfLines={1}>
+                              <Ionicons name="cube" size={11} color="#9CA3AF" /> {product.name}
+                            </Text>
+                          </View>
+                        </View>
+                        <View style={styles.compactCardRight}>
+                          <View style={[styles.compactStatusBadge, { backgroundColor: statusConfig[status].bg }]}>
+                            <Ionicons name={statusConfig[status].icon} size={12} color={statusConfig[status].color} />
+                            <Text style={[styles.compactStatusText, { color: statusConfig[status].color }]}>
+                              {status}
+                            </Text>
+                          </View>
+                          <Ionicons name="chevron-forward" size={16} color="#D1D5DB" />
+                        </View>
+                      </View>
+                    </TouchableOpacity>
+                  );
+                }
+
+                // Detailed View Mode (Original)
                 return (
                   <View key={promo.id} style={styles.promotionCard}>
                     <View style={styles.promotionHeader}>
@@ -437,19 +814,28 @@ export default function PromotionsNew() {
                         <Ionicons name="flame" size={20} color="#FFBE5D" />
                       </View>
                       <View style={styles.promotionInfo}>
-                        <Text style={styles.promotionTitle}>{promo.title}</Text>
-                        <Text style={styles.promotionProduct}>
+                        <Text style={styles.promotionTitle} numberOfLines={1} ellipsizeMode="tail">
+                          {promo.title}
+                        </Text>
+                        <Text style={styles.promotionProduct} numberOfLines={1} ellipsizeMode="tail">
                           <Ionicons name="cube" size={12} color="#6B7280" /> {product.name}
                         </Text>
+                      </View>
+                      <View style={[styles.detailedStatusBadge, { backgroundColor: statusConfig[status].bg }]}>
+                        <Ionicons name={statusConfig[status].icon} size={12} color={statusConfig[status].color} />
                       </View>
                     </View>
 
                     <View style={styles.promotionDetails}>
                       <View style={styles.dealTypeBadge}>
-                        <Text style={styles.dealTypeText}>{getDealTypeLabel(promo.dealType)}</Text>
+                        <Text style={styles.dealTypeText} numberOfLines={1} ellipsizeMode="tail">
+                          {getDealTypeLabel(promo.dealType)}
+                        </Text>
                       </View>
                       <View style={styles.dealDetailsBadge}>
-                        <Text style={styles.dealDetailsText}>{formatDealDetails(promo)}</Text>
+                        <Text style={styles.dealDetailsText} numberOfLines={1} ellipsizeMode="tail">
+                          {formatDealDetails(promo)}
+                        </Text>
                       </View>
                     </View>
 
@@ -497,6 +883,144 @@ export default function PromotionsNew() {
           minimumDate={startDate}
         />
       )}
+
+      {/* Promotion Details Modal */}
+      <Modal
+        visible={showDetailsModal}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={closePromotionDetails}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContainer}>
+            {/* Modal Header */}
+            <View style={styles.modalHeader}>
+              <View style={styles.modalHeaderContent}>
+                <View style={styles.modalIcon}>
+                  <Ionicons name="ticket" size={24} color="#FFBE5D" />
+                </View>
+                <Text style={styles.modalHeaderTitle}>Promotion Details</Text>
+              </View>
+              <TouchableOpacity onPress={closePromotionDetails} style={styles.modalCloseButton}>
+                <Ionicons name="close" size={24} color="#6B7280" />
+              </TouchableOpacity>
+            </View>
+
+            {selectedPromotion && (
+              <ScrollView style={styles.modalContent} showsVerticalScrollIndicator={false}>
+                {(() => {
+                  const product = retailerProducts.find((p) => p.id === selectedPromotion.productId);
+                  const status = getPromotionStatus(selectedPromotion);
+                  const statusConfig = {
+                    active: { color: "#10B981", bg: "#D1FAE5", icon: "flame" as const, label: "Active" },
+                    upcoming: { color: "#3B82F6", bg: "#DBEAFE", icon: "time" as const, label: "Upcoming" },
+                    expired: { color: "#EF4444", bg: "#FEE2E2", icon: "close-circle" as const, label: "Expired" },
+                  };
+
+                  return (
+                    <>
+                      {/* Status Badge */}
+                      <View style={[styles.modalStatusBadge, { backgroundColor: statusConfig[status].bg }]}>
+                        <Ionicons name={statusConfig[status].icon} size={16} color={statusConfig[status].color} />
+                        <Text style={[styles.modalStatusText, { color: statusConfig[status].color }]}>
+                          {statusConfig[status].label}
+                        </Text>
+                      </View>
+
+                      {/* Title */}
+                      <Text style={styles.modalTitle} numberOfLines={2} ellipsizeMode="tail">
+                        {selectedPromotion.title}
+                      </Text>
+
+                      {/* Product Info */}
+                      {product && (
+                        <View style={styles.modalInfoCard}>
+                          <View style={styles.modalInfoRow}>
+                            <Ionicons name="cube" size={16} color="#277874" />
+                            <Text style={styles.modalInfoLabel}>Product</Text>
+                          </View>
+                          <Text style={styles.modalInfoValue} numberOfLines={2} ellipsizeMode="tail">
+                            {product.name}
+                          </Text>
+                        </View>
+                      )}
+
+                      {/* Deal Type */}
+                      <View style={styles.modalInfoCard}>
+                        <View style={styles.modalInfoRow}>
+                          <Ionicons name="pricetag" size={16} color="#277874" />
+                          <Text style={styles.modalInfoLabel}>Deal Type</Text>
+                        </View>
+                          <Text style={styles.modalInfoValue} numberOfLines={1} ellipsizeMode="tail">
+                            {getDealTypeLabel(selectedPromotion.dealType)}
+                          </Text>
+                      </View>
+
+                      {/* Deal Details */}
+                      <View style={styles.modalInfoCard}>
+                        <View style={styles.modalInfoRow}>
+                          <Ionicons name="flash" size={16} color="#277874" />
+                          <Text style={styles.modalInfoLabel}>Deal Details</Text>
+                        </View>
+                          <Text style={styles.modalInfoValue} numberOfLines={2} ellipsizeMode="tail">
+                            {formatDealDetails(selectedPromotion)}
+                          </Text>
+                      </View>
+
+                      {/* Date Range */}
+                      {selectedPromotion.startsAt && selectedPromotion.endsAt && (
+                        <View style={styles.modalInfoCard}>
+                          <View style={styles.modalInfoRow}>
+                            <Ionicons name="calendar" size={16} color="#277874" />
+                            <Text style={styles.modalInfoLabel}>Duration</Text>
+                          </View>
+                          <Text style={styles.modalInfoValue}>
+                            {formatDate(new Date(selectedPromotion.startsAt))} - {formatDate(new Date(selectedPromotion.endsAt))}
+                          </Text>
+                        </View>
+                      )}
+
+                      {/* Description */}
+                      {selectedPromotion.description && (
+                        <View style={styles.modalInfoCard}>
+                          <View style={styles.modalInfoRow}>
+                            <Ionicons name="document-text" size={16} color="#277874" />
+                            <Text style={styles.modalInfoLabel}>Description</Text>
+                          </View>
+                          <Text style={styles.modalInfoValue}>{selectedPromotion.description}</Text>
+                        </View>
+                      )}
+
+                      {/* Action Buttons */}
+                      <View style={styles.modalActions}>
+                        <TouchableOpacity
+                          style={styles.modalDeleteButton}
+                          onPress={() => {
+                            closePromotionDetails();
+                            setTimeout(() => {
+                              handleDeletePromotion(selectedPromotion.id, selectedPromotion.title);
+                            }, 300);
+                          }}
+                        >
+                          <Ionicons name="trash-outline" size={18} color="#ffffff" />
+                          <Text style={styles.modalDeleteButtonText}>Delete Promotion</Text>
+                        </TouchableOpacity>
+
+                        <TouchableOpacity
+                          style={styles.modalCloseButtonBottom}
+                          onPress={closePromotionDetails}
+                        >
+                          <Text style={styles.modalCloseButtonText}>Close</Text>
+                        </TouchableOpacity>
+                      </View>
+                    </>
+                  );
+                })()}
+              </ScrollView>
+            )}
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -757,6 +1281,11 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     marginBottom: 16,
   },
+  sectionTitleContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
   sectionTitle: {
     fontSize: 18,
     fontWeight: "700",
@@ -863,6 +1392,346 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: "600",
     color: "#ffffff",
+  },
+  // Search and Filter styles
+  searchContainer: {
+    marginBottom: 12,
+  },
+  searchInputContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#F9FAFB",
+    borderWidth: 1,
+    borderColor: "#E5E7EB",
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    gap: 8,
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: 14,
+    color: "#374151",
+  },
+  filterChipsContainer: {
+    marginBottom: 12,
+  },
+  filterChipsContent: {
+    gap: 8,
+    paddingRight: 20,
+  },
+  filterChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 20,
+    backgroundColor: "#F3F4F6",
+    borderWidth: 1,
+    borderColor: "#E5E7EB",
+    gap: 6,
+  },
+  filterChipActive: {
+    backgroundColor: "#277874",
+    borderColor: "#277874",
+  },
+  filterChipText: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: "#6B7280",
+  },
+  filterChipTextActive: {
+    color: "#ffffff",
+  },
+  sortContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 12,
+    gap: 12,
+  },
+  sortLabel: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: "#6B7280",
+  },
+  sortButtons: {
+    flexDirection: "row",
+    gap: 8,
+    flex: 1,
+  },
+  sortButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
+    backgroundColor: "#F9FAFB",
+    borderWidth: 1,
+    borderColor: "#E5E7EB",
+    gap: 4,
+  },
+  sortButtonActive: {
+    backgroundColor: "#277874",
+    borderColor: "#277874",
+  },
+  sortButtonText: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: "#6B7280",
+  },
+  sortButtonTextActive: {
+    color: "#ffffff",
+  },
+  resultsSummary: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    backgroundColor: "#F0FDFA",
+    borderRadius: 8,
+    marginBottom: 12,
+  },
+  resultsSummaryText: {
+    fontSize: 13,
+    color: "#0F766E",
+    fontWeight: "600",
+  },
+  clearFiltersButton: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+  },
+  clearFiltersText: {
+    fontSize: 12,
+    color: "#277874",
+    fontWeight: "600",
+    textDecorationLine: "underline",
+  },
+  emptyStateContainer: {
+    alignItems: "center",
+    paddingVertical: 40,
+    paddingHorizontal: 20,
+  },
+  emptyStateTitle: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: "#374151",
+    marginTop: 12,
+    marginBottom: 6,
+  },
+  emptyStateText: {
+    fontSize: 14,
+    color: "#6B7280",
+    textAlign: "center",
+    lineHeight: 20,
+  },
+  // View Toggle styles
+  viewToggle: {
+    flexDirection: "row",
+    backgroundColor: "#F3F4F6",
+    borderRadius: 8,
+    padding: 2,
+  },
+  viewButton: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 6,
+  },
+  viewButtonActive: {
+    backgroundColor: "#277874",
+  },
+  // Compact Card styles
+  compactCard: {
+    backgroundColor: "#ffffff",
+    borderRadius: 10,
+    marginBottom: 8,
+    borderWidth: 1,
+    borderColor: "#E5E7EB",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 1,
+  },
+  compactCardContent: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    padding: 12,
+  },
+  compactCardLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+    flex: 1,
+    marginRight: 12,
+  },
+  compactStatusIndicator: {
+    width: 4,
+    height: 40,
+    borderRadius: 2,
+    marginRight: 12,
+  },
+  compactCardInfo: {
+    flex: 1,
+  },
+  compactCardTitle: {
+    fontSize: 15,
+    fontWeight: "600",
+    color: "#374151",
+    marginBottom: 4,
+  },
+  compactCardSubtitle: {
+    fontSize: 12,
+    color: "#9CA3AF",
+  },
+  compactCardRight: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  compactStatusBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+    gap: 4,
+  },
+  compactStatusText: {
+    fontSize: 11,
+    fontWeight: "600",
+    textTransform: "capitalize",
+  },
+  detailedStatusBadge: {
+    width: 32,
+    height: 32,
+    borderRadius: 8,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  // Modal styles
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
+    justifyContent: "flex-end",
+  },
+  modalContainer: {
+    backgroundColor: "#ffffff",
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    maxHeight: "90%",
+    paddingBottom: Platform.OS === "ios" ? 20 : 0,
+  },
+  modalHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: "#E5E7EB",
+  },
+  modalHeaderContent: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+  },
+  modalIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 10,
+    backgroundColor: "#FEF3C7",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  modalHeaderTitle: {
+    fontSize: 18,
+    fontWeight: "700",
+    color: "#374151",
+  },
+  modalCloseButton: {
+    padding: 4,
+  },
+  modalContent: {
+    paddingHorizontal: 20,
+    paddingVertical: 20,
+  },
+  modalStatusBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    alignSelf: "flex-start",
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+    gap: 6,
+    marginBottom: 16,
+  },
+  modalStatusText: {
+    fontSize: 13,
+    fontWeight: "700",
+    textTransform: "uppercase",
+  },
+  modalTitle: {
+    fontSize: 24,
+    fontWeight: "700",
+    color: "#111827",
+    marginBottom: 20,
+    lineHeight: 32,
+  },
+  modalInfoCard: {
+    backgroundColor: "#F9FAFB",
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 12,
+  },
+  modalInfoRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginBottom: 8,
+  },
+  modalInfoLabel: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: "#277874",
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+  },
+  modalInfoValue: {
+    fontSize: 16,
+    color: "#374151",
+    lineHeight: 22,
+  },
+  modalActions: {
+    gap: 12,
+    marginTop: 20,
+    marginBottom: 20,
+  },
+  modalDeleteButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#EF4444",
+    borderRadius: 12,
+    paddingVertical: 14,
+    gap: 8,
+  },
+  modalDeleteButtonText: {
+    fontSize: 15,
+    fontWeight: "600",
+    color: "#ffffff",
+  },
+  modalCloseButtonBottom: {
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#F3F4F6",
+    borderRadius: 12,
+    paddingVertical: 14,
+  },
+  modalCloseButtonText: {
+    fontSize: 15,
+    fontWeight: "600",
+    color: "#6B7280",
   },
 });
 

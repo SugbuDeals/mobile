@@ -1,4 +1,4 @@
-import React, { useMemo } from "react";
+import React, { useMemo, useState, useEffect } from "react";
 import { StyleSheet, Text, TouchableOpacity, View, Image } from "react-native";
 import { useRouter } from "expo-router";
 import { ActivityIndicator } from "react-native";
@@ -7,6 +7,9 @@ import { colors, spacing, borderRadius, typography } from "@/styles/theme";
 import SectionHeader from "@/components/SectionHeader";
 import EmptyState from "@/components/EmptyState";
 import type { Store } from "@/features/store/stores/types";
+import { reviewsApi } from "@/services/api/endpoints/reviews";
+import type { StoreRatingStatsDto } from "@/services/api/types/swagger";
+import StoreRating from "@/components/consumers/reviews/StoreRating";
 
 interface NearbyStoresProps {
   stores: Store[];
@@ -15,11 +18,37 @@ interface NearbyStoresProps {
 
 export default function NearbyStores({ stores, loading }: NearbyStoresProps) {
   const router = useRouter();
+  const [ratingStatsMap, setRatingStatsMap] = useState<Record<number, StoreRatingStatsDto | null>>({});
 
   // Memoize stores with valid data for performance
   const validStores = useMemo(() => {
     return stores.filter((store) => store && store.id);
   }, [stores]);
+
+  // Fetch rating stats for all stores
+  useEffect(() => {
+    if (validStores.length === 0) return;
+
+    const fetchRatingStats = async () => {
+      const statsPromises = validStores.map(async (store) => {
+        try {
+          const stats = await reviewsApi.getStoreRatingStats(store.id);
+          return { storeId: store.id, stats: stats || null };
+        } catch {
+          return { storeId: store.id, stats: null };
+        }
+      });
+
+      const results = await Promise.all(statsPromises);
+      const newMap: Record<number, StoreRatingStatsDto | null> = {};
+      results.forEach(({ storeId, stats }) => {
+        newMap[storeId] = stats;
+      });
+      setRatingStatsMap(newMap);
+    };
+
+    fetchRatingStats();
+  }, [validStores]);
 
   const handleViewMap = () => {
     router.push("/(consumers)/viewmap");
@@ -119,14 +148,11 @@ export default function NearbyStores({ stores, loading }: NearbyStoresProps) {
                       </Text>
                     </View>
                   )}
-                  <View style={styles.ratingRow}>
-                    <Ionicons
-                      name="star"
-                      size={10}
-                      color={colors.secondaryDark}
-                    />
-                    <Text style={styles.rating}>4.5</Text>
-                  </View>
+                  <StoreRating
+                    ratingStats={ratingStatsMap[store.id]}
+                    size="small"
+                    showCount={true}
+                  />
                 </View>
                 {address && (
                   <Text style={styles.address} numberOfLines={1}>
@@ -222,16 +248,6 @@ const styles = StyleSheet.create({
   address: {
     fontSize: typography.fontSize.xs,
     color: colors.gray600,
-  },
-  ratingRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 3,
-  },
-  rating: {
-    fontSize: typography.fontSize.xs,
-    color: colors.gray700,
-    fontWeight: typography.fontWeight.medium,
   },
 });
 

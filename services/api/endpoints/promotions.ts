@@ -181,6 +181,54 @@ export const promotionsApi = {
   },
 
   /**
+   * Enhanced voucher redemption confirmation that ensures voucher quantity is decremented
+   * This method confirms the redemption and returns the updated promotion with decremented voucherQuantity
+   * If the backend doesn't return the updated promotion, it fetches it separately using the promotionId
+   * Operation: Enhanced wrapper around PromotionController_confirmVoucherRedemption
+   * Endpoint: POST /promotions/voucher/confirm (with promotion fetch fallback)
+   * Role: RETAILER, ADMIN
+   * 
+   * @param data - Voucher confirmation data
+   * @param promotionId - Optional promotion ID. If provided and backend doesn't return updated promotion, 
+   *                      this will be used to fetch the updated promotion separately.
+   */
+  confirmVoucherRedemptionWithUpdate: async (
+    data: ConfirmVoucherRedemptionDto,
+    promotionId?: number
+  ): Promise<ConfirmVoucherRedemptionResponseDto & { promotion?: PromotionResponseDto }> => {
+    // First, confirm the redemption
+    const confirmationResult = await getApiClient().post<ConfirmVoucherRedemptionResponseDto>(
+      "/promotions/voucher/confirm",
+      data
+    );
+
+    // If the backend already returns the updated promotion, use it
+    if (confirmationResult.promotion) {
+      return confirmationResult;
+    }
+
+    // If promotionId is provided and backend didn't return the promotion, fetch it separately
+    if (promotionId) {
+      try {
+        const updatedPromotion = await getApiClient().get<PromotionResponseDto>(
+          `/promotions/${promotionId}`
+        );
+        return {
+          ...confirmationResult,
+          promotion: updatedPromotion,
+        };
+      } catch (error) {
+        console.warn("Failed to fetch updated promotion after redemption:", error);
+        // Return confirmation result without promotion if fetch fails
+        return confirmationResult;
+      }
+    }
+
+    // Return confirmation result (promotion will be undefined if not provided by backend and no promotionId given)
+    return confirmationResult;
+  },
+
+  /**
    * Retrieves promotions with product and store details
    * Supports pagination and filtering by active status
    * Perfect for promotion discovery and deal browsing

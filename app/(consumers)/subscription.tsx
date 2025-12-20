@@ -1,19 +1,19 @@
 import { useLogin } from "@/features/auth";
-import { useStore } from "@/features/store";
 import { useNotifications } from "@/features/notifications";
+import { useStore } from "@/features/store";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { LinearGradient } from "expo-linear-gradient";
 import { useFocusEffect, useRouter } from "expo-router";
-import React, { useCallback, useState } from "react";
+import { useCallback, useState } from "react";
 import {
-  Alert,
-  Platform,
-  ScrollView,
-  StatusBar,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
+    Alert,
+    Platform,
+    ScrollView,
+    StatusBar,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View,
 } from "react-native";
 
 export default function Subscription() {
@@ -228,26 +228,9 @@ export default function Subscription() {
 
         {/* Action Buttons */}
         <View style={styles.actionsContainer}>
-          {!isPro ? (
+          {isPro ? (
             <TouchableOpacity
-              style={[styles.upgradeButton, isProcessing && styles.buttonDisabled]}
-              onPress={handleUpgrade}
-              disabled={isProcessing || loading}
-            >
-              <LinearGradient
-                colors={["#FFBE5D", "#277874"]}
-                style={styles.buttonGradient}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 0 }}
-              >
-                <Ionicons name="star" size={20} color="#ffffff" />
-                <Text style={styles.upgradeButtonText}>
-                  {isProcessing ? "Processing..." : "Upgrade to PRO"}
-                </Text>
-              </LinearGradient>
-            </TouchableOpacity>
-          ) : (
-            <TouchableOpacity
+              key="downgrade-button"
               style={[styles.downgradeButton, isProcessing && styles.buttonDisabled]}
               onPress={handleDowngrade}
               disabled={isProcessing || loading}
@@ -255,6 +238,26 @@ export default function Subscription() {
               <Text style={styles.downgradeButtonText}>
                 {isProcessing ? "Processing..." : "Downgrade to BASIC"}
               </Text>
+            </TouchableOpacity>
+          ) : (
+            <TouchableOpacity
+              key="upgrade-button"
+              style={[styles.upgradeButton, isProcessing && styles.buttonDisabled]}
+              onPress={handleUpgrade}
+              disabled={isProcessing || loading}
+              activeOpacity={0.8}
+            >
+              <LinearGradient
+                colors={["#FFBE5D", "#277874"]}
+                style={styles.buttonGradient}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+              >
+                <Ionicons name="star" size={20} color="#ffffff" style={{ marginRight: 4 }} />
+                <Text style={styles.upgradeButtonText}>
+                  {isProcessing ? "Processing..." : "Upgrade to PRO"}
+                </Text>
+              </LinearGradient>
             </TouchableOpacity>
           )}
         </View>
@@ -491,6 +494,7 @@ const styles = StyleSheet.create({
   },
   actionsContainer: {
     gap: 12,
+    minHeight: 60, // Ensure container has minimum height
   },
   upgradeButton: {
     borderRadius: 12,
@@ -500,14 +504,17 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.2,
     shadowRadius: 8,
     elevation: 5,
+    width: "100%",
+    backgroundColor: "transparent",
   },
   buttonGradient: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    gap: 8,
     paddingVertical: 16,
     paddingHorizontal: 24,
+    minHeight: 56,
+    width: "100%",
   },
   upgradeButtonText: {
     color: "#ffffff",

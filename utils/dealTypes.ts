@@ -3,7 +3,7 @@
  * Helpers for working with promotion deal types
  */
 
-import type { DealType, PromotionResponseDto, CreatePromotionDto } from "@/services/api/types/swagger";
+import type { CreatePromotionDto, DealType, PromotionResponseDto } from "@/services/api/types/swagger";
 
 export const DEAL_TYPES: { value: DealType; label: string; description: string }[] = [
   {
@@ -208,6 +208,11 @@ export function validatePromotionData(data: Partial<CreatePromotionDto>): Valida
       } else if (data.voucherValue <= 0) {
         errors.push({ field: "voucherValue", message: "Voucher value must be greater than 0" });
       }
+      // voucherQuantity defaults to 100 if not provided
+      const voucherQuantity = data.voucherQuantity ?? 100;
+      if (voucherQuantity <= 0) {
+        errors.push({ field: "voucherQuantity", message: "Maximum vouchers must be greater than 0" });
+      }
       break;
   }
 
@@ -217,9 +222,17 @@ export function validatePromotionData(data: Partial<CreatePromotionDto>): Valida
 /**
  * Get deal type display name
  */
-export function getDealTypeLabel(dealType: DealType): string {
+export function getDealTypeLabel(dealType: DealType | undefined | null): string {
+  if (!dealType || 
+      typeof dealType !== "string" ||
+      dealType.trim() === "" ||
+      !["PERCENTAGE_DISCOUNT", "FIXED_DISCOUNT", "BOGO", "BUNDLE", "QUANTITY_DISCOUNT", "VOUCHER"].includes(dealType)) {
+    return "";
+  }
   const deal = DEAL_TYPES.find((d) => d.value === dealType);
-  return deal?.label || dealType;
+  const label = deal?.label || "";
+  // Ensure we never return "undefined" as a string
+  return label === "undefined" ? "" : label;
 }
 
 /**

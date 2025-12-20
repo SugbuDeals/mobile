@@ -2,154 +2,22 @@ import { logout } from "@/features/auth/slice";
 import { useAppDispatch } from "@/store/hooks";
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
-import React, { useEffect, useState } from "react";
+import { useState } from "react";
 import {
     ActivityIndicator,
     Alert,
     ScrollView,
     StyleSheet,
     Text,
-    TextInput,
     TouchableOpacity,
     View,
 } from "react-native";
-import AsyncStorage from "@react-native-async-storage/async-storage";
 
-const SETTINGS_STORAGE_KEY = "@admin_settings";
-
-interface AdminSettingsData {
-  aiResponse: string;
-  searchRadius: string;
-  minDiscount: string;
-  maxResults: string;
-}
-
-// ===== MAIN COMPONENT =====
 export default function AdminSettings() {
   const dispatch = useAppDispatch();
   
-  // State management for all form inputs
-  const [aiResponse, setAiResponse] = useState("");
-  const [searchRadius, setSearchRadius] = useState("25");
-  const [minDiscount, setMinDiscount] = useState("10");
-  const [maxResults, setMaxResults] = useState("50");
-  const [isLoading, setIsLoading] = useState(true);
-  const [isSaving, setIsSaving] = useState(false);
-  const [hasChanges, setHasChanges] = useState(false);
-  const [originalSettings, setOriginalSettings] = useState<AdminSettingsData | null>(null);
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
 
-  // Load settings on mount
-  useEffect(() => {
-    loadSettings();
-  }, []);
-
-  // Track changes
-  useEffect(() => {
-    if (originalSettings) {
-      const current = { aiResponse, searchRadius, minDiscount, maxResults };
-      const changed = JSON.stringify(current) !== JSON.stringify(originalSettings);
-      setHasChanges(changed);
-    }
-  }, [aiResponse, searchRadius, minDiscount, maxResults, originalSettings]);
-
-  const loadSettings = async () => {
-    try {
-      setIsLoading(true);
-      const saved = await AsyncStorage.getItem(SETTINGS_STORAGE_KEY);
-      if (saved) {
-        const settings: AdminSettingsData = JSON.parse(saved);
-        setAiResponse(settings.aiResponse || "");
-        setSearchRadius(settings.searchRadius || "25");
-        setMinDiscount(settings.minDiscount || "10");
-        setMaxResults(settings.maxResults || "50");
-        setOriginalSettings(settings);
-      } else {
-        // Set defaults
-        const defaults = {
-          aiResponse: "",
-          searchRadius: "25",
-          minDiscount: "10",
-          maxResults: "50",
-        };
-        setOriginalSettings(defaults);
-      }
-    } catch (error) {
-      console.error("Error loading settings:", error);
-      Alert.alert("Error", "Failed to load settings");
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  // Event handlers
-  const handleSave = async () => {
-    try {
-      setIsSaving(true);
-      
-      // Validate numeric inputs
-      const radius = parseFloat(searchRadius);
-      const discount = parseFloat(minDiscount);
-      const results = parseFloat(maxResults);
-      
-      if (isNaN(radius) || radius <= 0) {
-        Alert.alert("Validation Error", "Search radius must be a positive number");
-        return;
-      }
-      
-      if (isNaN(discount) || discount < 0 || discount > 100) {
-        Alert.alert("Validation Error", "Minimum discount must be between 0 and 100");
-        return;
-      }
-      
-      if (isNaN(results) || results <= 0) {
-        Alert.alert("Validation Error", "Max results must be a positive number");
-        return;
-      }
-
-      const settings: AdminSettingsData = {
-        aiResponse: aiResponse.trim(),
-        searchRadius: searchRadius.trim(),
-        minDiscount: minDiscount.trim(),
-        maxResults: maxResults.trim(),
-      };
-
-      await AsyncStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(settings));
-      setOriginalSettings(settings);
-      setHasChanges(false);
-      Alert.alert("Success", "Settings saved successfully!");
-    } catch (error) {
-      console.error("Error saving settings:", error);
-      Alert.alert("Error", "Failed to save settings. Please try again.");
-    } finally {
-      setIsSaving(false);
-    }
-  };
-
-  const handleCancel = () => {
-    if (hasChanges) {
-      Alert.alert(
-        "Discard Changes?",
-        "You have unsaved changes. Are you sure you want to discard them?",
-        [
-          { text: "Keep Editing", style: "cancel" },
-          {
-            text: "Discard",
-            style: "destructive",
-            onPress: () => {
-              if (originalSettings) {
-                setAiResponse(originalSettings.aiResponse);
-                setSearchRadius(originalSettings.searchRadius);
-                setMinDiscount(originalSettings.minDiscount);
-                setMaxResults(originalSettings.maxResults);
-                setHasChanges(false);
-              }
-            },
-          },
-        ]
-      );
-    }
-  };
-  
   const handleLogout = () => {
     Alert.alert(
       "Logout",
@@ -162,7 +30,8 @@ export default function AdminSettings() {
         {
           text: "Logout",
           style: "destructive",
-          onPress: () => {
+          onPress: async () => {
+            setIsLoggingOut(true);
             // Clear auth state immediately
             dispatch(logout());
             // Use setTimeout to ensure state update is processed before navigation
@@ -175,346 +44,283 @@ export default function AdminSettings() {
     );
   };
 
-  if (isLoading) {
-    return (
-      <View style={[styles.container, styles.loadingContainer]}>
-        <ActivityIndicator size="large" color="#277874" />
-        <Text style={styles.loadingText}>Loading settings...</Text>
-      </View>
-    );
-  }
-
   return (
     <View style={styles.container}>
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-        <AIConfigurationCard 
-          aiResponse={aiResponse}
-          setAiResponse={setAiResponse}
-          searchRadius={searchRadius}
-          setSearchRadius={setSearchRadius}
-        />
-        
-        <DealFinderSettingsCard
-          minDiscount={minDiscount}
-          setMinDiscount={setMinDiscount}
-          maxResults={maxResults}
-          setMaxResults={setMaxResults}
-        />
-        
-        <ActionButtons 
-          onSave={handleSave}
-          onCancel={handleCancel}
-          isSaving={isSaving}
-          hasChanges={hasChanges}
-        />
-        
-        <LogoutButton onLogout={handleLogout} />
+        {/* Dashboard Overview Section */}
+        <View style={styles.dashboardSection}>
+          <Text style={styles.sectionTitle}>Admin Dashboard</Text>
+          <Text style={styles.sectionSubtitle}>
+            Quick overview of system health and key metrics
+          </Text>
+
+          {/* Quick Stats Grid */}
+          <View style={styles.statsGrid}>
+            <View style={styles.statCard}>
+              <View style={[styles.statIconContainer, { backgroundColor: "#DBEAFE" }]}>
+                <Ionicons name="speedometer" size={24} color="#3B82F6" />
+              </View>
+              <Text style={styles.statLabel}>System Status</Text>
+              <Text style={styles.statValue}>Operational</Text>
+            </View>
+
+            <View style={styles.statCard}>
+              <View style={[styles.statIconContainer, { backgroundColor: "#D1FAE5" }]}>
+                <Ionicons name="shield-checkmark" size={24} color="#10B981" />
+              </View>
+              <Text style={styles.statLabel}>Security</Text>
+              <Text style={styles.statValue}>Secure</Text>
+            </View>
+
+            <View style={styles.statCard}>
+              <View style={[styles.statIconContainer, { backgroundColor: "#FEF3C7" }]}>
+                <Ionicons name="sync" size={24} color="#F59E0B" />
+              </View>
+              <Text style={styles.statLabel}>Uptime</Text>
+              <Text style={styles.statValue}>99.9%</Text>
+            </View>
+
+            <View style={styles.statCard}>
+              <View style={[styles.statIconContainer, { backgroundColor: "#E0E7FF" }]}>
+                <Ionicons name="server" size={24} color="#6366F1" />
+              </View>
+              <Text style={styles.statLabel}>Load</Text>
+              <Text style={styles.statValue}>Normal</Text>
+            </View>
+          </View>
+        </View>
+
+        {/* Monitoring Access Card */}
+        <View style={styles.monitoringCard}>
+          <View style={styles.monitoringHeader}>
+            <View style={styles.monitoringIconContainer}>
+              <Ionicons name="analytics" size={32} color="#277874" />
+            </View>
+            <View style={styles.monitoringTextContainer}>
+              <Text style={styles.monitoringTitle}>Comprehensive Monitoring</Text>
+              <Text style={styles.monitoringDescription}>
+                Access detailed performance metrics, error logs, and system analytics
+              </Text>
+            </View>
+          </View>
+          
+          <TouchableOpacity 
+            style={styles.monitoringButton}
+            onPress={() => router.push("/(admin)/monitoring/performance")}
+          >
+            <Text style={styles.monitoringButtonText}>View Detailed Monitoring</Text>
+            <Ionicons name="arrow-forward" size={20} color="#ffffff" />
+          </TouchableOpacity>
+        </View>
+
+        {/* Quick Actions */}
+        <View style={styles.actionsSection}>
+          <Text style={styles.sectionTitle}>Quick Actions</Text>
+          
+          <TouchableOpacity 
+            style={styles.actionCard}
+            onPress={() => router.push("/(admin)/users")}
+          >
+            <Ionicons name="people" size={24} color="#277874" />
+            <Text style={styles.actionText}>Manage Users</Text>
+            <Ionicons name="chevron-forward" size={20} color="#9CA3AF" />
+          </TouchableOpacity>
+
+          <TouchableOpacity 
+            style={styles.actionCard}
+            onPress={() => router.push("/(admin)/reports")}
+          >
+            <Ionicons name="flag" size={24} color="#277874" />
+            <Text style={styles.actionText}>Review Reports</Text>
+            <Ionicons name="chevron-forward" size={20} color="#9CA3AF" />
+          </TouchableOpacity>
+
+          <TouchableOpacity 
+            style={styles.actionCard}
+            onPress={() => router.push("/(admin)/subscriptions")}
+          >
+            <Ionicons name="stats-chart" size={24} color="#277874" />
+            <Text style={styles.actionText}>View Analytics</Text>
+            <Ionicons name="chevron-forward" size={20} color="#9CA3AF" />
+          </TouchableOpacity>
+        </View>
+
+        {/* Logout Button */}
+        <View style={styles.logoutContainer}>
+          <TouchableOpacity 
+            style={styles.logoutButton} 
+            onPress={handleLogout}
+            disabled={isLoggingOut}
+          >
+            {isLoggingOut ? (
+              <ActivityIndicator size="small" color="#DC2626" />
+            ) : (
+              <>
+                <Ionicons name="log-out-outline" size={20} color="#DC2626" />
+                <Text style={styles.logoutButtonText}>Logout</Text>
+              </>
+            )}
+          </TouchableOpacity>
+        </View>
       </ScrollView>
     </View>
   );
 }
 
-// ===== SUB-COMPONENTS =====
-
-// AI Configuration Card Component
-const AIConfigurationCard = ({ 
-  aiResponse, 
-  setAiResponse, 
-  searchRadius, 
-  setSearchRadius 
-}: {
-  aiResponse: string;
-  setAiResponse: (value: string) => void;
-  searchRadius: string;
-  setSearchRadius: (value: string) => void;
-}) => (
-  <View style={styles.settingsCard}>
-    <Text style={styles.sectionTitle}>AI Configuration</Text>
-    
-    <View style={styles.inputGroup}>
-      <Text style={styles.inputLabel}>Describe what A.i would response</Text>
-      <TextInput
-        style={styles.textInput}
-        placeholder="Enter AI response description..."
-        value={aiResponse}
-        onChangeText={setAiResponse}
-        placeholderTextColor="#9CA3AF"
-        multiline
-      />
-    </View>
-    
-    <View style={styles.inputGroup}>
-      <Text style={styles.inputLabel}>Deal Search Radius (miles)</Text>
-      <TextInput
-        style={styles.textInput}
-        placeholder="25"
-        value={searchRadius}
-        onChangeText={setSearchRadius}
-        placeholderTextColor="#9CA3AF"
-        keyboardType="numeric"
-      />
-    </View>
-  </View>
-);
-
-// Deal Finder Settings Card Component
-const DealFinderSettingsCard = ({ 
-  minDiscount, 
-  setMinDiscount, 
-  maxResults, 
-  setMaxResults 
-}: {
-  minDiscount: string;
-  setMinDiscount: (value: string) => void;
-  maxResults: string;
-  setMaxResults: (value: string) => void;
-}) => (
-  <View style={styles.settingsCard}>
-    <View style={styles.sectionHeader}>
-      <Ionicons name="search" size={20} color="#20B2AA" />
-      <Text style={styles.sectionTitle}>Deal Finder Settings</Text>
-    </View>
-    
-    <View style={styles.inputRow}>
-      <View style={styles.inputGroupHalf}>
-        <Text style={styles.inputLabel}>Minimum Discount %</Text>
-        <TextInput
-          style={styles.textInput}
-          placeholder="10"
-          value={minDiscount}
-          onChangeText={setMinDiscount}
-          placeholderTextColor="#9CA3AF"
-          keyboardType="numeric"
-        />
-      </View>
-      
-      <View style={[styles.inputGroupHalf, { marginRight: 0 }]}>
-        <Text style={styles.inputLabel}>Max Results per Search</Text>
-        <TextInput
-          style={styles.textInput}
-          placeholder="50"
-          value={maxResults}
-          onChangeText={setMaxResults}
-          placeholderTextColor="#9CA3AF"
-          keyboardType="numeric"
-        />
-      </View>
-    </View>
-  </View>
-);
-
-// Action Buttons Component
-const ActionButtons = ({ 
-  onSave, 
-  onCancel,
-  isSaving,
-  hasChanges
-}: {
-  onSave: () => void;
-  onCancel: () => void;
-  isSaving: boolean;
-  hasChanges: boolean;
-}) => (
-  <View style={styles.buttonContainer}>
-    <TouchableOpacity 
-      style={[
-        styles.saveButton, 
-        (!hasChanges || isSaving) && styles.saveButtonDisabled
-      ]} 
-      onPress={onSave}
-      disabled={!hasChanges || isSaving}
-    >
-      {isSaving ? (
-        <>
-          <ActivityIndicator size="small" color="#ffffff" style={{ marginRight: 8 }} />
-          <Text style={styles.saveButtonText}>Saving...</Text>
-        </>
-      ) : (
-        <Text style={styles.saveButtonText}>Save Changes</Text>
-      )}
-    </TouchableOpacity>
-    
-    <TouchableOpacity 
-      style={[
-        styles.cancelButton,
-        !hasChanges && styles.cancelButtonDisabled
-      ]} 
-      onPress={onCancel}
-      disabled={!hasChanges}
-    >
-      <Text style={[
-        styles.cancelButtonText,
-        !hasChanges && styles.cancelButtonTextDisabled
-      ]}>Cancel</Text>
-    </TouchableOpacity>
-  </View>
-);
-
-// Logout Button Component
-const LogoutButton = ({ 
-  onLogout 
-}: {
-  onLogout: () => void;
-}) => (
-  <View style={styles.logoutContainer}>
-    <TouchableOpacity style={styles.logoutButton} onPress={onLogout}>
-      <Ionicons name="log-out-outline" size={20} color="#DC2626" />
-      <Text style={styles.logoutButtonText}>Logout</Text>
-    </TouchableOpacity>
-  </View>
-);
-
 const styles = StyleSheet.create({
-  // ===== MAIN LAYOUT STYLES =====
-  // Used by: Main AdminSettings component
   container: {
     flex: 1,
-    backgroundColor: "#f8fafc", // Light gray background
+    backgroundColor: "#f8fafc",
   },
   content: {
     flex: 1,
-    paddingHorizontal: 20, // Side padding for content
-    paddingTop: 20, // Top padding
+    paddingHorizontal: 20,
+    paddingTop: 20,
   },
-  
-  // ===== SETTINGS CARD STYLES =====
-  // Used by: AIConfigurationCard, DealFinderSettingsCard
-  settingsCard: {
-    backgroundColor: "#ffffff", // White card background
-    borderRadius: 16, // Rounded corners
-    padding: 24, // Internal padding
-    shadowColor: "#277874", // Shadow for depth
+  dashboardSection: {
+    marginBottom: 24,
+  },
+  sectionTitle: {
+    fontSize: 22,
+    fontWeight: "bold",
+    color: "#277874",
+    marginBottom: 8,
+  },
+  sectionSubtitle: {
+    fontSize: 14,
+    color: "#6B7280",
+    marginBottom: 20,
+  },
+  statsGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    justifyContent: "space-between",
+    gap: 12,
+  },
+  statCard: {
+    backgroundColor: "#ffffff",
+    borderRadius: 12,
+    padding: 16,
+    width: "47%",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  statIconContainer: {
+    width: 48,
+    height: 48,
+    borderRadius: 12,
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: 12,
+  },
+  statLabel: {
+    fontSize: 12,
+    color: "#6B7280",
+    marginBottom: 4,
+    fontWeight: "500",
+  },
+  statValue: {
+    fontSize: 18,
+    fontWeight: "bold",
+    color: "#277874",
+  },
+  monitoringCard: {
+    backgroundColor: "#ffffff",
+    borderRadius: 16,
+    padding: 24,
+    marginBottom: 24,
+    shadowColor: "#277874",
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.15,
     shadowRadius: 8,
-    elevation: 5, // Android shadow
-    marginBottom: 20, // Space between cards
+    elevation: 5,
   },
-  
-  // ===== SECTION HEADER STYLES =====
-  // Used by: DealFinderSettingsCard header with icon
-  sectionHeader: {
-    flexDirection: "row", // Horizontal layout
-    alignItems: "center", // Center vertically
-    marginBottom: 20, // Space below header
+  monitoringHeader: {
+    flexDirection: "row",
+    marginBottom: 20,
   },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: "bold", // Bold text
-    color: "#277874", // Teal text
-    marginLeft: 8, // Space after icon
-  },
-  
-  // ===== INPUT FORM STYLES =====
-  // Used by: AIConfigurationCard, DealFinderSettingsCard
-  inputGroup: {
-    marginBottom: 24, // Space between input groups
-  },
-  inputGroupHalf: {
-    flex: 1, // Take half width
-    marginRight: 16, // Space between half-width inputs
-  },
-  inputRow: {
-    flexDirection: "row", // Horizontal layout for half-width inputs
-    justifyContent: "space-between", // Distribute space
-    alignItems: "flex-start", // Align to top
-  },
-  inputLabel: {
-    fontSize: 14,
-    fontWeight: "600", // Semi-bold
-    color: "#374151", // Medium gray
-    marginBottom: 8, // Space above input
-  },
-  textInput: {
-    backgroundColor: "#ffffff", // White background
-    borderWidth: 1,
-    borderColor: "#277874", // Teal border
-    borderRadius: 8, // Rounded corners
-    paddingHorizontal: 16, // Horizontal padding
-    paddingVertical: 14, // Vertical padding
-    fontSize: 16,
-    color: "#1F2937", // Dark text
-    minHeight: 52, // Minimum height
-    textAlignVertical: "top", // Text starts at top for multiline
-  },
-  
-  // ===== ACTION BUTTON STYLES =====
-  // Used by: ActionButtons component (Save/Cancel)
-  buttonContainer: {
-    flexDirection: "row", // Horizontal layout
-    justifyContent: "space-between", // Space between buttons
-    marginTop: 0, // No top margin
-    marginBottom: 20, // Bottom margin
-  },
-  saveButton: {
-    backgroundColor: "#277874", // Teal background
-    paddingHorizontal: 24, // Horizontal padding
-    paddingVertical: 12, // Vertical padding
-    borderRadius: 8, // Rounded corners
-    flex: 1, // Take available space
-    marginRight: 12, // Space before cancel button
-    alignItems: "center", // Center content
-  },
-  saveButtonText: {
-    color: "#ffffff", // White text
-    fontSize: 16,
-    fontWeight: "600", // Semi-bold
-  },
-  cancelButton: {
-    backgroundColor: "#ffffff", // White background
-    borderWidth: 1,
-    borderColor: "#277874", // Teal border
-    paddingHorizontal: 24,
-    paddingVertical: 12,
-    borderRadius: 8,
-    flex: 1, // Take available space
-    alignItems: "center", // Center content
-  },
-  cancelButtonText: {
-    color: "#277874", // Teal text
-    fontSize: 16,
-    fontWeight: "600", // Semi-bold
-  },
-  saveButtonDisabled: {
-    opacity: 0.6,
-  },
-  cancelButtonDisabled: {
-    opacity: 0.5,
-  },
-  cancelButtonTextDisabled: {
-    color: "#9CA3AF",
-  },
-  loadingContainer: {
+  monitoringIconContainer: {
+    width: 56,
+    height: 56,
+    borderRadius: 14,
+    backgroundColor: "#E0F2F1",
     justifyContent: "center",
     alignItems: "center",
+    marginRight: 16,
   },
-  loadingText: {
-    marginTop: 12,
-    fontSize: 16,
+  monitoringTextContainer: {
+    flex: 1,
+  },
+  monitoringTitle: {
+    fontSize: 18,
+    fontWeight: "bold",
+    color: "#277874",
+    marginBottom: 6,
+  },
+  monitoringDescription: {
+    fontSize: 14,
     color: "#6B7280",
+    lineHeight: 20,
   },
-  
-  // ===== LOGOUT BUTTON STYLES =====
-  // Used by: LogoutButton component
+  monitoringButton: {
+    backgroundColor: "#277874",
+    borderRadius: 10,
+    paddingVertical: 14,
+    paddingHorizontal: 20,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+  },
+  monitoringButtonText: {
+    color: "#ffffff",
+    fontSize: 16,
+    fontWeight: "600",
+  },
+  actionsSection: {
+    marginBottom: 24,
+  },
+  actionCard: {
+    backgroundColor: "#ffffff",
+    borderRadius: 12,
+    padding: 16,
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 12,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  actionText: {
+    flex: 1,
+    fontSize: 16,
+    fontWeight: "500",
+    color: "#1F2937",
+    marginLeft: 12,
+  },
   logoutContainer: {
-    marginBottom: 20, // Bottom margin
+    marginBottom: 32,
   },
   logoutButton: {
-    backgroundColor: "#ffffff", // White background
+    backgroundColor: "#ffffff",
     borderWidth: 1,
-    borderColor: "#FEE2E2", // Light red border
+    borderColor: "#FEE2E2",
     paddingHorizontal: 20,
     paddingVertical: 14,
-    borderRadius: 8,
-    flexDirection: "row", // Horizontal layout for icon + text
-    alignItems: "center", // Center vertically
-    justifyContent: "center", // Center horizontally
+    borderRadius: 10,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
   },
   logoutButtonText: {
-    color: "#DC2626", // Red text
+    color: "#DC2626",
     fontSize: 16,
-    fontWeight: "600", // Semi-bold
-    marginLeft: 8, // Space after icon
+    fontWeight: "600",
   },
-  
 });

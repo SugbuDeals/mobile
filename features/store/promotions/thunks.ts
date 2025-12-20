@@ -2,12 +2,12 @@
  * Promotion domain thunks
  */
 
-import { createAsyncThunk } from "@reduxjs/toolkit";
-import { RootState } from "@/store/types";
-import { promotionsApi } from "@/services/api/endpoints/promotions";
 import { productsApi } from "@/services/api/endpoints/products";
+import { promotionsApi } from "@/services/api/endpoints/promotions";
+import { RootState } from "@/store/types";
 import { convertLegacyPromotion } from "@/utils/dealTypes";
-import type { Promotion, CreatePromotionDTO, UpdatePromotionDTO } from "./types";
+import { createAsyncThunk } from "@reduxjs/toolkit";
+import type { CreatePromotionDTO, Promotion, UpdatePromotionDTO } from "./types";
 
 export const findPromotions = createAsyncThunk<
   Promotion[],
@@ -56,7 +56,7 @@ export const findActivePromotions = createAsyncThunk<
       // Map and extract productId from promotionProducts if needed
       // Also convert legacy format to new format
       let mappedPromotions = allPromotions.map((p: any) => {
-        // Extract productId from promotionProducts if productId is not present
+        // Extract productId from promotionProducts if productId is not present (for backward compatibility)
         let productId = p.productId ?? null;
         if (!productId && p.promotionProducts && p.promotionProducts.length > 0) {
           productId = p.promotionProducts[0].productId ?? null;
@@ -68,6 +68,7 @@ export const findActivePromotions = createAsyncThunk<
         return {
           ...converted,
           productId: productId,
+          promotionProducts: p.promotionProducts || undefined, // Preserve all products in the promotion
         };
       });
       
@@ -107,7 +108,7 @@ export const createPromotion = createAsyncThunk<
   try {
     const result: any = await promotionsApi.createPromotion(promotionData);
     
-    // Extract productId from promotionProducts if productId is not present
+    // Extract productId from promotionProducts if productId is not present (for backward compatibility)
     let productId = result.productId ?? null;
     if (!productId && result.promotionProducts && result.promotionProducts.length > 0) {
       productId = result.promotionProducts[0].productId ?? null;
@@ -119,6 +120,7 @@ export const createPromotion = createAsyncThunk<
     return {
       ...converted,
       productId: productId,
+      promotionProducts: result.promotionProducts || undefined, // Preserve all products in the promotion
     };
   } catch (error) {
     return rejectWithValue({
