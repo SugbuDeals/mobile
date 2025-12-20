@@ -1,20 +1,25 @@
 import env from "@/config/env";
 import { useBookmarks } from "@/features/bookmarks";
 import { useCatalog } from "@/features/catalog";
-import type { Product as CatalogProduct, Category } from "@/features/catalog/types";
+import type { Product as CatalogProduct } from "@/features/catalog/types";
 
+import { ReviewsSection } from "@/components/consumers/reviews";
+import ReportForm from "@/components/reports/ReportForm";
 import { useStore } from "@/features/store";
 import type { Promotion } from "@/features/store/promotions/types";
 import type { Store } from "@/features/store/stores/types";
 import type { Product as StoreProduct } from "@/features/store/types";
 import { useStableThunk } from "@/hooks/useStableCallback";
+import { reviewsApi } from "@/services/api/endpoints/reviews";
 import { viewsApi } from "@/services/api/endpoints/views";
+import type { StoreRatingStatsDto } from "@/services/api/types/swagger";
+import { getProductCategoryName as getCategoryName } from "@/utils/categoryHelpers";
 import { getNonVoucherDeals, getVouchersOnly } from "@/utils/dealPlacement";
 import { calculateDistance, formatDistance } from "@/utils/distance";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Location from "expo-location";
 import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
-import React, { useCallback, useEffect, useRef } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
     Image,
     Linking,
@@ -54,6 +59,26 @@ export default function StoreDetailsScreen() {
   useBookmarks();
   const [activeCategory, setActiveCategory] = React.useState("All");
   const [query, setQuery] = React.useState("");
+  const [viewMode, setViewMode] = React.useState<"products" | "reviews">("products");
+  const [ratingStats, setRatingStats] = React.useState<StoreRatingStatsDto | null>(null);
+  const [showReportForm, setShowReportForm] = useState(false);
+
+  // Load rating stats
+  React.useEffect(() => {
+    if (storeId) {
+      reviewsApi.getStoreRatingStats(storeId)
+        .then((stats) => {
+          // Handle null response when there are no reviews
+          setRatingStats(stats || null);
+        })
+        .catch(() => {
+          // Silently fail - rating stats are optional
+          setRatingStats(null);
+        });
+    } else {
+      setRatingStats(null);
+    }
+  }, [storeId]);
 
   const storeFromList = stores?.find?.((s: Store) => s.id === storeId);
   const storeFromSelected =
@@ -116,7 +141,6 @@ export default function StoreDetailsScreen() {
   const getProductCategoryName = React.useCallback(
     (product: CatalogProduct | StoreProduct): string => {
       // Use the helper function that checks both categoryId and custom category
-      const { getProductCategoryName: getCategoryName } = require("@/utils/categoryHelpers");
       return getCategoryName(
         {
           categoryId: 'categoryId' in product ? product.categoryId : null,
@@ -151,10 +175,22 @@ export default function StoreDetailsScreen() {
     return promoList.reduce<{ promotion: Promotion; product: CatalogProduct }[]>(
       (acc, promo: Promotion) => {
         if (!promo?.active) return acc;
-        const product = (products || []).find((p: CatalogProduct) => p.id === promo.productId);
-        if (!product || product.isActive === false) return acc;
-        if (product.storeId !== storeId) return acc;
-        acc.push({ promotion: promo, product });
+        
+        // If promotion has promotionProducts array, iterate through all products
+        if (promo.promotionProducts && Array.isArray(promo.promotionProducts) && promo.promotionProducts.length > 0) {
+          promo.promotionProducts.forEach((pp: any) => {
+            const product = (products || []).find((p: CatalogProduct) => p.id === pp.productId);
+            if (product && product.isActive !== false && product.storeId === storeId) {
+              acc.push({ promotion: promo, product });
+            }
+          });
+        } else {
+          // Fallback to single productId for backward compatibility
+          const product = (products || []).find((p: CatalogProduct) => p.id === promo.productId);
+          if (product && product.isActive !== false && product.storeId === storeId) {
+            acc.push({ promotion: promo, product });
+          }
+        }
         return acc;
       },
       []
@@ -193,7 +229,14 @@ export default function StoreDetailsScreen() {
         contentContainerStyle={styles.scrollViewContent}
         showsVerticalScrollIndicator={false}
       >
-        <StoreHero storeName={storeName} />
+        <StoreHero 
+          storeName={storeName} 
+          viewMode={viewMode} 
+          onViewModeChange={setViewMode}
+          ratingStats={ratingStats}
+          storeId={storeId}
+          onReport={() => setShowReportForm(true)}
+        />
         <StoreLocationCard storeName={storeName} storeId={storeId} />
         <StoreDealsAndVouchers
           storeName={storeName}
@@ -201,21 +244,38 @@ export default function StoreDetailsScreen() {
           promotions={regularPromotions}
           vouchers={storeVouchers}
         />
-        <CategoriesBar
-          categories={categories}
-          active={activeCategory}
-          onChange={setActiveCategory}
-        />
-        <StoreSearch value={query} onChange={setQuery} />
-        <DealsGrid
-          storeId={storeId}
-          category={activeCategory}
-          query={query}
-          products={products}
-          getProductCategoryName={getProductCategoryName}
-        />
+        {viewMode === "products" ? (
+          <>
+            <CategoriesBar
+              categories={categories}
+              active={activeCategory}
+              onChange={setActiveCategory}
+            />
+            <StoreSearch value={query} onChange={setQuery} />
+            <DealsGrid
+              storeId={storeId}
+              category={activeCategory}
+              query={query}
+              products={products}
+              getProductCategoryName={getProductCategoryName}
+            />
+          </>
+        ) : (
+          storeId && <ReviewsSection storeId={storeId} />
+        )}
         <View style={{ height: 40 }} />
       </ScrollView>
+      
+      {/* Report Form Modal */}
+      {storeId && (
+        <ReportForm
+          visible={showReportForm}
+          onClose={() => setShowReportForm(false)}
+          onSuccess={() => setShowReportForm(false)}
+          reportedStoreId={storeId}
+          reportedStoreName={storeName}
+        />
+      )}
     </SafeAreaView>
   );
 }
@@ -379,23 +439,44 @@ function StoreDealsAndVouchers({
   const router = useRouter();
   const { state: { stores } } = useStore();
   const [showVouchers, setShowVouchers] = React.useState(false);
-  
-  if (storeId == null) return null;
+  const [expandedVoucherId, setExpandedVoucherId] = React.useState<number | null>(null);
   
   // Filter promotions to only show products from verified stores
   const verifiedPromotions = React.useMemo(() => {
+    if (storeId == null) return [];
     return promotions.filter(({ product }) => {
       const productStore = (stores || []).find((s: Store) => s.id === product.storeId);
       return productStore?.verificationStatus === "VERIFIED";
     });
-  }, [promotions, stores]);
+  }, [promotions, stores, storeId]);
   
   const verifiedVouchers = React.useMemo(() => {
+    if (storeId == null) return [];
     return vouchers.filter(({ product }) => {
       const productStore = (stores || []).find((s: Store) => s.id === product.storeId);
       return productStore?.verificationStatus === "VERIFIED";
     });
-  }, [vouchers, stores]);
+  }, [vouchers, stores, storeId]);
+  
+  // Group vouchers by promotion and collect products for each
+  const voucherPromotionsWithProducts = React.useMemo(() => {
+    const promotionMap = new Map<number, { promotion: Promotion; products: CatalogProduct[] }>();
+    
+    verifiedVouchers.forEach(({ promotion, product }) => {
+      if (!promotionMap.has(promotion.id)) {
+        promotionMap.set(promotion.id, { promotion, products: [] });
+      }
+      const entry = promotionMap.get(promotion.id)!;
+      // Avoid duplicate products
+      if (!entry.products.some(p => p.id === product.id)) {
+        entry.products.push(product);
+      }
+    });
+    
+    return Array.from(promotionMap.values());
+  }, [verifiedVouchers]);
+  
+  if (storeId == null) return null;
 
   const handleDealPress = (product: CatalogProduct, promo: Promotion) => {
     router.push({
@@ -470,7 +551,7 @@ function StoreDealsAndVouchers({
       )}
       
       {/* Vouchers Section - Below Deals */}
-      {verifiedVouchers.length > 0 && (
+      {voucherPromotionsWithProducts.length > 0 && (
         <View style={dealsStyles.vouchersSection}>
           <TouchableOpacity
             style={dealsStyles.voucherButton}
@@ -480,7 +561,7 @@ function StoreDealsAndVouchers({
             <View style={dealsStyles.voucherHeader}>
               <Ionicons name="ticket" size={20} color="#E53935" />
               <Text style={dealsStyles.voucherButtonText}>
-                Vouchers ({verifiedVouchers.length})
+                Vouchers ({voucherPromotionsWithProducts.length})
               </Text>
             </View>
             <Ionicons 
@@ -492,20 +573,75 @@ function StoreDealsAndVouchers({
           
           {showVouchers && (
             <View style={dealsStyles.vouchersList}>
-              {verifiedVouchers.map(({ promotion, product }) => (
-                <TouchableOpacity
-                  key={`${promotion.id}-${product.id}`}
-                  style={dealsStyles.voucherItem}
-                  onPress={() => handleDealPress(product, promotion)}
-                  activeOpacity={0.7}
+              {voucherPromotionsWithProducts.map(({ promotion, products }, index) => (
+                <View 
+                  key={promotion.id} 
+                  style={[
+                    dealsStyles.voucherKindWrapper,
+                    index === voucherPromotionsWithProducts.length - 1 && dealsStyles.voucherKindWrapperLast
+                  ]}
                 >
-                  <View style={dealsStyles.voucherIconContainer}>
-                    <Ionicons name="ticket-outline" size={18} color="#E53935" />
-                  </View>
-                  <Text style={dealsStyles.voucherItemTitle} numberOfLines={2}>
-                    {promotion.title}
-                  </Text>
-                </TouchableOpacity>
+                  {/* Voucher Type Dropdown */}
+                  <TouchableOpacity
+                    style={dealsStyles.voucherKindDropdown}
+                    onPress={() => setExpandedVoucherId(
+                      expandedVoucherId === promotion.id ? null : promotion.id
+                    )}
+                    activeOpacity={0.7}
+                  >
+                    <View style={dealsStyles.voucherKindHeader}>
+                      <View style={dealsStyles.voucherKindInfo}>
+                        <Text style={dealsStyles.voucherKindTitle} numberOfLines={1}>
+                          {promotion.title}
+                        </Text>
+                        <View style={dealsStyles.voucherKindMeta}>
+                          {promotion.voucherValue && (
+                            <Text style={dealsStyles.voucherKindValue}>
+                              ₱{Number(promotion.voucherValue).toFixed(2)}
+                            </Text>
+                          )}
+                          <Text style={dealsStyles.voucherKindRemaining}>
+                            {((promotion as any).voucherQuantity !== undefined && (promotion as any).voucherQuantity !== null)
+                              ? `${(promotion as any).voucherQuantity} remaining`
+                              : "Available"}
+                          </Text>
+                        </View>
+                      </View>
+                      <Ionicons 
+                        name={expandedVoucherId === promotion.id ? "chevron-up" : "chevron-down"} 
+                        size={18} 
+                        color="#6B7280" 
+                      />
+                    </View>
+                  </TouchableOpacity>
+
+                  {/* Products List - shown when voucher type is expanded */}
+                  {expandedVoucherId === promotion.id && products.length > 0 && (
+                    <View style={dealsStyles.voucherProductsList}>
+                      {products.map((product, productIndex) => (
+                        <TouchableOpacity
+                          key={product.id}
+                          style={[
+                            dealsStyles.voucherProductItem,
+                            productIndex === products.length - 1 && dealsStyles.voucherProductItemLast
+                          ]}
+                          onPress={() => handleDealPress(product, promotion)}
+                          activeOpacity={0.7}
+                        >
+                          <View style={dealsStyles.voucherProductInfo}>
+                            <Text style={dealsStyles.voucherProductName} numberOfLines={2}>
+                              {product.name}
+                            </Text>
+                            <Text style={dealsStyles.voucherProductPrice}>
+                              ₱{Number(product.price).toFixed(2)}
+                            </Text>
+                          </View>
+                          <Ionicons name="chevron-forward" size={18} color="#E53935" />
+                        </TouchableOpacity>
+                      ))}
+                    </View>
+                  )}
+                </View>
               ))}
             </View>
           )}
@@ -516,9 +652,21 @@ function StoreDealsAndVouchers({
 }
 
 // StoreHero (inline)
-function StoreHero({ storeName }: { storeName: string }) {
-  const params = useLocalSearchParams() as Record<string, string | undefined>;
-  const storeId = params.storeId ? Number(params.storeId) : undefined;
+function StoreHero({ 
+  storeName,
+  viewMode,
+  onViewModeChange,
+  ratingStats,
+  storeId,
+  onReport,
+}: { 
+  storeName: string;
+  viewMode: "products" | "reviews";
+  onViewModeChange: (mode: "products" | "reviews") => void;
+  ratingStats: StoreRatingStatsDto | null;
+  storeId?: number;
+  onReport: () => void;
+}) {
   const { helpers, action } = useBookmarks();
   const { 
     state: { selectedStore, stores, products: storeProducts }, 
@@ -528,9 +676,11 @@ function StoreHero({ storeName }: { storeName: string }) {
     state: { products: catalogProducts },
   } = useCatalog();
   
+  const stableFindStoreById = useStableThunk(findStoreById);
+  
   React.useEffect(() => {
-    if (storeId) findStoreById(storeId);
-  }, [storeId]);
+    if (storeId) stableFindStoreById(storeId);
+  }, [storeId, stableFindStoreById]);
   
   const storeFromList = stores?.find((s: Store) => s.id === storeId);
   const rawLogo = ((selectedStore && selectedStore.id === storeId) ? selectedStore.imageUrl : undefined) || storeFromList?.imageUrl;
@@ -582,6 +732,17 @@ function StoreHero({ storeName }: { storeName: string }) {
       </View>
       <View style={heroStyles.topRightRow}>
         <TouchableOpacity 
+          onPress={onReport} 
+          activeOpacity={0.7}
+          style={heroStyles.reportButton}
+        >
+          <Ionicons
+            name="flag-outline"
+            size={24}
+            color="#ffffff"
+          />
+        </TouchableOpacity>
+        <TouchableOpacity 
           onPress={toggle} 
           activeOpacity={0.7}
           style={[
@@ -604,6 +765,41 @@ function StoreHero({ storeName }: { storeName: string }) {
             <View style={heroStyles.logoBox} />
           )}
           <Text style={heroStyles.name}>{storeName}</Text>
+          <View style={heroStyles.ratingContainer}>
+            {ratingStats && ratingStats.totalRatings > 0 ? (
+              <>
+                <View style={heroStyles.ratingStars}>
+                  {[1, 2, 3, 4, 5].map((star) => (
+                    <Ionicons
+                      key={star}
+                      name={star <= Math.round(ratingStats.averageRating) ? "star" : "star-outline"}
+                      size={18}
+                      color="#FFD700"
+                    />
+                  ))}
+                </View>
+                <Text style={heroStyles.ratingText}>
+                  {ratingStats.averageRating.toFixed(1)} ({ratingStats.totalRatings} {ratingStats.totalRatings === 1 ? 'review' : 'reviews'})
+                </Text>
+              </>
+            ) : (
+              <>
+                <View style={heroStyles.ratingStars}>
+                  {[1, 2, 3, 4, 5].map((star) => (
+                    <Ionicons
+                      key={star}
+                      name="star-outline"
+                      size={18}
+                      color="#DDD"
+                    />
+                  ))}
+                </View>
+                <Text style={heroStyles.ratingText}>
+                  No ratings yet
+                </Text>
+              </>
+            )}
+          </View>
           {description ? (
             <Text style={heroStyles.desc} numberOfLines={3}>{description}</Text>
           ) : null}
@@ -625,7 +821,53 @@ function StoreHero({ storeName }: { storeName: string }) {
           </View>
         </View>
       </View>
-      <Text style={heroStyles.sectionTitle}>Store Products</Text>
+      <View style={heroStyles.sectionHeader}>
+        <Text style={heroStyles.sectionTitle}>Store Products</Text>
+        <View style={heroStyles.viewModeToggle}>
+          <TouchableOpacity
+            style={[
+              heroStyles.viewModeButton,
+              viewMode === "products" && heroStyles.viewModeButtonActive,
+            ]}
+            onPress={() => onViewModeChange("products")}
+          >
+            <Ionicons
+              name="cube-outline"
+              size={18}
+              color={viewMode === "products" ? "#FFF" : "#666"}
+            />
+            <Text
+              style={[
+                heroStyles.viewModeText,
+                viewMode === "products" && heroStyles.viewModeTextActive,
+              ]}
+            >
+              Products
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[
+              heroStyles.viewModeButton,
+              viewMode === "reviews" && heroStyles.viewModeButtonActive,
+            ]}
+            onPress={() => onViewModeChange("reviews")}
+          >
+            <Ionicons
+              name="star-outline"
+              size={18}
+              color={viewMode === "reviews" ? "#FFF" : "#666"}
+            />
+            <Text
+              style={[
+                heroStyles.viewModeText,
+                viewMode === "reviews" && heroStyles.viewModeTextActive,
+              ]}
+            >
+              Reviews
+            </Text>
+          </TouchableOpacity>
+        </View>
+      </View>
     </View>
   );
 }
@@ -789,109 +1031,95 @@ const dealsStyles = StyleSheet.create({
     alignItems: "center",
   },
   voucherItemTitle: {
-    flex: 1,
     fontSize: 14,
     fontWeight: "500",
     color: "#111827",
     lineHeight: 18,
   },
-});
-
-const storePromoStyles = StyleSheet.create({
-  container: {
-    marginTop: 16,
-    marginBottom: 12,
-    padding: 16,
-    borderRadius: 20,
-    backgroundColor: "#FDF6EC",
-  },
-  headerRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 12,
-  },
-  title: {
-    fontSize: 18,
-    fontWeight: "700",
-    color: "#1B4332",
-  },
-  count: {
-    fontSize: 13,
-    color: "#6B7280",
+  voucherItemValue: {
+    fontSize: 12,
     fontWeight: "600",
+    color: "#E53935",
+    marginTop: 2,
   },
-  voucherDescription: {
-    fontSize: 13,
-    color: "#6B7280",
-    marginBottom: 12,
-    lineHeight: 18,
+  voucherKindWrapper: {
+    borderBottomWidth: 1,
+    borderBottomColor: "#F3F4F6",
   },
-  row: {
-    columnGap: 12,
-    paddingRight: 8,
+  voucherKindWrapperLast: {
+    borderBottomWidth: 0,
   },
-  card: {
-    width: 220,
-    backgroundColor: "#ffffff",
-    borderRadius: 18,
-    padding: 12,
+  voucherKindDropdown: {
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    backgroundColor: "#F9FAFB",
+    borderLeftWidth: 3,
+    borderLeftColor: "#E53935",
+  },
+  voucherKindHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  voucherKindInfo: {
+    flex: 1,
     marginRight: 12,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.1,
-    shadowRadius: 6,
-    elevation: 4,
   },
-  cardImage: {
-    width: "100%",
-    height: 110,
-    borderRadius: 14,
-    marginBottom: 10,
-    resizeMode: "cover",
+  voucherKindTitle: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#111827",
+    marginBottom: 4,
   },
-  cardBody: {
-    gap: 6,
+  voucherKindMeta: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
   },
-  promotionTitle: {
+  voucherKindValue: {
     fontSize: 14,
     fontWeight: "700",
-    color: "#1F2937",
+    color: "#E53935",
   },
-  productName: {
-    fontSize: 13,
-    color: "#4B5563",
+  voucherKindRemaining: {
+    fontSize: 12,
+    color: "#6B7280",
   },
-  priceRow: {
+  voucherProductsList: {
+    backgroundColor: "#FFFFFF",
+    paddingVertical: 4,
+    borderTopWidth: 1,
+    borderTopColor: "#E5E7EB",
+    marginLeft: 16,
+    borderLeftWidth: 2,
+    borderLeftColor: "#E5E7EB",
+  },
+  voucherProductItem: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 8,
+    justifyContent: "space-between",
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: "#F3F4F6",
+    backgroundColor: "#FFFFFF",
   },
-  price: {
-    fontSize: 16,
-    fontWeight: "800",
-    color: "#1B6F5D",
+  voucherProductItemLast: {
+    borderBottomWidth: 0,
   },
-  oldPrice: {
+  voucherProductInfo: {
+    flex: 1,
+    marginRight: 12,
+  },
+  voucherProductName: {
+    fontSize: 14,
+    fontWeight: "500",
+    color: "#111827",
+    marginBottom: 4,
+  },
+  voucherProductPrice: {
     fontSize: 13,
-    color: "#9CA3AF",
-    textDecorationLine: "line-through",
-  },
-  badge: {
-    alignSelf: "flex-start",
-    backgroundColor: "rgba(39, 120, 116, 0.1)",
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 999,
-  },
-  badgeText: {
-    fontSize: 12,
-    fontWeight: "700",
-    color: "#277874",
-  },
-  emptyText: {
     color: "#6B7280",
-    fontSize: 13,
   },
 });
 
@@ -906,8 +1134,23 @@ const heroStyles = StyleSheet.create({
   topRightRow: {
     flexDirection: "row",
     justifyContent: "flex-end",
+    alignItems: "center",
+    gap: 8,
     marginTop: 8,
     marginRight: 4,
+  },
+  reportButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: "rgba(239, 68, 68, 0.9)",
+    justifyContent: "center",
+    alignItems: "center",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
+    elevation: 4,
   },
   bookmarkButton: {
     width: 48,
@@ -942,6 +1185,22 @@ const heroStyles = StyleSheet.create({
     backgroundColor: "#1D9BF0",
   },
   name: { fontSize: 20, fontWeight: "700", marginTop: 6 },
+  ratingContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginTop: 8,
+    paddingVertical: 6,
+  },
+  ratingStars: {
+    flexDirection: "row",
+    gap: 3,
+  },
+  ratingText: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#666",
+  },
   desc: { color: "#6B7280", marginTop: 2, fontSize: 14, lineHeight: 20 },
   chipsRow: { 
     flexDirection: "row", 
@@ -968,7 +1227,42 @@ const heroStyles = StyleSheet.create({
     fontSize: 13,
     maxWidth: 150,
   },
-  sectionTitle: { marginTop: 18, fontWeight: "700", fontSize: 18 },
+  sectionHeader: {
+    marginTop: 18,
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  sectionTitle: {
+    fontWeight: "700",
+    fontSize: 18,
+  },
+  viewModeToggle: {
+    flexDirection: "row",
+    backgroundColor: "#F5F5F5",
+    borderRadius: 8,
+    padding: 4,
+    gap: 4,
+  },
+  viewModeButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 6,
+  },
+  viewModeButtonActive: {
+    backgroundColor: "#1B6F5D",
+  },
+  viewModeText: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#666",
+  },
+  viewModeTextActive: {
+    color: "#FFF",
+  },
 });
 
 const searchStyles = StyleSheet.create({
@@ -1001,12 +1295,6 @@ function StoreLocationCard({
   const latitude = store?.latitude ?? null;
   const longitude = store?.longitude ?? null;
   const address = store?.address || "";
-  const [region, setRegion] = React.useState<{
-    latitude: number;
-    longitude: number;
-    latitudeDelta: number;
-    longitudeDelta: number;
-  } | null>(null);
   const [distance, setDistance] = React.useState<number | null>(null);
 
   React.useEffect(() => {
@@ -1034,23 +1322,6 @@ function StoreLocationCard({
             longitude
           );
           setDistance(dist);
-          
-          setRegion({
-            latitude: latitude,
-            longitude: longitude,
-            latitudeDelta: Math.abs(latitude - pos.coords.latitude) + 0.02,
-            longitudeDelta: Math.abs(longitude - pos.coords.longitude) + 0.02,
-          });
-        } else if (
-          typeof latitude === "number" &&
-          typeof longitude === "number"
-        ) {
-          setRegion({
-            latitude,
-            longitude,
-            latitudeDelta: 0.02,
-            longitudeDelta: 0.02,
-          });
         }
       } catch {}
     })();

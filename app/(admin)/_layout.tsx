@@ -179,6 +179,20 @@ export default function AdminLayout() {
           }}
         />
         <Tabs.Screen
+          name="reports"
+          options={{
+            title: "Reports",
+            header: () => <AdminHeader title="Reports Management" subtitle="Review and manage reports" />,
+            tabBarIcon: ({ color, size, focused }) => (
+              <Ionicons 
+                name={focused ? "flag" : "flag-outline"} 
+                size={size} 
+                color={color} 
+              />
+            ),
+          }}
+        />
+        <Tabs.Screen
           name="notifications"
           options={{
             title: "Notifications",
@@ -233,10 +247,17 @@ export default function AdminLayout() {
           }}
         />
         <Tabs.Screen
+          name="monitoring"
+          options={{
+            href: null,
+            headerShown: false,
+          }}
+        />
+        <Tabs.Screen
           name="settings"
           options={{
             title: "Settings",
-            header: () => <AdminHeader title="Admin Settings" subtitle="Configure system settings" />,
+            header: () => <AdminHeader title="Admin Dashboard" subtitle="System overview and settings" />,
             tabBarIcon: ({ color, size, focused }) => (
               <Ionicons
                 name={focused ? "settings" : "settings-outline"}

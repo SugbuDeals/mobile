@@ -142,7 +142,6 @@ export default function Users() {
   const adminTools = useAdminTools();
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedUserType, setSelectedUserType] = useState("All");
-  const [selectedStatus, setSelectedStatus] = useState("All");
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [userToDelete, setUserToDelete] = useState<number | null>(null);
   const [showEditModal, setShowEditModal] = useState(false);
@@ -164,11 +163,11 @@ export default function Users() {
   const currentUserId = state.user?.id;
 
   const userTypes = ["All", "CONSUMER", "RETAILER", "ADMIN"];
-  const statusFilters = ["All", "Active", "Inactive", "Suspended"];
 
   useEffect(() => {
     // Fetch users when component mounts
     action.fetchAllUsers();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Filter users based on search and filters
@@ -282,7 +281,7 @@ export default function Users() {
       setShowEditModal(false);
       setUserToEdit(null);
       Alert.alert("Success", "User updated successfully");
-    } catch (error) {
+    } catch {
       Alert.alert("Error", "Failed to update user");
     } finally {
       setIsSaving(false);
@@ -297,7 +296,7 @@ export default function Users() {
         await action.fetchAllUsers();
         setShowConfirmModal(false);
         setUserToDelete(null);
-      } catch (error) {
+      } catch {
         Alert.alert("Error", "Failed to delete user");
       }
     }
@@ -336,7 +335,7 @@ export default function Users() {
       setAddPassword("");
       setAddRole("CONSUMER");
       Alert.alert("Success", "User created successfully");
-    } catch (error) {
+    } catch {
       Alert.alert("Error", "Failed to create user");
     } finally {
       setIsAdding(false);

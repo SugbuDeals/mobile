@@ -33,7 +33,15 @@ export default function AllRecommendations() {
   const promotionMap = useMemo(() => {
     const map = new Map<number, Promotion>();
     activePromotions.forEach(promotion => {
-      if (promotion.productId !== null && promotion.productId !== undefined) {
+      // If promotion has promotionProducts array, add all products to the map
+      if (promotion.promotionProducts && Array.isArray(promotion.promotionProducts) && promotion.promotionProducts.length > 0) {
+        promotion.promotionProducts.forEach((pp: any) => {
+          if (pp.productId !== null && pp.productId !== undefined) {
+            map.set(pp.productId as number, promotion);
+          }
+        });
+      } else if (promotion.productId !== null && promotion.productId !== undefined) {
+        // Fallback to single productId for backward compatibility
         map.set(promotion.productId as number, promotion);
       }
     });

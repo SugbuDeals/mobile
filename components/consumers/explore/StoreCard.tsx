@@ -3,16 +3,18 @@ import { StyleSheet, Text, TouchableOpacity, View, Image } from "react-native";
 import { useRouter } from "expo-router";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { colors, spacing, borderRadius, typography, shadows } from "@/styles/theme";
-import type { StoreRecommendationItemDto } from "@/services/api/types/swagger";
+import type { StoreRecommendationItemDto, StoreRatingStatsDto } from "@/services/api/types/swagger";
+import StoreRating from "@/components/consumers/reviews/StoreRating";
 
 interface StoreCardProps {
   store: StoreRecommendationItemDto;
   onPress?: () => void;
+  ratingStats?: StoreRatingStatsDto | null;
 }
 
 const DEFAULT_DISTANCE_KM = 1.3;
 
-export default function StoreCard({ store, onPress }: StoreCardProps) {
+export default function StoreCard({ store, onPress, ratingStats }: StoreCardProps) {
   const router = useRouter();
   
   const displayDistance =
@@ -59,7 +61,7 @@ export default function StoreCard({ store, onPress }: StoreCardProps) {
               <Ionicons name="storefront-outline" size={22} color="#277874" />
             </View>
           )}
-          <View style={{ maxWidth: 220 }}>
+          <View style={{ maxWidth: 220, flex: 1 }}>
             <Text style={styles.storeName} numberOfLines={1}>
               {store.name}
             </Text>
@@ -67,6 +69,11 @@ export default function StoreCard({ store, onPress }: StoreCardProps) {
               {store.description || "Store"}
               {formattedDistance ? ` • ${formattedDistance}` : ""}
             </Text>
+            {ratingStats !== undefined && (
+              <View style={styles.ratingContainer}>
+                <StoreRating ratingStats={ratingStats} size="small" showCount={true} />
+              </View>
+            )}
           </View>
         </View>
         <Ionicons name="chevron-forward" size={20} color="#6b7280" />
@@ -135,6 +142,10 @@ const styles = StyleSheet.create({
     color: "#6B7280",
     fontSize: 13,
     textTransform: "capitalize",
+    marginTop: 2,
+  },
+  ratingContainer: {
+    marginTop: 6,
   },
   cardBottomRow: {
     marginTop: 14,

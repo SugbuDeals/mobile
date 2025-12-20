@@ -208,6 +208,11 @@ export function validatePromotionData(data: Partial<CreatePromotionDto>): Valida
       } else if (data.voucherValue <= 0) {
         errors.push({ field: "voucherValue", message: "Voucher value must be greater than 0" });
       }
+      // voucherQuantity defaults to 100 if not provided
+      const voucherQuantity = data.voucherQuantity ?? 100;
+      if (voucherQuantity <= 0) {
+        errors.push({ field: "voucherQuantity", message: "Maximum vouchers must be greater than 0" });
+      }
       break;
   }
 

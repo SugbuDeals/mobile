@@ -11,17 +11,17 @@ import { CameraView, useCameraPermissions } from "expo-camera";
 import { LinearGradient } from "expo-linear-gradient";
 import { useState } from "react";
 import {
-  ActivityIndicator,
-  Alert,
-  Modal,
-  Platform,
-  ScrollView,
-  StatusBar,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
+    ActivityIndicator,
+    Alert,
+    Modal,
+    Platform,
+    ScrollView,
+    StatusBar,
+    StyleSheet,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View,
 } from "react-native";
 
 export default function VoucherScannerScreen() {
@@ -70,9 +70,9 @@ export default function VoucherScannerScreen() {
     }
   };
 
-  // Confirm voucher redemption
+  // Confirm voucher redemption with updated promotion (ensures voucherQuantity is decremented)
   const handleConfirmRedemption = async () => {
-    if (!scannedToken) return;
+    if (!scannedToken || !verificationResult) return;
 
     Alert.alert(
       "Confirm Redemption",
@@ -85,7 +85,22 @@ export default function VoucherScannerScreen() {
           onPress: async () => {
             setIsProcessing(true);
             try {
-              await promotionsApi.confirmVoucherRedemption({ token: scannedToken });
+              // Use the enhanced method that ensures voucher quantity is decremented
+              // Pass the promotionId from verification result to fetch updated promotion if needed
+              // Note: If promotionId is not in verification result, backend should return updated promotion in confirmation response
+              const result = await promotionsApi.confirmVoucherRedemptionWithUpdate(
+                {
+                  token: scannedToken,
+                },
+                verificationResult.promotionId // Pass promotionId if available to fetch updated promotion after redemption
+              );
+
+              // Log the updated promotion if available (for debugging)
+              if (result.promotion) {
+                console.log("Updated promotion after redemption:", result.promotion);
+                console.log("Remaining vouchers:", result.promotion.voucherQuantity ?? "Unlimited");
+              }
+
               Alert.alert("Success", "Voucher redeemed successfully!");
               setShowResultModal(false);
               setVerificationResult(null);
@@ -379,6 +394,14 @@ export default function VoucherScannerScreen() {
                         <Text style={styles.detailLabel}>Promotion:</Text>
                         <Text style={styles.detailValue} numberOfLines={2} ellipsizeMode="tail">
                           {verificationResult.promotionTitle}
+                        </Text>
+                      </View>
+
+                      <View style={styles.detailRow}>
+                        <Ionicons name="cube" size={18} color="#6B7280" />
+                        <Text style={styles.detailLabel}>Product ID:</Text>
+                        <Text style={styles.detailValue}>
+                          {verificationResult.productId}
                         </Text>
                       </View>
                     </View>

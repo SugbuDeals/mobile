@@ -303,11 +303,28 @@ export default function RetailersLayout() {
         }}
       />
       <Tabs.Screen
+        name="reviews"
+        options={{
+          title: "Reviews",
+          headerShown: false,
+          tabBarIcon: ({ color, size = 24 }) => (
+            <Ionicons name="star" color={color} size={size} />
+          ),
+        }}
+      />
+      <Tabs.Screen
         name="subscription"
         options={{
           title: "Subscription",
           headerShown: false,
           href: null,
+        }}
+      />
+      <Tabs.Screen
+        name="my-reports"
+        options={{
+          href: null,
+          headerShown: false,
         }}
       />
       <Tabs.Screen

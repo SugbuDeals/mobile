@@ -4,22 +4,21 @@ import { useLogin } from "@/features/auth";
 import { useCatalog } from "@/features/catalog";
 import { useStore } from "@/features/store";
 import { uploadFile } from "@/utils/fileUpload";
-import { appendCustomCategory } from "@/utils/categoryHelpers";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import * as ImagePicker from "expo-image-picker";
 import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import {
-  Alert,
-  Image,
-  Platform,
-  ScrollView,
-  StatusBar,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View
+    Alert,
+    Image,
+    Platform,
+    ScrollView,
+    StatusBar,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View
 } from "react-native";
 
 const MAX_PRODUCTS_BASIC = 10;
@@ -28,7 +27,7 @@ const MAX_PRODUCTS_PREMIUM = 50;
 export default function AddProduct() {
   const { state: { user, accessToken } } = useLogin();
   const { action: { createProduct, findProducts, getCurrentTier }, state: { userStore, products, currentTier } } = useStore();
-  const { action: { loadCategories }, state: { categories } } = useCatalog();
+  const { action: { loadCategories, addCategory }, state: { categories } } = useCatalog();
   const [productName, setProductName] = useState("");
   const [description, setDescription] = useState("");
   const [price, setPrice] = useState("");
@@ -247,10 +246,33 @@ export default function AddProduct() {
         }
       }
 
-      // If custom category is used, append it to description in a structured way
-      let finalDescription = description.trim();
+      // Handle custom category creation if "Others" is selected
+      let categoryIdToUse = selectedCategoryId;
       if (isOthersCategory && customCategoryName.trim()) {
-        finalDescription = appendCustomCategory(description.trim(), customCategoryName.trim());
+        // Check if category with this name already exists
+        const existingCategory = categories.find(
+          (cat) => cat.name.toLowerCase().trim() === customCategoryName.toLowerCase().trim()
+        );
+        
+        if (existingCategory) {
+          // Use existing category
+          categoryIdToUse = existingCategory.id;
+        } else {
+          // Create new category
+          try {
+            const newCategory = await addCategory({ name: customCategoryName.trim() }).unwrap();
+            categoryIdToUse = newCategory.id;
+            // Reload categories to include the new one
+            await loadCategories();
+          } catch (error: any) {
+            Alert.alert(
+              "Error",
+              error?.message || "Failed to create category. Please try again or contact support."
+            );
+            setIsSubmitting(false);
+            return;
+          }
+        }
       }
 
       const productData: {
@@ -263,12 +285,12 @@ export default function AddProduct() {
         categoryId?: number;
       } = {
         name: productName.trim(),
-        description: finalDescription,
+        description: description.trim(),
         price: Number(price),
         stock: Number(stock),
         storeId: userStore.id, // Use user's store ID
         ...(typeof imageUrl === "string" && imageUrl.length > 0 ? { imageUrl } : {}), // Include imageUrl if available and valid
-        ...(selectedCategoryId ? { categoryId: selectedCategoryId } : {}),
+        ...(categoryIdToUse ? { categoryId: categoryIdToUse } : {}),
       };
 
       await createProduct(productData).unwrap();

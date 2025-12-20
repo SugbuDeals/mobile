@@ -95,10 +95,22 @@ export default function RetailerDashboard() {
     return promoList.reduce<{ promotion: Promotion; product: CatalogProduct | StoreProduct }[]>(
       (acc, promo: Promotion) => {
         if (!promo?.active) return acc;
-        const product = allProducts.find((p: CatalogProduct | StoreProduct) => p.id === promo.productId);
-        if (!product || (product as any).isActive === false) return acc;
-        if (product.storeId !== storeId) return acc;
-        acc.push({ promotion: promo, product });
+        
+        // If promotion has promotionProducts array, iterate through all products
+        if (promo.promotionProducts && Array.isArray(promo.promotionProducts) && promo.promotionProducts.length > 0) {
+          promo.promotionProducts.forEach((pp: any) => {
+            const product = allProducts.find((p: CatalogProduct | StoreProduct) => p.id === pp.productId);
+            if (product && (product as any).isActive !== false && product.storeId === storeId) {
+              acc.push({ promotion: promo, product });
+            }
+          });
+        } else {
+          // Fallback to single productId for backward compatibility
+          const product = allProducts.find((p: CatalogProduct | StoreProduct) => p.id === promo.productId);
+          if (product && (product as any).isActive !== false && product.storeId === storeId) {
+            acc.push({ promotion: promo, product });
+          }
+        }
         return acc;
       },
       []
@@ -519,6 +531,25 @@ function RetailerDealsAndVouchers({
   vouchers: { promotion: Promotion; product: CatalogProduct | StoreProduct }[];
 }) {
   const [showVouchers, setShowVouchers] = useState(false);
+  const [expandedVoucherId, setExpandedVoucherId] = useState<number | null>(null);
+  
+  // Group vouchers by promotion and collect products for each
+  const voucherPromotionsWithProducts = useMemo(() => {
+    const promotionMap = new Map<number, { promotion: Promotion; products: (CatalogProduct | StoreProduct)[] }>();
+    
+    vouchers.forEach(({ promotion, product }) => {
+      if (!promotionMap.has(promotion.id)) {
+        promotionMap.set(promotion.id, { promotion, products: [] });
+      }
+      const entry = promotionMap.get(promotion.id)!;
+      // Avoid duplicate products
+      if (!entry.products.some(p => p.id === product.id)) {
+        entry.products.push(product);
+      }
+    });
+    
+    return Array.from(promotionMap.values());
+  }, [vouchers]);
 
   const handleDealPress = (product: CatalogProduct | StoreProduct, promo: Promotion) => {
     router.push({
@@ -622,7 +653,7 @@ function RetailerDealsAndVouchers({
       )}
       
       {/* Vouchers Section */}
-      {vouchers.length > 0 && (
+      {voucherPromotionsWithProducts.length > 0 && (
         <View style={dealsStyles.vouchersSection}>
           <TouchableOpacity
             style={dealsStyles.voucherButton}
@@ -632,7 +663,7 @@ function RetailerDealsAndVouchers({
             <View style={dealsStyles.voucherHeader}>
               <Ionicons name="ticket" size={20} color="#E53935" />
               <Text style={dealsStyles.voucherButtonText}>
-                Vouchers ({vouchers.length})
+                Vouchers ({voucherPromotionsWithProducts.length})
               </Text>
             </View>
             <Ionicons 
@@ -644,20 +675,75 @@ function RetailerDealsAndVouchers({
           
           {showVouchers && (
             <View style={dealsStyles.vouchersList}>
-              {vouchers.map(({ promotion, product }, index) => (
-                <TouchableOpacity
-                  key={`voucher-${promotion.id}-${product.id}-${index}`}
-                  style={dealsStyles.voucherItem}
-                  onPress={() => handleDealPress(product, promotion)}
-                  activeOpacity={0.7}
+              {voucherPromotionsWithProducts.map(({ promotion, products }, index) => (
+                <View 
+                  key={promotion.id} 
+                  style={[
+                    dealsStyles.voucherKindWrapper,
+                    index === voucherPromotionsWithProducts.length - 1 && dealsStyles.voucherKindWrapperLast
+                  ]}
                 >
-                  <View style={dealsStyles.voucherIconContainer}>
-                    <Ionicons name="ticket-outline" size={18} color="#E53935" />
-                  </View>
-                  <Text style={dealsStyles.voucherItemTitle} numberOfLines={2}>
-                    {promotion.title}
-                  </Text>
-                </TouchableOpacity>
+                  {/* Voucher Type Dropdown */}
+                  <TouchableOpacity
+                    style={dealsStyles.voucherKindDropdown}
+                    onPress={() => setExpandedVoucherId(
+                      expandedVoucherId === promotion.id ? null : promotion.id
+                    )}
+                    activeOpacity={0.7}
+                  >
+                    <View style={dealsStyles.voucherKindHeader}>
+                      <View style={dealsStyles.voucherKindInfo}>
+                        <Text style={dealsStyles.voucherKindTitle} numberOfLines={1}>
+                          {promotion.title}
+                        </Text>
+                        <View style={dealsStyles.voucherKindMeta}>
+                          {promotion.voucherValue && (
+                            <Text style={dealsStyles.voucherKindValue}>
+                              ₱{Number(promotion.voucherValue).toFixed(2)}
+                            </Text>
+                          )}
+                          <Text style={dealsStyles.voucherKindRemaining}>
+                            {((promotion as any).voucherQuantity !== undefined && (promotion as any).voucherQuantity !== null)
+                              ? `${(promotion as any).voucherQuantity} remaining`
+                              : "Available"}
+                          </Text>
+                        </View>
+                      </View>
+                      <Ionicons 
+                        name={expandedVoucherId === promotion.id ? "chevron-up" : "chevron-down"} 
+                        size={18} 
+                        color="#6B7280" 
+                      />
+                    </View>
+                  </TouchableOpacity>
+
+                  {/* Products List - shown when voucher type is expanded */}
+                  {expandedVoucherId === promotion.id && products.length > 0 && (
+                    <View style={dealsStyles.voucherProductsList}>
+                      {products.map((product, productIndex) => (
+                        <TouchableOpacity
+                          key={product.id}
+                          style={[
+                            dealsStyles.voucherProductItem,
+                            productIndex === products.length - 1 && dealsStyles.voucherProductItemLast
+                          ]}
+                          onPress={() => handleDealPress(product, promotion)}
+                          activeOpacity={0.7}
+                        >
+                          <View style={dealsStyles.voucherProductInfo}>
+                            <Text style={dealsStyles.voucherProductName} numberOfLines={2}>
+                              {product.name}
+                            </Text>
+                            <Text style={dealsStyles.voucherProductPrice}>
+                              ₱{Number(product.price).toFixed(2)}
+                            </Text>
+                          </View>
+                          <Ionicons name="chevron-forward" size={18} color="#E53935" />
+                        </TouchableOpacity>
+                      ))}
+                    </View>
+                  )}
+                </View>
               ))}
             </View>
           )}
@@ -1075,10 +1161,94 @@ const dealsStyles = StyleSheet.create({
     alignItems: "center",
   },
   voucherItemTitle: {
-    flex: 1,
     fontSize: 14,
     fontWeight: "500",
     color: "#111827",
     lineHeight: 18,
+  },
+  voucherItemValue: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: "#E53935",
+    marginTop: 2,
+  },
+  voucherKindWrapper: {
+    borderBottomWidth: 1,
+    borderBottomColor: "#F3F4F6",
+  },
+  voucherKindWrapperLast: {
+    borderBottomWidth: 0,
+  },
+  voucherKindDropdown: {
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    backgroundColor: "#F9FAFB",
+    borderLeftWidth: 3,
+    borderLeftColor: "#E53935",
+  },
+  voucherKindHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  voucherKindInfo: {
+    flex: 1,
+    marginRight: 12,
+  },
+  voucherKindTitle: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#111827",
+    marginBottom: 4,
+  },
+  voucherKindMeta: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+  },
+  voucherKindValue: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: "#E53935",
+  },
+  voucherKindRemaining: {
+    fontSize: 12,
+    color: "#6B7280",
+  },
+  voucherProductsList: {
+    backgroundColor: "#FFFFFF",
+    paddingVertical: 4,
+    borderTopWidth: 1,
+    borderTopColor: "#E5E7EB",
+    marginLeft: 16,
+    borderLeftWidth: 2,
+    borderLeftColor: "#E5E7EB",
+  },
+  voucherProductItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: "#F3F4F6",
+    backgroundColor: "#FFFFFF",
+  },
+  voucherProductItemLast: {
+    borderBottomWidth: 0,
+  },
+  voucherProductInfo: {
+    flex: 1,
+    marginRight: 12,
+  },
+  voucherProductName: {
+    fontSize: 14,
+    fontWeight: "500",
+    color: "#111827",
+    marginBottom: 4,
+  },
+  voucherProductPrice: {
+    fontSize: 13,
+    color: "#6B7280",
   },
 });

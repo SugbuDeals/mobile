@@ -261,7 +261,7 @@ export const findActivePromotions = createAsyncThunk<
     // Map API promotions to feature Promotion format
     // PromotionResponseDto: startsAt is string (ISO 8601), endsAt is string | null, no createdAt/updatedAt
     let activePromotions = apiPromotions.map((p: any) => {
-      // Extract productId from promotionProducts if productId is not present
+      // Extract productId from promotionProducts if productId is not present (for backward compatibility)
       let productId = p.productId ?? null;
       if (!productId && p.promotionProducts && p.promotionProducts.length > 0) {
         productId = p.promotionProducts[0].productId ?? null;
@@ -277,6 +277,7 @@ export const findActivePromotions = createAsyncThunk<
       active: p.active,
       discount: p.discount,
         productId: productId,
+        promotionProducts: p.promotionProducts || undefined, // Preserve all products in the promotion
       };
     });
     
@@ -420,10 +421,11 @@ export const createPromotion = createAsyncThunk<
     if (promotionData.minQuantity !== undefined) apiData.minQuantity = promotionData.minQuantity;
     if (promotionData.quantityDiscount !== undefined) apiData.quantityDiscount = promotionData.quantityDiscount;
     if (promotionData.voucherValue !== undefined) apiData.voucherValue = promotionData.voucherValue;
+    if (promotionData.voucherQuantity !== undefined) apiData.voucherQuantity = promotionData.voucherQuantity;
     
     const result: any = await promotionsApi.createPromotion(apiData);
     
-    // Extract productId from promotionProducts if productId is not present
+    // Extract productId from promotionProducts if productId is not present (for backward compatibility)
     let productId = result.productId ?? null;
     if (!productId && result.promotionProducts && result.promotionProducts.length > 0) {
       productId = result.promotionProducts[0].productId ?? null;
@@ -441,6 +443,7 @@ export const createPromotion = createAsyncThunk<
       active: result.active,
       discount: result.discount,
       productId: productId,
+      promotionProducts: result.promotionProducts || undefined, // Preserve all products in the promotion
     };
   } catch (error: unknown) {
     return rejectWithValue({

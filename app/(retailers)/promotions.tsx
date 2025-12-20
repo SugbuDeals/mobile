@@ -103,9 +103,17 @@ export default function PromotionsNew() {
   const storeActivePromotions = React.useMemo(() => {
     if (!storeId) return [];
     const storeProductIds = new Set(retailerProducts.map((product) => product.id));
-    return (activePromotions || []).filter((promotion) =>
-      promotion.productId !== null && promotion.productId !== undefined && storeProductIds.has(promotion.productId as number)
-    );
+    return (activePromotions || []).filter((promotion) => {
+      // Check if promotion has products from this store
+      // First check promotionProducts array (for multi-product promotions)
+      if (promotion.promotionProducts && Array.isArray(promotion.promotionProducts) && promotion.promotionProducts.length > 0) {
+        return promotion.promotionProducts.some((pp: any) => 
+          pp.productId && storeProductIds.has(pp.productId)
+        );
+      }
+      // Fallback to single productId for backward compatibility
+      return promotion.productId !== null && promotion.productId !== undefined && storeProductIds.has(promotion.productId as number);
+    });
   }, [activePromotions, retailerProducts, storeId]);
 
   // Helper to check promotion status
@@ -158,16 +166,71 @@ export default function PromotionsNew() {
     return filtered;
   }, [storeActivePromotions, searchQuery, statusFilter, sortBy, retailerProducts]);
 
+  // Get all product IDs that are in active promotions (for filtering/display)
+  const promotedProductIds = React.useMemo(() => {
+    const productIds = new Set<number>();
+    
+    storeActivePromotions.forEach((promotion) => {
+      // If promotion has promotionProducts array, add all product IDs
+      if (promotion.promotionProducts && Array.isArray(promotion.promotionProducts) && promotion.promotionProducts.length > 0) {
+        promotion.promotionProducts.forEach((pp: any) => {
+          if (pp.productId) {
+            productIds.add(pp.productId);
+          }
+        });
+      }
+      // Also add the single productId if present (for backward compatibility)
+      if (promotion.productId !== null && promotion.productId !== undefined) {
+        productIds.add(promotion.productId as number);
+      }
+    });
+    
+    return productIds;
+  }, [storeActivePromotions]);
+
+  // Get product IDs that are in voucher promotions (for voucher-specific filtering)
+  const voucherProductIds = React.useMemo(() => {
+    const productIds = new Set<number>();
+    
+    const voucherPromotions = storeActivePromotions.filter((p) => p.dealType === "VOUCHER");
+    voucherPromotions.forEach((promotion) => {
+      if (promotion.promotionProducts && Array.isArray(promotion.promotionProducts) && promotion.promotionProducts.length > 0) {
+        promotion.promotionProducts.forEach((pp: any) => {
+          if (pp.productId) {
+            productIds.add(pp.productId);
+          }
+        });
+      }
+      if (promotion.productId !== null && promotion.productId !== undefined) {
+        productIds.add(promotion.productId as number);
+      }
+    });
+    
+    return productIds;
+  }, [storeActivePromotions]);
+
   // Get available products (not in active promotions)
+  // When creating a voucher, exclude products already in voucher promotions
   const availableProducts = React.useMemo(() => {
-    const promotedProductIds = storeActivePromotions.map((p) => p.productId);
-    return retailerProducts.filter((p) => !promotedProductIds.includes(p.id));
-  }, [retailerProducts, storeActivePromotions]);
+    if (dealType === "VOUCHER") {
+      // For vouchers, exclude products already in voucher promotions
+      return retailerProducts.filter((p) => !voucherProductIds.has(p.id));
+    }
+    // For other deal types, exclude products in any active promotion
+    return retailerProducts.filter((p) => !promotedProductIds.has(p.id));
+  }, [retailerProducts, promotedProductIds, voucherProductIds, dealType]);
 
   // Handle field changes
   const handleFieldChange = (field: keyof CreatePromotionDto, value: any) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
   };
+
+  // Set default voucher quantity when VOUCHER deal type is selected
+  useEffect(() => {
+    if (dealType === "VOUCHER" && !formData.voucherQuantity) {
+      setFormData((prev) => ({ ...prev, voucherQuantity: 100 }));
+    }
+  }, [dealType]);
 
   // Toggle product selection
   const toggleProductSelection = (productId: number) => {
@@ -235,6 +298,8 @@ export default function PromotionsNew() {
       endsAt: endDate.toISOString(),
       productIds: selectedProductIds,
       active: true,
+      // Set default voucher quantity if VOUCHER type and not specified (handle null, undefined, or 0)
+      ...(dealType === "VOUCHER" && (!formData.voucherQuantity || formData.voucherQuantity <= 0) ? { voucherQuantity: 100 } : {}),
     } as CreatePromotionDto;
 
     // Validate deal-specific fields
@@ -415,6 +480,14 @@ export default function PromotionsNew() {
               <View style={styles.infoBox}>
                 <Ionicons name="information-circle" size={16} color="#277874" />
                 <Text style={styles.infoText}>Bundle deals require at least 2 products</Text>
+              </View>
+            )}
+            {dealType === "VOUCHER" && voucherProductIds.size > 0 && (
+              <View style={styles.infoBox}>
+                <Ionicons name="information-circle" size={16} color="#F59E0B" />
+                <Text style={styles.infoText}>
+                  {voucherProductIds.size} product{voucherProductIds.size !== 1 ? "s are" : " is"} already in a voucher promotion and cannot be selected
+                </Text>
               </View>
             )}
 

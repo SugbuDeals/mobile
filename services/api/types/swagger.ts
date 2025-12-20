@@ -180,6 +180,7 @@ export interface CreatePromotionDto {
   quantityDiscount?: number; // 0-100, required for QUANTITY_DISCOUNT
   // VOUCHER fields
   voucherValue?: number; // > 0, required for VOUCHER
+  voucherQuantity?: number; // > 0, maximum number of vouchers the store can provide
   // Products
   productIds: number[]; // Array of product IDs this promotion applies to
 }
@@ -201,6 +202,7 @@ export interface PromotionResponseDto {
   minQuantity?: number | null;
   quantityDiscount?: number | null;
   voucherValue?: number | null;
+  voucherQuantity?: number | null; // Total number of vouchers available. If not provided or null, vouchers are unlimited.
   // Legacy fields for backward compatibility
   productId?: number | null; // Legacy field, may be null for multi-product promotions. If missing, extract from promotionProducts[0].productId
   type?: string; // Legacy field mapped from dealType
@@ -241,6 +243,7 @@ export interface UpdatePromotionDto {
   minQuantity?: number;
   quantityDiscount?: number;
   voucherValue?: number;
+  voucherQuantity?: number; // Maximum number of vouchers the store can provide
   productIds?: number[]; // Array of product IDs this promotion applies to
 }
 
@@ -257,7 +260,7 @@ export type VoucherRedemptionStatus = "PENDING" | "VERIFIED" | "REDEEMED" | "CAN
 export interface GenerateVoucherTokenDto {
   promotionId: number; // Promotion ID for the voucher
   storeId: number; // Store ID where the voucher will be redeemed
-  productId?: number; // Optional specific product ID for redemption
+  productId: number; // Product ID from the promotion that the consumer wants to use the voucher for. Consumer must select one product from the promotion's products.
 }
 
 export interface VoucherTokenResponseDto {
@@ -267,7 +270,7 @@ export interface VoucherTokenResponseDto {
   redemptionId: number; // Voucher redemption ID
   promotionId: number; // Promotion ID
   storeId: number; // Store ID where redemption will occur
-  productId?: number; // Product ID (if specific product)
+  productId?: number | null; // Product ID (if specific product) - nullable
   status: VoucherRedemptionStatus; // Current status of voucher redemption
 }
 
@@ -281,12 +284,13 @@ export interface VoucherVerificationResponseDto {
   userName: string; // Consumer name
   subscriptionTier: string; // Consumer subscription tier
   redemptionId: number; // Voucher redemption ID
+  promotionId?: number; // Promotion ID (optional for backward compatibility, should be included by backend)
   promotionTitle: string; // Promotion title
   voucherValue: number; // Voucher value
   storeId: number; // Store ID
-  productId?: number; // Product ID (if specific product)
+  productId?: number | null; // Product ID (if specific product) - nullable
   status: VoucherRedemptionStatus; // Current status
-  message?: string; // Error message if validation failed
+  message?: string | null; // Error message if validation failed - nullable
 }
 
 export interface ConfirmVoucherRedemptionDto {
@@ -296,6 +300,7 @@ export interface ConfirmVoucherRedemptionDto {
 export interface ConfirmVoucherRedemptionResponseDto {
   message: string; // Success message
   redemptionId: number; // Voucher redemption ID
+  promotion?: PromotionResponseDto; // Updated promotion with decremented voucherQuantity (optional for backward compatibility)
 }
 
 // ============================================================================
@@ -619,5 +624,124 @@ export interface ClearAllFilesResponse {
   deletedCount: number;
   totalFiles: number;
   errors?: string[];
+}
+
+// ============================================================================
+// Review Types
+// ============================================================================
+
+export interface CreateReviewDto {
+  storeId: number;
+  rating?: number; // Rating from 1 to 5 stars (optional - consumers can comment without rating)
+  comment: string; // Review comment - the consumer's comment about the store
+}
+
+export interface ReviewResponseDto {
+  id: number;
+  storeId: number;
+  userId: number;
+  userName: string;
+  userImageUrl: string | null;
+  rating: number | null; // Rating from 1 to 5 stars (optional - consumers can comment without rating)
+  comment: string; // Review comment - the consumer's comment about the store
+  createdAt: string; // ISO 8601 format date-time
+  updatedAt: string; // ISO 8601 format date-time
+  likesCount: number; // Number of likes
+  dislikesCount: number; // Number of dislikes
+  repliesCount: number; // Number of replies
+  userLiked: boolean | null; // Whether current user liked this review
+  userDisliked: boolean | null; // Whether current user disliked this review
+}
+
+export interface UpdateReviewDto {
+  rating?: number; // Rating from 1 to 5 stars (optional)
+  comment?: string; // Review comment
+}
+
+export interface CreateReplyDto {
+  reviewId: number;
+  parentReplyId?: number; // Optional parent reply ID - if provided, this reply will be a reply to another reply (nested reply)
+  comment: string; // Reply comment
+}
+
+export interface UpdateReplyDto {
+  comment: string; // Updated reply comment
+}
+
+export interface ReplyResponseDto {
+  id: number;
+  reviewId: number;
+  userId: number;
+  userName: string;
+  userImageUrl: string | null;
+  parentReplyId: number | null; // Parent reply ID - if this is a reply to another reply
+  comment: string; // Reply comment
+  createdAt: string; // ISO 8601 format date-time
+  updatedAt: string; // ISO 8601 format date-time
+  replies?: ReplyResponseDto[]; // Nested replies - replies to this reply
+}
+
+export interface ReactionDto {
+  reviewId: number;
+}
+
+export interface ReactionResponseDto {
+  isLike: boolean | null; // true if liked, false if disliked, null if no reaction
+}
+
+export interface StoreRatingStatsDto {
+  averageRating: number; // Average rating (1-5)
+  totalRatings: number; // Total number of ratings
+  fiveStarCount: number; // Number of 5-star ratings
+  fourStarCount: number; // Number of 4-star ratings
+  threeStarCount: number; // Number of 3-star ratings
+  twoStarCount: number; // Number of 2-star ratings
+  oneStarCount: number; // Number of 1-star ratings
+}
+
+// ============================================================================
+// Report Types
+// ============================================================================
+
+export type ReportReason = 
+  | "SPAM"
+  | "HARASSMENT"
+  | "INAPPROPRIATE_CONTENT"
+  | "FAKE_REVIEW"
+  | "SCAM"
+  | "OTHER";
+
+export type ReportStatus = 
+  | "PENDING"
+  | "REVIEWED"
+  | "RESOLVED"
+  | "DISMISSED";
+
+export interface CreateReportDto {
+  reportedUserId?: number; // User ID being reported (for reporting consumers). Either this or reportedStoreId must be provided.
+  reportedStoreId?: number; // Store ID being reported (for reporting stores/retailers). Either this or reportedUserId must be provided.
+  reason: ReportReason; // Reason for the report
+  description?: string; // Optional additional details about the report
+}
+
+export interface ReportResponseDto {
+  id: number;
+  reporterId: number;
+  reporterName: string;
+  reportedUserId: number | null; // User ID being reported (nullable - for reporting consumers)
+  reportedUserName: string | null; // Reported user name (if reporting a user)
+  reportedStoreId: number | null; // Store ID being reported (nullable - for reporting stores)
+  reportedStoreName: string | null; // Reported store name (if reporting a store)
+  reason: ReportReason; // Reason for the report
+  description: string | null; // Additional details about the report
+  status: ReportStatus; // Current status of the report
+  createdAt: string; // ISO 8601 format date-time
+  reviewedAt: string | null; // When the report was reviewed
+  reviewedById: number | null; // Admin user ID who reviewed the report
+  reviewedByName: string | null; // Admin name who reviewed the report
+}
+
+export interface UpdateReportStatusDto {
+  status: ReportStatus; // New status for the report
 }
 

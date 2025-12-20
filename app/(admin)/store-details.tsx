@@ -90,6 +90,7 @@ export default function AdminStoreDetails() {
     if (!authState.allUsers || !authState.allUsers.length) {
       authActions.fetchAllUsers();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const store = useMemo(
@@ -513,15 +514,7 @@ export default function AdminStoreDetails() {
 
   const displayName = store?.name || storeNameFromParams || "Store";
 
-  const rawLogo = store?.imageUrl as string | undefined;
   const rawBanner = store?.bannerUrl as string | undefined;
-
-  const logoUrl = (() => {
-    if (!rawLogo) return undefined;
-    if (/^https?:\/\//i.test(rawLogo)) return rawLogo;
-    if (rawLogo.startsWith("/")) return `${env.API_BASE_URL}${rawLogo}`;
-    return `${env.API_BASE_URL}/files/${rawLogo}`;
-  })();
 
   const bannerUrl = (() => {
     if (!rawBanner) return undefined;

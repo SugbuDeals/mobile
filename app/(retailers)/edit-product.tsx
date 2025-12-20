@@ -2,13 +2,13 @@ import TextField from "@/components/TextField";
 import { useLogin } from "@/features/auth";
 import { useCatalog } from "@/features/catalog";
 import { useStore } from "@/features/store";
+import { extractCustomCategory } from "@/utils/categoryHelpers";
 import { uploadFile } from "@/utils/fileUpload";
-import { extractCustomCategory, appendCustomCategory } from "@/utils/categoryHelpers";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import * as ImagePicker from "expo-image-picker";
 import { LinearGradient } from "expo-linear-gradient";
 import { router, useLocalSearchParams } from "expo-router";
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import {
     Alert,
     Image,
@@ -26,7 +26,7 @@ export default function EditProduct() {
   const { productId } = useLocalSearchParams();
   const { state: { user, accessToken } } = useLogin();
   const { action: { updateProduct, findProducts }, state: { loading, error, products, userStore } } = useStore();
-  const { action: { loadCategories }, state: { categories } } = useCatalog();
+  const { action: { loadCategories, addCategory }, state: { categories } } = useCatalog();
   
   // Initialize state with empty values
   const [productName, setProductName] = useState("");
@@ -91,11 +91,24 @@ export default function EditProduct() {
           setIsActive(productToEdit.isActive !== false);
           const categoryId = productToEdit.categoryId ?? null;
           
-          // Check if product has custom category
+          // Check if product has custom category in description
           if (customCategory) {
-            setIsOthersCategory(true);
-            setCustomCategoryName(customCategory);
-            setSelectedCategoryId(null);
+            // Try to find if this category already exists
+            const existingCategory = categories.find(
+              (cat) => cat.name.toLowerCase().trim() === customCategory.toLowerCase().trim()
+            );
+            
+            if (existingCategory) {
+              // Category exists, use it
+              setIsOthersCategory(false);
+              setCustomCategoryName("");
+              setSelectedCategoryId(existingCategory.id);
+            } else {
+              // Category doesn't exist yet, show as "Others" option
+              setIsOthersCategory(true);
+              setCustomCategoryName(customCategory);
+              setSelectedCategoryId(null);
+            }
           } else {
             setIsOthersCategory(false);
             setCustomCategoryName("");
@@ -267,20 +280,43 @@ export default function EditProduct() {
         }
       }
 
-      // If custom category is used, append it to description in a structured way
-      let finalDescription = description.trim();
+      // Handle custom category creation if "Others" is selected
+      let categoryIdToUse = selectedCategoryId;
       if (isOthersCategory && customCategoryName.trim()) {
-        finalDescription = appendCustomCategory(description.trim(), customCategoryName.trim());
+        // Check if category with this name already exists
+        const existingCategory = categories.find(
+          (cat) => cat.name.toLowerCase().trim() === customCategoryName.toLowerCase().trim()
+        );
+        
+        if (existingCategory) {
+          // Use existing category
+          categoryIdToUse = existingCategory.id;
+        } else {
+          // Create new category
+          try {
+            const newCategory = await addCategory({ name: customCategoryName.trim() }).unwrap();
+            categoryIdToUse = newCategory.id;
+            // Reload categories to include the new one
+            await loadCategories();
+          } catch (error: any) {
+            Alert.alert(
+              "Error",
+              error?.message || "Failed to create category. Please try again or contact support."
+            );
+            setIsSubmitting(false);
+            return;
+          }
+        }
       }
 
       const updateData: any = {
         id: Number(productId),
         name: productName.trim(),
-        description: finalDescription,
+        description: description.trim(),
         price: Number(price),
         stock: Number(stock),
         ...(imageUrl && { imageUrl }), // Include imageUrl if available
-        categoryId: selectedCategoryId ?? null,
+        categoryId: categoryIdToUse ?? null,
       };
 
       console.log("Updating product with data:", updateData);

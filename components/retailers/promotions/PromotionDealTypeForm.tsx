@@ -292,6 +292,32 @@ function renderDealTypeFields(
           <Text style={styles.helperText}>
             Fixed monetary value like a gift card that can be applied to any product
           </Text>
+          
+          <Text style={styles.label}>Maximum Vouchers Available</Text>
+          <View style={styles.inputContainer}>
+            <Ionicons name="albums" size={20} color="#9CA3AF" style={styles.inputIcon} />
+            <TextInput
+              style={styles.textInput}
+              placeholder="100"
+              value={formData.voucherQuantity?.toString() || ""}
+              onChangeText={(text) => {
+                if (text === "") {
+                  // Clear the value, default will be applied on submit
+                  onFieldChange("voucherQuantity", undefined);
+                } else {
+                  const value = parseInt(text, 10) || 0;
+                  if (value > 0) {
+                    onFieldChange("voucherQuantity", value);
+                  }
+                }
+              }}
+              keyboardType="number-pad"
+              placeholderTextColor="#9CA3AF"
+            />
+          </View>
+          <Text style={styles.helperText}>
+            Maximum number of vouchers your store can provide (default: 100 if not specified)
+          </Text>
         </View>
       );
 

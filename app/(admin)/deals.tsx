@@ -8,7 +8,6 @@ import { useRouter } from "expo-router";
 import { useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
-  Alert,
   Dimensions,
   Modal,
   ScrollView,
@@ -129,7 +128,6 @@ export default function DealsAnalytics() {
   const { state: catalogState, action: catalogActions } = useCatalog();
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(true);
-  const [promotionStatusLoading, setPromotionStatusLoading] = useState<Record<number, boolean>>({});
   const [showDealTypeModal, setShowDealTypeModal] = useState(false);
 
   useEffect(() => {
@@ -141,6 +139,7 @@ export default function DealsAnalytics() {
     // Set loading to false after a short delay
     const timer = setTimeout(() => setIsLoading(false), 500);
     return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Calculate comprehensive metrics
@@ -213,17 +212,6 @@ export default function DealsAnalytics() {
     };
   }, [storeState.promotions]);
 
-  const handleTogglePromotionActive = async (promotionId: number, nextValue: boolean) => {
-    setPromotionStatusLoading((prev) => ({ ...prev, [promotionId]: true }));
-    try {
-      await storeActions.updatePromotion({ id: promotionId, active: nextValue }).unwrap();
-      Alert.alert("Success", `Promotion has been ${nextValue ? "enabled" : "disabled"}.`);
-    } catch (error: any) {
-      Alert.alert("Error", error?.message || "Failed to update promotion status.");
-    } finally {
-      setPromotionStatusLoading((prev) => ({ ...prev, [promotionId]: false }));
-    }
-  };
 
   // Calculate category distribution from real data
   const calculateCategoryDistribution = () => {

@@ -244,6 +244,13 @@ export default function ConsumersLayout() {
             headerShown: false,
           }}
         />
+        <Tabs.Screen
+          name="my-reports"
+          options={{
+            href: null,
+            headerShown: false,
+          }}
+        />
       </Tabs>
   );
 }

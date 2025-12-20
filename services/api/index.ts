@@ -49,3 +49,12 @@ export * from "./endpoints/views";
 // Re-export ListViewsParamsExtended from views endpoint (extended version with index signature)
 export type { ListViewsParamsExtended as ListViewsParams } from "./endpoints/views";
 
+// API Endpoints - Reviews
+export * from "./endpoints/reviews";
+
+// API Endpoints - Reports
+export * from "./endpoints/reports";
+
+// API Endpoints - Monitoring
+export * from "./endpoints/monitoring";
+
