@@ -854,7 +854,7 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
   },
   backgroundImage: {
-    resizeMode: 'contain',
+    resizeMode: 'stretch',
   },
   overlay: {
     flex: 1,

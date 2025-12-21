@@ -557,7 +557,7 @@ export default function AdminStoreDetails() {
           {bannerUrl ? (
             <Image
               source={{ uri: bannerUrl }}
-              resizeMode="cover"
+              resizeMode="stretch"
               style={styles.banner}
             />
           ) : (

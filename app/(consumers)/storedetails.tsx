@@ -807,13 +807,13 @@ function StoreHero({
         {bannerUrl ? (
           <Image
             source={{ uri: bannerUrl }}
-            resizeMode="contain"
+            resizeMode="stretch"
             style={heroStyles.banner}
           />
         ) : (
           <Image
             source={require("../../assets/images/partial-react-logo.png")}
-            resizeMode="contain"
+            resizeMode="stretch"
             style={heroStyles.banner}
           />
         )}
