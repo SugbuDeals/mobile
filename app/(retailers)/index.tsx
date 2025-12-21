@@ -24,6 +24,19 @@ import {
 
 const DEFAULT_BANNER = require("../../assets/images/index3.png");
 
+// Helper function to deduplicate products by ID
+function deduplicateProducts(
+  products: (CatalogProduct | StoreProduct)[]
+): (CatalogProduct | StoreProduct)[] {
+  const seen = new Map<number, CatalogProduct | StoreProduct>();
+  products.forEach((product) => {
+    if (product.id != null && !seen.has(product.id)) {
+      seen.set(product.id, product);
+    }
+  });
+  return Array.from(seen.values());
+}
+
 export default function RetailerDashboard() {
   const { state: { user } } = useLogin();
   const { action: { findActivePromotions, findProducts }, state: { userStore, activePromotions, loading, products } } = useStore();
@@ -78,7 +91,7 @@ export default function RetailerDashboard() {
   // Get store categories from products
   const storeCategories = useMemo(() => {
     const storeId = userStore?.id;
-    const allProducts = [...(catalogProducts || []), ...(products || [])];
+    const allProducts = deduplicateProducts([...(catalogProducts || []), ...(products || [])]);
     const source = allProducts.filter((p: CatalogProduct | StoreProduct) =>
       storeId == null ? true : p.storeId === storeId
     );
@@ -100,7 +113,7 @@ export default function RetailerDashboard() {
     const storeId = userStore?.id;
     if (storeId == null) return [];
     const promoList = Array.isArray(activePromotions) ? activePromotions : [];
-    const allProducts = [...(catalogProducts || []), ...(products || [])];
+    const allProducts = deduplicateProducts([...(catalogProducts || []), ...(products || [])]);
     return promoList.reduce<{ promotion: Promotion; product: CatalogProduct | StoreProduct }[]>(
       (acc, promo: Promotion) => {
         if (!promo?.active) return acc;
@@ -295,7 +308,7 @@ export default function RetailerDashboard() {
               </View>
               <View style={styles.statContent}>
                 <Text style={styles.statValue}>
-                  {[...(catalogProducts || []), ...(products || [])].filter((p: CatalogProduct | StoreProduct) => 
+                  {deduplicateProducts([...(catalogProducts || []), ...(products || [])]).filter((p: CatalogProduct | StoreProduct) => 
                     p.storeId === userStore?.id
                   ).length || 0}
                 </Text>
@@ -354,7 +367,7 @@ export default function RetailerDashboard() {
         storeId={userStore?.id}
         category={activeCategory}
         query={query}
-        products={[...(catalogProducts || []), ...(products || [])]}
+        products={deduplicateProducts([...(catalogProducts || []), ...(products || [])])}
         getProductCategoryName={getProductCategoryName}
       />
 
