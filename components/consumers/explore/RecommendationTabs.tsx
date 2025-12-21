@@ -1,6 +1,4 @@
-import React from "react";
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
-import { colors, spacing, typography, borderRadius } from "@/styles/theme";
 
 export type RecommendationTab = "all" | "products" | "stores" | "promotions";
 

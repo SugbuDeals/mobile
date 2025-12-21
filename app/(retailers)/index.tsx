@@ -1,3 +1,4 @@
+import DealTypeEditOverlay from "@/components/retailers/DealTypeEditOverlay";
 import { useLogin } from "@/features/auth";
 import { useCatalog } from "@/features/catalog";
 import type { Product as CatalogProduct } from "@/features/catalog/types";
@@ -556,8 +557,11 @@ function RetailerDealsAndVouchers({
   promotions: { promotion: Promotion; products: (CatalogProduct | StoreProduct)[] }[];
   vouchers: { promotion: Promotion; product: CatalogProduct | StoreProduct }[];
 }) {
+  const { action: { findActivePromotions }, state: { userStore } } = useStore();
   const [showVouchers, setShowVouchers] = useState(false);
   const [expandedVoucherId, setExpandedVoucherId] = useState<number | null>(null);
+  const [selectedPromotion, setSelectedPromotion] = useState<Promotion | null>(null);
+  const [showEditOverlay, setShowEditOverlay] = useState(false);
   
   // Group vouchers by promotion and collect products for each
   const voucherPromotionsWithProducts = useMemo(() => {
@@ -578,12 +582,20 @@ function RetailerDealsAndVouchers({
   }, [vouchers]);
 
   const handleDealPress = (promo: Promotion) => {
-    router.push({
-      pathname: "/(retailers)/promotions",
-      params: {
-        promotionId: promo?.id?.toString(),
-      },
-    });
+    setSelectedPromotion(promo);
+    setShowEditOverlay(true);
+  };
+
+  const handleCloseOverlay = () => {
+    setShowEditOverlay(false);
+    setSelectedPromotion(null);
+  };
+
+  const handleUpdateComplete = () => {
+    // Refresh promotions after update
+    if (userStore?.id) {
+      findActivePromotions(userStore.id);
+    }
   };
 
   const handleVoucherProductPress = (product: CatalogProduct | StoreProduct, promo: Promotion) => {
@@ -802,6 +814,14 @@ function RetailerDealsAndVouchers({
           )}
         </View>
       )}
+
+      {/* Deal Type Edit Overlay */}
+      <DealTypeEditOverlay
+        isOpen={showEditOverlay}
+        onClose={handleCloseOverlay}
+        promotion={selectedPromotion}
+        onUpdate={handleUpdateComplete}
+      />
     </View>
   );
 }
