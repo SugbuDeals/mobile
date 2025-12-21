@@ -848,7 +848,7 @@ function StoreHero({
       <View style={heroStyles.identityBlock}>
         <View style={heroStyles.logoWrapper}>
           {logoUrl ? (
-            <Image source={{ uri: logoUrl }} style={{ width: 84, height: 84, borderRadius: 20 }} />
+            <Image source={{ uri: logoUrl }} style={heroStyles.logoImage} />
           ) : (
             <View style={heroStyles.logoBox} />
           )}
@@ -1297,11 +1297,26 @@ const heroStyles = StyleSheet.create({
     marginTop: -8,
   },
   logoWrapper: { marginTop: -90},
+  logoImage: {
+    width: 84,
+    height: 84,
+    borderRadius: 20,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
+  },
   logoBox: {
     width: 84,
     height: 84,
     borderRadius: 20,
     backgroundColor: "#1D9BF0",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
   },
   name: { fontSize: 20, fontWeight: "700", marginTop: 6 },
   ratingContainer: {
