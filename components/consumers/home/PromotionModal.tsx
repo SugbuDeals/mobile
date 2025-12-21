@@ -16,7 +16,7 @@ import {
 
 interface PromotionModalProps {
   promotion: Promotion;
-  productPromotions: Array<{ product: Product; promotion: Promotion }>;
+  productPromotions: { product: Product; promotion: Promotion }[];
   onClose: () => void;
 }
 

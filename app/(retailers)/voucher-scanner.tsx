@@ -397,13 +397,15 @@ export default function VoucherScannerScreen() {
                         </Text>
                       </View>
 
-                      <View style={styles.detailRow}>
-                        <Ionicons name="cube" size={18} color="#6B7280" />
-                        <Text style={styles.detailLabel}>Product ID:</Text>
-                        <Text style={styles.detailValue}>
-                          {verificationResult.productId}
-                        </Text>
-                      </View>
+                      {verificationResult.productId !== undefined && (
+                        <View style={styles.detailRow}>
+                          <Ionicons name="cube" size={18} color="#6B7280" />
+                          <Text style={styles.detailLabel}>Product ID:</Text>
+                          <Text style={styles.detailValue}>
+                            {verificationResult.productId}
+                          </Text>
+                        </View>
+                      )}
                     </View>
 
                     {/* Action Buttons */}

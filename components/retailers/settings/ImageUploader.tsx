@@ -6,11 +6,10 @@ import {
   TouchableOpacity,
   Text,
   ActivityIndicator,
-} from "react-native";
+ Alert } from "react-native";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { colors, spacing, borderRadius, typography } from "@/styles/theme";
 import { useImageUpload } from "@/hooks/useImageUpload";
-import { Alert } from "react-native";
 
 interface ImageUploaderProps {
   imageUrl?: string;

@@ -270,7 +270,7 @@ export interface VoucherTokenResponseDto {
   redemptionId: number; // Voucher redemption ID
   promotionId: number; // Promotion ID
   storeId: number; // Store ID where redemption will occur
-  productId?: number | null; // Product ID (if specific product) - nullable
+  productId?: number; // Product ID (if specific product) - optional per OpenAPI spec
   status: VoucherRedemptionStatus; // Current status of voucher redemption
 }
 
@@ -284,13 +284,13 @@ export interface VoucherVerificationResponseDto {
   userName: string; // Consumer name
   subscriptionTier: string; // Consumer subscription tier
   redemptionId: number; // Voucher redemption ID
-  promotionId?: number; // Promotion ID (optional for backward compatibility, should be included by backend)
   promotionTitle: string; // Promotion title
   voucherValue: number; // Voucher value
   storeId: number; // Store ID
-  productId?: number | null; // Product ID (if specific product) - nullable
   status: VoucherRedemptionStatus; // Current status
-  message?: string | null; // Error message if validation failed - nullable
+  promotionId?: number; // Promotion ID - optional per OpenAPI spec
+  productId?: number; // Product ID (if specific product) - optional per OpenAPI spec
+  message?: string; // Error message if validation failed - optional per OpenAPI spec
 }
 
 export interface ConfirmVoucherRedemptionDto {
@@ -301,6 +301,13 @@ export interface ConfirmVoucherRedemptionResponseDto {
   message: string; // Success message
   redemptionId: number; // Voucher redemption ID
   promotion?: PromotionResponseDto; // Updated promotion with decremented voucherQuantity (optional for backward compatibility)
+}
+
+export interface VoucherClaimStatusDto {
+  hasClaimed: boolean; // Whether the consumer has already claimed a voucher from this store
+  redemptionId?: number | null; // ID of the existing voucher redemption (if hasClaimed is true)
+  status?: VoucherRedemptionStatus | null; // Status of the existing voucher redemption
+  storeId: number; // Store ID that was checked
 }
 
 // ============================================================================

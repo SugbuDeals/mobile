@@ -10,7 +10,7 @@ interface RecommendationsSectionProps {
   promotions: Promotion[];
   onPromotionPress: (
     promotion: Promotion,
-    productPromotions: Array<{ product: Product; promotion: Promotion }>
+    productPromotions: { product: Product; promotion: Promotion }[]
   ) => void;
 }
 
@@ -24,7 +24,7 @@ export default function RecommendationsSection({
   // Group promotions by product
   const productPromotionsMap = new Map<
     number,
-    Array<{ product: Product; promotion: Promotion }>
+    { product: Product; promotion: Promotion }[]
   >();
 
   promotions.forEach((promo) => {

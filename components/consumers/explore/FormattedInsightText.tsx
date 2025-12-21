@@ -15,10 +15,10 @@ export default function FormattedInsightText({
   highlight,
   elaboration,
 }: FormattedInsightTextProps) {
-  const contentParts: Array<{
+  const contentParts: {
     type: "highlight" | "elaboration" | "text";
     content: string;
-  }> = [];
+  }[] = [];
   const seen = new Set<string>();
   const norm = (val?: string | null) => (val || "").trim();
 
