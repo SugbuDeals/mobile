@@ -69,7 +69,7 @@ export default function Explore() {
   const [sortOption, setSortOption] = useState<"best-deal" | "closest" | "cheapest">("best-deal");
   const [selectedPromotion, setSelectedPromotion] = useState<{
     promotion: Promotion;
-    products: Array<{ product: Product; promotion: Promotion }>;
+    products: { product: Product; promotion: Promotion }[];
   } | null>(null);
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const [storeRatingStats, setStoreRatingStats] = useState<Record<number, StoreRatingStatsDto | null>>({});
@@ -342,7 +342,7 @@ export default function Explore() {
       const promotionProducts = promotionDetails.promotionProducts || [];
       
       // Fetch product details for each product in the promotion
-      const productPromotions: Array<{ product: Product; promotion: Promotion }> = [];
+      const productPromotions: { product: Product; promotion: Promotion }[] = [];
       
       for (const pp of promotionProducts) {
         if (pp.productId) {

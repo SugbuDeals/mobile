@@ -146,11 +146,22 @@ class ApiClient {
 
     // Log error with context
     // 401 errors (Invalid credentials) are expected user errors, log as warning
+    // 404 errors on voucher check endpoint are expected until backend implements it, log as warning
+    // 400 errors on voucher generate endpoint for "already claimed/redeemed" are expected user errors, log as warning
     // Other errors are system/network errors, log as error
+    const isVoucherCheckEndpoint = endpoint?.includes('/promotions/voucher/check/');
+    const isVoucherGenerateEndpoint = endpoint?.includes('/promotions/voucher/generate');
     const isUserError = response.status === 401;
-    const logLevel = isUserError ? 'warn' : 'error';
-    const logMessage = isUserError 
-      ? `API Warning (User Error): ${endpoint || 'Unknown endpoint'}`
+    const isExpected404 = response.status === 404 && isVoucherCheckEndpoint;
+    const isExpectedVoucherClaimError = 
+      response.status === 400 && 
+      isVoucherGenerateEndpoint && 
+      (errorData.message?.toLowerCase().includes('already claimed') ||
+       errorData.message?.toLowerCase().includes('already redeemed') ||
+       errorData.message?.toLowerCase().includes('only claim one voucher'));
+    const logLevel = (isUserError || isExpected404 || isExpectedVoucherClaimError) ? 'warn' : 'error';
+    const logMessage = (isUserError || isExpected404 || isExpectedVoucherClaimError)
+      ? `API Warning (Expected): ${endpoint || 'Unknown endpoint'}`
       : `API Error: ${endpoint || 'Unknown endpoint'}`;
     
     this.log(logLevel, logMessage, {
@@ -248,9 +259,19 @@ class ApiClient {
           endpoint
         );
         
-        // Log error with tracking (skip 401 errors as they're expected user errors)
-        // 401 errors are already logged as warnings in handleError
-        if (response.status !== 401) {
+        // Log error with tracking (skip expected errors: 401, 404 on check endpoint, 400 on generate for already claimed)
+        // These are already logged as warnings in handleError
+        const isVoucherCheckEndpoint = endpoint.includes('/promotions/voucher/check/');
+        const isVoucherGenerateEndpoint = endpoint.includes('/promotions/voucher/generate');
+        const isExpectedVoucherClaimError = 
+          response.status === 400 && 
+          isVoucherGenerateEndpoint && 
+          (error.message?.toLowerCase().includes('already claimed') ||
+           error.message?.toLowerCase().includes('already redeemed') ||
+           error.message?.toLowerCase().includes('only claim one voucher'));
+        if (response.status !== 401 && 
+            !(response.status === 404 && isVoucherCheckEndpoint) &&
+            !isExpectedVoucherClaimError) {
           logError(error, {
             endpoint,
             method,

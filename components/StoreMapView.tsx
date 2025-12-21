@@ -28,7 +28,7 @@ export interface StoreMapViewProps {
 
 export interface StoreMapViewRef {
   animateToRegion: (region: Region, duration?: number) => void;
-  fitToCoordinates: (coordinates: Array<{ latitude: number; longitude: number }>, options?: any) => void;
+  fitToCoordinates: (coordinates: { latitude: number; longitude: number }[], options?: any) => void;
 }
 
 /**
@@ -67,7 +67,7 @@ const StoreMapView = forwardRef<StoreMapViewRef, StoreMapViewProps>(({
     animateToRegion: (region: Region, duration = 1000) => {
       mapRef.current?.animateToRegion(region, duration);
     },
-    fitToCoordinates: (coordinates: Array<{ latitude: number; longitude: number }>, options?: any) => {
+    fitToCoordinates: (coordinates: { latitude: number; longitude: number }[], options?: any) => {
       mapRef.current?.fitToCoordinates(coordinates, options);
     },
   }));

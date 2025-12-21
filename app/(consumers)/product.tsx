@@ -389,6 +389,8 @@ function ProductCard({
   const [voucherToken, setVoucherToken] = useState<VoucherTokenResponseDto | null>(null);
   const [showVoucherModal, setShowVoucherModal] = useState(false);
   const [isGeneratingVoucher, setIsGeneratingVoucher] = useState(false);
+  const [hasClaimedVoucherFromStore, setHasClaimedVoucherFromStore] = useState<boolean | null>(null); // null = checking, false = not claimed, true = claimed
+  const [isCheckingVoucherStatus, setIsCheckingVoucherStatus] = useState(false);
 
   const {
     state: { products: allProducts },
@@ -417,6 +419,12 @@ function ProductCard({
       return;
     }
 
+    // Prevent generation if already claimed (double check before API call)
+    if (hasClaimedVoucherFromStore === true) {
+      // Button should be disabled, but if somehow called, just return silently
+      return;
+    }
+
     setIsGeneratingVoucher(true);
     
     try {
@@ -429,16 +437,75 @@ function ProductCard({
       const actualData = (response as any)?.data || response;
       setVoucherToken(actualData);
       setShowVoucherModal(true);
+      // Don't mark as claimed after generation - voucher is PENDING, not REDEEMED
+      // Only REDEEMED vouchers count as "claimed"
+      // The status check will update hasClaimedVoucherFromStore when appropriate
     } catch (error: any) {
+      const errorMessage = error?.response?.data?.message || error?.message || "Please try again later";
+      
+      // If error indicates already claimed/redeemed, update state (don't show alert as button should be disabled)
+      const isAlreadyClaimedError = 
+        errorMessage.toLowerCase().includes("already claimed") || 
+        errorMessage.toLowerCase().includes("already redeemed") ||
+        errorMessage.toLowerCase().includes("only claim one voucher");
+      
+      if (isAlreadyClaimedError) {
+        setHasClaimedVoucherFromStore(true);
+        // Don't show alert since button should already be disabled
+        // This handles edge cases where status wasn't checked yet
+        return;
+      }
+      
+      // Only show alert for other errors (not already claimed errors)
+      // Only log non-expected errors
       console.error("Error generating voucher:", error);
       Alert.alert(
         "Failed to Generate Voucher",
-        error?.response?.data?.message || error?.message || "Please try again later"
+        errorMessage
       );
     } finally {
       setIsGeneratingVoucher(false);
     }
   };
+
+  // Check voucher claim status when storeId is available
+  useEffect(() => {
+    const checkVoucherStatus = async () => {
+      if (!params.storeId) {
+        setHasClaimedVoucherFromStore(null);
+        return;
+      }
+
+      const storeId = Number(params.storeId);
+      if (!Number.isFinite(storeId) || storeId <= 0) {
+        setHasClaimedVoucherFromStore(null);
+        return;
+      }
+
+      // Only check if there are voucher promotions available
+      if (productVoucherPromotions.length === 0) {
+        setHasClaimedVoucherFromStore(null);
+        return;
+      }
+
+      setIsCheckingVoucherStatus(true);
+      try {
+        const status = await promotionsApi.checkVoucherClaimStatus(storeId);
+        setHasClaimedVoucherFromStore(status.hasClaimed);
+      } catch (error: any) {
+        // If endpoint doesn't exist (404) or other error, default to allowing voucher generation
+        // This provides graceful degradation if backend hasn't implemented the endpoint yet
+        // 404 is expected until backend implements the endpoint - the API client now logs it as warning
+        // Default to false (not claimed) so user can still try to generate
+        // The generate endpoint will return proper error if they've actually claimed
+        setHasClaimedVoucherFromStore(false);
+      } finally {
+        setIsCheckingVoucherStatus(false);
+      }
+    };
+
+    checkVoucherStatus();
+  }, [params.storeId, productVoucherPromotions.length]);
 
   // Log QR code generation (no longer needed for image display, but useful for debugging)
   useEffect(() => {
@@ -638,26 +705,58 @@ function ProductCard({
             </View>
           )}
 
-          {/* Voucher Button - Show if there are any voucher promotions for this product */}
+          {/* Voucher Section - Show if there are any voucher promotions for this product */}
           {productVoucherPromotions.length > 0 && (
-            <TouchableOpacity
-              style={prodStyles.voucherButton}
-              onPress={() => {
-                // If multiple vouchers, use the first one; otherwise use the only one
-                const promotion = productVoucherPromotions[0];
-                handleGenerateVoucher(promotion.id);
-              }}
-              disabled={isGeneratingVoucher}
-              activeOpacity={0.7}
-            >
-              <Ionicons name="ticket" size={20} color="#FFFFFF" />
-              <Text style={prodStyles.voucherButtonText}>
-                {isGeneratingVoucher ? "Generating..." : "Generate Voucher QR Code"}
-              </Text>
-              {isGeneratingVoucher && (
-                <ActivityIndicator size="small" color="#FFFFFF" style={{ marginLeft: 8 }} />
+            <>
+              {/* Show indicator if already claimed */}
+              {hasClaimedVoucherFromStore === true && (
+                <View style={prodStyles.voucherClaimedBanner}>
+                  <Ionicons name="checkmark-circle" size={20} color="#059669" />
+                  <View style={prodStyles.voucherClaimedContent}>
+                    <Text style={prodStyles.voucherClaimedTitle}>Voucher Already Claimed</Text>
+                    <Text style={prodStyles.voucherClaimedMessage}>
+                      You have already claimed a voucher from this store. Each consumer can only claim one voucher per store.
+                    </Text>
+                  </View>
+                </View>
               )}
-            </TouchableOpacity>
+
+              {/* Always show button, but disable if already claimed */}
+              <TouchableOpacity
+                style={[
+                  prodStyles.voucherButton,
+                  (hasClaimedVoucherFromStore === true || isCheckingVoucherStatus || hasClaimedVoucherFromStore === null) && prodStyles.voucherButtonDisabled
+                ]}
+                onPress={() => {
+                  // If multiple vouchers, use the first one; otherwise use the only one
+                  const promotion = productVoucherPromotions[0];
+                  handleGenerateVoucher(promotion.id);
+                }}
+                disabled={isGeneratingVoucher || isCheckingVoucherStatus || hasClaimedVoucherFromStore === true}
+                activeOpacity={hasClaimedVoucherFromStore === true ? 1 : 0.7}
+              >
+                <Ionicons 
+                  name="ticket" 
+                  size={20} 
+                  color={hasClaimedVoucherFromStore === true ? "#9CA3AF" : "#FFFFFF"} 
+                />
+                <Text style={[
+                  prodStyles.voucherButtonText,
+                  hasClaimedVoucherFromStore === true && prodStyles.voucherButtonTextDisabled
+                ]}>
+                  {hasClaimedVoucherFromStore === true
+                    ? "Voucher Already Claimed"
+                    : isCheckingVoucherStatus 
+                    ? "Checking..." 
+                    : isGeneratingVoucher 
+                    ? "Generating..." 
+                    : "Generate Voucher QR Code"}
+                </Text>
+                {(isGeneratingVoucher || isCheckingVoucherStatus) && (
+                  <ActivityIndicator size="small" color="#FFFFFF" style={{ marginLeft: 8 }} />
+                )}
+              </TouchableOpacity>
+            </>
           )}
 
           <View style={prodStyles.statusBadge}>
@@ -1209,10 +1308,56 @@ const prodStyles = StyleSheet.create({
     marginBottom: 5,
     gap: 10,
   },
+  voucherButtonDisabled: {
+    opacity: 0.6,
+    backgroundColor: "#E5E7EB",
+  },
   voucherButtonText: {
     color: "#FFFFFF",
     fontSize: 16,
     fontWeight: "600",
+  },
+  voucherButtonTextDisabled: {
+    color: "#9CA3AF",
+  },
+  voucherClaimedContent: {
+    flex: 1,
+  },
+  voucherClaimedTitle: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: "#047857",
+    marginBottom: 4,
+  },
+  voucherClaimedMessage: {
+    fontSize: 14,
+    color: "#065F46",
+    lineHeight: 20,
+  },
+  voucherClaimedBanner: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    backgroundColor: "#D1FAE5",
+    borderWidth: 1,
+    borderColor: "#10B981",
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 12,
+    gap: 12,
+  },
+  voucherClaimedContent: {
+    flex: 1,
+  },
+  voucherClaimedTitle: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: "#047857",
+    marginBottom: 4,
+  },
+  voucherClaimedMessage: {
+    fontSize: 14,
+    color: "#065F46",
+    lineHeight: 20,
   },
   voucherDropdownButton: {
     flexDirection: "row",

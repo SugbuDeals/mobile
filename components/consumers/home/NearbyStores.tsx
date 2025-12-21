@@ -1,7 +1,6 @@
 import React, { useMemo, useState, useEffect } from "react";
-import { StyleSheet, Text, TouchableOpacity, View, Image } from "react-native";
+import { StyleSheet, Text, TouchableOpacity, View, Image , ActivityIndicator } from "react-native";
 import { useRouter } from "expo-router";
-import { ActivityIndicator } from "react-native";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { colors, spacing, borderRadius, typography } from "@/styles/theme";
 import SectionHeader from "@/components/SectionHeader";

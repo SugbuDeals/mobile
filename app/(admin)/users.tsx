@@ -38,7 +38,7 @@ const MetricsCard = ({ label, value, icon, color, bgColor, gradientColors }: {
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
       >
-        <Ionicons name={icon as keyof typeof Ionicons.glyphMap} size={20} color={color} />
+        <Ionicons name={icon as keyof typeof Ionicons.glyphMap} size={20} color="#FFFFFF" />
       </LinearGradient>
     </View>
     <Text style={[styles.metricValue, { color }]}>{value}</Text>
@@ -235,11 +235,16 @@ export default function Users() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // Only run once on mount
 
-  // Calculate metrics
-  const totalUsers = filteredUsers.length;
-  const activeUsers = filteredUsers.length; // You can add status field to user model
-  const consumers = filteredUsers.filter(u => u.role === "CONSUMER").length;
-  const retailers = filteredUsers.filter(u => u.role === "RETAILER").length;
+  // Calculate metrics from all users (not filtered) - use useMemo to recalculate when data changes
+  const metrics = useMemo(() => {
+    const allUsers = state.allUsers || [];
+    return {
+      totalUsers: allUsers.length,
+      activeUsers: allUsers.length, // You can add status field to user model
+      consumers: allUsers.filter(u => u.role === "CONSUMER").length,
+      retailers: allUsers.filter(u => u.role === "RETAILER").length,
+    };
+  }, [state.allUsers]);
 
   const handleDeleteUser = async (id: number) => {
     // Prevent users from deleting themselves
@@ -353,33 +358,33 @@ export default function Users() {
           <View style={styles.metricsGrid}>
             <MetricsCard
               label="Total Users"
-              value={totalUsers.toString()}
+              value={metrics.totalUsers.toString()}
               icon="people"
-              color="#FFFFFF"
+              color="#277874"
               bgColor="#D1FAE5"
               gradientColors={["#277874", "#1B6F5D"] as [string, string]}
             />
             <MetricsCard
               label="Consumers"
-              value={consumers.toString()}
+              value={metrics.consumers.toString()}
               icon="person"
-              color="#FFFFFF"
+              color="#3B82F6"
               bgColor="#DBEAFE"
               gradientColors={["#3B82F6", "#2563EB"] as [string, string]}
             />
             <MetricsCard
               label="Retailers"
-              value={retailers.toString()}
+              value={metrics.retailers.toString()}
               icon="storefront"
-              color="#FFFFFF"
+              color="#F59E0B"
               bgColor="#FEF3C7"
               gradientColors={["#F59E0B", "#D97706"] as [string, string]}
             />
             <MetricsCard
               label="Active Users"
-              value={activeUsers.toString()}
+              value={metrics.activeUsers.toString()}
               icon="checkmark-circle"
-              color="#FFFFFF"
+              color="#10B981"
               bgColor="#D1FAE5"
               gradientColors={["#10B981", "#059669"] as [string, string]}
             />

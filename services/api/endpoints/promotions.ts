@@ -21,13 +21,14 @@ import type {
     PromotionResponseDto,
     UpdatePromotionDto,
     VerifyVoucherDto,
+    VoucherClaimStatusDto,
     VoucherTokenResponseDto,
     VoucherVerificationResponseDto,
 } from "../types/swagger";
 
 // Re-export Swagger types for convenience
 export type {
-    AddProductsToPromotionDto, ConfirmVoucherRedemptionDto,
+    AddProductsToPromotionDto, ConfirmVoucherRedemptionDto, VoucherClaimStatusDto,
     ConfirmVoucherRedemptionResponseDto, CreatePromotionDto, GenerateVoucherTokenDto, PromotionResponseDto, UpdatePromotionDto, VerifyVoucherDto, VoucherTokenResponseDto, VoucherVerificationResponseDto
 };
 
@@ -148,19 +149,59 @@ export const promotionsApi = {
   },
 
   /**
-   * Consumer generates a one-time use voucher token for a specific promotion at a store
-   * This token can be encoded into a QR code for the retailer to scan
+   * Check if the consumer has already redeemed (claimed) a voucher from a specific store
+   * Only vouchers with REDEEMED status count as "claimed"
+   * Vouchers with PENDING or VERIFIED status do NOT count as claimed
+   * Used to show UI indicators before attempting to generate a new voucher
+   * Operation: PromotionController_checkVoucherClaimStatus
+   * Endpoint: GET /promotions/voucher/check/{storeId}
+   * Role: CONSUMER only
+   * 
+   * @note If the endpoint returns 404 (not implemented yet), returns default response with hasClaimed: false
+   * This allows graceful degradation until the backend implements the endpoint
+   */
+  checkVoucherClaimStatus: (storeId: number): Promise<VoucherClaimStatusDto> => {
+    return getApiClient()
+      .get<VoucherClaimStatusDto>(`/promotions/voucher/check/${storeId}`)
+      .catch((error) => {
+        // If endpoint doesn't exist (404), return default response
+        // This is expected until backend implements the endpoint
+        if (error.status === 404 || error?.response?.status === 404) {
+          return {
+            hasClaimed: false,
+            redemptionId: null,
+            status: null,
+            storeId: storeId,
+          } as VoucherClaimStatusDto;
+        }
+        // Re-throw other errors
+        throw error;
+      });
+  },
+
+  /**
+   * Consumer generates a one-time use voucher token for a specific promotion at a store.
+   * This token can be encoded into a QR code for the retailer to scan.
+   * Restricted to consumers.
+   * 
    * Operation: PromotionController_generateVoucherToken
    * Endpoint: POST /promotions/voucher/generate
    * Role: CONSUMER only
+   * 
+   * @important Each consumer can only REDEEM one voucher per store. Consumers can generate multiple
+   * vouchers (PENDING/VERIFIED status), but once a voucher is REDEEMED (retailer confirmed),
+   * they cannot generate another voucher for that store. Attempting to generate a voucher when
+   * a REDEEMED voucher exists will result in a 400 error.
    */
   generateVoucherToken: (data: GenerateVoucherTokenDto): Promise<VoucherTokenResponseDto> => {
     return getApiClient().post<VoucherTokenResponseDto>("/promotions/voucher/generate", data);
   },
 
   /**
-   * Retailer scans and verifies the consumer's voucher QR code
-   * Returns consumer information and marks voucher as verified
+   * Retailer scans and verifies the consumer's voucher QR code.
+   * Returns consumer information and marks voucher as verified.
+   * Restricted to retailers and admins.
+   * 
    * Operation: PromotionController_verifyVoucherToken
    * Endpoint: POST /promotions/voucher/verify
    * Role: RETAILER, ADMIN
@@ -170,8 +211,12 @@ export const promotionsApi = {
   },
 
   /**
-   * Retailer confirms the voucher redemption after verification
-   * Marks the voucher as redeemed and it becomes unusable
+   * Retailer confirms the voucher redemption after verification.
+   * Marks the voucher as redeemed and it becomes unusable.
+   * Each voucher can only be used for one product (selected by consumer when generating the token).
+   * Voucher must be verified first.
+   * Restricted to retailers and admins.
+   * 
    * Operation: PromotionController_confirmVoucherRedemption
    * Endpoint: POST /promotions/voucher/confirm
    * Role: RETAILER, ADMIN
