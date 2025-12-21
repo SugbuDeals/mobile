@@ -196,8 +196,15 @@ function renderDealTypeFields(
               placeholder="50.00"
               value={formData.bundlePrice?.toString() || ""}
               onChangeText={(text) => {
-                const value = parseFloat(text) || 0;
-                if (value > 0) {
+                // Allow empty string to clear the field
+                if (text === "") {
+                  onFieldChange("bundlePrice", undefined);
+                  return;
+                }
+                // Parse the value, allowing decimal numbers
+                const value = parseFloat(text);
+                // Only update if it's a valid positive number
+                if (!isNaN(value) && value > 0) {
                   onFieldChange("bundlePrice", value);
                 }
               }}

@@ -1,6 +1,8 @@
+import { VoucherRedeemedPopup } from "@/components/consumers/VoucherRedeemedPopup";
 import { useNotifications } from "@/features/notifications";
 import { useStore } from "@/features/store";
 import { useNearbyPromotionNotifications } from "@/hooks/useNearbyPromotionNotifications";
+import { useVoucherStatusPolling } from "@/hooks/useVoucherStatusPolling";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { LinearGradient } from "expo-linear-gradient";
 import { Tabs, useFocusEffect, useRouter } from "expo-router";
@@ -141,10 +143,15 @@ export default function ConsumersLayout() {
   // Initialize nearby promotion notifications
   // This hook handles location tracking and notifications automatically
   useNearbyPromotionNotifications();
+  
+  // Initialize voucher status polling
+  const { redeemedVoucher, clearRedeemedVoucher } = useVoucherStatusPolling();
+  
   const insets = useSafeAreaInsets();
 
   return (
-    <Tabs
+    <>
+      <Tabs
         screenOptions={{
           tabBarActiveTintColor: "#277874",
           tabBarInactiveTintColor: "#6b7280",
@@ -252,6 +259,15 @@ export default function ConsumersLayout() {
           }}
         />
       </Tabs>
+      
+      {/* Voucher Redeemed Popup */}
+      <VoucherRedeemedPopup
+        visible={!!redeemedVoucher}
+        onClose={clearRedeemedVoucher}
+        storeId={redeemedVoucher?.storeId}
+        promotionId={redeemedVoucher?.promotionId}
+      />
+    </>
   );
 }
 

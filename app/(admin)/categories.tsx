@@ -1,7 +1,7 @@
 import { useCatalog } from "@/features/catalog";
 import type { Category } from "@/features/catalog/types";
 import { Ionicons } from "@expo/vector-icons";
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -23,6 +23,35 @@ const categoryColors = [
   "#F59E0B", "#1E40AF", "#10B981", "#EF4444", "#06B6D4"
 ];
 
+// Predefined categories for Auto Fill
+const PREDEFINED_CATEGORIES = [
+  "Groceries",
+  "Electronics",
+  "Fashion",
+  "Home & Living",
+  "Furniture",
+  "Decor",
+  "Beauty & Personal Care",
+  "Health & Wellness",
+  "Sports & Outdoors",
+  "Toys & Games",
+  "Books & Media",
+  "Automotive",
+  "Pet Supplies",
+  "Office Supplies",
+  "Baby & Kids",
+  "Food & Beverages",
+  "Clothing & Accessories",
+  "Jewelry & Watches",
+  "Shoes",
+  "Bags & Luggage",
+  "Kitchen & Dining",
+  "Garden & Outdoor",
+  "Tools & Hardware",
+  "Musical Instruments",
+  "Art & Crafts",
+];
+
 export default function AdminCategories() {
   const { state: catalogState, action: catalogActions } = useCatalog();
   const [isLoading, setIsLoading] = useState(true);
@@ -31,16 +60,20 @@ export default function AdminCategories() {
   const [showAddModal, setShowAddModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [showAutoFillModal, setShowAutoFillModal] = useState(false);
   const [categoryToEdit, setCategoryToEdit] = useState<any>(null);
   const [categoryToDelete, setCategoryToDelete] = useState<number | null>(null);
   const [newCategoryName, setNewCategoryName] = useState("");
   const [editCategoryName, setEditCategoryName] = useState("");
   const [isSaving, setIsSaving] = useState(false);
+  const [selectedPredefinedCategories, setSelectedPredefinedCategories] = useState<Set<string>>(new Set());
+  const [isBulkCreating, setIsBulkCreating] = useState(false);
 
   useEffect(() => {
     catalogActions.loadCategories();
     const timer = setTimeout(() => setIsLoading(false), 300);
     return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Category management functions
@@ -56,7 +89,7 @@ export default function AdminCategories() {
       setShowAddModal(false);
       setNewCategoryName("");
       Alert.alert("Success", "Category created successfully");
-    } catch (error) {
+    } catch {
       Alert.alert("Error", "Failed to create category");
     } finally {
       setIsSaving(false);
@@ -78,7 +111,7 @@ export default function AdminCategories() {
       setCategoryToEdit(null);
       setEditCategoryName("");
       Alert.alert("Success", "Category updated successfully");
-    } catch (error) {
+    } catch {
       Alert.alert("Error", "Failed to update category");
     } finally {
       setIsSaving(false);
@@ -94,7 +127,7 @@ export default function AdminCategories() {
       setShowDeleteModal(false);
       setCategoryToDelete(null);
       Alert.alert("Success", "Category deleted successfully");
-    } catch (error) {
+    } catch {
       Alert.alert("Error", "Failed to delete category");
     } finally {
       setIsSaving(false);
@@ -110,6 +143,79 @@ export default function AdminCategories() {
   const openDeleteModal = (categoryId: number) => {
     setCategoryToDelete(categoryId);
     setShowDeleteModal(true);
+  };
+
+  // Get available predefined categories (excluding existing ones)
+  const availablePredefinedCategories = PREDEFINED_CATEGORIES.filter(
+    (predefinedCat) => 
+      !catalogState.categories.some(
+        (existingCat) => existingCat.name.toLowerCase().trim() === predefinedCat.toLowerCase().trim()
+      )
+  );
+
+  // Handle Auto Fill - bulk create selected categories
+  const handleAutoFill = async () => {
+    if (selectedPredefinedCategories.size === 0) {
+      Alert.alert("No Selection", "Please select at least one category to add");
+      return;
+    }
+
+    setIsBulkCreating(true);
+    try {
+      const categoriesToAdd = Array.from(selectedPredefinedCategories);
+      let successCount = 0;
+      let failCount = 0;
+
+      // Create categories one by one
+      for (const categoryName of categoriesToAdd) {
+        try {
+          await catalogActions.addCategory({ name: categoryName.trim() });
+          successCount++;
+        } catch (error) {
+          console.error(`Failed to create category: ${categoryName}`, error);
+          failCount++;
+        }
+      }
+
+      // Reload categories
+      await catalogActions.loadCategories();
+
+      // Close modal and reset
+      setShowAutoFillModal(false);
+      setSelectedPredefinedCategories(new Set());
+
+      // Show result
+      if (failCount === 0) {
+        Alert.alert("Success", `Successfully created ${successCount} categor${successCount === 1 ? 'y' : 'ies'}`);
+      } else {
+        Alert.alert(
+          "Partial Success",
+          `Created ${successCount} categor${successCount === 1 ? 'y' : 'ies'}. ${failCount} failed.`
+        );
+      }
+    } catch {
+      Alert.alert("Error", "Failed to create categories");
+    } finally {
+      setIsBulkCreating(false);
+    }
+  };
+
+  const togglePredefinedCategory = (categoryName: string) => {
+    const newSelected = new Set(selectedPredefinedCategories);
+    if (newSelected.has(categoryName)) {
+      newSelected.delete(categoryName);
+    } else {
+      newSelected.add(categoryName);
+    }
+    setSelectedPredefinedCategories(newSelected);
+  };
+
+  const selectAllPredefined = () => {
+    setSelectedPredefinedCategories(new Set(availablePredefinedCategories));
+  };
+
+  const deselectAllPredefined = () => {
+    setSelectedPredefinedCategories(new Set());
   };
 
   if (isLoading) {
@@ -135,13 +241,22 @@ export default function AdminCategories() {
               </Text>
             </View>
           </View>
-          <TouchableOpacity 
-            style={styles.addButton}
-            onPress={() => setShowAddModal(true)}
-          >
-            <Ionicons name="add" size={24} color="#ffffff" />
-            <Text style={styles.addButtonText}>Add Category</Text>
-          </TouchableOpacity>
+          <View style={styles.headerButtons}>
+            <TouchableOpacity 
+              style={[styles.headerButton, styles.autoFillHeaderButton]}
+              onPress={() => setShowAutoFillModal(true)}
+            >
+              <Ionicons name="sparkles" size={20} color="#277874" />
+              <Text style={styles.autoFillHeaderButtonText}>Auto Fill</Text>
+            </TouchableOpacity>
+            <TouchableOpacity 
+              style={[styles.headerButton, styles.addButton]}
+              onPress={() => setShowAddModal(true)}
+            >
+              <Ionicons name="add" size={24} color="#ffffff" />
+              <Text style={styles.addButtonText}>Add Category</Text>
+            </TouchableOpacity>
+          </View>
         </View>
 
         {/* Categories List */}
@@ -215,6 +330,23 @@ export default function AdminCategories() {
             </View>
 
             <View style={styles.modalBody}>
+              <TouchableOpacity
+                style={styles.autoFillButton}
+                onPress={() => {
+                  setShowAddModal(false);
+                  setShowAutoFillModal(true);
+                }}
+              >
+                <Ionicons name="sparkles" size={20} color="#277874" />
+                <Text style={styles.autoFillButtonText}>Auto Fill from Predefined Categories</Text>
+              </TouchableOpacity>
+
+              <View style={styles.divider}>
+                <View style={styles.dividerLine} />
+                <Text style={styles.dividerText}>OR</Text>
+                <View style={styles.dividerLine} />
+              </View>
+
               <View style={styles.inputGroup}>
                 <Text style={styles.inputLabel}>Category Name</Text>
                 <TextInput
@@ -370,6 +502,135 @@ export default function AdminCategories() {
           </View>
         </View>
       </Modal>
+
+      {/* Auto Fill Modal */}
+      <Modal
+        visible={showAutoFillModal}
+        transparent={true}
+        animationType="slide"
+        onRequestClose={() => setShowAutoFillModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Auto Fill Categories</Text>
+              <TouchableOpacity
+                onPress={() => {
+                  setShowAutoFillModal(false);
+                  setSelectedPredefinedCategories(new Set());
+                }}
+                style={styles.closeButton}
+              >
+                <Ionicons name="close" size={24} color="#6B7280" />
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.modalBody}>
+              <Text style={styles.autoFillDescription}>
+                Select predefined categories to add. Categories that already exist are automatically excluded.
+              </Text>
+
+              {availablePredefinedCategories.length === 0 ? (
+                <View style={styles.emptyPredefinedState}>
+                  <Ionicons name="checkmark-circle" size={48} color="#10B981" />
+                  <Text style={styles.emptyPredefinedText}>
+                    All predefined categories have been added
+                  </Text>
+                  <Text style={styles.emptyPredefinedSubtext}>
+                    You can still add custom categories manually
+                  </Text>
+                </View>
+              ) : (
+                <>
+                  <View style={styles.selectAllContainer}>
+                    <TouchableOpacity
+                      style={styles.selectAllButton}
+                      onPress={selectAllPredefined}
+                    >
+                      <Text style={styles.selectAllText}>Select All</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={styles.selectAllButton}
+                      onPress={deselectAllPredefined}
+                    >
+                      <Text style={styles.selectAllText}>Deselect All</Text>
+                    </TouchableOpacity>
+                  </View>
+
+                  <ScrollView style={styles.predefinedList} showsVerticalScrollIndicator={false}>
+                    {availablePredefinedCategories.map((categoryName) => {
+                      const isSelected = selectedPredefinedCategories.has(categoryName);
+                      return (
+                        <TouchableOpacity
+                          key={categoryName}
+                          style={[
+                            styles.predefinedCategoryItem,
+                            isSelected && styles.predefinedCategoryItemSelected,
+                          ]}
+                          onPress={() => togglePredefinedCategory(categoryName)}
+                        >
+                          <View
+                            style={[
+                              styles.predefinedCategoryCheckbox,
+                              isSelected && styles.predefinedCategoryCheckboxSelected,
+                            ]}
+                          >
+                            {isSelected && (
+                              <Ionicons name="checkmark" size={18} color="#277874" />
+                            )}
+                          </View>
+                          <Text
+                            style={[
+                              styles.predefinedCategoryText,
+                              isSelected && styles.predefinedCategoryTextSelected,
+                            ]}
+                          >
+                            {categoryName}
+                          </Text>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </ScrollView>
+
+                  <Text style={styles.selectedCount}>
+                    {selectedPredefinedCategories.size} of {availablePredefinedCategories.length} selected
+                  </Text>
+                </>
+              )}
+            </View>
+
+            <View style={styles.modalButtons}>
+              <TouchableOpacity
+                style={[styles.modalButton, styles.cancelButton]}
+                onPress={() => {
+                  setShowAutoFillModal(false);
+                  setSelectedPredefinedCategories(new Set());
+                }}
+              >
+                <Text style={styles.cancelButtonText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[
+                  styles.modalButton,
+                  styles.saveButton,
+                  (availablePredefinedCategories.length === 0 || selectedPredefinedCategories.size === 0) &&
+                    styles.modalButtonDisabled,
+                ]}
+                onPress={handleAutoFill}
+                disabled={isBulkCreating || availablePredefinedCategories.length === 0 || selectedPredefinedCategories.size === 0}
+              >
+                {isBulkCreating ? (
+                  <ActivityIndicator size="small" color="#ffffff" />
+                ) : (
+                  <Text style={styles.saveButtonText}>
+                    Add Selected ({selectedPredefinedCategories.size})
+                  </Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -419,15 +680,32 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: "#6B7280",
   },
-  addButton: {
+  headerButtons: {
+    flexDirection: "row",
+    gap: 12,
+    alignItems: "center",
+  },
+  headerButton: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "#277874",
     paddingVertical: 14,
     paddingHorizontal: 20,
     borderRadius: 12,
     gap: 8,
+  },
+  autoFillHeaderButton: {
+    backgroundColor: "#F0F9F8",
+    borderWidth: 2,
+    borderColor: "#277874",
+  },
+  autoFillHeaderButtonText: {
+    color: "#277874",
+    fontSize: 16,
+    fontWeight: "600",
+  },
+  addButton: {
+    backgroundColor: "#277874",
   },
   addButtonText: {
     color: "#ffffff",
@@ -563,12 +841,12 @@ const styles = StyleSheet.create({
     backgroundColor: "#ffffff",
     borderRadius: 20,
     width: width - 40,
-    maxHeight: "80%",
+    
     overflow: "hidden",
   },
   modalHeader: {
     flexDirection: "row",
-    justifyContent: "space-between",
+    justifyContent: "space-between",                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       
     alignItems: "center",
     padding: 20,
     borderBottomWidth: 1,
@@ -651,6 +929,133 @@ const styles = StyleSheet.create({
     color: "#6B7280",
     textAlign: "center",
     lineHeight: 20,
+  },
+  
+  // Auto Fill Styles
+  autoFillButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#F0F9F8",
+    borderWidth: 2,
+    borderColor: "#277874",
+    borderRadius: 12,
+    paddingVertical: 16,
+    paddingHorizontal: 20,
+    gap: 10,
+    marginBottom: 20,
+  },
+  autoFillButtonText: {
+    color: "#277874",
+    fontSize: 16,
+    fontWeight: "600",
+  },
+  divider: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginVertical: 20,
+  },
+  dividerLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: "#E5E7EB",
+  },
+  dividerText: {
+    marginHorizontal: 16,
+    fontSize: 14,
+    color: "#9CA3AF",
+    fontWeight: "500",
+  },
+  autoFillDescription: {
+    fontSize: 14,
+    color: "#6B7280",
+    marginBottom: 16,
+    lineHeight: 20,
+  },
+  selectAllContainer: {
+    flexDirection: "row",
+    gap: 12,
+    marginBottom: 16,
+  },
+  selectAllButton: {
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    backgroundColor: "#F3F4F6",
+    borderRadius: 8,
+  },
+  selectAllText: {
+    color: "#374151",
+    fontSize: 14,
+    fontWeight: "600",
+  },
+  predefinedList: {
+    maxHeight: 300,
+    marginBottom: 12,
+  },
+  predefinedCategoryItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    backgroundColor: "#F9FAFB",
+    borderRadius: 8,
+    marginBottom: 8,
+    borderWidth: 2,
+    borderColor: "#E5E7EB",
+  },
+  predefinedCategoryItemSelected: {
+    backgroundColor: "#F0F9F8",
+    borderColor: "#277874",
+  },
+  predefinedCategoryCheckbox: {
+    width: 24,
+    height: 24,
+    borderRadius: 6,
+    borderWidth: 2,
+    borderColor: "#D1D5DB",
+    marginRight: 12,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "#ffffff",
+  },
+  predefinedCategoryCheckboxSelected: {
+    borderColor: "#277874",
+    backgroundColor: "#F0F9F8",
+  },
+  predefinedCategoryText: {
+    fontSize: 16,
+    color: "#374151",
+    flex: 1,
+  },
+  predefinedCategoryTextSelected: {
+    color: "#277874",
+    fontWeight: "600",
+  },
+  selectedCount: {
+    fontSize: 14,
+    color: "#6B7280",
+    textAlign: "center",
+    marginTop: 8,
+    fontWeight: "500",
+  },
+  emptyPredefinedState: {
+    alignItems: "center",
+    padding: 40,
+  },
+  emptyPredefinedText: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#374151",
+    marginTop: 16,
+    marginBottom: 8,
+  },
+  emptyPredefinedSubtext: {
+    fontSize: 14,
+    color: "#6B7280",
+    textAlign: "center",
+  },
+  modalButtonDisabled: {
+    opacity: 0.5,
   },
 });
 

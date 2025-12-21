@@ -1,9 +1,10 @@
 import env from "@/config/env";
 import { useCatalog } from "@/features/catalog";
-import type { Category, Product as CatalogProduct } from "@/features/catalog/types";
+import type { Product as CatalogProduct, Category } from "@/features/catalog/types";
 import { useStore } from "@/features/store";
-import type { Product as StoreProduct } from "@/features/store/types";
 import type { Store } from "@/features/store/stores/types";
+import type { Product as StoreProduct } from "@/features/store/types";
+import { getProductCategoryName } from "@/utils/categoryHelpers";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { LinearGradient } from "expo-linear-gradient";
 import { useLocalSearchParams, useRouter } from "expo-router";
@@ -158,10 +159,50 @@ export default function CategoriesPage() {
   } = useStore();
 
   useEffect(() => {
+    // Only load if not already loaded - use length instead of array reference
     if (!categories || categories.length === 0) loadCategories();
     if (!products || products.length === 0) loadProducts();
     if (!stores || stores.length === 0) findStores();
-  }, [categories, products, stores, loadCategories, loadProducts, findStores]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [categories?.length, products?.length, stores?.length, loadCategories, loadProducts, findStores]);
+
+  const getProductCategoryNameCallback = useCallback(
+    (product: CatalogProduct | StoreProduct): string => {
+      return getProductCategoryName(
+        {
+          categoryId: 'categoryId' in product ? product.categoryId : null,
+          description: product.description || null,
+        },
+        categories || []
+      );
+    },
+    [categories]
+  );
+
+  const availableCategories = useMemo(() => {
+    // Only consider products from verified stores
+    const verifiedProductCategories = new Set<string>();
+    (products || []).forEach((product: CatalogProduct | StoreProduct) => {
+      // Check if product is from a verified store
+      const productStore = (stores || []).find((s: Store) => s.id === product.storeId);
+      if (productStore?.verificationStatus !== "VERIFIED") {
+        return; // Skip products from unverified stores
+      }
+      
+      const categoryName = getProductCategoryNameCallback(product);
+      if (categoryName) verifiedProductCategories.add(categoryName);
+    });
+
+    const names: string[] = [];
+    (categories || []).forEach((category: Category) => {
+      const name = String(category?.name || "");
+      if (!name) return;
+      if (verifiedProductCategories.has(name) && !names.includes(name)) {
+        names.push(name);
+      }
+    });
+    return names;
+  }, [categories, getProductCategoryNameCallback, products, stores]);
 
   // Update selected category when route params change or when categories are loaded
   useEffect(() => {
@@ -184,47 +225,7 @@ export default function CategoriesPage() {
       }
       // If no match found, it will default to "All Items" via the existing useEffect below
     }
-  }, [params.category]);
-
-  const getProductCategoryName = useCallback(
-    (product: CatalogProduct | StoreProduct): string => {
-      // Use the helper function that checks both categoryId and custom category
-      const { getProductCategoryName: getCategoryName } = require("@/utils/categoryHelpers");
-      return getCategoryName(
-        {
-          categoryId: 'categoryId' in product ? product.categoryId : null,
-          description: product.description || null,
-        },
-        categories || []
-      );
-    },
-    [categories]
-  );
-
-  const availableCategories = useMemo(() => {
-    // Only consider products from verified stores
-    const verifiedProductCategories = new Set<string>();
-    (products || []).forEach((product: CatalogProduct | StoreProduct) => {
-      // Check if product is from a verified store
-      const productStore = (stores || []).find((s: Store) => s.id === product.storeId);
-      if (productStore?.verificationStatus !== "VERIFIED") {
-        return; // Skip products from unverified stores
-      }
-      
-      const categoryName = getProductCategoryName(product);
-      if (categoryName) verifiedProductCategories.add(categoryName);
-    });
-
-    const names: string[] = [];
-    (categories || []).forEach((category: Category) => {
-      const name = String(category?.name || "");
-      if (!name) return;
-      if (verifiedProductCategories.has(name) && !names.includes(name)) {
-        names.push(name);
-      }
-    });
-    return names;
-  }, [categories, getProductCategoryName, products, stores]);
+  }, [params.category, availableCategories]);
 
   const categoryNames = useMemo(
     () => ["All Items", ...availableCategories],
@@ -263,7 +264,7 @@ export default function CategoriesPage() {
             String(p.name)
               .toLowerCase()
               .includes(searchQuery.trim().toLowerCase());
-          const productCategoryName = getProductCategoryName(p);
+          const productCategoryName = getProductCategoryNameCallback(p);
           const matchesCategory =
             selectedCategory === "All Items" ||
             productCategoryName === selectedCategory;

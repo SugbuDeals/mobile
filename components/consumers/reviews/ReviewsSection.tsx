@@ -1,6 +1,7 @@
 import { useLogin } from "@/features/auth";
 import { reviewsApi } from "@/services/api/endpoints/reviews";
 import type { ReviewResponseDto, StoreRatingStatsDto } from "@/services/api/types/swagger";
+import { borderRadius, colors, spacing } from "@/styles/theme";
 import { Ionicons } from "@expo/vector-icons";
 import { useEffect, useState } from "react";
 import {
@@ -110,36 +111,64 @@ export default function ReviewsSection({ storeId }: ReviewsSectionProps) {
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#1B6F5D" />
+        <ActivityIndicator size="large" color={colors.primary} />
       </View>
     );
   }
 
   return (
     <View style={styles.container}>
-      <View style={styles.sectionHeader}>
-        <Ionicons name="star" size={24} color="#FFD700" />
-        <Text style={styles.sectionHeaderTitle}>Reviews & Ratings</Text>
-      </View>
+      {/* Overall Rating Breakdown Section */}
+      {ratingStats && (
+        <View style={styles.ratingSection}>
+          <View style={styles.sectionHeader}>
+            <View style={styles.headerContent}>
+              <View style={styles.headerIconContainer}>
+                <Ionicons name="star" size={18} color={colors.secondaryDark} />
+              </View>
+              <Text style={styles.sectionHeaderTitle}>Overall Rating</Text>
+            </View>
+            <View style={styles.headerBadge}>
+              <Text style={styles.headerBadgeText}>
+                {ratingStats.averageRating.toFixed(1)}
+              </Text>
+              <Ionicons name="star" size={14} color={colors.secondaryDark} />
+            </View>
+          </View>
+          <RatingStats stats={ratingStats} />
+        </View>
+      )}
 
-      {ratingStats && <RatingStats stats={ratingStats} />}
+      {/* Customer Reviews Section */}
+      <View style={styles.reviewsSection}>
+        <View style={styles.reviewsHeader}>
+          <View>
+            <Text style={styles.sectionTitle}>Customer Reviews</Text>
+            {ratingStats && (
+              <Text style={styles.reviewsCount}>
+                {ratingStats.totalRatings} {ratingStats.totalRatings === 1 ? "review" : "reviews"}
+              </Text>
+            )}
+          </View>
+          {currentUserId && !existingReview && (
+            <TouchableOpacity
+              style={styles.writeButton}
+              onPress={() => setShowReviewForm(true)}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="create-outline" size={16} color={colors.white} />
+              <Text style={styles.writeButtonText}>Write Review</Text>
+            </TouchableOpacity>
+          )}
+        </View>
 
-      <View style={styles.header}>
-        <Text style={styles.sectionTitle}>Customer Reviews</Text>
-        {currentUserId && !existingReview && (
-          <TouchableOpacity
-            style={styles.writeButton}
-            onPress={() => setShowReviewForm(true)}
-          >
-            <Ionicons name="create-outline" size={18} color="#1B6F5D" />
-            <Text style={styles.writeButtonText}>Write Review</Text>
-          </TouchableOpacity>
-        )}
-      </View>
-
+      {/* User's Review */}
       {existingReview && currentUserId && (
         <View style={styles.myReviewContainer}>
-          <Text style={styles.myReviewLabel}>Your Review</Text>
+          <View style={styles.myReviewHeader}>
+            <Ionicons name="person-circle" size={20} color={colors.primary} />
+            <Text style={styles.myReviewLabel}>Your Review</Text>
+          </View>
           <ReviewCard
             review={existingReview}
             currentUserId={currentUserId}
@@ -149,13 +178,25 @@ export default function ReviewsSection({ storeId }: ReviewsSectionProps) {
         </View>
       )}
 
+      {/* Reviews List */}
       {reviews.length === 0 ? (
         <View style={styles.emptyContainer}>
-          <Ionicons name="chatbubble-outline" size={48} color="#DDD" />
+          <View style={styles.emptyIconContainer}>
+            <Ionicons name="chatbubble-outline" size={56} color={colors.gray300} />
+          </View>
           <Text style={styles.emptyText}>No reviews yet</Text>
           <Text style={styles.emptySubtext}>
-            Be the first to review this store!
+            Be the first to share your experience!
           </Text>
+          {currentUserId && !existingReview && (
+            <TouchableOpacity
+              style={styles.emptyWriteButton}
+              onPress={() => setShowReviewForm(true)}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.emptyWriteButtonText}>Write the first review</Text>
+            </TouchableOpacity>
+          )}
         </View>
       ) : (
         <FlatList
@@ -174,6 +215,7 @@ export default function ReviewsSection({ storeId }: ReviewsSectionProps) {
           contentContainerStyle={styles.reviewsList}
         />
       )}
+      </View>
 
       <ReviewForm
         storeId={storeId}
@@ -192,80 +234,154 @@ export default function ReviewsSection({ storeId }: ReviewsSectionProps) {
 
 const styles = StyleSheet.create({
   container: {
-    paddingHorizontal: 20,
-    paddingVertical: 16,
+    backgroundColor: colors.gray50,
   },
   loadingContainer: {
-    padding: 40,
+    padding: spacing.xxxl,
     alignItems: "center",
+    justifyContent: "center",
+    minHeight: 200,
+  },
+  ratingSection: {
+    backgroundColor: colors.white,
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.lg,
+    paddingBottom: spacing.md,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.gray200,
   },
   sectionHeader: {
     flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-    marginBottom: 20,
-    paddingBottom: 12,
-    borderBottomWidth: 2,
-    borderBottomColor: "#E5E7EB",
-  },
-  sectionHeaderTitle: {
-    fontSize: 22,
-    fontWeight: "700",
-    color: "#111827",
-  },
-  header: {
-    flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginTop: 8,
-    marginBottom: 16,
+    marginBottom: spacing.md,
+  },
+  headerContent: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.sm,
+  },
+  headerIconContainer: {
+    width: 28,
+    height: 28,
+    borderRadius: borderRadius.md,
+    backgroundColor: colors.secondaryLight,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  sectionHeaderTitle: {
+    fontSize: 18,
+    fontWeight: "700",
+    color: colors.gray900,
+  },
+  headerBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    backgroundColor: colors.primaryLight,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+    borderRadius: borderRadius.full,
+  },
+  headerBadgeText: {
+    fontSize: 15,
+    fontWeight: "700",
+    color: colors.primary,
+  },
+  reviewsSection: {
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.lg,
+    paddingBottom: spacing.lg,
+  },
+  reviewsHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
+    marginBottom: spacing.md,
   },
   sectionTitle: {
     fontSize: 18,
-    fontWeight: "600",
-    color: "#374151",
+    fontWeight: "700",
+    color: colors.gray900,
+    marginBottom: spacing.xs,
+  },
+  reviewsCount: {
+    fontSize: 13,
+    color: colors.gray500,
+    fontWeight: "500",
   },
   writeButton: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 6,
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    backgroundColor: "#F0FDF4",
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: "#D1FAE5",
+    gap: spacing.xs,
+    paddingVertical: spacing.xs,
+    paddingHorizontal: spacing.sm,
+    backgroundColor: colors.primary,
+    borderRadius: borderRadius.md,
   },
   writeButtonText: {
-    color: "#1B6F5D",
-    fontSize: 14,
+    color: colors.white,
+    fontSize: 13,
     fontWeight: "600",
   },
   myReviewContainer: {
-    marginBottom: 16,
+    marginBottom: spacing.md,
+    backgroundColor: colors.white,
+    borderRadius: borderRadius.md,
+    padding: spacing.md,
+    borderWidth: 1,
+    borderColor: colors.primaryLight,
+  },
+  myReviewHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.xs,
+    marginBottom: spacing.xs,
   },
   myReviewLabel: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: "600",
-    color: "#666",
-    marginBottom: 8,
+    color: colors.primary,
   },
   reviewsList: {
-    gap: 12,
+    gap: spacing.sm,
   },
   emptyContainer: {
     alignItems: "center",
-    paddingVertical: 40,
+    paddingVertical: spacing.xxxl,
+    paddingHorizontal: spacing.lg,
+  },
+  emptyIconContainer: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    backgroundColor: colors.gray100,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: spacing.lg,
   },
   emptyText: {
-    fontSize: 16,
+    fontSize: 18,
     fontWeight: "600",
-    color: "#999",
-    marginTop: 12,
+    color: colors.gray700,
+    marginBottom: spacing.xs,
   },
   emptySubtext: {
     fontSize: 14,
-    color: "#BBB",
-    marginTop: 4,
+    color: colors.gray500,
+    textAlign: "center",
+    marginBottom: spacing.lg,
+  },
+  emptyWriteButton: {
+    backgroundColor: colors.primary,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.lg,
+    borderRadius: borderRadius.md,
+    marginTop: spacing.sm,
+  },
+  emptyWriteButtonText: {
+    color: colors.white,
+    fontSize: 14,
+    fontWeight: "600",
   },
 });

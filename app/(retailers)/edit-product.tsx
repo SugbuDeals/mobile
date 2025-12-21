@@ -8,7 +8,7 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import * as ImagePicker from "expo-image-picker";
 import { LinearGradient } from "expo-linear-gradient";
 import { router, useLocalSearchParams } from "expo-router";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
     Alert,
     Image,
@@ -17,6 +17,7 @@ import {
     StatusBar,
     StyleSheet,
     Text,
+    TextInput,
     TouchableOpacity,
     View
 } from "react-native";
@@ -43,6 +44,7 @@ export default function EditProduct() {
   const [showCategoryList, setShowCategoryList] = useState(false);
   const [isOthersCategory, setIsOthersCategory] = useState(false);
   const [customCategoryName, setCustomCategoryName] = useState("");
+  const [categorySearchQuery, setCategorySearchQuery] = useState("");
 
   // Request image picker permissions
   useEffect(() => {
@@ -56,9 +58,14 @@ export default function EditProduct() {
     })();
   }, []);
 
+  const categoriesLoadedRef = useRef(false);
+  
   useEffect(() => {
-    loadCategories();
-  }, [loadCategories]);
+    if (!categoriesLoadedRef.current && (!categories || categories.length === 0)) {
+      categoriesLoadedRef.current = true;
+      loadCategories();
+    }
+  }, [categories?.length, loadCategories]);
 
   // Fetch product data when component mounts
   useEffect(() => {
@@ -71,7 +78,6 @@ export default function EditProduct() {
           await findProducts({ storeId: userStore.id });
         } else if (user && user.id && !userStore?.id && products.length === 0) {
           // Fallback: if userStore is not available yet, try using user ID directly
-          console.log("Edit product - userStore not available, using user ID as fallback");
           await findProducts({ storeId: Number(user.id) });
         }
         
@@ -123,8 +129,7 @@ export default function EditProduct() {
           // Only show error if we have products but the specific one wasn't found
           Alert.alert("Error", "Product not found");
         }
-      } catch (error) {
-        console.error("Error fetching product:", error);
+      } catch {
         Alert.alert("Error", "Failed to load product data");
       }
     };
@@ -180,8 +185,7 @@ export default function EditProduct() {
         // Upload image immediately
         await handleImageUpload(uri);
       }
-    } catch (error) {
-      console.error("Error picking image:", error);
+    } catch {
       Alert.alert("Error", "Failed to pick image. Please try again.");
     }
   };
@@ -198,7 +202,6 @@ export default function EditProduct() {
       setImageUrl(result.url || result.filename);
       Alert.alert("Success", "Image uploaded successfully!");
     } catch (error) {
-      console.error("Image upload error:", error);
       Alert.alert("Upload Error", error instanceof Error ? error.message : "Failed to upload image. Please try again.");
       setImageUri(null);
     } finally {
@@ -272,8 +275,7 @@ export default function EditProduct() {
         try {
           const result = await uploadFile(imageUri, accessToken);
           setImageUrl(result.url || result.filename);
-        } catch (error) {
-          console.error("Image upload error:", error);
+        } catch {
           Alert.alert("Upload Error", "Failed to upload image. Updating product without new image.");
         } finally {
           setUploadingImage(false);
@@ -319,14 +321,12 @@ export default function EditProduct() {
         categoryId: categoryIdToUse ?? null,
       };
 
-      console.log("Updating product with data:", updateData);
       await updateProduct(updateData);
       
       Alert.alert("Success", "Product updated successfully!", [
         { text: "OK", onPress: () => router.back() }
       ]);
     } catch (err) {
-      console.error("Error updating product:", err);
       Alert.alert("Error", "Failed to update product. Please try again.");
     } finally {
       setIsSubmitting(false);
@@ -427,33 +427,90 @@ export default function EditProduct() {
               </Text>
             </TouchableOpacity>
             {showCategoryList && (
-              <View style={{ marginTop: 8, borderWidth: 1, borderColor: "#E5E7EB", borderRadius: 12, backgroundColor: "#F9FAFB" }}>
-                {categories.map((cat) => (
-                  <TouchableOpacity
-                    key={cat.id}
-                    onPress={() => {
-                      setSelectedCategoryId(cat.id);
-                      setIsOthersCategory(false);
-                      setCustomCategoryName("");
-                      setShowCategoryList(false);
-                    }}
-                    style={{ paddingVertical: 10, paddingHorizontal: 12 }}
-                  >
-                    <Text style={{ fontSize: 16, color: "#374151" }}>{cat.name}</Text>
-                  </TouchableOpacity>
-                ))}
+              <View style={{ marginTop: 8, borderWidth: 1, borderColor: "#E5E7EB", borderRadius: 12, backgroundColor: "#F9FAFB", overflow: "hidden" }}>
+                {/* Search Input */}
+                <View style={{ padding: 12, borderBottomWidth: 1, borderBottomColor: "#E5E7EB", backgroundColor: "#F9FAFB" }}>
+                  <View style={{ flexDirection: "row", alignItems: "center", backgroundColor: "#ffffff", borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8, borderWidth: 1, borderColor: "#D1D5DB" }}>
+                    <Ionicons name="search" size={18} color="#6B7280" />
+                    <TextInput
+                      style={{ flex: 1, marginLeft: 8, fontSize: 16, color: "#374151" }}
+                      placeholder="Search categories..."
+                      placeholderTextColor="#9CA3AF"
+                      value={categorySearchQuery}
+                      onChangeText={setCategorySearchQuery}
+                      autoFocus={false}
+                    />
+                    {categorySearchQuery.length > 0 && (
+                      <TouchableOpacity onPress={() => setCategorySearchQuery("")}>
+                        <Ionicons name="close-circle" size={18} color="#9CA3AF" />
+                      </TouchableOpacity>
+                    )}
+                  </View>
+                </View>
+                
+                {/* Filtered Categories List */}
+                <ScrollView 
+                  style={{ maxHeight: 250 }} 
+                  contentContainerStyle={{ paddingBottom: 8 }}
+                  showsVerticalScrollIndicator={true}
+                  nestedScrollEnabled={true}
+                  keyboardShouldPersistTaps="handled"
+                  bounces={true}
+                >
+                  {categories
+                    .filter((cat) => 
+                      cat.name.toLowerCase().includes(categorySearchQuery.toLowerCase().trim())
+                    )
+                    .map((cat) => (
+                      <TouchableOpacity
+                        key={cat.id}
+                        onPress={() => {
+                          setSelectedCategoryId(cat.id);
+                          setIsOthersCategory(false);
+                          setCustomCategoryName("");
+                          setShowCategoryList(false);
+                          setCategorySearchQuery("");
+                        }}
+                        style={{ 
+                          paddingVertical: 12, 
+                          paddingHorizontal: 16,
+                          backgroundColor: selectedCategoryId === cat.id ? "#F0F9F8" : "transparent"
+                        }}
+                      >
+                        <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+                          <Text style={{ fontSize: 16, color: "#374151", fontWeight: selectedCategoryId === cat.id ? "600" : "400" }}>
+                            {cat.name}
+                          </Text>
+                          {selectedCategoryId === cat.id && (
+                            <Ionicons name="checkmark-circle" size={18} color="#277874" />
+                          )}
+                        </View>
+                      </TouchableOpacity>
+                    ))}
+                  {categories.filter((cat) => 
+                    cat.name.toLowerCase().includes(categorySearchQuery.toLowerCase().trim())
+                  ).length === 0 && categorySearchQuery.length > 0 && (
+                    <View style={{ paddingVertical: 20, paddingHorizontal: 16, alignItems: "center" }}>
+                      <Ionicons name="search-outline" size={32} color="#9CA3AF" />
+                      <Text style={{ fontSize: 14, color: "#6B7280", marginTop: 8 }}>
+                        No categories found matching "{categorySearchQuery}"
+                      </Text>
+                    </View>
+                  )}
+                </ScrollView>
                 <TouchableOpacity
                   onPress={() => {
                     setIsOthersCategory(true);
                     setSelectedCategoryId(null);
                     setShowCategoryList(false);
+                    setCategorySearchQuery("");
                   }}
                   style={{ 
-                    paddingVertical: 10, 
-                    paddingHorizontal: 12,
-                    borderTopWidth: categories.length > 0 ? 1 : 0,
+                    paddingVertical: 12, 
+                    paddingHorizontal: 16,
+                    borderTopWidth: 1,
                     borderTopColor: "#E5E7EB",
-                    backgroundColor: isOthersCategory ? "#EFF6FF" : "transparent"
+                    backgroundColor: isOthersCategory ? "#F0F9F8" : "transparent"
                   }}
                 >
                   <View style={{ flexDirection: "row", alignItems: "center" }}>

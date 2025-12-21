@@ -62,7 +62,6 @@ export default function Settings() {
 
   // Update form when store data is loaded
   React.useEffect(() => {
-    console.log("Settings - userStore state:", userStore);
     if (userStore) {
       setStoreName(userStore.name || "");
       setStoreDescription(userStore.description || "");
@@ -137,14 +136,6 @@ export default function Settings() {
     
     setIsSavingStore(true);
     try {
-      console.log("Saving store changes:", {
-        storeName: storeName.trim(),
-        storeDescription: storeDescription.trim(),
-      });
-      
-      console.log("Current user:", user);
-      console.log("Current userStore:", userStore);
-      
       // Prepare update data - only include fields that have changed
       // Note: Don't include 'id' in the request body as it's passed in the URL
       const storeUpdateData: any = {};
@@ -186,16 +177,7 @@ export default function Settings() {
       );
       
       if (hasStoreChanges) {
-        console.log("=== STORE UPDATE DEBUG ===");
-        console.log("Final storeUpdateData:", JSON.stringify(storeUpdateData, null, 2));
-        console.log("Store ID (from userStore):", userStore.id);
-        console.log("User ID (from user):", user?.id ?? "N/A");
-        console.log("Store name:", storeUpdateData.name);
-        console.log("Store description:", storeUpdateData.description);
-        console.log("==========================");
-        
         await updateStore({ id: userStore.id, ...storeUpdateData }).unwrap();
-        console.log("Store updated successfully");
         
         // Show success message
         Alert.alert(
@@ -209,8 +191,6 @@ export default function Settings() {
         Alert.alert("Info", "No changes detected in store details.");
       }
     } catch (error: unknown) {
-      console.error("Failed to save store changes:", error);
-      
       // Show error message
       const errorMessage = error instanceof Error ? error.message : "Failed to update store details. Please try again.";
       Alert.alert(
@@ -312,11 +292,6 @@ export default function Settings() {
     
     setIsSavingUser(true);
     try {
-      console.log("Saving user changes:", {
-        fullName: fullName.trim(),
-        email: email.trim(),
-      });
-      
       const userUpdateData: {
         name?: string;
         email?: string;
@@ -354,8 +329,6 @@ export default function Settings() {
         Alert.alert("Info", "No changes detected in user details.");
       }
     } catch (error: unknown) {
-      console.error("Failed to save user changes:", error);
-      
       // Show error message
       const errorMessage = error instanceof Error ? error.message : "Failed to update user details. Please try again.";
       Alert.alert(

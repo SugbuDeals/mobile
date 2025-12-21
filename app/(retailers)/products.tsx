@@ -14,20 +14,20 @@ import { LinearGradient } from "expo-linear-gradient";
 import { router, useFocusEffect } from "expo-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
-  ActivityIndicator,
-  Alert,
-  Dimensions,
-  FlatList,
-  Image,
-  Modal,
-  Platform,
-  ScrollView,
-  StatusBar,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View
+    ActivityIndicator,
+    Alert,
+    Dimensions,
+    FlatList,
+    Image,
+    Modal,
+    Platform,
+    ScrollView,
+    StatusBar,
+    StyleSheet,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View
 } from "react-native";
 
 // Helper function to get icon name based on category name
@@ -133,11 +133,15 @@ export default function Products() {
 
   // Stable thunk references
   const stableFindProducts = useStableThunk(findProducts);
+  const categoriesLoadedRef = useRef(false);
 
-  // Load categories on mount
+  // Load categories on mount (only once)
   useEffect(() => {
-    loadCategories();
-  }, [loadCategories]);
+    if (!categoriesLoadedRef.current && (!categories || categories.length === 0)) {
+      categoriesLoadedRef.current = true;
+      loadCategories();
+    }
+  }, [categories?.length, loadCategories]);
 
   // Get categories that have products in the store
   const availableCategories = useMemo(() => {
@@ -259,18 +263,24 @@ export default function Products() {
     }
   }, [userStore?.id, user?.id, stableFindProducts]);
 
-  // Refresh products when component comes into focus
+  // Refresh products when component comes into focus (only if data is stale or missing)
+  const lastFocusRef = useRef<number | null>(null);
   useFocusEffect(
     useCallback(() => {
       const storeId = userStore?.id;
       const userId = user?.id ? Number(user.id) : null;
+      const currentId = storeId || userId;
 
-      if (storeId) {
-        stableFindProducts({ storeId });
-      } else if (userId) {
-        stableFindProducts({ storeId: userId });
+      // Only refetch if store/user ID changed or if we don't have products yet
+      if (currentId && (lastFocusRef.current !== currentId || !products || products.length === 0)) {
+        lastFocusRef.current = currentId;
+        if (storeId) {
+          stableFindProducts({ storeId });
+        } else if (userId) {
+          stableFindProducts({ storeId: userId });
+        }
       }
-    }, [userStore?.id, user?.id, stableFindProducts])
+    }, [userStore?.id, user?.id, stableFindProducts, products?.length])
   );
 
   const getStockStatusColor = (stock: number) => {
@@ -296,7 +306,6 @@ export default function Products() {
   const confirmDelete = async () => {
     if (productToDelete) {
       try {
-        console.log("Deleting product:", productToDelete.id);
         await deleteProduct(Number(productToDelete.id));
         
         // Refresh the products list after successful deletion
@@ -381,7 +390,6 @@ export default function Products() {
         await findProducts({ storeId: userStore.id });
       }
     } catch (error: any) {
-      console.error("Error updating stock:", error);
       Alert.alert(
         "Update Failed",
         error?.message || "Failed to update stock. Please try again."
@@ -554,7 +562,6 @@ export default function Products() {
               setSelectedProductIds(new Set());
               setIsMultiSelectMode(false);
             } catch (error: any) {
-              console.error("Error updating stock:", error);
               Alert.alert("Update Failed", error?.message || "Failed to update stock. Please try again.");
             } finally {
               setIsApplyingBulkStock(false);
@@ -607,7 +614,6 @@ export default function Products() {
               setSelectedProductIds(new Set());
               setIsMultiSelectMode(false);
             } catch (error: any) {
-              console.error(`Error ${action}ing products:`, error);
               Alert.alert("Update Failed", error?.message || `Failed to ${action} products.`);
             }
           },
@@ -666,7 +672,6 @@ export default function Products() {
       setShowDuplicateModal(false);
       setProductToDuplicate(null);
     } catch (error: any) {
-      console.error("Error duplicating product:", error);
       Alert.alert(
         "Duplication Failed",
         error?.message || "Failed to duplicate product. Please try again."
@@ -716,7 +721,6 @@ export default function Products() {
               setSelectedProductIds(new Set());
               setIsMultiSelectMode(false);
             } catch (error: any) {
-              console.error("Error updating categories:", error);
               Alert.alert(
                 "Update Failed",
                 error?.message || "Failed to update categories. Please try again."

@@ -15,15 +15,15 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import { LinearGradient } from "expo-linear-gradient";
 import * as Location from "expo-location";
 import { useFocusEffect, useRouter } from "expo-router";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
-  Image,
-  Modal,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
+    Image,
+    Modal,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View,
 } from "react-native";
 
 type Router = ReturnType<typeof useRouter>;
@@ -182,14 +182,27 @@ export default function Home() {
     return 1; // BASIC tier allows up to 1km (default)
   }, [currentTier?.tier]);
 
-  // Load initial data
+  // Track if initial data has been loaded
+  const initialDataLoadedRef = useRef(false);
+
+  // Load initial data (only once on mount)
   useAsyncEffect(async () => {
+    if (initialDataLoadedRef.current) return;
+    initialDataLoadedRef.current = true;
+
     // Fetch tier first (don't await - let it load in background)
     getCurrentTier();
     // Load all stores first so products/deals can verify store status immediately
     stableFindStores();
-    stableLoadCategories();
-    stableLoadProducts();
+    
+    // Only load categories/products if not already loaded
+    if (!categories || categories.length === 0) {
+      stableLoadCategories();
+    }
+    if (!products || products.length === 0) {
+      stableLoadProducts();
+    }
+    
     stableFindActivePromotions();
     
     try {
@@ -204,11 +217,10 @@ export default function Home() {
           radiusKm: radiusKm 
         });
       }
-    } catch (error) {
+    } catch {
       // Silently handle location errors
-      console.warn("Location permission error:", error);
     }
-  }, [stableFindStores, stableLoadCategories, stableLoadProducts, stableFindActivePromotions, stableFindNearbyStores, getCurrentTier, radiusKm]);
+  }, [stableFindStores, stableLoadCategories, stableLoadProducts, stableFindActivePromotions, stableFindNearbyStores, getCurrentTier, radiusKm, categories?.length, products?.length]);
 
   // Refresh promotions when screen comes into focus
   useFocusEffect(
@@ -352,9 +364,8 @@ function PromotionModal({
       viewsApi.recordView({
         entityType: "PROMOTION",
         entityId: promotion.id,
-      }).catch((error) => {
+      }).catch(() => {
         // Silently fail - view recording is not critical
-        console.debug("Failed to record promotion view:", error);
       });
     }
   }, [promotion?.id]);

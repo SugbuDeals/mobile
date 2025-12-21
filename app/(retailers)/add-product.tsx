@@ -17,6 +17,7 @@ import {
     StatusBar,
     StyleSheet,
     Text,
+    TextInput,
     TouchableOpacity,
     View
 } from "react-native";
@@ -42,6 +43,7 @@ export default function AddProduct() {
   const [showSubscriptionOverlay, setShowSubscriptionOverlay] = useState(false);
   const [isOthersCategory, setIsOthersCategory] = useState(false);
   const [customCategoryName, setCustomCategoryName] = useState("");
+  const [categorySearchQuery, setCategorySearchQuery] = useState("");
 
   const resetForm = () => {
     setProductName("");
@@ -81,18 +83,22 @@ export default function AddProduct() {
         }
       }
     })();
-    loadCategories();
+    
+    // Load categories only if not already loaded
+    if (!categories || categories.length === 0) {
+      loadCategories();
+    }
     
     // Fetch current tier
     getCurrentTier();
     
-    // Fetch products to check limit
-    if (userStore?.id) {
+    // Fetch products to check limit (only if not already loaded)
+    if (userStore?.id && (!products || products.length === 0)) {
       findProducts({ storeId: userStore.id });
-    } else if (user && user.id) {
+    } else if (user && user.id && (!products || products.length === 0)) {
       findProducts({ storeId: Number(user.id) });
     }
-  }, [user, userStore, findProducts, loadCategories, getCurrentTier]);
+  }, [user?.id, userStore?.id, categories?.length, products?.length, findProducts, loadCategories, getCurrentTier]);
 
   const pickImage = async () => {
     try {
@@ -462,33 +468,90 @@ export default function AddProduct() {
           </Text>
         </TouchableOpacity>
         {showCategoryList && (
-          <View style={{ marginTop: 8, borderWidth: 1, borderColor: "#E5E7EB", borderRadius: 12, backgroundColor: "#F9FAFB" }}>
-            {categories.map((cat) => (
-              <TouchableOpacity
-                key={cat.id}
-                onPress={() => {
-                  setSelectedCategoryId(cat.id);
-                  setIsOthersCategory(false);
-                  setCustomCategoryName("");
-                  setShowCategoryList(false);
-                }}
-                style={{ paddingVertical: 10, paddingHorizontal: 12 }}
-              >
-                <Text style={{ fontSize: 16, color: "#374151" }}>{cat.name}</Text>
-              </TouchableOpacity>
-            ))}
+          <View style={{ marginTop: 8, borderWidth: 1, borderColor: "#E5E7EB", borderRadius: 12, backgroundColor: "#F9FAFB", overflow: "hidden" }}>
+            {/* Search Input */}
+            <View style={{ padding: 12, borderBottomWidth: 1, borderBottomColor: "#E5E7EB", backgroundColor: "#F9FAFB" }}>
+              <View style={{ flexDirection: "row", alignItems: "center", backgroundColor: "#ffffff", borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8, borderWidth: 1, borderColor: "#D1D5DB" }}>
+                <Ionicons name="search" size={18} color="#6B7280" />
+                <TextInput
+                  style={{ flex: 1, marginLeft: 8, fontSize: 16, color: "#374151" }}
+                  placeholder="Search categories..."
+                  placeholderTextColor="#9CA3AF"
+                  value={categorySearchQuery}
+                  onChangeText={setCategorySearchQuery}
+                  autoFocus={false}
+                />
+                {categorySearchQuery.length > 0 && (
+                  <TouchableOpacity onPress={() => setCategorySearchQuery("")}>
+                    <Ionicons name="close-circle" size={18} color="#9CA3AF" />
+                  </TouchableOpacity>
+                )}
+              </View>
+            </View>
+            
+            {/* Filtered Categories List */}
+            <ScrollView 
+              style={{ maxHeight: 250 }} 
+              contentContainerStyle={{ paddingBottom: 8 }}
+              showsVerticalScrollIndicator={true}
+              nestedScrollEnabled={true}
+              keyboardShouldPersistTaps="handled"
+              bounces={true}
+            >
+              {categories
+                .filter((cat) => 
+                  cat.name.toLowerCase().includes(categorySearchQuery.toLowerCase().trim())
+                )
+                .map((cat) => (
+                  <TouchableOpacity
+                    key={cat.id}
+                    onPress={() => {
+                      setSelectedCategoryId(cat.id);
+                      setIsOthersCategory(false);
+                      setCustomCategoryName("");
+                      setShowCategoryList(false);
+                      setCategorySearchQuery("");
+                    }}
+                    style={{ 
+                      paddingVertical: 12, 
+                      paddingHorizontal: 16,
+                      backgroundColor: selectedCategoryId === cat.id ? "#F0F9F8" : "transparent"
+                    }}
+                  >
+                    <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+                      <Text style={{ fontSize: 16, color: "#374151", fontWeight: selectedCategoryId === cat.id ? "600" : "400" }}>
+                        {cat.name}
+                      </Text>
+                      {selectedCategoryId === cat.id && (
+                        <Ionicons name="checkmark-circle" size={18} color="#277874" />
+                      )}
+                    </View>
+                  </TouchableOpacity>
+                ))}
+              {categories.filter((cat) => 
+                cat.name.toLowerCase().includes(categorySearchQuery.toLowerCase().trim())
+              ).length === 0 && categorySearchQuery.length > 0 && (
+                <View style={{ paddingVertical: 20, paddingHorizontal: 16, alignItems: "center" }}>
+                  <Ionicons name="search-outline" size={32} color="#9CA3AF" />
+                  <Text style={{ fontSize: 14, color: "#6B7280", marginTop: 8 }}>
+                    No categories found matching "{categorySearchQuery}"
+                  </Text>
+                </View>
+              )}
+            </ScrollView>
             <TouchableOpacity
               onPress={() => {
                 setIsOthersCategory(true);
                 setSelectedCategoryId(null);
                 setShowCategoryList(false);
+                setCategorySearchQuery("");
               }}
               style={{ 
-                paddingVertical: 10, 
-                paddingHorizontal: 12,
-                borderTopWidth: categories.length > 0 ? 1 : 0,
+                paddingVertical: 12, 
+                paddingHorizontal: 16,
+                borderTopWidth: 1,
                 borderTopColor: "#E5E7EB",
-                backgroundColor: isOthersCategory ? "#EFF6FF" : "transparent"
+                backgroundColor: isOthersCategory ? "#F0F9F8" : "transparent"
               }}
             >
               <View style={{ flexDirection: "row", alignItems: "center" }}>
