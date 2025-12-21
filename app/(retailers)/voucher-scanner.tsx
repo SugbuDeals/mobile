@@ -60,7 +60,6 @@ export default function VoucherScannerScreen() {
       setVerificationResult(result);
       setShowResultModal(true);
     } catch (error: any) {
-      console.error("Error verifying voucher:", error);
       Alert.alert(
         "Verification Failed",
         error?.response?.data?.message || error?.message || "Invalid or expired voucher"
@@ -94,12 +93,6 @@ export default function VoucherScannerScreen() {
                 },
                 verificationResult.promotionId // Pass promotionId if available to fetch updated promotion after redemption
               );
-
-              // Log the updated promotion if available (for debugging)
-              if (result.promotion) {
-                console.log("Updated promotion after redemption:", result.promotion);
-                console.log("Remaining vouchers:", result.promotion.voucherQuantity ?? "Unlimited");
-              }
 
               Alert.alert("Success", "Voucher redeemed successfully!");
               setShowResultModal(false);

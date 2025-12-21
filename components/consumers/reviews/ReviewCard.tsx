@@ -1,6 +1,7 @@
 import ReportForm from "@/components/reports/ReportForm";
 import { reviewsApi } from "@/services/api/endpoints/reviews";
 import type { ReplyResponseDto, ReviewResponseDto } from "@/services/api/types/swagger";
+import { borderRadius, colors, spacing } from "@/styles/theme";
 import { Ionicons } from "@expo/vector-icons";
 import { useEffect, useState } from "react";
 import {
@@ -38,20 +39,35 @@ function ReplyItem({ reply, currentUserId, reviewId, onReply, onUpdate, depth }:
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [showReportForm, setShowReportForm] = useState(false);
+  const [currentTime, setCurrentTime] = useState(Date.now());
+
+  // Update current time every minute to refresh relative time displays
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setCurrentTime(Date.now());
+    }, 60000); // Update every minute
+
+    return () => clearInterval(interval);
+  }, []);
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
-    const now = new Date();
+    const now = new Date(currentTime);
     const diffMs = now.getTime() - date.getTime();
     const diffMins = Math.floor(diffMs / 60000);
     const diffHours = Math.floor(diffMs / 3600000);
     const diffDays = Math.floor(diffMs / 86400000);
+    const diffWeeks = Math.floor(diffDays / 7);
+    const diffMonths = Math.floor(diffDays / 30);
 
+    if (diffMs < 0) return "Just now"; // Handle future dates
     if (diffMins < 1) return "Just now";
     if (diffMins < 60) return `${diffMins}m ago`;
     if (diffHours < 24) return `${diffHours}h ago`;
     if (diffDays < 7) return `${diffDays}d ago`;
-    return date.toLocaleDateString();
+    if (diffWeeks < 4) return `${diffWeeks}w ago`;
+    if (diffMonths < 12) return `${diffMonths}mo ago`;
+    return date.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
   };
 
   const maxDepth = 3; // Limit nesting depth to prevent UI issues
@@ -135,7 +151,7 @@ function ReplyItem({ reply, currentUserId, reviewId, onReply, onUpdate, depth }:
           />
         ) : (
           <View style={styles.replyAvatarPlaceholder}>
-            <Ionicons name="person" size={14} color="#999" />
+            <Ionicons name="person" size={14} color={colors.gray400} />
           </View>
         )}
         <View style={styles.replyHeaderText}>
@@ -152,7 +168,7 @@ function ReplyItem({ reply, currentUserId, reviewId, onReply, onUpdate, depth }:
               activeOpacity={0.7}
               disabled={isDeleting}
             >
-              <Ionicons name="create-outline" size={14} color="#007AFF" />
+              <Ionicons name="create-outline" size={13} color={colors.primary} />
             </TouchableOpacity>
             <TouchableOpacity
               style={styles.replyDeleteButton}
@@ -161,9 +177,9 @@ function ReplyItem({ reply, currentUserId, reviewId, onReply, onUpdate, depth }:
               disabled={isDeleting}
             >
               {isDeleting ? (
-                <ActivityIndicator size="small" color="#FF3B30" />
+                <ActivityIndicator size="small" color={colors.error} />
               ) : (
-                <Ionicons name="trash-outline" size={14} color="#FF3B30" />
+                <Ionicons name="trash-outline" size={13} color={colors.error} />
               )}
             </TouchableOpacity>
           </View>
@@ -175,7 +191,7 @@ function ReplyItem({ reply, currentUserId, reviewId, onReply, onUpdate, depth }:
           <TextInput
             style={styles.replyEditInput}
             placeholder="Edit your reply..."
-            placeholderTextColor="#999"
+            placeholderTextColor={colors.gray400}
             multiline
             numberOfLines={3}
             value={editText}
@@ -211,14 +227,14 @@ function ReplyItem({ reply, currentUserId, reviewId, onReply, onUpdate, depth }:
       
       <View style={styles.replyActionsRow}>
         {canReply && !isEditing && (
-          <TouchableOpacity
-            style={styles.replyToReplyButton}
-            onPress={() => onReply(reply.id)}
-            activeOpacity={0.7}
-          >
-            <Ionicons name="arrow-undo-outline" size={14} color="#007AFF" />
-            <Text style={styles.replyToReplyText}>Reply</Text>
-          </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.replyToReplyButton}
+              onPress={() => onReply(reply.id)}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="arrow-undo-outline" size={12} color={colors.primary} />
+              <Text style={styles.replyToReplyText}>Reply</Text>
+            </TouchableOpacity>
         )}
         {!isOwner && currentUserId && !isEditing && (
           <TouchableOpacity
@@ -226,7 +242,7 @@ function ReplyItem({ reply, currentUserId, reviewId, onReply, onUpdate, depth }:
             onPress={() => setShowReportForm(true)}
             activeOpacity={0.7}
           >
-            <Ionicons name="flag-outline" size={12} color="#EF4444" />
+            <Ionicons name="flag-outline" size={11} color={colors.error} />
             <Text style={styles.replyReportText}>Report</Text>
           </TouchableOpacity>
         )}
@@ -284,8 +300,18 @@ export default function ReviewCard({
   const [submittingReply, setSubmittingReply] = useState(false);
   const [replyingToReplyId, setReplyingToReplyId] = useState<number | null>(null);
   const [showReportForm, setShowReportForm] = useState(false);
+  const [currentTime, setCurrentTime] = useState(Date.now());
 
   const isOwner = currentUserId === review.userId;
+
+  // Update current time every minute to refresh relative time displays
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setCurrentTime(Date.now());
+    }, 60000); // Update every minute
+
+    return () => clearInterval(interval);
+  }, []);
 
   // Sync state with review prop changes (e.g., when user logs back in)
   useEffect(() => {
@@ -452,17 +478,22 @@ export default function ReviewCard({
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
-    const now = new Date();
+    const now = new Date(currentTime);
     const diffMs = now.getTime() - date.getTime();
     const diffMins = Math.floor(diffMs / 60000);
     const diffHours = Math.floor(diffMs / 3600000);
     const diffDays = Math.floor(diffMs / 86400000);
+    const diffWeeks = Math.floor(diffDays / 7);
+    const diffMonths = Math.floor(diffDays / 30);
 
+    if (diffMs < 0) return "Just now"; // Handle future dates
     if (diffMins < 1) return "Just now";
     if (diffMins < 60) return `${diffMins}m ago`;
     if (diffHours < 24) return `${diffHours}h ago`;
     if (diffDays < 7) return `${diffDays}d ago`;
-    return date.toLocaleDateString();
+    if (diffWeeks < 4) return `${diffWeeks}w ago`;
+    if (diffMonths < 12) return `${diffMonths}mo ago`;
+    return date.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
   };
 
   return (
@@ -475,32 +506,34 @@ export default function ReviewCard({
               style={styles.avatar}
             />
           ) : (
-            <View style={styles.avatarPlaceholder}>
-              <Ionicons name="person" size={20} color="#999" />
-            </View>
+          <View style={styles.avatarPlaceholder}>
+            <Ionicons name="person" size={16} color={colors.gray400} />
+          </View>
           )}
           <View style={styles.userDetails}>
-            <Text style={styles.userName} numberOfLines={1} ellipsizeMode="tail">
-              {review.userName}
-            </Text>
+            <View style={styles.userNameRow}>
+              <Text style={styles.userName} numberOfLines={1} ellipsizeMode="tail">
+                {review.userName}
+              </Text>
+              {review.rating !== null && (
+                <View style={styles.ratingContainer}>
+                  {[1, 2, 3, 4, 5].map((star) => (
+                    <Ionicons
+                      key={star}
+                      name={star <= review.rating! ? "star" : "star-outline"}
+                      size={12}
+                      color={colors.secondaryDark}
+                    />
+                  ))}
+                </View>
+              )}
+            </View>
             <Text style={styles.date}>{formatDate(review.createdAt)}</Text>
           </View>
         </View>
-        {review.rating !== null && (
-          <View style={styles.ratingContainer}>
-            {[1, 2, 3, 4, 5].map((star) => (
-              <Ionicons
-                key={star}
-                name={star <= review.rating! ? "star" : "star-outline"}
-                size={16}
-                color="#FFD700"
-              />
-            ))}
-          </View>
-        )}
       </View>
 
-      <Text style={styles.comment} numberOfLines={10} ellipsizeMode="tail">
+      <Text style={styles.comment} numberOfLines={6} ellipsizeMode="tail">
         {review.comment}
       </Text>
 
@@ -512,22 +545,24 @@ export default function ReviewCard({
             disabled={isLiking || isDisliking}
           >
             {isLiking ? (
-              <ActivityIndicator size="small" color="#007AFF" />
+              <ActivityIndicator size="small" color={colors.primary} />
             ) : (
               <>
                 <Ionicons
                   name={userLiked ? "thumbs-up" : "thumbs-up-outline"}
-                  size={18}
-                  color={userLiked ? "#007AFF" : "#666"}
+                  size={16}
+                  color={userLiked ? colors.primary : colors.gray500}
                 />
-                <Text
-                  style={[
-                    styles.reactionCount,
-                    userLiked && styles.reactionCountActive,
-                  ]}
-                >
-                  {likesCount}
-                </Text>
+                {likesCount > 0 && (
+                  <Text
+                    style={[
+                      styles.reactionCount,
+                      userLiked && styles.reactionCountActive,
+                    ]}
+                  >
+                    {likesCount}
+                  </Text>
+                )}
               </>
             )}
           </TouchableOpacity>
@@ -541,22 +576,24 @@ export default function ReviewCard({
             disabled={isLiking || isDisliking}
           >
             {isDisliking ? (
-              <ActivityIndicator size="small" color="#FF3B30" />
+              <ActivityIndicator size="small" color={colors.error} />
             ) : (
               <>
                 <Ionicons
                   name={userDisliked ? "thumbs-down" : "thumbs-down-outline"}
-                  size={18}
-                  color={userDisliked ? "#FF3B30" : "#666"}
+                  size={16}
+                  color={userDisliked ? colors.error : colors.gray500}
                 />
-                <Text
-                  style={[
-                    styles.reactionCount,
-                    userDisliked && styles.reactionCountActive,
-                  ]}
-                >
-                  {dislikesCount}
-                </Text>
+                {dislikesCount > 0 && (
+                  <Text
+                    style={[
+                      styles.reactionCount,
+                      userDisliked && styles.reactionCountActive,
+                    ]}
+                  >
+                    {dislikesCount}
+                  </Text>
+                )}
               </>
             )}
           </TouchableOpacity>
@@ -570,20 +607,20 @@ export default function ReviewCard({
                 onPress={handleLoadReplies}
                 disabled={loadingReplies}
               >
-                {loadingReplies ? (
-                  <ActivityIndicator size="small" color="#007AFF" />
-                ) : (
-                  <>
-                    <Ionicons
-                      name={showRepliesList ? "chevron-up" : "chevron-down"}
-                      size={18}
-                      color="#007AFF"
-                    />
-                    <Text style={styles.repliesText}>
-                      {review.repliesCount} {review.repliesCount === 1 ? "reply" : "replies"}
-                    </Text>
-                  </>
-                )}
+            {loadingReplies ? (
+              <ActivityIndicator size="small" color={colors.primary} />
+            ) : (
+              <>
+                <Ionicons
+                  name={showRepliesList ? "chevron-up" : "chevron-down"}
+                  size={14}
+                  color={colors.primary}
+                />
+                <Text style={styles.repliesText}>
+                  {review.repliesCount} {review.repliesCount === 1 ? "reply" : "replies"}
+                </Text>
+              </>
+            )}
               </TouchableOpacity>
             )}
             {currentUserId && !showRepliesList && (
@@ -595,7 +632,7 @@ export default function ReviewCard({
                   setReplyingToReplyId(null);
                 }}
               >
-                <Ionicons name="chatbubble-outline" size={16} color="#007AFF" />
+                <Ionicons name="chatbubble-outline" size={14} color={colors.primary} />
                 <Text style={styles.replyToReviewText}>Reply</Text>
               </TouchableOpacity>
             )}
@@ -607,7 +644,7 @@ export default function ReviewCard({
             onPress={() => setShowReportForm(true)}
             style={styles.reportButton}
           >
-            <Ionicons name="flag-outline" size={16} color="#EF4444" />
+            <Ionicons name="flag-outline" size={14} color={colors.error} />
             <Text style={styles.reportButtonText}>Report</Text>
           </TouchableOpacity>
         )}
@@ -615,12 +652,12 @@ export default function ReviewCard({
           <View style={styles.ownerActions} pointerEvents="box-none">
             {onUpdate && (
               <TouchableOpacity onPress={onUpdate} style={styles.editButton}>
-                <Ionicons name="create-outline" size={18} color="#007AFF" />
+                <Ionicons name="create-outline" size={16} color={colors.primary} />
               </TouchableOpacity>
             )}
             {onDelete && (
               <TouchableOpacity onPress={onDelete} style={styles.deleteButton}>
-                <Ionicons name="trash-outline" size={18} color="#FF3B30" />
+                <Ionicons name="trash-outline" size={16} color={colors.error} />
               </TouchableOpacity>
             )}
           </View>
@@ -648,17 +685,17 @@ export default function ReviewCard({
           {showReplyForm && (
             <View style={styles.replyFormContainer}>
               {replyingToReply && (
-                <View style={styles.replyingToContainer}>
-                  <Ionicons name="arrow-undo" size={14} color="#666" />
-                  <Text style={styles.replyingToText} numberOfLines={1} ellipsizeMode="tail">
-                    Replying to {replyingToReply.userName}
-                  </Text>
-                </View>
+          <View style={styles.replyingToContainer}>
+            <Ionicons name="arrow-undo" size={14} color={colors.gray600} />
+            <Text style={styles.replyingToText} numberOfLines={1} ellipsizeMode="tail">
+              Replying to {replyingToReply.userName}
+            </Text>
+          </View>
               )}
               <TextInput
                 style={styles.replyInput}
                 placeholder={replyingToReplyId ? "Write a reply to this reply..." : "Write a reply..."}
-                placeholderTextColor="#999"
+                placeholderTextColor={colors.gray400}
                 multiline
                 numberOfLines={3}
                 value={replyText}
@@ -699,7 +736,7 @@ export default function ReviewCard({
                 setReplyingToReplyId(null);
               }}
             >
-              <Ionicons name="add-circle-outline" size={18} color="#007AFF" />
+              <Ionicons name="add-circle-outline" size={16} color={colors.primary} />
               <Text style={styles.addReplyText}>Add a reply</Text>
             </TouchableOpacity>
           )}
@@ -720,102 +757,102 @@ export default function ReviewCard({
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: "#FFF",
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 12,
+    backgroundColor: colors.white,
+    borderRadius: borderRadius.md,
+    padding: spacing.md,
+    marginBottom: spacing.sm,
     borderWidth: 1,
-    borderColor: "#E5E5E5",
+    borderColor: colors.gray200,
     overflow: "hidden",
   },
   header: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "flex-start",
-    marginBottom: 12,
-    overflow: "hidden",
-    width: "100%",
+    marginBottom: spacing.sm,
   },
   userInfo: {
     flexDirection: "row",
     alignItems: "center",
     flex: 1,
     minWidth: 0,
-    flexShrink: 1,
-    marginRight: 8,
   },
   avatar: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    marginRight: 12,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    marginRight: spacing.sm,
   },
   avatarPlaceholder: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: "#F5F5F5",
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: colors.gray100,
     alignItems: "center",
     justifyContent: "center",
-    marginRight: 12,
+    marginRight: spacing.sm,
   },
   userDetails: {
     flex: 1,
     minWidth: 0,
   },
+  userNameRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.xs,
+    marginBottom: 2,
+  },
   userName: {
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: "600",
-    color: "#333",
+    color: colors.gray900,
+    flex: 1,
   },
   date: {
     fontSize: 12,
-    color: "#999",
-    marginTop: 2,
+    color: colors.gray500,
   },
   ratingContainer: {
     flexDirection: "row",
-    gap: 2,
+    gap: 1,
     flexShrink: 0,
   },
   comment: {
-    fontSize: 15,
-    color: "#333",
-    lineHeight: 22,
-    marginBottom: 12,
+    fontSize: 14,
+    color: colors.gray700,
+    lineHeight: 20,
+    marginBottom: spacing.sm,
     flexWrap: "wrap",
   },
   actions: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    paddingTop: 12,
+    paddingTop: spacing.sm,
     borderTopWidth: 1,
-    borderTopColor: "#F5F5F5",
+    borderTopColor: colors.gray200,
     flexWrap: "wrap",
-    gap: 8,
+    gap: spacing.xs,
   },
   reactionButtons: {
     flexDirection: "row",
-    gap: 16,
+    gap: spacing.sm,
   },
   reactionButton: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 6,
+    gap: 4,
     paddingVertical: 4,
-    paddingHorizontal: 8,
-    borderRadius: 6,
+    paddingHorizontal: spacing.xs,
+    borderRadius: borderRadius.sm,
   },
   reactionButtonActive: {
-    backgroundColor: "#F0F8FF",
+    backgroundColor: colors.primaryLight,
   },
   reactionCount: {
-    fontSize: 14,
-    color: "#666",
+    fontSize: 12,
+    color: colors.gray600,
+    fontWeight: "500",
   },
   reactionCountActive: {
-    color: "#007AFF",
+    color: colors.primary,
     fontWeight: "600",
   },
   repliesButton: {
@@ -823,22 +860,23 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 4,
     paddingVertical: 4,
-    paddingHorizontal: 8,
+    paddingHorizontal: spacing.xs,
   },
   repliesText: {
-    fontSize: 14,
-    color: "#007AFF",
+    fontSize: 12,
+    color: colors.primary,
+    fontWeight: "500",
   },
   replyToReviewButton: {
     flexDirection: "row",
     alignItems: "center",
     gap: 4,
     paddingVertical: 4,
-    paddingHorizontal: 8,
+    paddingHorizontal: spacing.xs,
   },
   replyToReviewText: {
-    fontSize: 14,
-    color: "#007AFF",
+    fontSize: 12,
+    color: colors.primary,
     fontWeight: "600",
   },
   reportButton: {
@@ -846,18 +884,17 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 4,
     paddingVertical: 4,
-    paddingHorizontal: 8,
+    paddingHorizontal: spacing.xs,
   },
   reportButtonText: {
-    fontSize: 14,
-    color: "#EF4444",
+    fontSize: 12,
+    color: colors.error,
     fontWeight: "500",
   },
   ownerActions: {
     flexDirection: "row",
-    gap: 12,
+    gap: spacing.sm,
     flexShrink: 0,
-    paddingLeft: 8,
   },
   editButton: {
     padding: 4,
@@ -866,23 +903,23 @@ const styles = StyleSheet.create({
     padding: 4,
   },
   repliesContainer: {
-    marginTop: 12,
-    paddingTop: 12,
+    marginTop: spacing.sm,
+    paddingTop: spacing.sm,
     borderTopWidth: 1,
-    borderTopColor: "#F5F5F5",
+    borderTopColor: colors.gray200,
   },
   replyCard: {
-    marginBottom: 12,
-    paddingLeft: 12,
+    marginBottom: spacing.sm,
+    paddingLeft: spacing.sm,
     borderLeftWidth: 2,
-    borderLeftColor: "#E5E5E5",
+    borderLeftColor: colors.primaryLight,
     overflow: "hidden",
   },
   nestedReplyCard: {
-    marginTop: 8,
-    paddingTop: 8,
+    marginTop: spacing.xs,
+    paddingTop: spacing.xs,
     borderTopWidth: 1,
-    borderTopColor: "#F0F0F0",
+    borderTopColor: colors.gray200,
   },
   nestedRepliesContainer: {
     marginTop: 8,
@@ -897,14 +934,14 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 4,
-    marginTop: 8,
+    marginTop: spacing.xs,
     paddingVertical: 4,
-    paddingHorizontal: 8,
+    paddingHorizontal: spacing.xs,
     alignSelf: "flex-start",
   },
   replyToReplyText: {
-    color: "#007AFF",
-    fontSize: 13,
+    color: colors.primary,
+    fontSize: 12,
     fontWeight: "600",
   },
   replyActionsRow: {
@@ -918,25 +955,25 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 4,
     paddingVertical: 4,
-    paddingHorizontal: 8,
+    paddingHorizontal: spacing.xs,
   },
   replyReportText: {
-    color: "#EF4444",
-    fontSize: 12,
+    color: colors.error,
+    fontSize: 11,
     fontWeight: "500",
   },
   replyingToContainer: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 6,
-    marginBottom: 8,
-    padding: 8,
-    backgroundColor: "#F0F8FF",
-    borderRadius: 6,
+    gap: spacing.xs,
+    marginBottom: spacing.sm,
+    padding: spacing.sm,
+    backgroundColor: colors.primaryLight,
+    borderRadius: borderRadius.md,
   },
   replyingToText: {
     fontSize: 12,
-    color: "#007AFF",
+    color: colors.primary,
     fontWeight: "600",
   },
   replyHeader: {
@@ -956,43 +993,44 @@ const styles = StyleSheet.create({
     width: 24,
     height: 24,
     borderRadius: 12,
-    backgroundColor: "#F5F5F5",
+    backgroundColor: colors.gray100,
     alignItems: "center",
     justifyContent: "center",
   },
   replyUserName: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: "600",
-    color: "#333",
+    color: colors.gray900,
+    marginBottom: 2,
   },
   replyDate: {
-    fontSize: 12,
-    color: "#999",
+    fontSize: 11,
+    color: colors.gray500,
   },
   replyComment: {
-    fontSize: 14,
-    color: "#666",
-    lineHeight: 20,
+    fontSize: 13,
+    color: colors.gray700,
+    lineHeight: 18,
     flexWrap: "wrap",
   },
   replyFormContainer: {
-    marginTop: 12,
-    padding: 12,
-    backgroundColor: "#F9FAFB",
-    borderRadius: 8,
+    marginTop: spacing.sm,
+    padding: spacing.sm,
+    backgroundColor: colors.gray50,
+    borderRadius: borderRadius.md,
     borderWidth: 1,
-    borderColor: "#E5E7EB",
+    borderColor: colors.gray200,
   },
   replyInput: {
     borderWidth: 1,
-    borderColor: "#DDD",
-    borderRadius: 8,
-    padding: 12,
-    fontSize: 14,
-    minHeight: 80,
-    backgroundColor: "#FFF",
-    color: "#333",
-    marginBottom: 12,
+    borderColor: colors.gray300,
+    borderRadius: borderRadius.md,
+    padding: spacing.sm,
+    fontSize: 13,
+    minHeight: 60,
+    backgroundColor: colors.white,
+    color: colors.gray900,
+    marginBottom: spacing.sm,
   },
   replyFormActions: {
     flexDirection: "row",
@@ -1004,36 +1042,36 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
   },
   replyCancelText: {
-    color: "#666",
-    fontSize: 14,
+    color: colors.gray600,
+    fontSize: 13,
     fontWeight: "600",
   },
   replySubmitButton: {
-    paddingVertical: 8,
-    paddingHorizontal: 20,
-    backgroundColor: "#007AFF",
-    borderRadius: 8,
+    paddingVertical: spacing.xs,
+    paddingHorizontal: spacing.md,
+    backgroundColor: colors.primary,
+    borderRadius: borderRadius.md,
   },
   replySubmitButtonDisabled: {
-    backgroundColor: "#CCC",
+    backgroundColor: colors.gray300,
   },
   replySubmitText: {
-    color: "#FFF",
-    fontSize: 14,
+    color: colors.white,
+    fontSize: 13,
     fontWeight: "600",
   },
   addReplyButton: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 6,
-    marginTop: 12,
-    paddingVertical: 8,
-    paddingHorizontal: 12,
+    gap: spacing.xs,
+    marginTop: spacing.sm,
+    paddingVertical: spacing.xs,
+    paddingHorizontal: spacing.sm,
     alignSelf: "flex-start",
   },
   addReplyText: {
-    color: "#007AFF",
-    fontSize: 14,
+    color: colors.primary,
+    fontSize: 13,
     fontWeight: "600",
   },
   replyOwnerActions: {
@@ -1056,14 +1094,14 @@ const styles = StyleSheet.create({
   },
   replyEditInput: {
     borderWidth: 1,
-    borderColor: "#DDD",
-    borderRadius: 8,
-    padding: 12,
-    fontSize: 14,
-    minHeight: 80,
-    backgroundColor: "#FFF",
-    color: "#333",
-    marginBottom: 12,
+    borderColor: colors.gray300,
+    borderRadius: borderRadius.md,
+    padding: spacing.sm,
+    fontSize: 13,
+    minHeight: 60,
+    backgroundColor: colors.white,
+    color: colors.gray900,
+    marginBottom: spacing.sm,
   },
   replyEditActions: {
     flexDirection: "row",
@@ -1075,22 +1113,22 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
   },
   replyEditCancelText: {
-    color: "#666",
-    fontSize: 14,
+    color: colors.gray600,
+    fontSize: 13,
     fontWeight: "600",
   },
   replyEditSaveButton: {
-    paddingVertical: 8,
-    paddingHorizontal: 20,
-    backgroundColor: "#007AFF",
-    borderRadius: 8,
+    paddingVertical: spacing.xs,
+    paddingHorizontal: spacing.md,
+    backgroundColor: colors.primary,
+    borderRadius: borderRadius.md,
   },
   replyEditSaveButtonDisabled: {
-    backgroundColor: "#CCC",
+    backgroundColor: colors.gray300,
   },
   replyEditSaveText: {
-    color: "#FFF",
-    fontSize: 14,
+    color: colors.white,
+    fontSize: 13,
     fontWeight: "600",
   },
 });

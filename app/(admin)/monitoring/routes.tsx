@@ -2,16 +2,17 @@ import { monitoringApi, type RouteStatDto, type RouteSummaryDto } from "@/servic
 import { Ionicons } from "@expo/vector-icons";
 import { useCallback, useEffect, useState } from "react";
 import {
-    ActivityIndicator,
-    Alert,
-    Dimensions,
-    RefreshControl,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View,
+  ActivityIndicator,
+  Alert,
+  Dimensions,
+  RefreshControl,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from "react-native";
+import { BarChart } from "react-native-gifted-charts";
 
 const { width } = Dimensions.get("window");
 
@@ -23,6 +24,8 @@ export default function RouteMonitoring() {
   const [expandedRoute, setExpandedRoute] = useState<string | null>(null);
   const [autoRefresh, setAutoRefresh] = useState(true);
   const [sortBy, setSortBy] = useState<"count" | "avgResponseTime" | "errorCount">("count");
+  const [showCharts, setShowCharts] = useState(false);
+  const [chartType, setChartType] = useState<"vertical" | "horizontal">("horizontal");
 
   const loadData = useCallback(async () => {
     try {
@@ -77,6 +80,7 @@ export default function RouteMonitoring() {
               Alert.alert("Success", "Route statistics cleared successfully");
               setTimeout(() => loadData(), 500);
             } catch (error) {
+              console.error("Error clearing route statistics:", error);
               Alert.alert("Error", "Failed to clear route statistics");
             }
           },
@@ -116,6 +120,33 @@ export default function RouteMonitoring() {
     if (sortBy === "errorCount") return b.errorCount - a.errorCount;
     return 0;
   });
+
+  // Prepare chart data - show top routes by usage count
+  const chartData = sortedRoutes
+    .slice(0, 15) // Show top 15 routes
+    .map((route, index) => {
+      const colors = ["#3B82F6", "#10B981", "#F59E0B", "#EF4444", "#8B5CF6", "#EC4899", "#14B8A6", "#F97316"];
+      // Shorter labels for horizontal charts to fit portrait mode
+      const maxLabelLength = chartType === "horizontal" ? 15 : 25;
+      const routeLabel = route.endpoint.length > maxLabelLength 
+        ? `${route.method} ${route.endpoint.substring(0, maxLabelLength)}...` 
+        : `${route.method} ${route.endpoint}`;
+      
+      return {
+        value: route.count,
+        label: routeLabel,
+        frontColor: colors[index % colors.length],
+        spacing: chartType === "horizontal" ? 8: 2,
+        labelWidth: chartType === "horizontal" ? 40 : 60,
+        labelTextStyle: { 
+          color: "#94A3B8", 
+          fontSize: chartType === "horizontal" ? 9 : 9,
+        },
+        topLabelComponent: () => (
+          <Text style={styles.chartBarValue}>{route.count}</Text>
+        ),
+      };
+    });
 
   if (loading && !summary) {
     return (
@@ -158,8 +189,154 @@ export default function RouteMonitoring() {
           </TouchableOpacity>
         </View>
 
-        {/* Sort Options */}
-        <View style={styles.sortContainer}>
+        {/* Charts Toggle Button */}
+        <View style={styles.chartsToggleContainer}>
+          <TouchableOpacity
+            style={[styles.chartsToggleButton, showCharts && styles.chartsToggleButtonActive]}
+            onPress={() => setShowCharts(!showCharts)}
+          >
+            <Ionicons
+              name={showCharts ? "bar-chart" : "bar-chart-outline"}
+              size={20}
+              color={showCharts ? "#60A5FA" : "#94A3B8"}
+            />
+            <Text style={[styles.chartsToggleText, showCharts && styles.chartsToggleTextActive]}>
+              {showCharts ? "Hide Charts" : "Show Charts"}
+            </Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* Charts Section - Only show when charts are enabled */}
+        {showCharts ? (
+          sortedRoutes.length > 0 ? (
+            <View style={styles.chartsSection}>
+              <View style={styles.chartsHeader}>
+                <Text style={styles.chartsSectionTitle}>Route Usage Statistics</Text>
+                <View style={styles.chartTypeToggle}>
+                  <TouchableOpacity
+                    style={[styles.chartTypeButton, chartType === "horizontal" && styles.chartTypeButtonActive]}
+                    onPress={() => setChartType("horizontal")}
+                  >
+                    <Ionicons 
+                      name="resize-outline" 
+                      size={16} 
+                      color={chartType === "horizontal" ? "#60A5FA" : "#94A3B8"} 
+                    />
+                    <Text style={[styles.chartTypeText, chartType === "horizontal" && styles.chartTypeTextActive]}>
+                      Horizontal
+                    </Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.chartTypeButton, chartType === "vertical" && styles.chartTypeButtonActive]}
+                    onPress={() => setChartType("vertical")}
+                  >
+                    <Ionicons 
+                      name="resize-outline" 
+                      size={16} 
+                      color={chartType === "vertical" ? "#60A5FA" : "#94A3B8"} 
+                    />
+                    <Text style={[styles.chartTypeText, chartType === "vertical" && styles.chartTypeTextActive]}>
+                      Vertical
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+              <View style={styles.chartWrapper}>
+                {chartData.length > 0 ? (
+                  <View style={styles.chartInnerContainer}>
+                    {chartType === "vertical" ? (
+                      <ScrollView 
+                        horizontal
+                        showsHorizontalScrollIndicator={false}
+                        contentContainerStyle={styles.chartScrollContent}
+                      >
+                        <BarChart
+                          data={chartData}
+                          width={Math.max(width - 80, chartData.length * 50)}
+                          height={300}
+                          barWidth={30}
+                          spacing={8}
+                          horizontal={false}
+                          roundedTop
+                          roundedBottom
+                          hideRules={false}
+                          rulesType="solid"
+                          rulesColor="#334155"
+                          xAxisThickness={1}
+                          yAxisThickness={1}
+                          yAxisColor="#334155"
+                          xAxisColor="#334155"
+                          maxValue={Math.max(...chartData.map(d => d.value), 1) * 1.2}
+                          noOfSections={4}
+                          yAxisTextStyle={{ color: "#94A3B8", fontSize: 10 }}
+                          xAxisLabelTextStyle={{ color: "#94A3B8", fontSize: 9 }}
+                          showVerticalLines
+                          verticalLinesColor="#334155"
+                          isAnimated
+                          animationDuration={800}
+                        />
+                      </ScrollView>
+                    ) : (
+                      <ScrollView
+                        horizontal
+                        showsHorizontalScrollIndicator={true}
+                        showsVerticalScrollIndicator={true}
+                        contentContainerStyle={[styles.chartScrollContentHorizontal, { minWidth: width - 60 }]}
+                        style={styles.chartScrollView}
+                      >
+                        <BarChart
+                          data={chartData}
+                          width={Math.max(width - 80, (width - 80) * 1.5)}
+                          height={Math.max(300, chartData.length * 35)}
+                          barWidth={18}
+                          spacing={6}
+                          horizontal={true}
+                          roundedTop
+                          roundedBottom
+                          hideRules={false}
+                          rulesType="solid"
+                          rulesColor="#334155"
+                          xAxisThickness={1}
+                          yAxisThickness={1}
+                          yAxisColor="#334155"
+                          xAxisColor="#334155"
+                          maxValue={Math.max(...chartData.map(d => d.value), 1) * 1.2}
+                          noOfSections={4}
+                          yAxisTextStyle={{ color: "#94A3B8", fontSize: 9 }}
+                          xAxisLabelTextStyle={{ color: "#94A3B8", fontSize: 8 }}
+                          showVerticalLines={false}
+                          verticalLinesColor="#334155"
+                          isAnimated
+                          animationDuration={800}
+                          initialSpacing={45}
+                        />
+                      </ScrollView>
+                    )}
+                  </View>
+                ) : (
+                  <View style={styles.emptyChart}>
+                    <Ionicons name="bar-chart-outline" size={48} color="#64748B" />
+                    <Text style={styles.emptyChartText}>No route data available</Text>
+                  </View>
+                )}
+              </View>
+              <Text style={styles.chartNote}>
+                Showing top {Math.min(sortedRoutes.length, 15)} routes by request count (Real-time updates every 5 seconds)
+              </Text>
+            </View>
+          ) : (
+            <View style={styles.emptyState}>
+              <Ionicons name="bar-chart-outline" size={64} color="#64748B" />
+              <Text style={styles.emptyStateText}>No route data available</Text>
+              <Text style={styles.emptyStateSubtext}>
+                Routes will appear here as requests are made to the API
+              </Text>
+            </View>
+          )
+        ) : (
+          <>
+            {/* Sort Options */}
+            <View style={styles.sortContainer}>
           <Text style={styles.sortLabel}>Sort by:</Text>
           <ScrollView horizontal showsHorizontalScrollIndicator={false}>
             {[
@@ -477,14 +654,16 @@ export default function RouteMonitoring() {
           </View>
         )}
 
-        {sortedRoutes.length === 0 && !loading && (
-          <View style={styles.emptyState}>
-            <Ionicons name="link-outline" size={64} color="#64748B" />
-            <Text style={styles.emptyStateText}>No active routes</Text>
-            <Text style={styles.emptyStateSubtext}>
-              Routes will appear here as requests are made to the API
-            </Text>
-          </View>
+            {sortedRoutes.length === 0 && !loading && (
+              <View style={styles.emptyState}>
+                <Ionicons name="link-outline" size={64} color="#64748B" />
+                <Text style={styles.emptyStateText}>No active routes</Text>
+                <Text style={styles.emptyStateSubtext}>
+                  Routes will appear here as requests are made to the API
+                </Text>
+              </View>
+            )}
+          </>
         )}
       </ScrollView>
     </View>
@@ -787,5 +966,129 @@ const styles = StyleSheet.create({
     color: "#94A3B8",
     marginTop: 8,
     textAlign: "center",
+  },
+  chartsToggleContainer: {
+    marginBottom: 16,
+  },
+  chartsToggleButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#1E293B",
+    borderRadius: 10,
+    paddingVertical: 12,
+    paddingHorizontal: 12,
+    borderWidth: 1,
+    borderColor: "#334155",
+    gap: 8,
+  },
+  chartsToggleButtonActive: {
+    borderColor: "#3B82F6",
+    backgroundColor: "#3B82F620",
+  },
+  chartsToggleText: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#94A3B8",
+  },
+  chartsToggleTextActive: {
+    color: "#60A5FA",
+  },
+  chartsSection: {
+    backgroundColor: "#1E293B",
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 24,
+    borderWidth: 1,
+    borderColor: "#334155",
+  },
+  chartsHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 16,
+  },
+  chartsSectionTitle: {
+    fontSize: 18,
+    fontWeight: "bold",
+    color: "#60A5FA",
+    flex: 1,
+  },
+  chartTypeToggle: {
+    flexDirection: "row",
+    gap: 8,
+  },
+  chartTypeButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 6,
+    backgroundColor: "#0F172A",
+    borderWidth: 1,
+    borderColor: "#334155",
+  },
+  chartTypeButtonActive: {
+    backgroundColor: "#3B82F620",
+    borderColor: "#3B82F6",
+  },
+  chartTypeText: {
+    fontSize: 11,
+    color: "#94A3B8",
+    fontWeight: "500",
+  },
+  chartTypeTextActive: {
+    color: "#60A5FA",
+  },
+  chartWrapper: {
+    width: "100%",
+    backgroundColor: "#0F172A",
+    borderRadius: 8,
+    marginBottom: 12,
+    overflow: "visible",
+  },
+  chartInnerContainer: {
+    width: "100%",
+    alignItems: "center",
+    justifyContent: "flex-start",
+  },
+  chartScrollView: {
+    width: "100%",
+  },
+  chartScrollContent: {
+    alignItems: "center",
+    justifyContent: "center",
+    paddingRight: 20,
+  },
+  chartScrollContentVertical: {
+    alignItems: "center",
+    justifyContent: "flex-start",
+    paddingBottom: 20,
+    width: "100%",
+  },
+  chartScrollContentHorizontal: {
+    paddingBottom: 20,
+  },
+  chartBarValue: {
+    color: "#60A5FA",
+    fontSize: 10,
+    fontWeight: "600",
+  },
+  chartNote: {
+    fontSize: 12,
+    color: "#94A3B8",
+    textAlign: "center",
+    fontStyle: "italic",
+  },
+  emptyChart: {
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 48,
+  },
+  emptyChartText: {
+    fontSize: 14,
+    color: "#94A3B8",
+    marginTop: 12,
   },
 });

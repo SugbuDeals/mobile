@@ -102,7 +102,7 @@ function renderDealTypeFields(
             <Text style={styles.inputSuffix}>%</Text>
           </View>
           <Text style={styles.helperText}>
-            Example: Enter "25" for 25% off
+            Example: Enter &quot;25&quot; for 25% off
           </Text>
         </View>
       );
@@ -129,7 +129,7 @@ function renderDealTypeFields(
             />
           </View>
           <Text style={styles.helperText}>
-            Example: Enter "10" for ₱10 off
+            Example: Enter &quot;10&quot; for ₱10 off
           </Text>
         </View>
       );

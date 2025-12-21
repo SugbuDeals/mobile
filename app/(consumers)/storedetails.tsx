@@ -13,6 +13,7 @@ import { useStableThunk } from "@/hooks/useStableCallback";
 import { reviewsApi } from "@/services/api/endpoints/reviews";
 import { viewsApi } from "@/services/api/endpoints/views";
 import type { StoreRatingStatsDto } from "@/services/api/types/swagger";
+import { borderRadius, colors, spacing } from "@/styles/theme";
 import { getProductCategoryName as getCategoryName } from "@/utils/categoryHelpers";
 import { getNonVoucherDeals, getVouchersOnly } from "@/utils/dealPlacement";
 import { calculateDistance, formatDistance } from "@/utils/distance";
@@ -21,16 +22,16 @@ import * as Location from "expo-location";
 import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
-    Image,
-    Linking,
-    SafeAreaView,
-    ScrollView,
-    StatusBar,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
+  Image,
+  Linking,
+  SafeAreaView,
+  ScrollView,
+  StatusBar,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from "react-native";
 
 export default function StoreDetailsScreen() {
@@ -237,13 +238,17 @@ export default function StoreDetailsScreen() {
           storeId={storeId}
           onReport={() => setShowReportForm(true)}
         />
-        <StoreLocationCard storeName={storeName} storeId={storeId} />
-        <StoreDealsAndVouchers
-          storeName={storeName}
-          storeId={storeId}
-          promotions={regularPromotions}
-          vouchers={storeVouchers}
-        />
+        {viewMode === "products" && (
+          <>
+            <StoreLocationCard storeName={storeName} storeId={storeId} />
+            <StoreDealsAndVouchers
+              storeName={storeName}
+              storeId={storeId}
+              promotions={regularPromotions}
+              vouchers={storeVouchers}
+            />
+          </>
+        )}
         {viewMode === "products" ? (
           <>
             <CategoriesBar
@@ -442,8 +447,13 @@ function StoreDealsAndVouchers({
   const [expandedVoucherId, setExpandedVoucherId] = React.useState<number | null>(null);
   
   // Filter promotions to only show products from verified stores
+  // If stores aren't loaded yet, show all promotions (will be filtered once stores load)
   const verifiedPromotions = React.useMemo(() => {
     if (storeId == null) return [];
+    if (!stores || stores.length === 0) {
+      // If stores aren't loaded, return all promotions (temporary)
+      return promotions;
+    }
     return promotions.filter(({ product }) => {
       const productStore = (stores || []).find((s: Store) => s.id === product.storeId);
       return productStore?.verificationStatus === "VERIFIED";
@@ -452,12 +462,36 @@ function StoreDealsAndVouchers({
   
   const verifiedVouchers = React.useMemo(() => {
     if (storeId == null) return [];
+    if (!stores || stores.length === 0) {
+      // If stores aren't loaded, return all vouchers (temporary)
+      return vouchers;
+    }
     return vouchers.filter(({ product }) => {
       const productStore = (stores || []).find((s: Store) => s.id === product.storeId);
       return productStore?.verificationStatus === "VERIFIED";
     });
   }, [vouchers, stores, storeId]);
   
+  // Group promotions by promotion ID to avoid duplicates (e.g., bundle deals with multiple products)
+  const groupedPromotions = React.useMemo(() => {
+    if (verifiedPromotions.length === 0) return [];
+    
+    const promotionMap = new Map<number, { promotion: Promotion; products: CatalogProduct[] }>();
+    
+    verifiedPromotions.forEach(({ promotion, product }) => {
+      if (!promotionMap.has(promotion.id)) {
+        promotionMap.set(promotion.id, { promotion, products: [] });
+      }
+      const entry = promotionMap.get(promotion.id)!;
+      // Avoid duplicate products
+      if (!entry.products.some(p => p.id === product.id)) {
+        entry.products.push(product);
+      }
+    });
+    
+    return Array.from(promotionMap.values());
+  }, [verifiedPromotions]);
+
   // Group vouchers by promotion and collect products for each
   const voucherPromotionsWithProducts = React.useMemo(() => {
     const promotionMap = new Map<number, { promotion: Promotion; products: CatalogProduct[] }>();
@@ -478,7 +512,26 @@ function StoreDealsAndVouchers({
   
   if (storeId == null) return null;
 
-  const handleDealPress = (product: CatalogProduct, promo: Promotion) => {
+  const handleDealPress = (promo: Promotion, products: CatalogProduct[]) => {
+    // Navigate to the first product in the promotion
+    const firstProduct = products[0];
+    if (firstProduct) {
+      router.push({
+        pathname: "/(consumers)/product",
+        params: {
+          name: firstProduct.name,
+          storeId: firstProduct.storeId ?? storeId,
+          price: firstProduct.price,
+          description: firstProduct.description,
+          productId: firstProduct.id,
+          promotionId: promo?.id,
+          imageUrl: firstProduct.imageUrl || "",
+        },
+      });
+    }
+  };
+
+  const handleVoucherProductPress = (product: CatalogProduct, promo: Promotion) => {
     router.push({
       pathname: "/(consumers)/product",
       params: {
@@ -506,47 +559,67 @@ function StoreDealsAndVouchers({
 
   const getDealColor = (dealType?: string) => {
     switch (dealType) {
-      case "PERCENTAGE_DISCOUNT": return "#FF9800";
-      case "FIXED_DISCOUNT": return "#4CAF50";
-      case "BOGO": return "#9C27B0";
-      case "BUNDLE": return "#2196F3";
-      case "QUANTITY_DISCOUNT": return "#009688";
-      default: return "#F59E0B";
+      case "PERCENTAGE_DISCOUNT": return colors.secondaryDark;
+      case "FIXED_DISCOUNT": return colors.primary;
+      case "BOGO": return colors.secondary;
+      case "BUNDLE": return colors.primary;
+      case "QUANTITY_DISCOUNT": return colors.secondaryDark;
+      default: return colors.secondaryDark;
     }
   };
 
-  if (verifiedPromotions.length === 0 && verifiedVouchers.length === 0) {
+  // Show component if there are any promotions or vouchers
+  const hasPromotions = groupedPromotions.length > 0;
+  const hasVouchers = voucherPromotionsWithProducts.length > 0;
+  
+  if (!hasPromotions && !hasVouchers) {
     return null;
   }
 
   return (
     <View style={dealsStyles.container}>
       {/* Active Deals Section */}
-      {verifiedPromotions.length > 0 && (
+      {hasPromotions && (
         <>
-          <Text style={dealsStyles.sectionTitle}>Active Deals</Text>
-          <View style={dealsStyles.dealsGrid}>
-            {verifiedPromotions.map(({ promotion, product }) => (
+          <View style={dealsStyles.sectionHeader}>
+            <Text style={dealsStyles.sectionTitle}>Active Deals</Text>
+            <Text style={dealsStyles.dealsCount}>{groupedPromotions.length}</Text>
+          </View>
+          <ScrollView 
+            horizontal 
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={dealsStyles.dealsRow}
+          >
+            {groupedPromotions.map(({ promotion, products }) => (
               <TouchableOpacity
-                key={`${promotion.id}-${product.id}`}
-                style={[dealsStyles.dealBox, { borderColor: getDealColor(promotion.dealType) }]}
-                onPress={() => handleDealPress(product, promotion)}
+                key={promotion.id}
+                style={[dealsStyles.dealBox, { borderLeftColor: getDealColor(promotion.dealType) }]}
+                onPress={() => handleDealPress(promotion, products)}
                 activeOpacity={0.7}
               >
-                <Ionicons 
-                  name={getDealIcon(promotion.dealType) as any} 
-                  size={24} 
-                  color={getDealColor(promotion.dealType)} 
-                />
-                <Text style={dealsStyles.dealType} numberOfLines={1}>
-                  {promotion.dealType?.replace(/_/g, ' ') || 'DEAL'}
-                </Text>
+                <View style={dealsStyles.dealHeader}>
+                  <View style={[dealsStyles.dealIconContainer, { backgroundColor: `${getDealColor(promotion.dealType)}15` }]}>
+                    <Ionicons 
+                      name={getDealIcon(promotion.dealType) as any} 
+                      size={16} 
+                      color={getDealColor(promotion.dealType)} 
+                    />
+                  </View>
+                  <Text style={dealsStyles.dealType} numberOfLines={1}>
+                    {promotion.dealType?.replace(/_/g, ' ') || 'DEAL'}
+                  </Text>
+                </View>
                 <Text style={dealsStyles.dealTitle} numberOfLines={2}>
                   {promotion.title}
                 </Text>
+                {products.length > 1 && (
+                  <Text style={dealsStyles.dealProductCount}>
+                    {products.length} products
+                  </Text>
+                )}
               </TouchableOpacity>
             ))}
-          </View>
+          </ScrollView>
         </>
       )}
       
@@ -559,15 +632,17 @@ function StoreDealsAndVouchers({
             activeOpacity={0.8}
           >
             <View style={dealsStyles.voucherHeader}>
-              <Ionicons name="ticket" size={20} color="#E53935" />
+              <View style={dealsStyles.voucherIconContainer}>
+                <Ionicons name="ticket" size={16} color={colors.primary} />
+              </View>
               <Text style={dealsStyles.voucherButtonText}>
                 Vouchers ({voucherPromotionsWithProducts.length})
               </Text>
             </View>
             <Ionicons 
               name={showVouchers ? "chevron-up" : "chevron-down"} 
-              size={20} 
-              color="#E53935" 
+              size={18} 
+              color={colors.gray600} 
             />
           </TouchableOpacity>
           
@@ -609,8 +684,8 @@ function StoreDealsAndVouchers({
                       </View>
                       <Ionicons 
                         name={expandedVoucherId === promotion.id ? "chevron-up" : "chevron-down"} 
-                        size={18} 
-                        color="#6B7280" 
+                        size={16} 
+                        color={colors.gray500} 
                       />
                     </View>
                   </TouchableOpacity>
@@ -625,7 +700,7 @@ function StoreDealsAndVouchers({
                             dealsStyles.voucherProductItem,
                             productIndex === products.length - 1 && dealsStyles.voucherProductItemLast
                           ]}
-                          onPress={() => handleDealPress(product, promotion)}
+                          onPress={() => handleVoucherProductPress(product, promotion)}
                           activeOpacity={0.7}
                         >
                           <View style={dealsStyles.voucherProductInfo}>
@@ -636,7 +711,7 @@ function StoreDealsAndVouchers({
                               ₱{Number(product.price).toFixed(2)}
                             </Text>
                           </View>
-                          <Ionicons name="chevron-forward" size={18} color="#E53935" />
+                          <Ionicons name="chevron-forward" size={16} color={colors.primary} />
                         </TouchableOpacity>
                       ))}
                     </View>
@@ -822,7 +897,6 @@ function StoreHero({
         </View>
       </View>
       <View style={heroStyles.sectionHeader}>
-        <Text style={heroStyles.sectionTitle}>Store Products</Text>
         <View style={heroStyles.viewModeToggle}>
           <TouchableOpacity
             style={[
@@ -948,113 +1022,139 @@ const gridStyles = StyleSheet.create({
 
 const dealsStyles = StyleSheet.create({
   container: {
-    backgroundColor: "#fff",
-    paddingHorizontal: 16,
-    paddingVertical: 16,
+    backgroundColor: colors.white,
+    paddingVertical: spacing.md,
+  },
+  sectionHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: spacing.sm,
   },
   sectionTitle: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: "700",
-    color: "#111827",
-    marginBottom: 12,
+    color: colors.gray900,
   },
-  dealsGrid: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 8,
-    marginBottom: 16,
+  dealsCount: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: colors.primary,
+    backgroundColor: colors.primaryLight,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+    borderRadius: borderRadius.full,
+  },
+  dealsRow: {
+    gap: spacing.sm,
+    paddingVertical: spacing.xs,
   },
   dealBox: {
-    width: "48%",
-    backgroundColor: "#fff",
-    borderRadius: 12,
-    padding: 12,
-    borderWidth: 2,
-    borderColor: "#E5E7EB",
-    minHeight: 100,
+    width: 160,
+    backgroundColor: colors.white,
+    borderRadius: borderRadius.md,
+    padding: spacing.md,
+    borderWidth: 1,
+    borderLeftWidth: 3,
+    borderColor: colors.gray200,
+    marginRight: spacing.sm,
+  },
+  dealHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.xs,
+    marginBottom: spacing.xs,
+  },
+  dealIconContainer: {
+    width: 24,
+    height: 24,
+    borderRadius: borderRadius.sm,
+    justifyContent: "center",
+    alignItems: "center",
   },
   dealType: {
     fontSize: 10,
     fontWeight: "600",
-    color: "#6B7280",
+    color: colors.gray600,
     textTransform: "uppercase",
-    marginTop: 6,
-    marginBottom: 4,
+    flex: 1,
   },
   dealTitle: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: "600",
-    color: "#111827",
+    color: colors.gray900,
     lineHeight: 18,
   },
   vouchersSection: {
-    marginTop: 8,
+    marginTop: spacing.sm,
   },
   voucherButton: {
-    backgroundColor: "#FEE2E2",
-    borderRadius: 12,
-    padding: 14,
+    backgroundColor: colors.primaryLight,
+    borderRadius: borderRadius.md,
+    padding: spacing.sm,
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
     borderWidth: 1,
-    borderColor: "#FCA5A5",
+    borderColor: colors.primary,
   },
   voucherHeader: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 8,
-  },
-  voucherButtonText: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: "#E53935",
-  },
-  vouchersList: {
-    marginTop: 10,
-    gap: 8,
-  },
-  voucherItem: {
-    backgroundColor: "#fff",
-    borderRadius: 10,
-    padding: 12,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 10,
-    borderWidth: 1,
-    borderColor: "#FCA5A5",
+    gap: spacing.sm,
   },
   voucherIconContainer: {
-    width: 28,
-    height: 28,
+    width: 24,
+    height: 24,
+    borderRadius: borderRadius.sm,
+    backgroundColor: colors.white,
     justifyContent: "center",
     alignItems: "center",
   },
+  voucherButtonText: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: colors.primary,
+  },
+  vouchersList: {
+    marginTop: spacing.sm,
+    gap: spacing.xs,
+  },
+  voucherItem: {
+    backgroundColor: colors.white,
+    borderRadius: borderRadius.md,
+    padding: spacing.sm,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.sm,
+    borderWidth: 1,
+    borderColor: colors.primaryLight,
+  },
   voucherItemTitle: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: "500",
-    color: "#111827",
+    color: colors.gray900,
     lineHeight: 18,
   },
   voucherItemValue: {
     fontSize: 12,
     fontWeight: "600",
-    color: "#E53935",
+    color: colors.primary,
     marginTop: 2,
   },
   voucherKindWrapper: {
     borderBottomWidth: 1,
-    borderBottomColor: "#F3F4F6",
+    borderBottomColor: colors.gray200,
   },
   voucherKindWrapperLast: {
     borderBottomWidth: 0,
   },
   voucherKindDropdown: {
-    paddingVertical: 14,
-    paddingHorizontal: 16,
-    backgroundColor: "#F9FAFB",
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+    backgroundColor: colors.gray50,
     borderLeftWidth: 3,
-    borderLeftColor: "#E53935",
+    borderLeftColor: colors.primary,
   },
   voucherKindHeader: {
     flexDirection: "row",
@@ -1063,63 +1163,69 @@ const dealsStyles = StyleSheet.create({
   },
   voucherKindInfo: {
     flex: 1,
-    marginRight: 12,
+    marginRight: spacing.sm,
   },
   voucherKindTitle: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: "600",
-    color: "#111827",
-    marginBottom: 4,
+    color: colors.gray900,
+    marginBottom: spacing.xs,
   },
   voucherKindMeta: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 12,
+    gap: spacing.sm,
   },
   voucherKindValue: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: "700",
-    color: "#E53935",
+    color: colors.primary,
   },
   voucherKindRemaining: {
-    fontSize: 12,
-    color: "#6B7280",
+    fontSize: 11,
+    color: colors.gray500,
   },
   voucherProductsList: {
-    backgroundColor: "#FFFFFF",
-    paddingVertical: 4,
+    backgroundColor: colors.white,
+    paddingVertical: spacing.xs,
     borderTopWidth: 1,
-    borderTopColor: "#E5E7EB",
-    marginLeft: 16,
+    borderTopColor: colors.gray200,
+    marginLeft: spacing.md,
     borderLeftWidth: 2,
-    borderLeftColor: "#E5E7EB",
+    borderLeftColor: colors.primaryLight,
   },
   voucherProductItem: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    paddingVertical: 12,
-    paddingHorizontal: 16,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
     borderBottomWidth: 1,
-    borderBottomColor: "#F3F4F6",
-    backgroundColor: "#FFFFFF",
+    borderBottomColor: colors.gray200,
+    backgroundColor: colors.white,
   },
   voucherProductItemLast: {
     borderBottomWidth: 0,
   },
   voucherProductInfo: {
     flex: 1,
-    marginRight: 12,
+    marginRight: spacing.sm,
   },
   voucherProductName: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: "500",
-    color: "#111827",
-    marginBottom: 4,
+    color: colors.gray900,
+    marginBottom: spacing.xs,
   },
   voucherProductPrice: {
-    fontSize: 13,
-    color: "#6B7280",
+    fontSize: 12,
+    color: colors.gray600,
+  },
+  dealProductCount: {
+    fontSize: 11,
+    color: colors.gray500,
+    marginTop: spacing.xs,
+    fontWeight: "500",
   },
 });
 
@@ -1242,12 +1348,15 @@ const heroStyles = StyleSheet.create({
     backgroundColor: "#F5F5F5",
     borderRadius: 8,
     padding: 4,
+    width: "100%",
     gap: 4,
   },
   viewModeButton: {
     flexDirection: "row",
     alignItems: "center",
     gap: 6,
+    width: "50%",
+    textAlign: "center",
     paddingVertical: 6,
     paddingHorizontal: 12,
     borderRadius: 6,
@@ -1362,20 +1471,24 @@ function StoreLocationCard({
         activeOpacity={0.7}
       >
         <View style={locationStyles.iconContainer}>
-          <Ionicons name="location" size={24} color="#1B6F5D" />
+          <Ionicons name="location" size={20} color="#1B6F5D" />
         </View>
         <View style={locationStyles.locationInfo}>
-          <Text style={locationStyles.locationLabel}>Store Location</Text>
-          <Text style={locationStyles.addressText} numberOfLines={2}>
-            {address}
-          </Text>
-          {distance !== null && (
-            <Text style={locationStyles.distanceText}>
-              {formatDistance(distance)} away
+          <View style={locationStyles.labelRow}>
+            <Text style={locationStyles.locationLabel}>Store Location</Text>
+            {distance !== null && (
+              <Text style={locationStyles.distanceText}>
+                {formatDistance(distance)} away
+              </Text>
+            )}
+          </View>
+          <View style={locationStyles.addressContainer}>
+            <Text style={locationStyles.addressText} numberOfLines={2}>
+              {address}
             </Text>
-          )}
+          </View>
         </View>
-        <Ionicons name="navigate" size={20} color="#1B6F5D" />
+        <Ionicons name="navigate" size={18} color="#1B6F5D" />
       </TouchableOpacity>
     </View>
   );
@@ -1384,23 +1497,23 @@ function StoreLocationCard({
 const locationStyles = StyleSheet.create({
   container: {
     backgroundColor: "#fff",
-    paddingHorizontal: 16,
-    paddingVertical: 12,
   },
   locationButton: {
     flexDirection: "row",
     alignItems: "center",
     backgroundColor: "#F0FDF4",
-    padding: 16,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    paddingRight: 16,
     borderRadius: 12,
     borderWidth: 1,
     borderColor: "#D1FAE5",
-    gap: 12,
+    gap: 10,
   },
   iconContainer: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     backgroundColor: "#fff",
     justifyContent: "center",
     alignItems: "center",
@@ -1408,21 +1521,30 @@ const locationStyles = StyleSheet.create({
   locationInfo: {
     flex: 1,
   },
+  labelRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    marginBottom: 2,
+  },
   locationLabel: {
-    fontSize: 12,
+    fontSize: 10,
     fontWeight: "600",
     color: "#047857",
-    marginBottom: 4,
     textTransform: "uppercase",
   },
+  addressContainer: {
+    backgroundColor: "#F0FDF4",
+    marginTop: 0,
+    marginBottom: 0,
+  },
   addressText: {
-    fontSize: 14,
+    fontSize: 12,
     color: "#374151",
-    lineHeight: 20,
+    lineHeight: 16,
   },
   distanceText: {
-    fontSize: 12,
+    fontSize: 10,
     color: "#6B7280",
-    marginTop: 2,
   },
 });

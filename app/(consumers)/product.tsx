@@ -6,6 +6,7 @@ import type { Product } from "@/features/catalog/types";
 import { useStore } from "@/features/store";
 import type { Promotion } from "@/features/store/promotions/types";
 import type { Store } from "@/features/store/stores/types";
+import { useVoucherStatusPolling } from "@/hooks/useVoucherStatusPolling";
 import { promotionsApi } from "@/services/api/endpoints/promotions";
 import { viewsApi } from "@/services/api/endpoints/views";
 import type { VoucherTokenResponseDto } from "@/services/api/types/swagger";
@@ -90,9 +91,8 @@ export default function ProductDetailScreen() {
       viewsApi.recordView({
         entityType: "PRODUCT",
         entityId: productId,
-      }).catch((error) => {
+      }).catch(() => {
         // Silently fail - view recording is not critical
-        console.debug("Failed to record product view:", error);
       });
     }
   }, [productId]);
@@ -392,6 +392,9 @@ function ProductCard({
   const [hasClaimedVoucherFromStore, setHasClaimedVoucherFromStore] = useState<boolean | null>(null); // null = checking, false = not claimed, true = claimed
   const [isCheckingVoucherStatus, setIsCheckingVoucherStatus] = useState(false);
 
+  // Voucher status polling hook
+  const { registerVoucher } = useVoucherStatusPolling();
+
   const {
     state: { products: allProducts },
   } = useCatalog();
@@ -437,6 +440,17 @@ function ProductCard({
       const actualData = (response as any)?.data || response;
       setVoucherToken(actualData);
       setShowVoucherModal(true);
+      
+      // Register voucher for real-time status polling
+      if (actualData?.redemptionId && actualData?.storeId && actualData?.promotionId && actualData?.status) {
+        registerVoucher(
+          actualData.redemptionId,
+          actualData.storeId,
+          actualData.promotionId,
+          actualData.status
+        );
+      }
+      
       // Don't mark as claimed after generation - voucher is PENDING, not REDEEMED
       // Only REDEEMED vouchers count as "claimed"
       // The status check will update hasClaimedVoucherFromStore when appropriate
@@ -457,8 +471,6 @@ function ProductCard({
       }
       
       // Only show alert for other errors (not already claimed errors)
-      // Only log non-expected errors
-      console.error("Error generating voucher:", error);
       Alert.alert(
         "Failed to Generate Voucher",
         errorMessage
@@ -492,7 +504,7 @@ function ProductCard({
       try {
         const status = await promotionsApi.checkVoucherClaimStatus(storeId);
         setHasClaimedVoucherFromStore(status.hasClaimed);
-      } catch (error: any) {
+      } catch {
         // If endpoint doesn't exist (404) or other error, default to allowing voucher generation
         // This provides graceful degradation if backend hasn't implemented the endpoint yet
         // 404 is expected until backend implements the endpoint - the API client now logs it as warning
@@ -507,16 +519,6 @@ function ProductCard({
     checkVoucherStatus();
   }, [params.storeId, productVoucherPromotions.length]);
 
-  // Log QR code generation (no longer needed for image display, but useful for debugging)
-  useEffect(() => {
-    if (voucherToken?.token) {
-      const tokenValue = String(voucherToken.token);
-      console.log('=== QR CODE GENERATION ===');
-      console.log('QR Code Token Value:', tokenValue);
-      console.log('QR Code Token Length:', tokenValue.length);
-      console.log('QR Code Token Preview:', tokenValue.substring(0, 50) + '...');
-    }
-  }, [voucherToken?.token]);
 
   const handleBundleProductPress = (product: Product) => {
     if (product.id === productId) return; // Don't navigate to current product
@@ -937,15 +939,6 @@ function ProductCard({
                     </>
                   ) : (
                     <View style={{ width: 240, height: 240, justifyContent: 'center', alignItems: 'center', backgroundColor: '#F3F4F6', borderRadius: 8 }}>
-                      {(() => {
-                        console.log('=== QR CODE GENERATION FAILED ===');
-                        console.log('voucherToken:', voucherToken);
-                        console.log('voucherToken?.token:', voucherToken?.token);
-                        console.log('Token type:', typeof voucherToken?.token);
-                        console.log('Token length:', voucherToken?.token?.length || 0);
-                        console.log('Full voucherToken object:', JSON.stringify(voucherToken, null, 2));
-                        return null;
-                      })()}
                       <Ionicons name="alert-circle" size={48} color="#EF4444" />
                       <Text style={{ marginTop: 12, fontSize: 14, color: '#6B7280', textAlign: 'center' }}>
                         Unable to generate QR code{'\n'}
@@ -1319,20 +1312,6 @@ const prodStyles = StyleSheet.create({
   },
   voucherButtonTextDisabled: {
     color: "#9CA3AF",
-  },
-  voucherClaimedContent: {
-    flex: 1,
-  },
-  voucherClaimedTitle: {
-    fontSize: 16,
-    fontWeight: "700",
-    color: "#047857",
-    marginBottom: 4,
-  },
-  voucherClaimedMessage: {
-    fontSize: 14,
-    color: "#065F46",
-    lineHeight: 20,
   },
   voucherClaimedBanner: {
     flexDirection: "row",
