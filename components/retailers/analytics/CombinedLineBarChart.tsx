@@ -72,7 +72,8 @@ export const CombinedLineBarChart: React.FC<Props> = ({
   const calculatedWidth = dataPointCount * optimalSpacing + padding * 2;
   const chartWidth = customWidth ?? Math.max(availableWidth, calculatedWidth);
   const graphWidth = chartWidth - padding * 2;
-  const xStep = dataPointCount > 1 ? graphWidth / (dataPointCount - 1) : 0;
+  // Fix: Ensure xStep is never 0, even for single data point
+  const xStep = dataPointCount > 1 ? graphWidth / (dataPointCount - 1) : graphWidth;
 
   const barGroupWidth = Math.min(xStep * 0.7, 22);
   const barWidth = barGroupWidth / lines.length;
@@ -87,13 +88,37 @@ export const CombinedLineBarChart: React.FC<Props> = ({
     barLines.forEach((line, lineIndex) => {
       line.data.forEach((point, pointIndex) => {
         const barHeight = Math.max(0, point.value * yScale);
+        // Fix: Ensure minimum bar height for visibility (at least 2px)
+        if (barHeight < 2 && point.value > 0) {
+          // If value > 0 but bar is too small, set minimum height
+          const minBarHeight = 2;
+          const adjustedY = padding + graphHeight - minBarHeight;
+          const x = dataPointCount === 1
+            ? padding + graphWidth / 2 - barGroupWidth / 2 + lineIndex * barWidth
+            : padding + pointIndex * xStep - barGroupWidth / 2 + lineIndex * barWidth;
+          
+          bars.push(
+            <Rect
+              key={`bar-${line.key}-${pointIndex}`}
+              x={x}
+              y={adjustedY}
+              width={barWidth}
+              height={minBarHeight}
+              rx={4}
+              ry={4}
+              fill={`url(#bar-${line.key})`}
+              opacity={isSelected ? 1 : 0.65}
+              onPress={() => onLinePress?.(line.key)}
+            />
+          );
+          return;
+        }
         if (!barHeight) return;
 
-        const x =
-          padding +
-          pointIndex * xStep -
-          barGroupWidth / 2 +
-          lineIndex * barWidth;
+        // Fix: Handle single data point positioning
+        const x = dataPointCount === 1
+          ? padding + graphWidth / 2 - barGroupWidth / 2 + lineIndex * barWidth
+          : padding + pointIndex * xStep - barGroupWidth / 2 + lineIndex * barWidth;
 
         const y = padding + graphHeight - barHeight;
         const isSelected = selectedLine === line.key;
@@ -249,18 +274,25 @@ export const CombinedLineBarChart: React.FC<Props> = ({
           {renderBars()}
           {renderLines()}
 
-          {lines[0]?.data.map((p, i) => (
-            <SvgText
-              key={`xaxis-label-${i}-${p.label}`}
-              x={padding + i * xStep}
-              y={padding + graphHeight + 24}
-              fontSize={10}
-              fill="#374151"
-              textAnchor="middle"
-            >
-              {p.label}
-            </SvgText>
-          ))}
+          {lines[0]?.data.map((p, i) => {
+            // Fix: Handle single data point positioning for x-axis labels
+            const xPosition = dataPointCount === 1
+              ? padding + graphWidth / 2
+              : padding + i * xStep;
+            
+            return (
+              <SvgText
+                key={`xaxis-label-${i}-${p.label}`}
+                x={xPosition}
+                y={padding + graphHeight + 24}
+                fontSize={10}
+                fill="#374151"
+                textAnchor="middle"
+              >
+                {p.label}
+              </SvgText>
+            );
+          })}
         </Svg>
       </ScrollView>
     </View>

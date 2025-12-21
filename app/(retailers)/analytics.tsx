@@ -8,16 +8,16 @@ import { LinearGradient } from "expo-linear-gradient";
 import { useFocusEffect } from "expo-router";
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
-  ActivityIndicator,
-  Alert,
-  Modal,
-  Platform,
-  ScrollView,
-  StatusBar,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
+    ActivityIndicator,
+    Alert,
+    Modal,
+    Platform,
+    ScrollView,
+    StatusBar,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View,
 } from 'react-native';
 
 export default function RetailerAnalytics() {
@@ -53,46 +53,74 @@ export default function RetailerAnalytics() {
         const now = new Date();
         const viewsMap = new Map<string, number>();
         
+        // Initialize all 7 days with 0
+        for (let i = 6; i >= 0; i--) {
+          const date = new Date(now);
+          date.setDate(date.getDate() - i);
+          date.setHours(0, 0, 0, 0);
+          const dateKey = date.toISOString().split('T')[0];
+          viewsMap.set(dateKey, 0);
+        }
+        
         // Fetch views for the last 7 days using custom time period
+        // This API call automatically filters by the authenticated retailer's store
         const startDate = new Date(now);
         startDate.setDate(startDate.getDate() - 7);
         startDate.setHours(0, 0, 0, 0);
         
-        const viewData = await viewsApi.getRetailerAnalytics({
-          timePeriod: "custom",
-          startDate: startDate.toISOString(),
-          endDate: now.toISOString(),
-        });
-        
-        const totalViews = viewData.totalStoreViews + viewData.totalProductViews;
-        
-        // Include all 7 days in the range to show full timeline
-        // Distribute views across all days
+        // Try to get daily breakdown by making individual calls for each day
+        // This ensures accurate daily data and proper filtering by store
+        const dailyPromises = [];
         for (let i = 6; i >= 0; i--) {
           const date = new Date(now);
           date.setDate(date.getDate() - i);
           date.setHours(0, 0, 0, 0);
           const dateKey = date.toISOString().split('T')[0];
           
-          if (totalViews > 0) {
-            // Calculate average daily views
-            const avgDailyViews = totalViews / 7;
-            // Distribute views with some variation, but ensure all days have at least 0
-            const variation = 0.5 + (Math.random() * 1.0); // 0.5x to 1.5x
-            viewsMap.set(dateKey, Math.max(0, Math.round(avgDailyViews * variation)));
-          } else {
-            viewsMap.set(dateKey, 0);
-          }
+          // End of day for this date
+          const endOfDay = new Date(date);
+          endOfDay.setHours(23, 59, 59, 999);
+          
+          dailyPromises.push(
+            viewsApi.getRetailerAnalytics({
+              timePeriod: "custom",
+              startDate: date.toISOString(),
+              endDate: endOfDay.toISOString(),
+            })
+              .then((dayViewData) => {
+                // Sum store and product views for this day
+                // This ensures we only get views for the current retailer's store
+                const dayViews = (dayViewData.totalStoreViews || 0) + (dayViewData.totalProductViews || 0);
+                viewsMap.set(dateKey, dayViews);
+              })
+              .catch((error) => {
+                // If API call fails for a specific day, keep it as 0
+                console.error(`Failed to fetch views for ${dateKey}:`, error);
+              })
+          );
         }
+        
+        // Wait for all daily calls to complete
+        await Promise.all(dailyPromises);
         
         setDailyViews(viewsMap);
       } catch (error) {
         console.error('Failed to fetch daily views:', error);
-        setDailyViews(new Map());
+        // Initialize with zeros for the last 7 days on error
+        const now = new Date();
+        const viewsMap = new Map<string, number>();
+        for (let i = 6; i >= 0; i--) {
+          const date = new Date(now);
+          date.setDate(date.getDate() - i);
+          date.setHours(0, 0, 0, 0);
+          const dateKey = date.toISOString().split('T')[0];
+          viewsMap.set(dateKey, 0);
+        }
+        setDailyViews(viewsMap);
       }
     };
     
-    if (analytics) {
+    if (analytics && userStore?.id) {
       fetchDailyViews();
     }
   }, [userStore?.id, analytics]);

@@ -3,6 +3,7 @@
  * Features: Create, edit, and manage promotions with comprehensive deal type support
  */
 
+import DealTypeEditOverlay from "@/components/retailers/DealTypeEditOverlay";
 import PromotionDealTypeForm from "@/components/retailers/promotions/PromotionDealTypeForm";
 import { useLogin } from "@/features/auth";
 import { useStore } from "@/features/store";
@@ -13,16 +14,16 @@ import DateTimePicker from '@react-native-community/datetimepicker';
 import { LinearGradient } from "expo-linear-gradient";
 import React, { useEffect, useState } from "react";
 import {
-    Alert,
-    Modal,
-    Platform,
-    ScrollView,
-    StatusBar,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
+  Alert,
+  Modal,
+  Platform,
+  ScrollView,
+  StatusBar,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from "react-native";
 
 export default function PromotionsNew() {
@@ -66,6 +67,10 @@ export default function PromotionsNew() {
   const [viewMode, setViewMode] = useState<"detailed" | "compact">("detailed");
   const [selectedPromotion, setSelectedPromotion] = useState<any>(null);
   const [showDetailsModal, setShowDetailsModal] = useState(false);
+  
+  // Edit overlay state
+  const [selectedPromotionForEdit, setSelectedPromotionForEdit] = useState<any>(null);
+  const [showEditOverlay, setShowEditOverlay] = useState(false);
 
   // Open promotion details
   const openPromotionDetails = (promo: any) => {
@@ -77,6 +82,26 @@ export default function PromotionsNew() {
   const closePromotionDetails = () => {
     setShowDetailsModal(false);
     setSelectedPromotion(null);
+  };
+  
+  // Open edit overlay
+  const openEditOverlay = (promo: any) => {
+    setSelectedPromotionForEdit(promo);
+    setShowEditOverlay(true);
+  };
+
+  // Close edit overlay
+  const closeEditOverlay = () => {
+    setShowEditOverlay(false);
+    setSelectedPromotionForEdit(null);
+  };
+  
+  // Handle update complete
+  const handleUpdateComplete = () => {
+    if (storeId) {
+      findActivePromotions(storeId);
+    }
+    closeEditOverlay();
   };
 
   // Initialize
@@ -808,7 +833,12 @@ export default function PromotionsNew() {
 
                 // Detailed View Mode (Original)
                 return (
-                  <View key={promo.id} style={styles.promotionCard}>
+                  <TouchableOpacity
+                    key={promo.id}
+                    style={styles.promotionCard}
+                    onPress={() => openEditOverlay(promo)}
+                    activeOpacity={0.7}
+                  >
                     <View style={styles.promotionHeader}>
                       <View style={styles.promotionIcon}>
                         <Ionicons name="flame" size={20} color="#FFBE5D" />
@@ -850,12 +880,15 @@ export default function PromotionsNew() {
 
                     <TouchableOpacity
                       style={styles.deleteButton}
-                      onPress={() => handleDeletePromotion(promo.id, promo.title)}
+                      onPress={(e) => {
+                        e.stopPropagation();
+                        handleDeletePromotion(promo.id, promo.title);
+                      }}
                     >
                       <Ionicons name="trash-outline" size={16} color="#ffffff" />
                       <Text style={styles.deleteButtonText}>Delete</Text>
                     </TouchableOpacity>
-                  </View>
+                  </TouchableOpacity>
                 );
               })}
             </View>
@@ -1021,6 +1054,14 @@ export default function PromotionsNew() {
           </View>
         </View>
       </Modal>
+
+      {/* Deal Type Edit Overlay */}
+      <DealTypeEditOverlay
+        isOpen={showEditOverlay}
+        onClose={closeEditOverlay}
+        promotion={selectedPromotionForEdit}
+        onUpdate={handleUpdateComplete}
+      />
     </View>
   );
 }
