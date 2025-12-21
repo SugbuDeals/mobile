@@ -21,6 +21,19 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Location from "expo-location";
 import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
 import React, { useCallback, useEffect, useRef, useState } from "react";
+
+// Helper function to deduplicate products by ID
+function deduplicateProducts(
+  products: (CatalogProduct | StoreProduct)[]
+): (CatalogProduct | StoreProduct)[] {
+  const seen = new Map<number, CatalogProduct | StoreProduct>();
+  products.forEach((product) => {
+    if (product.id != null && !seen.has(product.id)) {
+      seen.set(product.id, product);
+    }
+  });
+  return Array.from(seen.values());
+}
 import {
   Image,
   Linking,
@@ -777,7 +790,7 @@ function StoreHero({
   
   // Count products for this store
   const productCount = React.useMemo(() => {
-    const allProducts = [...(catalogProducts || []), ...(storeProducts || [])];
+    const allProducts = deduplicateProducts([...(catalogProducts || []), ...(storeProducts || [])]);
     return allProducts.filter((p: CatalogProduct | StoreProduct) => 
       p.storeId === storeId
     ).length;
