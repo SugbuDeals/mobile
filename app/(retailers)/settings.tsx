@@ -13,7 +13,7 @@ import { router } from "expo-router";
 import React, { useMemo, useState } from "react";
 import {
     ActivityIndicator,
-    Alert, Image, Platform,
+    Alert, Dimensions, Image, Platform,
     ScrollView,
     StatusBar,
     StyleSheet,
@@ -266,11 +266,20 @@ export default function Settings() {
         Alert.alert('Permission required', 'Please allow access to your photos.');
         return;
       }
+      // Calculate aspect ratio based on banner container dimensions
+      // Banner containers are full width with height of 200px
+      const screenWidth = Dimensions.get('window').width;
+      const bannerHeight = 200;
+      // Calculate and simplify the aspect ratio
+      // For typical mobile screens (375-414px width, 200px height), ratio is ~2:1
+      // Round to nearest reasonable ratio (typically 2:1 for most mobile screens)
+      const widthRatio = Math.round(screenWidth / bannerHeight);
+      const aspectRatio: [number, number] = [Math.min(widthRatio, 3), 1]; // Cap at 3:1 for very wide screens
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ImagePicker.MediaTypeOptions.Images,
         allowsEditing: true,
-        // Wide aspect ratio for hero banner
-        aspect: [3, 1],
+        // Aspect ratio matching banner container (screen width : 200px height, simplified)
+        aspect: aspectRatio,
         quality: 0.8,
       });
       if (result.canceled || !result.assets?.[0]?.uri) return;
